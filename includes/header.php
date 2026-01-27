@@ -7,14 +7,14 @@
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css?v=<?php echo filemtime(__DIR__ . '/../assets/css/style.css'); ?>">
     
     <!-- PWA Configuration -->
-    <link rel="manifest" href="<?php echo BASE_URL; ?>/manifest.json">
+    <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#003366">
-    <link rel="apple-touch-icon" href="<?php echo BASE_URL; ?>/assets/img/dbv_logo.PNG">
+    <link rel="apple-touch-icon" href="/assets/img/dbv_logo.PNG">
     
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('<?php echo BASE_URL; ?>/sw.js')
+          navigator.serviceWorker.register('/sw.js')
             .then(registration => {
               console.log('ServiceWorker registration successful');
             }, err => {

@@ -1,7 +1,16 @@
 <?php
 // Configurações gerais do sistema
 define('SITE_NAME', 'DBV Tudo');
-define('BASE_URL', 'http://localhost/dbvtudo'); // Ajuste conforme seu ambiente
+if (!defined('BASE_URL')) {
+    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443);
+    $scheme = $https ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $script = $_SERVER['SCRIPT_NAME'] ?? '';
+    $dir = rtrim(str_replace('\\','/', dirname($script)), '/');
+    $projectHint = '/dbvtudo';
+    $baseDir = (strpos($dir, $projectHint) === 0 || strpos($script, $projectHint) !== false) ? $projectHint : '';
+    define('BASE_URL', $scheme . '://' . $host . $baseDir);
+}
 
 // Configurações de Banco de Dados
 define('DB_HOST', 'localhost');
