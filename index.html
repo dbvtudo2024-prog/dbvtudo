@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DBV Tudo</title>
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#003366">
+  <link rel="apple-touch-icon" href="/assets/img/dbv_logo.PNG">
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').then(() => {
+          console.log('ServiceWorker registrado');
+        }).catch(err => {
+          console.log('Falha ao registrar ServiceWorker', err);
+        });
+      });
+    }
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const btn = document.getElementById('install-app-btn');
+      if (btn) btn.style.display = 'inline-block';
+    });
+    function installApp(){
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(() => {
+        deferredPrompt = null;
+        const btn = document.getElementById('install-app-btn');
+        if (btn) btn.style.display = 'none';
+      });
+    }
+  </script>
+</head>
+<body>
+  <header class="">
+    <div class="container">
+      <div class="logo">
+        <a href="/">
+          <h1>DBV Tudo</h1>
+        </a>
+      </div>
+      <nav>
+        <ul>
+          <li><a id="install-app-btn" onclick="installApp()" class="btn-admin" style="display:none;">Instalar App</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+  <main class="container">
+    <section style="margin-top: 24px;">
+      <h2>Bem-vindo</h2>
+      <p>Esta é a página estática para instalação do aplicativo.</p>
+      <p>Após instalar, abra o app pela tela inicial do seu dispositivo.</p>
+    </section>
+  </main>
+</body>
+</html>

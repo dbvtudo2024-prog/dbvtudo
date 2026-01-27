@@ -1,7 +1,7 @@
-const CACHE_NAME = 'dbvtudo-v4';
+const CACHE_NAME = 'dbvtudo-v5';
 const urlsToCache = [
   '/',
-  '/index.php',
+  '/index.html',
   '/assets/css/style.css',
   '/assets/img/dbv_logo.PNG',
   '/manifest.json'
