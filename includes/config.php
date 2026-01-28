@@ -13,10 +13,10 @@ if (!defined('BASE_URL')) {
 }
 
 // Configurações de Banco de Dados
-define('DB_HOST', 'localhost');
-define('DB_USER', 'root');
-define('DB_PASS', ''); // Senha padrão do Laragon/XAMPP geralmente é vazia
-define('DB_NAME', 'dbvtudo');
+define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+define('DB_USER', getenv('DB_USER') ?: 'root');
+define('DB_PASS', getenv('DB_PASS') ?: '');
+define('DB_NAME', getenv('DB_NAME') ?: 'dbvtudo');
 // define('DB_PORT', 3306); // Porta padrão MySQL (3306). Geralmente não é necessário especificar se usar 'localhost'
 
 // Integrações externas
