@@ -6,11 +6,32 @@ import { supabase, updateUserProfile } from '../services/supabaseService';
 
 interface AuthProps {
   onLoginSuccess: (isGuest?: boolean) => void;
-  initialView?: 'LOGIN' | 'SIGNUP';
+  view: 'LOGIN' | 'SIGNUP';
+  onViewChange: (view: 'LOGIN' | 'SIGNUP') => void;
 }
 
-const Auth: React.FC<AuthProps> = ({ onLoginSuccess, initialView = 'LOGIN' }) => {
-  const [view, setView] = useState<'LOGIN' | 'SIGNUP'>(initialView);
+const InputField = ({ icon: Icon, label, name, type = "text", placeholder, required = false, value, onChange }: any) => (
+  <div className="space-y-1.5 w-full">
+    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">
+      {label} {required && <span className="text-red-500">*</span>}
+    </label>
+    <div className="relative group">
+      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors">
+        <Icon size={18} />
+      </div>
+      <input 
+        name={name}
+        type={type}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        className="w-full bg-white border border-slate-200 rounded-2xl py-3.5 pl-12 pr-4 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all placeholder:text-slate-300"
+      />
+    </div>
+  </div>
+);
+
+const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [clubType, setClubType] = useState<ClubType>(ClubType.PATHFINDER);
   
@@ -102,31 +123,10 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, initialView = 'LOGIN' }) =>
     }
   };
 
-  const InputField = ({ icon: Icon, label, name, type = "text", placeholder, required = false, value, onChange }: any) => (
-    <div className="space-y-1.5 w-full">
-      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
-      <div className="relative group">
-        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors">
-          <Icon size={18} />
-        </div>
-        <input 
-          name={name}
-          type={type}
-          value={value}
-          onChange={onChange}
-          placeholder={placeholder}
-          className="w-full bg-white border border-slate-200 rounded-2xl py-3.5 pl-12 pr-4 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all placeholder:text-slate-300"
-        />
-      </div>
-    </div>
-  );
-
   const renderSignup = () => (
     <div className="animate-slide-up space-y-6 px-7 pb-20 pt-6">
       <div className="flex items-center space-x-4 mb-4">
-        <button onClick={() => setView('LOGIN')} className="p-2.5 bg-white rounded-2xl shadow-sm border border-slate-100 text-slate-400 active:scale-90 transition-all">
+        <button onClick={() => onViewChange('LOGIN')} className="p-2.5 bg-white rounded-2xl shadow-sm border border-slate-100 text-slate-400 active:scale-90 transition-all">
           <ChevronLeft size={20} />
         </button>
         <h2 className="text-2xl font-black text-[#004d40] tracking-tighter uppercase">Criar Nova Conta</h2>
@@ -220,7 +220,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, initialView = 'LOGIN' }) =>
       </button>
 
       <p className="text-center text-slate-500 text-[11px] font-medium pt-2 pb-10">
-        Já tem uma conta? <button onClick={() => setView('LOGIN')} className="text-[#004d40] font-black underline underline-offset-4">ENTRAR AGORA</button>
+        Já tem uma conta? <button onClick={() => onViewChange('LOGIN')} className="text-[#004d40] font-black underline underline-offset-4">ENTRAR AGORA</button>
       </p>
     </div>
   );
@@ -339,7 +339,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, initialView = 'LOGIN' }) =>
       <div className="text-center space-y-4 pt-4">
         <p className="text-slate-500 text-[11px] font-medium">
           Ainda não é cadastrado? <br/>
-          <button onClick={() => setView('SIGNUP')} className="text-[#004d40] font-black mt-2 text-xs underline underline-offset-4">CRIAR NOVA CONTA</button>
+          <button onClick={() => onViewChange('SIGNUP')} className="text-[#004d40] font-black mt-2 text-xs underline underline-offset-4">CRIAR NOVA CONTA</button>
         </p>
       </div>
     </div>
