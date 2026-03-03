@@ -1,11 +1,19 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { ChevronLeft, LogOut, Shield, MapPin, Briefcase, Award, Camera, Check, X, User, Mail, Phone, ChevronDown, Heart, Search } from 'lucide-react';
+<<<<<<< HEAD
 
 import { ClubType, Especialidade, UserProfile } from '../types';
 import { fetchEspecialidades, updateUserSpecialties, fetchUserSpecialties, fetchUserProfile, updateUserProfile, supabase } from '../services/supabaseService';
 =======
 
+=======
+<<<<<<< HEAD
+import { ClubType, Especialidade, UserProfile } from '../types';
+import { fetchEspecialidades, updateUserSpecialties, fetchUserSpecialties, fetchUserProfile, updateUserProfile, supabase } from '../services/supabaseService';
+=======
+<<<<<<< HEAD
+>>>>>>> 95cdc7e0532444f6ae898da5a636347375d28b0b
 import { ClubType, Especialidade, UserProfile } from '../types';
 import { fetchEspecialidades, updateUserSpecialties, fetchUserSpecialties, fetchUserProfile, updateUserProfile, supabase } from '../services/supabaseService';
 =======
