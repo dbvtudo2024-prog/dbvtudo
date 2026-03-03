@@ -49,7 +49,14 @@ const App: React.FC = () => {
   const [isGuest, setIsGuest] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState<string | undefined>(undefined);
+<<<<<<< HEAD
   const [pendingSubView, setPendingSubView] = useState<string | undefined>(undefined);
+=======
+<<<<<<< HEAD
+  const [pendingSubView, setPendingSubView] = useState<string | undefined>(undefined);
+=======
+>>>>>>> 52bf42a0913516331346d464e05cdef6a94b819f
+>>>>>>> 7442610821c778858943f5c2ba4ef2c909b9d932
 
   // Carregar estado inicial apenas uma vez na montagem
   useEffect(() => {
@@ -119,7 +126,15 @@ const App: React.FC = () => {
       case 'CLUB_LIST':
         return (
           <ClubManagement 
+<<<<<<< HEAD
             club={selectedClub || ClubType.PATHFINDER} 
+=======
+<<<<<<< HEAD
+            club={selectedClub || ClubType.PATHFINDER} 
+=======
+            club={selectedClub!} 
+>>>>>>> 52bf42a0913516331346d464e05cdef6a94b819f
+>>>>>>> 7442610821c778858943f5c2ba4ef2c909b9d932
             onBack={() => setCurrentView('HOME')}
             onSwitchClub={(club) => setSelectedClub(club)}
             onOpenProfile={handleOpenProfile}
@@ -128,8 +143,16 @@ const App: React.FC = () => {
               setCurrentView('AI_ADVISOR');
             }}
             isGuest={isGuest}
+<<<<<<< HEAD
             initialSubView={pendingSubView as any}
             onClearSubView={() => setPendingSubView(undefined)}
+=======
+<<<<<<< HEAD
+            initialSubView={pendingSubView as any}
+            onClearSubView={() => setPendingSubView(undefined)}
+=======
+>>>>>>> 52bf42a0913516331346d464e05cdef6a94b819f
+>>>>>>> 7442610821c778858943f5c2ba4ef2c909b9d932
           />
         );
       case 'AI_ADVISOR':
@@ -149,11 +172,20 @@ const App: React.FC = () => {
               setCurrentView('CLUB_LIST');
             }} 
             onLogout={handleLogout}
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 7442610821c778858943f5c2ba4ef2c909b9d932
             onOpenAdmin={() => {
               if (!selectedClub) setSelectedClub(ClubType.PATHFINDER);
               setPendingSubView('BIBLE_ADMIN');
               setCurrentView('CLUB_LIST');
             }}
+<<<<<<< HEAD
+=======
+=======
+>>>>>>> 52bf42a0913516331346d464e05cdef6a94b819f
+>>>>>>> 7442610821c778858943f5c2ba4ef2c909b9d932
           />
         );
       case 'SETTINGS':

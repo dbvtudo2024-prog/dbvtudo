@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, User, Bot, Sparkles, ChevronLeft, Zap } from 'lucide-react';
@@ -155,3 +156,5 @@ const AiAssistant: React.FC<AiAssistantProps> = ({ onBack, initialPrompt }) => {
 };
 
 export default AiAssistant;
+=======
+>>>>>>> 7442610821c778858943f5c2ba4ef2c909b9d932
