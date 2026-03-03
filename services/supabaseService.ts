@@ -1,14 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-<<<<<<< HEAD
 import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, UserProfile, Devocional } from '../types';
-=======
-<<<<<<< HEAD
-import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, UserProfile, Devocional } from '../types';
-=======
-import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry } from '../types';
->>>>>>> 52bf42a0913516331346d464e05cdef6a94b819f
->>>>>>> 7442610821c778858943f5c2ba4ef2c909b9d932
 
 const supabaseUrl = 'https://qfpyjavbncijowjvznkg.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmcHlqYXZibmNpam93anZ6bmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NDcxMDUsImV4cCI6MjA3NDQyMzEwNX0.adxRCkobV-m_XUHp1KBXmg67VXkR-HL4QKFVtgQOmYc'; 
@@ -185,10 +177,6 @@ export async function fetchBibleDictionary(search?: string): Promise<BibleDictio
     referencia: item.referencia || ''
   }));
 }
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 7442610821c778858943f5c2ba4ef2c909b9d932
 
 // Funções para Devocionais
 export async function fetchDevocionais(): Promise<Devocional[]> {
@@ -247,8 +235,3 @@ export async function updateUserProfile(profile: Partial<UserProfile>) {
     
   return { error };
 }
-<<<<<<< HEAD
-=======
-=======
->>>>>>> 52bf42a0913516331346d464e05cdef6a94b819f
->>>>>>> 7442610821c778858943f5c2ba4ef2c909b9d932

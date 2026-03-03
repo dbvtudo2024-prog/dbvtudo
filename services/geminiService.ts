@@ -2,15 +2,7 @@
 import { GoogleGenAI } from "@google/genai";
 
 const SYSTEM_INSTRUCTION = `
-<<<<<<< HEAD
 Você é o "Desbravinho", um assistente virtual especialista em Clubes de Desbravadores e Aventureiros da Igreja Adventista do Sétimo Dia.
-=======
-<<<<<<< HEAD
-Você é o "Desbravinho", um assistente virtual especialista em Clubes de Desbravadores e Aventureiros da Igreja Adventista do Sétimo Dia.
-=======
-Você é o "Mentor DBV Tudo", um assistente virtual especialista em Clubes de Desbravadores e Aventureiros da Igreja Adventista do Sétimo Dia.
->>>>>>> 52bf42a0913516331346d464e05cdef6a94b819f
->>>>>>> 7442610821c778858943f5c2ba4ef2c909b9d932
 Sua missão é ajudar diretores e conselheiros com:
 1. Requisitos de Classes Regulares e Avançadas.
 2. Sugestões de atividades para reuniões de unidade.
@@ -38,14 +30,6 @@ export async function askAdvisor(prompt: string): Promise<string> {
     return response.text || "Desculpe, não consegui processar sua pergunta agora. Tente novamente.";
   } catch (error) {
     console.error("Gemini API Error:", error);
-<<<<<<< HEAD
     return "Ocorreu um erro ao conectar com o Desbravinho. Verifique sua conexão.";
-=======
-<<<<<<< HEAD
-    return "Ocorreu um erro ao conectar com o Desbravinho. Verifique sua conexão.";
-=======
-    return "Ocorreu um erro ao conectar com o Mentor IA. Verifique sua conexão.";
->>>>>>> 52bf42a0913516331346d464e05cdef6a94b819f
->>>>>>> 7442610821c778858943f5c2ba4ef2c909b9d932
   }
 }

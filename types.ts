@@ -86,10 +86,6 @@ export interface BibleNote {
   date: string;
 }
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 7442610821c778858943f5c2ba4ef2c909b9d932
 export interface Devocional {
   id: string;
   titulo: string;
@@ -117,9 +113,4 @@ export interface UserProfile {
   Especialidades?: string;
 }
 
-<<<<<<< HEAD
-=======
-=======
->>>>>>> 52bf42a0913516331346d464e05cdef6a94b819f
->>>>>>> 7442610821c778858943f5c2ba4ef2c909b9d932
 export type ViewState = 'LOGIN' | 'SIGNUP' | 'HOME' | 'CLUB_LIST' | 'AI_ADVISOR' | 'SETTINGS' | 'PROFILE';
