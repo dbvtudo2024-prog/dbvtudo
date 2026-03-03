@@ -232,9 +232,9 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="h-screen w-screen bg-black flex items-center justify-center p-0 sm:p-4 overflow-hidden">
+    <div className="h-screen w-screen bg-[#f8fafc] sm:bg-black flex items-center justify-center p-0 sm:p-4 overflow-hidden">
       <style>{styles}</style>
-      <div className="h-full w-full max-w-[440px] bg-white shadow-2xl relative overflow-hidden sm:rounded-[48px] border-[8px] border-slate-900">
+      <div className="h-full w-full max-w-[480px] bg-white shadow-2xl relative overflow-hidden sm:rounded-[48px] sm:border-[8px] sm:border-slate-900">
         <main className="h-full w-full bg-mesh overflow-hidden">
           {renderContent()}
         </main>

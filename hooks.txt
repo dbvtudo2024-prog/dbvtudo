@@ -1,0 +1,53 @@
+2:import React, { useState, useEffect, useCallback, useRef } from 'react';
+23:  const [activeSubView, setActiveSubView] = useState<'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN'>(initialSubView || 'MAIN');
+24:  const [classes, setClasses] = useState<ClubClass[]>([]);
+25:  const [selectedClass, setSelectedClass] = useState<ClubClass | null>(null);
+26:  const [categories, setCategories] = useState<Category[]>([]);
+27:  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+28:  const [specialties, setSpecialties] = useState<Especialidade[]>([]);
+29:  const [selectedSpecialty, setSelectedSpecialty] = useState<Especialidade | null>(null);
+30:  const [desbravaPlusItems, setDesbravaPlusItems] = useState<DesbravaMais[]>([]);
+31:  const [selectedDesbravaPlusItem, setSelectedDesbravaPlusItem] = useState<DesbravaMais | null>(null);
+32:  const [bibleBooks, setBibleBooks] = useState<BibleBook[]>([]);
+33:  const [selectedBibleBook, setSelectedBibleBook] = useState<BibleBook | null>(null);
+34:  const [selectedBibleChapter, setSelectedBibleChapter] = useState<number | null>(null);
+35:  const [bibleVerses, setBibleVerses] = useState<BibleVerse[]>([]);
+36:  const [markedVerses, setMarkedVerses] = useState<BibleVerse[]>(() => {
+40:  const [selectedTestament, setSelectedTestament] = useState<'ANTIGO' | 'NOVO' | 'TODOS'>('TODOS');
+41:  const [bibleSearch, setBibleSearch] = useState('');
+42:  const [bibleDictionary, setBibleDictionary] = useState<BibleDictionaryEntry[]>([]);
+43:  const [dictionarySearch, setDictionarySearch] = useState('');
+44:  const [bibleNotes, setBibleNotes] = useState<BibleNote[]>(() => {
+48:  const [noteSearch, setNoteSearch] = useState('');
+49:  const [newNote, setNewNote] = useState({ title: '', reference: '', content: '' });
+52:  const [bibleSettings, setBibleSettings] = useState(() => {
+63:  const [devocionais, setDevocionais] = useState<Devocional[]>([]);
+64:  const [newDevocional, setNewDevocional] = useState<Partial<Devocional>>({
+70:  const [selectedDevocional, setSelectedDevocional] = useState<Devocional | null>(null);
+72:  const [userAvatar, setUserAvatar] = useState<string | null>(null);
+73:  const [userEmail, setUserEmail] = useState<string | null>(null);
+74:  const [isUserAdmin, setIsUserAdmin] = useState(false);
+75:  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+76:  const [completedSpecialties, setCompletedSpecialties] = useState<string[]>([]);
+77:  const [culturaData, setCulturaData] = useState<Cultura | null>(null);
+78:  const [isLoading, setIsLoading] = useState(false);
+79:  const [classRequirements, setClassRequirements] = useState<string[]>([]);
+80:  const [showScrollTop, setShowScrollTop] = useState(false);
+81:  const scrollContainerRef = useRef<HTMLDivElement>(null);
+82:  const [lastRead, setLastRead] = useState<{ book: BibleBook, chapter: number } | null>(() => {
+92:  useEffect(() => {
+108:  useEffect(() => {
+118:  useEffect(() => {
+124:  const loadProfile = useCallback(() => {
+136:  useEffect(() => {
+142:  useEffect(() => {
+146:  useEffect(() => {
+150:  useEffect(() => {
+154:  useEffect(() => {
+189:  useEffect(() => {
+288:  useEffect(() => {
+315:  useEffect(() => {
+323:  useEffect(() => {
+808:    const [localCultura, setLocalCultura] = useState({
+813:    const [isSaving, setIsSaving] = useState(false);
+1071:  useEffect(() => {

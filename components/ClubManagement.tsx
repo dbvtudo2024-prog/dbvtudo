@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, BibleNote, Devocional } from '../types';
-import { fetchCategories, fetchEspecialidades, fetchClasses, fetchDesbravaMais, fetchBibleBooks, fetchBibleVerses, fetchBibleDictionary, fetchDevocionais, createDevocional, deleteDevocional } from '../services/supabaseService';
+import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, BibleNote, Devocional, Cultura, UserProfile } from '../types';
+import { fetchCategories, fetchEspecialidades, fetchClasses, fetchDesbravaMais, fetchBibleBooks, fetchBibleVerses, fetchBibleDictionary, fetchDevocionais, createDevocional, deleteDevocional, fetchUserSpecialties, updateUserSpecialties, fetchCultura, updateCultura, fetchUserProfile, supabase } from '../services/supabaseService';
 import { 
   Shield, Award, User, Layers, Sparkles, Home as HomeIcon, Search,
   ChevronRight, ChevronLeft, Info, Book, Settings, Zap, Music, Flag, Shirt, Globe, Key, FileText, Library, CreditCard, MapPin, Video, Folder, BookOpen, Heart, ArrowUp,
@@ -10,6 +10,194 @@ import {
 
 const PROFILE_KEY = `dbv_tudo_global_user_profile`;
 
+
+interface CultureAdminProps {
+  culturaData: Cultura | null;
+  club: ClubType;
+  updateCultura: (data: any) => Promise<{ data: any; error: any }>;
+  setCulturaData: React.Dispatch<React.SetStateAction<Cultura | null>>;
+  setActiveSubView: (view: any) => void;
+}
+
+const CultureAdmin: React.FC<CultureAdminProps> = ({ 
+  culturaData, 
+  club, 
+  updateCultura, 
+  setCulturaData, 
+  setActiveSubView 
+}) => {
+  const [localCultura, setLocalCultura] = useState({
+    ideais: culturaData?.ideais || '',
+    voto: culturaData?.voto || '',
+    lei: culturaData?.lei || '',
+    alvo: culturaData?.alvo || '',
+    lema: culturaData?.lema || '',
+    objetivo: culturaData?.objetivo || '',
+    voto_biblia: culturaData?.voto_biblia || '',
+    hino_letra: culturaData?.hino_letra || '',
+    hino_video: culturaData?.hino_video || '',
+    historia_mundial: culturaData?.historia_mundial || '',
+    historia_america_sul: culturaData?.historia_america_sul || '',
+    historia_argentina: culturaData?.historia_argentina || '',
+    historia_bolivia: culturaData?.historia_bolivia || '',
+    historia_brasil: culturaData?.historia_brasil || '',
+    historia_chile: culturaData?.historia_chile || '',
+    historia_colombia: culturaData?.historia_colombia || '',
+    historia_equador: culturaData?.historia_equador || '',
+    historia_peru: culturaData?.historia_peru || '',
+    historia_uruguai: culturaData?.historia_uruguai || ''
+  });
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    const clubType = club === ClubType.PATHFINDER ? 'PATHFINDER' : 'ADVENTURER';
+    const { data, error } = await updateCultura({
+      club_type: clubType,
+      ...localCultura
+    });
+    
+    if (!error) {
+      if (data) {
+        setCulturaData(data);
+      } else {
+        setCulturaData(prev => prev ? { ...prev, ...localCultura } : { id: 0, club_type: clubType, ...localCultura } as Cultura);
+      }
+      alert("Cultura atualizada com sucesso!");
+      setActiveSubView('BIBLE_ADMIN');
+    } else {
+      alert("Erro ao salvar cultura.");
+    }
+    setIsSaving(false);
+  };
+
+  return (
+    <div className="animate-slide-in space-y-6 pt-4 pb-28">
+      <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 space-y-6">
+        <div className="grid grid-cols-1 gap-6">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Voto</label>
+            <textarea 
+              value={localCultura.voto}
+              onChange={(e) => setLocalCultura({...localCultura, voto: e.target.value})}
+              placeholder="Digite o voto..."
+              className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[100px]"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Lei</label>
+            <textarea 
+              value={localCultura.lei}
+              onChange={(e) => setLocalCultura({...localCultura, lei: e.target.value})}
+              placeholder="Digite a lei..."
+              className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[100px]"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Alvo</label>
+            <textarea 
+              value={localCultura.alvo}
+              onChange={(e) => setLocalCultura({...localCultura, alvo: e.target.value})}
+              placeholder="Digite o alvo..."
+              className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[80px]"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Lema</label>
+            <textarea 
+              value={localCultura.lema}
+              onChange={(e) => setLocalCultura({...localCultura, lema: e.target.value})}
+              placeholder="Digite o lema..."
+              className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[80px]"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Objetivo</label>
+            <textarea 
+              value={localCultura.objetivo}
+              onChange={(e) => setLocalCultura({...localCultura, objetivo: e.target.value})}
+              placeholder="Digite o objetivo..."
+              className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[80px]"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Voto à Bíblia</label>
+            <textarea 
+              value={localCultura.voto_biblia}
+              onChange={(e) => setLocalCultura({...localCultura, voto_biblia: e.target.value})}
+              placeholder="Digite o voto à bíblia..."
+              className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[100px]"
+            />
+          </div>
+
+          <div className="h-px bg-slate-100 my-2"></div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Letra do Hino</label>
+            <textarea 
+              value={localCultura.hino_letra}
+              onChange={(e) => setLocalCultura({...localCultura, hino_letra: e.target.value})}
+              placeholder="Digite a letra do hino..."
+              className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[200px]"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Link do Vídeo (YouTube ou Supabase)</label>
+            <input 
+              type="text"
+              value={localCultura.hino_video}
+              onChange={(e) => setLocalCultura({...localCultura, hino_video: e.target.value})}
+              placeholder="Link do YouTube ou Supabase Storage"
+              className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+            />
+          </div>
+
+          <div className="h-px bg-slate-100 my-4"></div>
+          <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest ml-1">História</h4>
+
+          {[
+            { id: 'historia_mundial', label: 'História Mundial' },
+            { id: 'historia_america_sul', label: 'História América do Sul' },
+            { id: 'historia_argentina', label: 'História Argentina' },
+            { id: 'historia_bolivia', label: 'História Bolívia' },
+            { id: 'historia_brasil', label: 'História Brasil' },
+            { id: 'historia_chile', label: 'História Chile' },
+            { id: 'historia_colombia', label: 'História Colômbia' },
+            { id: 'historia_equador', label: 'História Equador' },
+            { id: 'historia_peru', label: 'História Peru' },
+            { id: 'historia_uruguai', label: 'História Uruguai' }
+          ].map((field) => (
+            <div key={field.id} className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{field.label}</label>
+              <textarea 
+                value={(localCultura as any)[field.id]}
+                onChange={(e) => setLocalCultura({...localCultura, [field.id]: e.target.value})}
+                placeholder={`Digite a ${field.label.toLowerCase()}...`}
+                className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[150px]"
+              />
+            </div>
+          ))}
+        </div>
+
+        <button 
+          onClick={handleSave}
+          disabled={isSaving}
+          className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+        >
+          {isSaving ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Save size={18} />}
+          <span>{isSaving ? 'Salvando...' : 'Salvar Cultura'}</span>
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const ClubManagement: React.FC<{ 
   club: ClubType; 
   onBack: () => void; 
@@ -17,10 +205,10 @@ const ClubManagement: React.FC<{
   onOpenProfile?: () => void; 
   onOpenAdvisor?: (prompt: string) => void;
   isGuest?: boolean; 
-  initialSubView?: 'MAIN' | 'CULTURE' | 'LIBRARY' | 'MANAGEMENT' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW';
+  initialSubView?: 'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'HISTORY_LIST' | 'HISTORY_DETAIL';
   onClearSubView?: () => void;
 }> = ({ club, onBack, onSwitchClub, onOpenProfile, onOpenAdvisor, isGuest, initialSubView, onClearSubView }) => {
-  const [activeSubView, setActiveSubView] = useState<'MAIN' | 'CULTURE' | 'LIBRARY' | 'MANAGEMENT' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW'>(initialSubView || 'MAIN');
+  const [activeSubView, setActiveSubView] = useState<'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'HISTORY_LIST' | 'HISTORY_DETAIL'>(initialSubView || 'MAIN');
   const [classes, setClasses] = useState<ClubClass[]>([]);
   const [selectedClass, setSelectedClass] = useState<ClubClass | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -49,6 +237,7 @@ const ClubManagement: React.FC<{
   const [newNote, setNewNote] = useState({ title: '', reference: '', content: '' });
   
   // Bible Settings State
+  const [selectedHistory, setSelectedHistory] = useState<string | null>(null);
   const [bibleSettings, setBibleSettings] = useState(() => {
     const saved = localStorage.getItem('dbv_tudo_bible_settings');
     return saved ? JSON.parse(saved) : {
@@ -71,6 +260,10 @@ const ClubManagement: React.FC<{
 
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isUserAdmin, setIsUserAdmin] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [completedSpecialties, setCompletedSpecialties] = useState<string[]>([]);
+  const [culturaData, setCulturaData] = useState<Cultura | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [classRequirements, setClassRequirements] = useState<string[]>([]);
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -124,6 +317,7 @@ const ClubManagement: React.FC<{
         const parsed = JSON.parse(saved);
         setUserAvatar(parsed.avatar || null);
         setUserEmail(parsed.email || null);
+        setIsUserAdmin(parsed.isAdmin || false);
       } catch { }
     }
   }, []);
@@ -145,6 +339,66 @@ const ClubManagement: React.FC<{
   useEffect(() => {
     localStorage.setItem('dbv_tudo_bible_settings', JSON.stringify(bibleSettings));
   }, [bibleSettings]);
+
+  useEffect(() => {
+    if (userEmail) {
+      fetchUserSpecialties(userEmail).then(setCompletedSpecialties);
+      
+      // If isUserAdmin is not set yet, try to fetch from Supabase
+      if (!isUserAdmin) {
+        const savedState = localStorage.getItem('dbv_tudo_app_state');
+        if (savedState) {
+          try {
+            const { guest } = JSON.parse(savedState);
+            if (!guest) {
+              // Get current user session to get ID
+              supabase.auth.getUser().then(({ data }) => {
+                if (data.user) {
+                  fetchUserProfile(data.user.id).then(profile => {
+                    if (profile?.ADM) {
+                      setIsUserAdmin(true);
+                      // Update local storage for next time
+                      const savedProfile = localStorage.getItem(PROFILE_KEY);
+                      if (savedProfile) {
+                        const parsed = JSON.parse(savedProfile);
+                        parsed.isAdmin = true;
+                        localStorage.setItem(PROFILE_KEY, JSON.stringify(parsed));
+                      }
+                    }
+                  });
+                }
+              });
+            }
+          } catch {}
+        }
+      }
+    }
+  }, [userEmail, isUserAdmin]);
+
+  useEffect(() => {
+    const clubType = club === ClubType.PATHFINDER ? 'PATHFINDER' : 'ADVENTURER';
+    fetchCultura(clubType).then(setCulturaData);
+  }, [club]);
+
+  const toggleSpecialty = async (specialtyId: string) => {
+    if (!userEmail) return;
+    
+    const sId = specialtyId.toString();
+    const isCompleted = completedSpecialties.includes(sId);
+    const newCompleted = isCompleted 
+      ? completedSpecialties.filter(id => id !== sId)
+      : [...completedSpecialties, sId];
+    
+    // Optimistic update
+    setCompletedSpecialties(newCompleted);
+    
+    const { error } = await updateUserSpecialties(userEmail, newCompleted);
+    if (error) {
+      // Rollback on error
+      setCompletedSpecialties(completedSpecialties);
+      alert("Erro ao atualizar especialidades.");
+    }
+  };
 
   const toggleMarkVerse = (verse: BibleVerse) => {
     setMarkedVerses(prev => {
@@ -478,53 +732,54 @@ const ClubManagement: React.FC<{
         </div>
       ) : (
         <div className="space-y-3">
-          {specialties.map((esp) => (
-            <button 
-              key={esp.id} 
-              onClick={() => {
-                setSelectedSpecialty(esp);
-                setActiveSubView('SPECIALTY_DETAILS');
-              }}
-              className="w-full bg-white border border-slate-100 rounded-[24px] p-4 flex items-center space-x-4 shadow-sm active:scale-[0.98] transition-all group"
-            >
-              <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0 border border-slate-50">
-                {esp.logo ? (
-                  <img src={esp.logo} className="w-12 h-12 object-contain" alt={esp.nome} />
-                ) : (
-                  <Award size={24} className="text-slate-200" />
-                )}
+          {specialties.map((esp) => {
+            const isCompleted = completedSpecialties.includes(esp.id.toString());
+            return (
+              <div 
+                key={esp.id} 
+                className="w-full bg-white border border-slate-100 rounded-[24px] p-4 flex items-center space-x-4 shadow-sm group relative"
+              >
+                <button 
+                  onClick={() => {
+                    setSelectedSpecialty(esp);
+                    setActiveSubView('SPECIALTY_DETAILS');
+                  }}
+                  className="flex items-center space-x-4 flex-grow text-left active:scale-[0.98] transition-all"
+                >
+                  <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0 border border-slate-50">
+                    {esp.logo ? (
+                      <img src={esp.logo} className="w-12 h-12 object-contain" alt={esp.nome} />
+                    ) : (
+                      <Award size={24} className="text-slate-200" />
+                    )}
+                  </div>
+                  <div className="flex-grow">
+                    <h4 className="font-black text-slate-700 text-[13px] uppercase tracking-tight leading-tight">
+                      {esp.nome}
+                    </h4>
+                    <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                        {esp.area}
+                      </p>
+                      <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">
+                        {esp.codigo || `${esp.sigla}${String(esp.id).padStart(3, '0')}`}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+                
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleSpecialty(esp.id.toString());
+                  }}
+                  className={`p-3 rounded-xl transition-all active:scale-90 ${isCompleted ? 'text-red-500 bg-red-50' : 'text-slate-200 hover:text-red-200'}`}
+                >
+                  <Heart size={20} fill={isCompleted ? "currentColor" : "none"} />
+                </button>
               </div>
-              <div className="flex-grow text-left">
-                <h4 className="font-black text-slate-700 text-[13px] uppercase tracking-tight leading-tight">
-                  {esp.nome}
-                </h4>
-                <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                    {esp.area}
-                  </p>
-                  <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">
-                    {esp.codigo || `${esp.sigla}${String(esp.id).padStart(3, '0')}`}
-                  </span>
-                  {esp.nivel && (
-                    <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">
-                      • Nível {esp.nivel.toUpperCase().replace('NÍVEL', '').replace('NIVEL', '').trim()}
-                    </span>
-                  )}
-                  {esp.ano && (
-                    <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">
-                      • {esp.ano}
-                    </span>
-                  )}
-                  {esp.origem && (
-                    <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">
-                      • {esp.origem}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <ChevronRight size={16} className="text-slate-200" />
-            </button>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -532,10 +787,17 @@ const ClubManagement: React.FC<{
 
   const renderSpecialtyDetails = () => {
     if (!selectedSpecialty) return null;
+    const isCompleted = completedSpecialties.includes(selectedSpecialty.id.toString());
 
     return (
       <div className="animate-slide-in space-y-6 pt-2 pb-28">
-        <div className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100 flex flex-col items-center text-center">
+        <div className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100 flex flex-col items-center text-center relative">
+          <button 
+            onClick={() => toggleSpecialty(selectedSpecialty.id.toString())}
+            className={`absolute top-6 right-6 p-4 rounded-2xl transition-all active:scale-90 ${isCompleted ? 'text-red-500 bg-red-50 shadow-sm' : 'text-slate-200 bg-slate-50'}`}
+          >
+            <Heart size={24} fill={isCompleted ? "currentColor" : "none"} />
+          </button>
           <div className="w-32 h-32 bg-slate-50 rounded-[32px] flex items-center justify-center mb-6 shadow-inner border border-slate-50">
             {selectedSpecialty.logo ? (
               <img src={selectedSpecialty.logo} className="w-24 h-24 object-contain" alt={selectedSpecialty.nome} />
@@ -625,13 +887,14 @@ const ClubManagement: React.FC<{
   const renderCultureMenu = () => (
     <div className="animate-slide-in space-y-4 pt-4 pb-28">
       {[
-        { label: 'Ideais e Hino', icon: <Music size={24} />, color: 'bg-blue-500' },
-        { label: 'História', icon: <Globe size={24} />, color: 'bg-amber-500' },
+        { label: 'Ideais e Hino', icon: <Music size={24} />, color: 'bg-blue-500', action: () => setActiveSubView('IDEALS_ANTHEM') },
+        { label: 'História', icon: <Globe size={24} />, color: 'bg-amber-500', action: () => setActiveSubView('HISTORY_LIST') },
         { label: 'Uniformes', icon: <Shirt size={24} />, color: 'bg-emerald-500' },
         { label: 'Emblemas', icon: <Shield size={24} />, color: 'bg-indigo-500' }
       ].map((item, i) => (
         <button 
           key={i}
+          onClick={item.action}
           className="w-full bg-white border border-slate-100 rounded-[28px] p-5 flex items-center space-x-5 shadow-sm active:scale-[0.98] transition-all group"
         >
           <div className={`w-14 h-14 ${item.color} rounded-2xl flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform`}>
@@ -646,6 +909,212 @@ const ClubManagement: React.FC<{
       ))}
     </div>
   );
+
+  const renderIdealsAnthem = () => (
+    <div className="animate-slide-in space-y-6 pt-4 pb-28">
+      <div className="grid grid-cols-1 gap-4">
+        <button 
+          onClick={() => setActiveSubView('IDEALS')}
+          className="w-full bg-white border border-slate-100 rounded-[32px] p-8 flex flex-col items-center justify-center space-y-4 shadow-sm active:scale-[0.98] transition-all group"
+        >
+          <div className="w-20 h-20 bg-blue-50 rounded-3xl flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
+            <Sparkles size={40} />
+          </div>
+          <div className="text-center">
+            <h4 className="font-black text-slate-800 text-xl uppercase tracking-tight">Ideais</h4>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Voto, Lei, Alvo e mais</p>
+          </div>
+        </button>
+
+        <button 
+          onClick={() => setActiveSubView('ANTHEM')}
+          className="w-full bg-white border border-slate-100 rounded-[32px] p-8 flex flex-col items-center justify-center space-y-4 shadow-sm active:scale-[0.98] transition-all group"
+        >
+          <div className="w-20 h-20 bg-emerald-50 rounded-3xl flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
+            <Music size={40} />
+          </div>
+          <div className="text-center">
+            <h4 className="font-black text-slate-800 text-xl uppercase tracking-tight">Hino</h4>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Letra e Áudio</p>
+          </div>
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderIdeals = () => {
+    const hasSeparateIdeals = culturaData?.voto || culturaData?.lei || culturaData?.alvo || culturaData?.lema || culturaData?.objetivo || culturaData?.voto_biblia;
+
+    return (
+      <div className="animate-slide-in space-y-6 pt-4 pb-28">
+        <div className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100">
+          <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-8 text-center">Nossos Ideais</h3>
+          
+          {hasSeparateIdeals ? (
+            <div className="space-y-8">
+              {[
+                { label: 'Voto', content: culturaData.voto },
+                { label: 'Lei', content: culturaData.lei },
+                { label: 'Alvo', content: culturaData.alvo },
+                { label: 'Lema', content: culturaData.lema },
+                { label: 'Objetivo', content: culturaData.objetivo },
+                { label: 'Voto à Bíblia', content: culturaData.voto_biblia }
+              ].filter(item => item.content).map((item, idx) => (
+                <div key={idx} className="space-y-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="h-px bg-slate-100 flex-grow"></div>
+                    <span className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] whitespace-nowrap">{item.label}</span>
+                    <div className="h-px bg-slate-100 flex-grow"></div>
+                  </div>
+                  <p className="text-slate-600 font-bold text-base leading-relaxed text-center whitespace-pre-wrap px-4">
+                    {item.content}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : culturaData?.ideais ? (
+            <div className="text-left space-y-6">
+              <div className="prose prose-slate max-w-none">
+                <div className="whitespace-pre-wrap text-slate-600 font-medium leading-relaxed">
+                  {culturaData.ideais}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-10">
+              <p className="text-slate-400 font-bold text-sm">Conteúdo dos ideais em desenvolvimento...</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderAnthem = () => {
+    const isYouTube = culturaData?.hino_video?.includes('youtube.com') || culturaData?.hino_video?.includes('youtu.be');
+
+    return (
+      <div className="animate-slide-in space-y-6 pt-4 pb-28">
+        <div className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100 text-center">
+          <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-6">Hino Oficial</h3>
+          
+          {culturaData?.hino_letra ? (
+            <div className="text-left mb-8">
+              <div className="whitespace-pre-wrap text-slate-600 font-medium leading-relaxed text-center italic">
+                {culturaData.hino_letra}
+              </div>
+            </div>
+          ) : (
+            <p className="text-slate-400 font-bold text-sm mb-8">Conteúdo do hino em desenvolvimento...</p>
+          )}
+
+          {culturaData?.hino_video && (
+            <div className="rounded-3xl overflow-hidden shadow-lg aspect-video bg-slate-900">
+              {isYouTube ? (
+                <iframe 
+                  width="100%" 
+                  height="100%" 
+                  src={`https://www.youtube.com/embed/${culturaData.hino_video.split('v=')[1]?.split('&')[0] || culturaData.hino_video.split('/').pop()}`}
+                  title="YouTube video player" 
+                  frameBorder="0" 
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                  allowFullScreen
+                ></iframe>
+              ) : (
+                <video controls className="w-full h-full">
+                  <source src={culturaData.hino_video} type="video/mp4" />
+                  Seu navegador não suporta a reprodução de vídeos.
+                </video>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderHistoryList = () => (
+    <div className="animate-slide-in space-y-4 pt-4 pb-28">
+      <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 mb-6">
+        <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight text-center">Nossa História</h3>
+      </div>
+      {[
+        { id: 'historia_mundial', label: 'Mundial' },
+        { id: 'historia_america_sul', label: 'América do Sul' },
+        { id: 'historia_argentina', label: 'Argentina' },
+        { id: 'historia_bolivia', label: 'Bolívia' },
+        { id: 'historia_brasil', label: 'Brasil' },
+        { id: 'historia_chile', label: 'Chile' },
+        { id: 'historia_colombia', label: 'Colômbia' },
+        { id: 'historia_equador', label: 'Equador' },
+        { id: 'historia_peru', label: 'Peru' },
+        { id: 'historia_uruguai', label: 'Uruguai' }
+      ].map((item) => (
+        <button 
+          key={item.id}
+          onClick={() => {
+            setSelectedHistory(item.id);
+            setActiveSubView('HISTORY_DETAIL');
+          }}
+          className="w-full bg-white border border-slate-100 rounded-[24px] p-5 flex items-center justify-between shadow-sm active:scale-[0.98] transition-all group"
+        >
+          <div className="flex items-center space-x-4">
+            <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600">
+              <Globe size={20} />
+            </div>
+            <span className="font-black text-slate-700 uppercase tracking-tight">{item.label}</span>
+          </div>
+          <ChevronRight size={20} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
+        </button>
+      ))}
+    </div>
+  );
+
+  const renderHistoryDetail = () => {
+    const historyMap: Record<string, string> = {
+      historia_mundial: 'Mundial',
+      historia_america_sul: 'América do Sul',
+      historia_argentina: 'Argentina',
+      historia_bolivia: 'Bolívia',
+      historia_brasil: 'Brasil',
+      historia_chile: 'Chile',
+      historia_colombia: 'Colômbia',
+      historia_equador: 'Equador',
+      historia_peru: 'Peru',
+      historia_uruguai: 'Uruguai'
+    };
+
+    const title = selectedHistory ? historyMap[selectedHistory] : '';
+    const content = selectedHistory ? (culturaData as any)?.[selectedHistory] : '';
+
+    return (
+      <div className="animate-slide-in space-y-6 pt-4 pb-28">
+        <div className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100">
+          <button 
+            onClick={() => setActiveSubView('HISTORY_LIST')}
+            className="mb-6 flex items-center space-x-2 text-slate-400 hover:text-indigo-600 transition-colors"
+          >
+            <ChevronLeft size={20} />
+            <span className="text-[10px] font-black uppercase tracking-widest">Voltar para Lista</span>
+          </button>
+
+          <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-8 text-center">História {title}</h3>
+          
+          {content ? (
+            <div className="prose prose-slate max-w-none">
+              <div className="whitespace-pre-wrap text-slate-600 font-medium leading-relaxed">
+                {content}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-10">
+              <p className="text-slate-400 font-bold text-sm">História em desenvolvimento...</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   const renderLibraryMenu = () => (
     <div className="animate-slide-in space-y-4 pt-4 pb-28">
@@ -664,31 +1133,6 @@ const ClubManagement: React.FC<{
           <div className="flex-grow text-left">
             <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight">{item.label}</h4>
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Acessar Arquivos</p>
-          </div>
-          <ChevronRight size={20} className="text-slate-200" />
-        </button>
-      ))}
-    </div>
-  );
-
-  const renderManagementMenu = () => (
-    <div className="animate-slide-in space-y-4 pt-4 pb-28">
-      {[
-        { label: 'SGC', icon: <Key size={24} />, color: 'bg-slate-800' },
-        { label: 'Cartão Virtual', icon: <CreditCard size={24} />, color: 'bg-blue-600' },
-        { label: 'Clubes', icon: <MapPin size={24} />, color: 'bg-red-500' },
-        { label: 'Unidade', icon: <Shield size={24} />, color: 'bg-emerald-600' }
-      ].map((item, i) => (
-        <button 
-          key={i}
-          className="w-full bg-white border border-slate-100 rounded-[28px] p-5 flex items-center space-x-5 shadow-sm active:scale-[0.98] transition-all group"
-        >
-          <div className={`w-14 h-14 ${item.color} rounded-2xl flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform`}>
-            {item.icon}
-          </div>
-          <div className="flex-grow text-left">
-            <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight">{item.label}</h4>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Sistema de Gestão</p>
           </div>
           <ChevronRight size={20} className="text-slate-200" />
         </button>
@@ -1437,6 +1881,19 @@ const ClubManagement: React.FC<{
               <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Criar novo conteúdo diário</p>
             </div>
           </button>
+
+          <button 
+            onClick={() => setActiveSubView('CULTURE_ADMIN')}
+            className="bg-white border border-slate-100 p-6 rounded-[32px] flex items-center space-x-4 shadow-sm active:scale-95 transition-all group"
+          >
+            <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+              <Music size={28} />
+            </div>
+            <div className="text-left">
+              <h4 className="font-black text-slate-800 uppercase tracking-tight">Cultura e Tradição</h4>
+              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Editar Ideais e Hino</p>
+            </div>
+          </button>
         </div>
       </div>
     );
@@ -1997,6 +2454,45 @@ const ClubManagement: React.FC<{
     );
   };
 
+  const renderFaixa = () => {
+    return (
+      <div className="animate-slide-in space-y-6 pt-4 pb-28">
+        <div className="bg-slate-900 rounded-[40px] p-8 shadow-xl text-center relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+          <h3 className="text-2xl font-black text-white uppercase tracking-tight mb-1">Minha Faixa</h3>
+          <p className="text-indigo-300 text-[10px] font-black uppercase tracking-[0.2em]">{completedSpecialties.length} Especialidades Concluídas</p>
+        </div>
+
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="w-8 h-8 border-3 border-slate-100 border-t-indigo-500 rounded-full animate-spin"></div>
+          </div>
+        ) : completedSpecialties.length === 0 ? (
+          <div className="bg-white rounded-[32px] p-12 text-center border border-slate-100 shadow-sm">
+            <Award size={48} className="text-slate-100 mx-auto mb-4" />
+            <p className="text-slate-400 font-bold text-sm">Você ainda não tem especialidades na sua faixa.</p>
+            <button 
+              onClick={() => setActiveSubView('SPECIALTIES')}
+              className="mt-6 text-indigo-600 font-black uppercase text-[10px] tracking-widest underline underline-offset-4"
+            >
+              Explorar Especialidades
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-4">
+            {/* Como não temos todas as especialidades carregadas aqui, 
+                mostramos apenas os IDs ou carregamos se necessário.
+                Para uma melhor experiência, idealmente carregaríamos os detalhes.
+            */}
+            <p className="col-span-3 text-center text-slate-400 text-[10px] font-bold uppercase tracking-widest py-10">
+              Acesse seu Perfil para ver os detalhes da sua faixa completa.
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderDashboard = () => (
     <div className="space-y-8 animate-slide-up pt-2 pb-24">
       <div className="relative w-full px-1">
@@ -2050,6 +2546,24 @@ const ClubManagement: React.FC<{
           </div>
           <ChevronRight size={18} className="text-slate-200" />
         </button>
+        {/* Botão Gestão (Apenas se for admin) */}
+        {isUserAdmin && (
+          <button 
+            onClick={() => setActiveSubView('BIBLE_ADMIN')}
+            className="w-full bg-white p-5 rounded-[36px] shadow-sm border border-slate-50 flex items-center justify-between active:scale-[0.98] transition-all group"
+          >
+            <div className="flex items-center space-x-4">
+              <div className="w-14 h-14 bg-slate-800 rounded-[22px] flex items-center justify-center text-white">
+                <Settings size={28} strokeWidth={2.5} />
+              </div>
+              <div className="text-left">
+                <h3 className="font-black text-lg text-slate-800 uppercase tracking-tight">Painel Administrativo</h3>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Administração do Clube</p>
+              </div>
+            </div>
+            <ChevronRight size={18} className="text-slate-200" />
+          </button>
+        )}
       </div>
 
       <div className="pt-4 flex flex-col items-center">
@@ -2058,7 +2572,7 @@ const ClubManagement: React.FC<{
           {[
             { label: 'Cultura', icon: <Info size={28} />, bg: 'bg-indigo-500', view: 'CULTURE' },
             { label: 'Biblioteca', icon: <Book size={28} />, bg: 'bg-emerald-500', view: 'LIBRARY' },
-            { label: 'Gestão', icon: <Settings size={28} />, bg: 'bg-red-500', view: 'MANAGEMENT' }
+            { label: 'Minha Faixa', icon: <Award size={28} />, bg: 'bg-amber-500', view: 'FAIXA' }
           ].map((item, i) => (
             <div key={i} className="flex flex-col items-center space-y-3">
               <button onClick={() => setActiveSubView(item.view as any)} className={`w-full aspect-square ${item.bg} rounded-[30px] flex items-center justify-center text-white shadow-lg active:scale-90 transition-all`}>
@@ -2105,6 +2619,18 @@ const ClubManagement: React.FC<{
                     setActiveSubView('DESBRAVA_PLUS');
                   } else if (activeSubView === 'DESBRAVA_PLUS_PDF') {
                     setActiveSubView('DESBRAVA_PLUS');
+                  } else if (activeSubView === 'IDEALS_ANTHEM') {
+                    setActiveSubView('CULTURE');
+                  } else if (activeSubView === 'IDEALS') {
+                    setActiveSubView('IDEALS_ANTHEM');
+                  } else if (activeSubView === 'ANTHEM') {
+                    setActiveSubView('IDEALS_ANTHEM');
+                  } else if (activeSubView === 'CULTURE_ADMIN') {
+                    setActiveSubView('BIBLE_ADMIN');
+                  } else if (activeSubView === 'HISTORY_LIST') {
+                    setActiveSubView('CULTURE');
+                  } else if (activeSubView === 'HISTORY_DETAIL') {
+                    setActiveSubView('HISTORY_LIST');
                   } else if (activeSubView === 'BIBLE_BOOKS') {
                     setActiveSubView('BIBLE');
                   } else if (activeSubView === 'BIBLE_CHAPTERS') {
@@ -2151,8 +2677,13 @@ const ClubManagement: React.FC<{
                activeSubView === 'SPECIALTIES_LIST' ? selectedCategory?.nome :
                activeSubView === 'SPECIALTY_DETAILS' ? selectedSpecialty?.nome :
                activeSubView === 'CULTURE' ? 'Cultura e Tradição' :
+               activeSubView === 'IDEALS_ANTHEM' ? 'Ideais e Hino' :
+               activeSubView === 'IDEALS' ? 'Ideais' :
+               activeSubView === 'ANTHEM' ? 'Hino Oficial' :
+               activeSubView === 'CULTURE_ADMIN' ? 'Gestão de Cultura' :
+               activeSubView === 'HISTORY_LIST' ? 'Nossa História' :
+               activeSubView === 'HISTORY_DETAIL' ? 'História Detalhada' :
                activeSubView === 'LIBRARY' ? 'Biblioteca Digital' :
-               activeSubView === 'MANAGEMENT' ? 'Gestão Administrativa' :
                activeSubView === 'DESBRAVA_PLUS' ? 'Desbrava +' :
                activeSubView === 'DESBRAVA_PLUS_DETAILS' ? selectedDesbravaPlusItem?.Nome :
                activeSubView === 'DESBRAVA_PLUS_PDF' ? selectedDesbravaPlusItem?.Nome :
@@ -2185,7 +2716,7 @@ const ClubManagement: React.FC<{
       <div 
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className={`flex-grow overflow-y-auto scrollbar-hide ${activeSubView === 'DESBRAVA_PLUS_PDF' ? 'p-2' : activeSubView === 'BIBLE' ? 'p-4' : 'p-7'}`}
+        className={`flex-grow overflow-y-auto scrollbar-hide ${activeSubView === 'DESBRAVA_PLUS_PDF' ? 'p-2' : activeSubView === 'BIBLE' ? 'p-4' : 'p-5'}`}
       >
         {activeSubView === 'MAIN' && renderDashboard()}
         {activeSubView === 'CLASSES' && renderClassesMenu()}
@@ -2193,9 +2724,23 @@ const ClubManagement: React.FC<{
         {activeSubView === 'SPECIALTIES' && renderSpecialtiesCategories()}
         {activeSubView === 'SPECIALTIES_LIST' && renderSpecialtiesList()}
         {activeSubView === 'SPECIALTY_DETAILS' && renderSpecialtyDetails()}
+        {activeSubView === 'FAIXA' && renderFaixa()}
         {activeSubView === 'CULTURE' && renderCultureMenu()}
+        {activeSubView === 'IDEALS_ANTHEM' && renderIdealsAnthem()}
+        {activeSubView === 'IDEALS' && renderIdeals()}
+        {activeSubView === 'ANTHEM' && renderAnthem()}
+        {activeSubView === 'CULTURE_ADMIN' && (
+          <CultureAdmin 
+            culturaData={culturaData}
+            club={club}
+            updateCultura={updateCultura}
+            setCulturaData={setCulturaData}
+            setActiveSubView={setActiveSubView}
+          />
+        )}
+        {activeSubView === 'HISTORY_LIST' && renderHistoryList()}
+        {activeSubView === 'HISTORY_DETAIL' && renderHistoryDetail()}
         {activeSubView === 'LIBRARY' && renderLibraryMenu()}
-        {activeSubView === 'MANAGEMENT' && renderManagementMenu()}
         {activeSubView === 'DESBRAVA_PLUS' && renderDesbravaPlus()}
         {activeSubView === 'DESBRAVA_PLUS_DETAILS' && renderDesbravaPlusDetails()}
         {activeSubView === 'DESBRAVA_PLUS_PDF' && renderDesbravaPlusPdf()}

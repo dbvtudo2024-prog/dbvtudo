@@ -95,6 +95,30 @@ export interface Devocional {
   created_at?: string;
 }
 
+export interface Cultura {
+  id: number;
+  club_type: string;
+  ideais: string;
+  voto?: string;
+  lei?: string;
+  alvo?: string;
+  lema?: string;
+  objetivo?: string;
+  voto_biblia?: string;
+  hino_letra: string;
+  hino_video: string;
+  historia_mundial?: string;
+  historia_america_sul?: string;
+  historia_argentina?: string;
+  historia_bolivia?: string;
+  historia_brasil?: string;
+  historia_chile?: string;
+  historia_colombia?: string;
+  historia_equador?: string;
+  historia_peru?: string;
+  historia_uruguai?: string;
+}
+
 export interface UserProfile {
   user_id: string;
   created_at?: string;

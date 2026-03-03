@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, UserProfile, Devocional } from '../types';
+import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, UserProfile, Devocional, Cultura } from '../types';
 
 const supabaseUrl = 'https://qfpyjavbncijowjvznkg.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmcHlqYXZibmNpam93anZ6bmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NDcxMDUsImV4cCI6MjA3NDQyMzEwNX0.adxRCkobV-m_XUHp1KBXmg67VXkR-HL4QKFVtgQOmYc'; 
@@ -102,7 +102,7 @@ export async function fetchUserSpecialties(email: string): Promise<string[]> {
 export async function updateUserSpecialties(email: string, specialties: string[]) {
   const { error } = await supabase
     .from('Usuarios')
-    .update({ Especialidades: specialties })
+    .update({ Especialidades: specialties.join(',') })
     .eq('email', email);
   return { error };
 }
@@ -234,4 +234,28 @@ export async function updateUserProfile(profile: Partial<UserProfile>) {
     .upsert(profile, { onConflict: 'user_id' });
     
   return { error };
+}
+
+export async function fetchCultura(clubType: string): Promise<Cultura | null> {
+  const { data, error } = await supabase
+    .from('Cultura')
+    .select('*')
+    .eq('club_type', clubType)
+    .maybeSingle();
+  
+  if (error) {
+    console.error("Erro ao buscar cultura:", error);
+    return null;
+  }
+  return data;
+}
+
+export async function updateCultura(cultura: Partial<Cultura>) {
+  const { data, error } = await supabase
+    .from('Cultura')
+    .upsert(cultura, { onConflict: 'club_type' })
+    .select()
+    .single();
+  
+  return { data, error };
 }

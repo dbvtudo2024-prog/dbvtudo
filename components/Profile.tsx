@@ -183,7 +183,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
   // Carregar todas as especialidades para a faixa ou se houver curtidas
   useEffect(() => {
-    if (isSashView || (likedIds.length > 0 && allSpecialties.length === 0)) {
+    if ((isSashView || likedIds.length > 0) && allSpecialties.length === 0) {
       setIsLoading(true);
       fetchEspecialidades(userClubType).then(data => {
         // Ordenar alfabeticamente
@@ -191,7 +191,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
         setAllSpecialties(sorted);
       }).finally(() => setIsLoading(false));
     }
-  }, [isSashView, userClubType, likedIds.length, allSpecialties.length]);
+  }, [isSashView, userClubType, allSpecialties.length]);
 
   // Salvar curtidas no localStorage apenas se houver IDs ou se for uma mudança intencional
   useEffect(() => {

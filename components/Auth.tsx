@@ -258,7 +258,8 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
             clube: profile.clube,
             cargo: profile.funçao,
             telefone: profile.telefone,
-            avatar: profile.foto || ""
+            avatar: profile.foto || "",
+            isAdmin: profile.ADM || false
           }));
         }
 
