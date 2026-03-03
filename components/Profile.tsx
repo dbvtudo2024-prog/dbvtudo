@@ -1,8 +1,13 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { ChevronLeft, LogOut, Shield, MapPin, Briefcase, Award, Camera, Check, X, User, Mail, Phone, ChevronDown, Heart, Search } from 'lucide-react';
+<<<<<<< HEAD
 import { ClubType, Especialidade, UserProfile } from '../types';
 import { fetchEspecialidades, updateUserSpecialties, fetchUserSpecialties, fetchUserProfile, updateUserProfile, supabase } from '../services/supabaseService';
+=======
+import { ClubType, Especialidade } from '../types';
+import { fetchEspecialidades, updateUserSpecialties, fetchUserSpecialties } from '../services/supabaseService';
+>>>>>>> 52bf42a0913516331346d464e05cdef6a94b819f
 
 const CARGOS = [
   "Diretor(a)",
@@ -68,10 +73,16 @@ interface ProfileProps {
   club: ClubType;
   onBack: (club?: ClubType) => void;
   onLogout: () => void;
+<<<<<<< HEAD
   onOpenAdmin?: () => void;
 }
 
 const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }) => {
+=======
+}
+
+const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout }) => {
+>>>>>>> 52bf42a0913516331346d464e05cdef6a94b819f
   const [isEditing, setIsEditing] = useState(false);
   const [isSashView, setIsSashView] = useState(false);
   const [allSpecialties, setAllSpecialties] = useState<Especialidade[]>([]);
@@ -103,12 +114,16 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   };
 
   const [userData, setUserData] = useState(getInitialData);
+<<<<<<< HEAD
   const [userId, setUserId] = useState<string | null>(null);
   const isAdmin = userData.email === 'ronaldosonic@gmail.com' || userData.email === 'dbvtudo2024@gmail.com';
+=======
+>>>>>>> 52bf42a0913516331346d464e05cdef6a94b819f
   const userClubType = userData.tipo === "Desbravador" ? ClubType.PATHFINDER : ClubType.ADVENTURER;
   const likedKey = `dbv_tudo_liked_specialties_${userClubType}`;
 
   // State para especialidades curtidas - Inicializa do localStorage para evitar sobrescrever no mount
+<<<<<<< HEAD
   // Carregar dados do Supabase se houver usuário logado
   useEffect(() => {
     const checkUser = async () => {
@@ -136,6 +151,8 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     checkUser();
   }, []);
 
+=======
+>>>>>>> 52bf42a0913516331346d464e05cdef6a94b819f
   const [likedIds, setLikedIds] = useState<string[]>(() => {
     const initialData = getInitialData();
     const initialClubType = initialData.tipo === "Desbravador" ? ClubType.PATHFINDER : ClubType.ADVENTURER;
@@ -256,6 +273,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     }
   };
 
+<<<<<<< HEAD
   const handleSave = async () => {
     setIsLoading(true);
     try {
@@ -286,6 +304,13 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     } finally {
       setIsLoading(false);
     }
+=======
+  const handleSave = () => {
+    localStorage.setItem(storageKey, JSON.stringify(userData));
+    setIsEditing(false);
+    // Disparar evento de storage para outros componentes (como o dashboard) saberem que mudou
+    window.dispatchEvent(new Event('storage'));
+>>>>>>> 52bf42a0913516331346d464e05cdef6a94b819f
   };
 
   const handleBackNavigation = () => {
@@ -474,22 +499,29 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
             <div className="text-center"><p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mb-1">Clube</p><p className="text-[13px] font-bold text-slate-700">{userData.clube}</p></div>
             <div className="text-center"><p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mb-1">Cargo/Função</p><p className="text-[13px] font-bold text-slate-700">{userData.cargo}</p></div>
             <div className="text-center"><p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mb-1">Telefone</p><p className="text-[13px] font-bold text-slate-700">{userData.telefone}</p></div>
+<<<<<<< HEAD
             <div className="text-center"><p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mb-1">Cidade</p><p className="text-[13px] font-bold text-slate-700">{userData.cidade || '-'}</p></div>
             <div className="text-center"><p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mb-1">Estado</p><p className="text-[13px] font-bold text-slate-700">{userData.estado || '-'}</p></div>
+=======
+>>>>>>> 52bf42a0913516331346d464e05cdef6a94b819f
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 animate-slide-up">
             <EditInput label="Nome do Clube" value={userData.clube} name="clube" onChange={handleInputChange} />
             <EditSelect label="Cargo / Função" value={userData.cargo} name="cargo" options={CARGOS} onChange={handleInputChange} />
             <EditInput label="Telefone" value={userData.telefone} name="telefone" onChange={handleInputChange} />
+<<<<<<< HEAD
             <div className="grid grid-cols-2 gap-4">
               <EditInput label="Cidade" value={userData.cidade || ""} name="cidade" onChange={handleInputChange} />
               <EditInput label="Estado" value={userData.estado || ""} name="estado" onChange={handleInputChange} />
             </div>
+=======
+>>>>>>> 52bf42a0913516331346d464e05cdef6a94b819f
           </div>
         )}
       </div>
 
+<<<<<<< HEAD
       <div className="px-8 mt-10 flex flex-col space-y-4">
         {!isEditing ? (
           <>
@@ -535,6 +567,23 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
               <X size={16} />
               <span>Cancelar</span>
             </button>
+=======
+      <div className="px-8 mt-10 flex space-x-4">
+        {!isEditing ? (
+          <>
+            <button onClick={() => setIsEditing(true)} style={{ backgroundColor: currentThemeColor }} className="flex-1 py-4 rounded-2xl text-white font-black uppercase text-[11px] tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2"><span>Editar Perfil</span></button>
+            <button 
+              onClick={() => setIsSashView(true)}
+              className="flex-1 py-4 bg-[#2e7d32] rounded-2xl text-white font-black uppercase text-[11px] tracking-widest shadow-lg active:scale-95 transition-all"
+            >
+              Minha Faixa
+            </button>
+          </>
+        ) : (
+          <>
+            <button onClick={handleSave} className="flex-1 py-4 bg-emerald-600 rounded-2xl text-white font-black uppercase text-[11px] tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2"><Check size={16} /><span>Salvar</span></button>
+            <button onClick={() => { setIsEditing(false); }} className="flex-1 py-4 bg-slate-200 rounded-2xl text-slate-500 font-black uppercase text-[11px] tracking-widest shadow-sm active:scale-95 transition-all flex items-center justify-center space-x-2"><X size={16} /><span>Cancelar</span></button>
+>>>>>>> 52bf42a0913516331346d464e05cdef6a94b819f
           </>
         )}
       </div>

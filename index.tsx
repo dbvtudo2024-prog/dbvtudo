@@ -14,6 +14,7 @@ root.render(
     <App />
   </React.StrictMode>
 );
+<<<<<<< HEAD
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -24,3 +25,5 @@ if ('serviceWorker' in navigator) {
     });
   });
 }
+=======
+>>>>>>> 52bf42a0913516331346d464e05cdef6a94b819f
