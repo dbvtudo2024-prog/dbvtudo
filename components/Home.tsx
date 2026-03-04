@@ -2,24 +2,51 @@
 import React from 'react';
 import { ClubType } from '../types';
 import { PathfinderLogo, AdventurerLogo } from '../constants';
-import { Settings, Sparkles } from 'lucide-react';
+import { Settings, Sparkles, User } from 'lucide-react';
 
 interface HomeProps {
   onSelectClub: (club: ClubType) => void;
   onOpenSettings: () => void;
   onOpenAdvisor: () => void;
+  onOpenProfile: () => void;
 }
 
-const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenAdvisor }) => {
+const PROFILE_KEY = `dbv_tudo_global_user_profile`;
+
+const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenAdvisor, onOpenProfile }) => {
+  const [userAvatar, setUserAvatar] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const loadProfile = () => {
+      const saved = localStorage.getItem(PROFILE_KEY);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setUserAvatar(parsed.avatar || null);
+        } catch { }
+      }
+    };
+
+    loadProfile();
+    window.addEventListener('storage', loadProfile);
+    return () => window.removeEventListener('storage', loadProfile);
+  }, []);
+
   return (
     <div className="flex flex-col h-full overflow-hidden animate-slide-up bg-[#F8FAFC]">
       {/* Top Actions - Minimalistas */}
       <div className="pt-7 px-8 flex justify-between items-center z-10">
-        <button onClick={onOpenSettings} className="p-2.5 bg-white/80 backdrop-blur-md rounded-2xl shadow-sm border border-white text-slate-400 active:scale-90 transition-all">
-          <Settings size={18} />
-        </button>
-        <button onClick={onOpenAdvisor} className="p-2.5 bg-white/80 backdrop-blur-md rounded-2xl shadow-sm border border-white text-amber-500 active:scale-90 transition-all">
-          <Sparkles size={18} />
+        <div className="flex items-center space-x-3">
+          <button onClick={onOpenSettings} className="p-2.5 bg-white/80 backdrop-blur-md rounded-2xl shadow-sm border border-white text-slate-400 active:scale-90 transition-all">
+            <Settings size={18} />
+          </button>
+          <button onClick={onOpenAdvisor} className="p-2.5 bg-white/80 backdrop-blur-md rounded-2xl shadow-sm border border-white text-amber-500 active:scale-90 transition-all">
+            <Sparkles size={18} />
+          </button>
+        </div>
+        
+        <button onClick={onOpenProfile} className="w-11 h-11 bg-white rounded-2xl shadow-sm border border-white flex items-center justify-center text-slate-300 overflow-hidden active:scale-90 transition-all">
+          {userAvatar ? <img src={userAvatar} className="w-full h-full object-cover" /> : <User size={20} />}
         </button>
       </div>
 

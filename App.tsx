@@ -147,6 +147,7 @@ const App: React.FC = () => {
           onSelectClub={navigateToClub} 
           onOpenSettings={() => setCurrentView('SETTINGS')} 
           onOpenAdvisor={() => setCurrentView('AI_ADVISOR')} 
+          onOpenProfile={handleOpenProfile}
         />;
       case 'CLUB_LIST':
         return (

@@ -220,7 +220,21 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile | nu
     .maybeSingle();
   
   if (error) {
-    console.error("Erro ao buscar perfil:", error);
+    console.error("Erro ao buscar perfil por ID:", error);
+    return null;
+  }
+  return data;
+}
+
+export async function fetchUserProfileByEmail(email: string): Promise<UserProfile | null> {
+  const { data, error } = await supabase
+    .from('Usuarios')
+    .select('*')
+    .eq('email', email)
+    .maybeSingle();
+  
+  if (error) {
+    console.error("Erro ao buscar perfil por email:", error);
     return null;
   }
   return data;

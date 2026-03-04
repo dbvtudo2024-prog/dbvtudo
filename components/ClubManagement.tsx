@@ -4,7 +4,7 @@ import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, 
 import { fetchCategories, fetchEspecialidades, fetchClasses, fetchDesbravaMais, fetchBibleBooks, fetchBibleVerses, fetchBibleDictionary, fetchDevocionais, createDevocional, deleteDevocional, fetchUserSpecialties, updateUserSpecialties, fetchCultura, updateCultura, fetchUserProfile, supabase } from '../services/supabaseService';
 import { 
   Shield, Award, User, Layers, Sparkles, Home as HomeIcon, Search,
-  ChevronRight, ChevronLeft, Info, Book, Settings, Zap, Music, Flag, Shirt, Globe, Key, FileText, Library, CreditCard, MapPin, Video, Folder, BookOpen, Heart, ArrowUp,
+  ChevronRight, ChevronLeft, ChevronDown, Info, Book, Settings, Zap, Music, Flag, Shirt, Globe, Key, FileText, Library, CreditCard, MapPin, Video, Folder, BookOpen, Heart, ArrowUp,
   Trash2, Plus, Save, Share2, Calendar
 } from 'lucide-react';
 
@@ -17,6 +17,7 @@ interface CultureAdminProps {
   updateCultura: (data: any) => Promise<{ data: any; error: any }>;
   setCulturaData: React.Dispatch<React.SetStateAction<Cultura | null>>;
   setActiveSubView: (view: any) => void;
+  initialTab?: 'IDEALS' | 'ANTHEM' | 'HISTORY' | 'UNIFORMS' | 'EMBLEMS';
 }
 
 const CultureAdmin: React.FC<CultureAdminProps> = ({ 
@@ -24,8 +25,17 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
   club, 
   updateCultura, 
   setCulturaData, 
-  setActiveSubView 
+  setActiveSubView,
+  initialTab
 }) => {
+  const [activeTab, setActiveTab] = useState<'IDEALS' | 'ANTHEM' | 'HISTORY' | 'UNIFORMS' | 'EMBLEMS'>(initialTab || 'IDEALS');
+  
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
   const [localCultura, setLocalCultura] = useState({
     ideais: culturaData?.ideais || '',
     voto: culturaData?.voto || '',
@@ -45,7 +55,23 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
     historia_colombia: culturaData?.historia_colombia || '',
     historia_equador: culturaData?.historia_equador || '',
     historia_peru: culturaData?.historia_peru || '',
-    historia_uruguai: culturaData?.historia_uruguai || ''
+    historia_uruguai: culturaData?.historia_uruguai || '',
+    uniforme_gala: culturaData?.uniforme_gala || '',
+    uniforme_atividades: culturaData?.uniforme_atividades || '',
+    uniforme_unidade: culturaData?.uniforme_unidade || '',
+    lencos_prendedores: culturaData?.lencos_prendedores || '',
+    cobertura: culturaData?.cobertura || '',
+    cinto: culturaData?.cinto || '',
+    calcados_meias: culturaData?.calcados_meias || '',
+    torcal: culturaData?.torcal || '',
+    platina_galao: culturaData?.platina_galao || '',
+    uniforme_diretoria: culturaData?.uniforme_diretoria || '',
+    uniforme_lideres: culturaData?.uniforme_lideres || '',
+    emblemas: culturaData?.emblemas || '',
+    insignias_tiras: culturaData?.insignias_tiras || '',
+    distintivos: culturaData?.distintivos || '',
+    bandeira_oficial: culturaData?.bandeira_oficial || '',
+    bandeirim: culturaData?.bandeirim || ''
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -64,125 +90,165 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
         setCulturaData(prev => prev ? { ...prev, ...localCultura } : { id: 0, club_type: clubType, ...localCultura } as Cultura);
       }
       alert("Cultura atualizada com sucesso!");
-      setActiveSubView('BIBLE_ADMIN');
     } else {
       alert("Erro ao salvar cultura.");
     }
     setIsSaving(false);
   };
 
+  const tabs = [
+    { id: 'IDEALS', label: 'Ideais', icon: <Sparkles size={18} /> },
+    { id: 'ANTHEM', label: 'Hino', icon: <Music size={18} /> },
+    { id: 'HISTORY', label: 'História', icon: <Globe size={18} /> },
+    { id: 'UNIFORMS', label: 'Uniformes', icon: <Shirt size={18} /> },
+    { id: 'EMBLEMS', label: 'Emblemas', icon: <Shield size={18} /> }
+  ];
+
   return (
     <div className="animate-slide-in space-y-6 pt-4 pb-28">
+      {/* Tab Bar */}
+      <div className="flex overflow-x-auto scrollbar-hide space-x-2 pb-2">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`flex items-center space-x-2 px-5 py-3 rounded-2xl whitespace-nowrap font-black text-xs uppercase tracking-widest transition-all ${
+              activeTab === tab.id 
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
+                : 'bg-white text-slate-400 border border-slate-100'
+            }`}
+          >
+            {tab.icon}
+            <span>{tab.label}</span>
+          </button>
+        ))}
+      </div>
+
       <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 space-y-6">
         <div className="grid grid-cols-1 gap-6">
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Voto</label>
-            <textarea 
-              value={localCultura.voto}
-              onChange={(e) => setLocalCultura({...localCultura, voto: e.target.value})}
-              placeholder="Digite o voto..."
-              className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[100px]"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Lei</label>
-            <textarea 
-              value={localCultura.lei}
-              onChange={(e) => setLocalCultura({...localCultura, lei: e.target.value})}
-              placeholder="Digite a lei..."
-              className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[100px]"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Alvo</label>
-            <textarea 
-              value={localCultura.alvo}
-              onChange={(e) => setLocalCultura({...localCultura, alvo: e.target.value})}
-              placeholder="Digite o alvo..."
-              className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[80px]"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Lema</label>
-            <textarea 
-              value={localCultura.lema}
-              onChange={(e) => setLocalCultura({...localCultura, lema: e.target.value})}
-              placeholder="Digite o lema..."
-              className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[80px]"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Objetivo</label>
-            <textarea 
-              value={localCultura.objetivo}
-              onChange={(e) => setLocalCultura({...localCultura, objetivo: e.target.value})}
-              placeholder="Digite o objetivo..."
-              className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[80px]"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Voto à Bíblia</label>
-            <textarea 
-              value={localCultura.voto_biblia}
-              onChange={(e) => setLocalCultura({...localCultura, voto_biblia: e.target.value})}
-              placeholder="Digite o voto à bíblia..."
-              className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[100px]"
-            />
-          </div>
-
-          <div className="h-px bg-slate-100 my-2"></div>
-
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Letra do Hino</label>
-            <textarea 
-              value={localCultura.hino_letra}
-              onChange={(e) => setLocalCultura({...localCultura, hino_letra: e.target.value})}
-              placeholder="Digite a letra do hino..."
-              className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[200px]"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Link do Vídeo (YouTube ou Supabase)</label>
-            <input 
-              type="text"
-              value={localCultura.hino_video}
-              onChange={(e) => setLocalCultura({...localCultura, hino_video: e.target.value})}
-              placeholder="Link do YouTube ou Supabase Storage"
-              className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
-            />
-          </div>
-
-          <div className="h-px bg-slate-100 my-4"></div>
-          <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest ml-1">História</h4>
-
-          {[
-            { id: 'historia_mundial', label: 'História Mundial' },
-            { id: 'historia_america_sul', label: 'História América do Sul' },
-            { id: 'historia_argentina', label: 'História Argentina' },
-            { id: 'historia_bolivia', label: 'História Bolívia' },
-            { id: 'historia_brasil', label: 'História Brasil' },
-            { id: 'historia_chile', label: 'História Chile' },
-            { id: 'historia_colombia', label: 'História Colômbia' },
-            { id: 'historia_equador', label: 'História Equador' },
-            { id: 'historia_peru', label: 'História Peru' },
-            { id: 'historia_uruguai', label: 'História Uruguai' }
-          ].map((field) => (
-            <div key={field.id} className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{field.label}</label>
-              <textarea 
-                value={(localCultura as any)[field.id]}
-                onChange={(e) => setLocalCultura({...localCultura, [field.id]: e.target.value})}
-                placeholder={`Digite a ${field.label.toLowerCase()}...`}
-                className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[150px]"
-              />
+          {activeTab === 'IDEALS' && (
+            <div className="space-y-6">
+              {[
+                { id: 'voto', label: 'Voto' },
+                { id: 'lei', label: 'Lei' },
+                { id: 'alvo', label: 'Alvo' },
+                { id: 'lema', label: 'Lema' },
+                { id: 'objetivo', label: 'Objetivo' },
+                { id: 'voto_biblia', label: 'Voto à Bíblia' }
+              ].map((field) => (
+                <div key={field.id} className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{field.label}</label>
+                  <textarea 
+                    value={(localCultura as any)[field.id]}
+                    onChange={(e) => setLocalCultura({...localCultura, [field.id]: e.target.value})}
+                    placeholder={`Digite o ${field.label.toLowerCase()}...`}
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[100px]"
+                  />
+                </div>
+              ))}
             </div>
-          ))}
+          )}
+
+          {activeTab === 'ANTHEM' && (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Letra do Hino</label>
+                <textarea 
+                  value={localCultura.hino_letra}
+                  onChange={(e) => setLocalCultura({...localCultura, hino_letra: e.target.value})}
+                  placeholder="Digite a letra do hino..."
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[200px]"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Link do Vídeo (YouTube ou Supabase)</label>
+                <input 
+                  type="text"
+                  value={localCultura.hino_video}
+                  onChange={(e) => setLocalCultura({...localCultura, hino_video: e.target.value})}
+                  placeholder="Link do YouTube ou Supabase Storage"
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                />
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'HISTORY' && (
+            <div className="space-y-6">
+              {[
+                { id: 'historia_mundial', label: 'História Mundial' },
+                { id: 'historia_america_sul', label: 'História América do Sul' },
+                { id: 'historia_argentina', label: 'História Argentina' },
+                { id: 'historia_bolivia', label: 'História Bolívia' },
+                { id: 'historia_brasil', label: 'História Brasil' },
+                { id: 'historia_chile', label: 'História Chile' },
+                { id: 'historia_colombia', label: 'História Colômbia' },
+                { id: 'historia_equador', label: 'História Equador' },
+                { id: 'historia_peru', label: 'História Peru' },
+                { id: 'historia_uruguai', label: 'História Uruguai' }
+              ].map((field) => (
+                <div key={field.id} className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{field.label}</label>
+                  <textarea 
+                    value={(localCultura as any)[field.id]}
+                    onChange={(e) => setLocalCultura({...localCultura, [field.id]: e.target.value})}
+                    placeholder={`Digite a ${field.label.toLowerCase()}...`}
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[150px]"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {activeTab === 'UNIFORMS' && (
+            <div className="space-y-6">
+              {[
+                { id: 'uniforme_gala', label: 'Uniforme de Gala' },
+                { id: 'uniforme_atividades', label: 'Uniforme de Atividades' },
+                { id: 'uniforme_unidade', label: 'Uniforme de Unidade' },
+                { id: 'lencos_prendedores', label: 'Lenços e Prendedores' },
+                { id: 'cobertura', label: 'Cobertura' },
+                { id: 'cinto', label: 'Cinto' },
+                { id: 'calcados_meias', label: 'Calçados e Meias' },
+                { id: 'torcal', label: 'Torçal' },
+                { id: 'platina_galao', label: 'Platina ou Galão' },
+                { id: 'uniforme_diretoria', label: 'Uniforme de Diretoria' },
+                { id: 'uniforme_lideres', label: 'Uniforme de Líderes' }
+              ].map((field) => (
+                <div key={field.id} className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{field.label}</label>
+                  <textarea 
+                    value={(localCultura as any)[field.id]}
+                    onChange={(e) => setLocalCultura({...localCultura, [field.id]: e.target.value})}
+                    placeholder={`Digite sobre ${field.label.toLowerCase()}...`}
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[150px]"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {activeTab === 'EMBLEMS' && (
+            <div className="space-y-6">
+              {[
+                { id: 'emblemas', label: 'Emblemas' },
+                { id: 'insignias_tiras', label: 'Insígnias e Tiras' },
+                { id: 'distintivos', label: 'Distintivos' },
+                { id: 'bandeira_oficial', label: 'Bandeira Oficial' },
+                { id: 'bandeirim', label: 'Bandeirim' }
+              ].map((field) => (
+                <div key={field.id} className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{field.label}</label>
+                  <textarea 
+                    value={(localCultura as any)[field.id]}
+                    onChange={(e) => setLocalCultura({...localCultura, [field.id]: e.target.value})}
+                    placeholder={`Digite sobre ${field.label.toLowerCase()}...`}
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[150px]"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <button 
@@ -191,7 +257,7 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
           className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
         >
           {isSaving ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Save size={18} />}
-          <span>{isSaving ? 'Salvando...' : 'Salvar Cultura'}</span>
+          <span>{isSaving ? 'Salvando...' : `Salvar ${tabs.find(t => t.id === activeTab)?.label}`}</span>
         </button>
       </div>
     </div>
@@ -205,10 +271,10 @@ const ClubManagement: React.FC<{
   onOpenProfile?: () => void; 
   onOpenAdvisor?: (prompt: string) => void;
   isGuest?: boolean; 
-  initialSubView?: 'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'HISTORY_LIST' | 'HISTORY_DETAIL';
+  initialSubView?: 'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS';
   onClearSubView?: () => void;
 }> = ({ club, onBack, onSwitchClub, onOpenProfile, onOpenAdvisor, isGuest, initialSubView, onClearSubView }) => {
-  const [activeSubView, setActiveSubView] = useState<'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'HISTORY_LIST' | 'HISTORY_DETAIL'>(initialSubView || 'MAIN');
+  const [activeSubView, setActiveSubView] = useState<'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS'>(initialSubView || 'MAIN');
   const [classes, setClasses] = useState<ClubClass[]>([]);
   const [selectedClass, setSelectedClass] = useState<ClubClass | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -264,6 +330,7 @@ const ClubManagement: React.FC<{
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [completedSpecialties, setCompletedSpecialties] = useState<string[]>([]);
   const [culturaData, setCulturaData] = useState<Cultura | null>(null);
+  const [activeAccordion, setActiveAccordion] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [classRequirements, setClassRequirements] = useState<string[]>([]);
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -272,6 +339,7 @@ const ClubManagement: React.FC<{
     const saved = localStorage.getItem('dbv_tudo_bible_last_read');
     return saved ? JSON.parse(saved) : null;
   });
+  const [cultureAdminTab, setCultureAdminTab] = useState<'IDEALS' | 'ANTHEM' | 'HISTORY' | 'UNIFORMS' | 'EMBLEMS'>('IDEALS');
   
   const isPathfinder = club === ClubType.PATHFINDER;
   const themeColor = isPathfinder ? '#dc371b' : '#800000';
@@ -889,8 +957,8 @@ const ClubManagement: React.FC<{
       {[
         { label: 'Ideais e Hino', icon: <Music size={24} />, color: 'bg-blue-500', action: () => setActiveSubView('IDEALS_ANTHEM') },
         { label: 'História', icon: <Globe size={24} />, color: 'bg-amber-500', action: () => setActiveSubView('HISTORY_LIST') },
-        { label: 'Uniformes', icon: <Shirt size={24} />, color: 'bg-emerald-500' },
-        { label: 'Emblemas', icon: <Shield size={24} />, color: 'bg-indigo-500' }
+        { label: 'Uniformes', icon: <Shirt size={24} />, color: 'bg-emerald-500', action: () => setActiveSubView('UNIFORMS') },
+        { label: 'Emblemas', icon: <Shield size={24} />, color: 'bg-indigo-500', action: () => setActiveSubView('EMBLEMS') }
       ].map((item, i) => (
         <button 
           key={i}
@@ -1115,6 +1183,110 @@ const ClubManagement: React.FC<{
       </div>
     );
   };
+
+  const renderUniforms = () => (
+    <div className="animate-slide-in space-y-4 pt-4 pb-28">
+      <div className="bg-white rounded-[40px] p-6 shadow-sm border border-slate-100">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center">
+            <div className="w-8 h-px bg-amber-500 mr-3"></div>
+            Uniformes
+          </h3>
+        </div>
+        
+        <div className="space-y-3">
+          {[
+            { id: 'uniforme_gala', label: 'Uniforme de Gala' },
+            { id: 'lencos_prendedores', label: 'Lenços e Prendedores' },
+            { id: 'cobertura', label: 'Cobertura' },
+            { id: 'cinto', label: 'Cinto' },
+            { id: 'calcados_meias', label: 'Calçados e Meias' },
+            { id: 'torcal', label: 'Torçal' },
+            { id: 'platina_galao', label: 'Platina ou Galão' },
+            { id: 'uniforme_diretoria', label: 'Uniforme de diretoria e associados' },
+            { id: 'uniforme_lideres', label: 'Uniforme do Clube de Líderes' }
+          ].map((item) => (
+            <div key={item.id} className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+              <button 
+                onClick={() => setActiveAccordion(activeAccordion === item.id ? null : item.id)}
+                className="w-full p-4 flex items-center justify-between bg-white hover:bg-slate-50 transition-all text-left"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center text-white shadow-md">
+                    <Shirt size={20} />
+                  </div>
+                  <span className="text-xs font-black text-slate-700 uppercase tracking-tight leading-tight flex-1">{item.label}</span>
+                </div>
+                <ChevronDown size={16} className={`text-slate-400 transition-transform duration-300 ${activeAccordion === item.id ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {activeAccordion === item.id && (
+                <div className="p-5 bg-slate-50 border-t border-slate-100 animate-slide-down">
+                  {(culturaData as any)?.[item.id] ? (
+                    <p className="text-slate-600 font-medium leading-relaxed whitespace-pre-wrap text-sm">
+                      {(culturaData as any)[item.id]}
+                    </p>
+                  ) : (
+                    <p className="text-slate-400 italic text-xs text-center">Informações em breve...</p>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderEmblems = () => (
+    <div className="animate-slide-in space-y-4 pt-4 pb-28">
+      <div className="bg-white rounded-[40px] p-6 shadow-sm border border-slate-100">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center">
+            <div className="w-8 h-px bg-red-500 mr-3"></div>
+            Emblemas
+          </h3>
+        </div>
+        
+        <div className="space-y-3">
+          {[
+            { id: 'emblemas', label: 'Emblemas' },
+            { id: 'insignias_tiras', label: 'Insígnias e Tiras' },
+            { id: 'distintivos', label: 'Distintivos' },
+            { id: 'bandeira_oficial', label: 'Bandeira Oficial dos Desbravadores' },
+            { id: 'bandeirim', label: 'Bandeirim' }
+          ].map((item) => (
+            <div key={item.id} className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+              <button 
+                onClick={() => setActiveAccordion(activeAccordion === item.id ? null : item.id)}
+                className="w-full p-4 flex items-center justify-between bg-white hover:bg-slate-50 transition-all text-left"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-red-500 rounded-xl flex items-center justify-center text-white shadow-md">
+                    <Shield size={20} />
+                  </div>
+                  <span className="text-xs font-black text-slate-700 uppercase tracking-tight leading-tight flex-1">{item.label}</span>
+                </div>
+                <ChevronDown size={16} className={`text-slate-400 transition-transform duration-300 ${activeAccordion === item.id ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {activeAccordion === item.id && (
+                <div className="p-5 bg-slate-50 border-t border-slate-100 animate-slide-down">
+                  {(culturaData as any)?.[item.id] ? (
+                    <p className="text-slate-600 font-medium leading-relaxed whitespace-pre-wrap text-sm">
+                      {(culturaData as any)[item.id]}
+                    </p>
+                  ) : (
+                    <p className="text-slate-400 italic text-xs text-center">Informações sobre emblemas em breve...</p>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
   const renderLibraryMenu = () => (
     <div className="animate-slide-in space-y-4 pt-4 pb-28">
@@ -1846,6 +2018,47 @@ const ClubManagement: React.FC<{
     );
   };
 
+  const renderCultureAdminMenu = () => (
+    <div className="animate-slide-in space-y-6 pt-6 pb-28">
+      <div className="px-4 flex items-center space-x-4">
+        <button 
+          onClick={() => setActiveSubView('BIBLE_ADMIN')}
+          className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-slate-400 active:scale-90 transition-all border border-slate-100"
+        >
+          <ChevronLeft size={20} strokeWidth={3} />
+        </button>
+        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Gestão de Cultura</h3>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 px-4">
+        {[
+          { id: 'IDEALS', label: 'Editar Ideais', icon: <Sparkles size={24} />, color: 'bg-blue-500' },
+          { id: 'ANTHEM', label: 'Editar Hino', icon: <Music size={24} />, color: 'bg-emerald-500' },
+          { id: 'HISTORY', label: 'Editar História', icon: <Globe size={24} />, color: 'bg-slate-500' },
+          { id: 'UNIFORMS', label: 'Editar Uniformes', icon: <Shirt size={24} />, color: 'bg-amber-500' },
+          { id: 'EMBLEMS', label: 'Editar Emblemas', icon: <Shield size={24} />, color: 'bg-red-500' }
+        ].map((item) => (
+          <button 
+            key={item.id}
+            onClick={() => {
+              setCultureAdminTab(item.id as any);
+              setActiveSubView('CULTURE_ADMIN');
+            }}
+            className="bg-white border border-slate-100 p-6 rounded-[32px] flex items-center space-x-5 shadow-sm active:scale-95 transition-all group"
+          >
+            <div className={`w-16 h-16 ${item.color} rounded-2xl flex items-center justify-center text-white group-hover:opacity-90 transition-opacity shadow-lg shadow-${item.color.split('-')[1]}-500/20`}>
+              {item.icon}
+            </div>
+            <div className="text-left">
+              <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight">{item.label}</h4>
+              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Gerenciar conteúdo</p>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
   const renderBibleAdmin = () => {
     return (
       <div className="animate-slide-in space-y-6 pt-6 pb-28">
@@ -1883,7 +2096,7 @@ const ClubManagement: React.FC<{
           </button>
 
           <button 
-            onClick={() => setActiveSubView('CULTURE_ADMIN')}
+            onClick={() => setActiveSubView('CULTURE_ADMIN_MENU')}
             className="bg-white border border-slate-100 p-6 rounded-[32px] flex items-center space-x-4 shadow-sm active:scale-95 transition-all group"
           >
             <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
@@ -2566,8 +2779,7 @@ const ClubManagement: React.FC<{
         )}
       </div>
 
-      <div className="pt-4 flex flex-col items-center">
-        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-7">Explorar Categorias</h3>
+      <div className="pt-4">
         <div className="grid grid-cols-3 gap-5 w-full px-2 mb-8">
           {[
             { label: 'Cultura', icon: <Info size={28} />, bg: 'bg-indigo-500', view: 'CULTURE' },
@@ -2583,17 +2795,19 @@ const ClubManagement: React.FC<{
           ))}
         </div>
 
-        {/* Botão Desbrava + (POSICIONADO ABAIXO DAS CATEGORIAS) */}
+        {/* Botão Desbrava + */}
         {isPathfinder && (
-          <button 
-            onClick={() => setActiveSubView('DESBRAVA_PLUS')}
-            className="w-full max-w-[180px] bg-indigo-600 h-11 rounded-full shadow-lg shadow-indigo-100 flex items-center justify-center text-white active:scale-[0.98] transition-all px-6 mt-4"
-          >
-            <div className="flex items-center space-x-2">
-              <Sparkles size={14} strokeWidth={2.5} />
-              <span className="font-black text-[11px] uppercase tracking-[0.15em]">Desbrava +</span>
-            </div>
-          </button>
+          <div className="flex justify-center mt-4">
+            <button 
+              onClick={() => setActiveSubView('DESBRAVA_PLUS')}
+              className="w-full max-w-[180px] bg-indigo-600 h-11 rounded-full shadow-lg shadow-indigo-100 flex items-center justify-center text-white active:scale-[0.98] transition-all px-6"
+            >
+              <div className="flex items-center space-x-2">
+                <Sparkles size={14} strokeWidth={2.5} />
+                <span className="font-black text-[11px] uppercase tracking-[0.15em]">Desbrava +</span>
+              </div>
+            </button>
+          </div>
         )}
       </div>
     </div>
@@ -2626,11 +2840,17 @@ const ClubManagement: React.FC<{
                   } else if (activeSubView === 'ANTHEM') {
                     setActiveSubView('IDEALS_ANTHEM');
                   } else if (activeSubView === 'CULTURE_ADMIN') {
+                    setActiveSubView('CULTURE_ADMIN_MENU');
+                  } else if (activeSubView === 'CULTURE_ADMIN_MENU') {
                     setActiveSubView('BIBLE_ADMIN');
                   } else if (activeSubView === 'HISTORY_LIST') {
                     setActiveSubView('CULTURE');
                   } else if (activeSubView === 'HISTORY_DETAIL') {
                     setActiveSubView('HISTORY_LIST');
+                  } else if (activeSubView === 'UNIFORMS') {
+                    setActiveSubView('CULTURE');
+                  } else if (activeSubView === 'EMBLEMS') {
+                    setActiveSubView('CULTURE');
                   } else if (activeSubView === 'BIBLE_BOOKS') {
                     setActiveSubView('BIBLE');
                   } else if (activeSubView === 'BIBLE_CHAPTERS') {
@@ -2683,6 +2903,8 @@ const ClubManagement: React.FC<{
                activeSubView === 'CULTURE_ADMIN' ? 'Gestão de Cultura' :
                activeSubView === 'HISTORY_LIST' ? 'Nossa História' :
                activeSubView === 'HISTORY_DETAIL' ? 'História Detalhada' :
+               activeSubView === 'UNIFORMS' ? 'Uniformes' :
+               activeSubView === 'EMBLEMS' ? 'Emblemas' :
                activeSubView === 'LIBRARY' ? 'Biblioteca Digital' :
                activeSubView === 'DESBRAVA_PLUS' ? 'Desbrava +' :
                activeSubView === 'DESBRAVA_PLUS_DETAILS' ? selectedDesbravaPlusItem?.Nome :
@@ -2704,11 +2926,7 @@ const ClubManagement: React.FC<{
             </p>
           </div>
           <div className="w-14 h-14 flex items-center justify-center">
-            {activeSubView !== 'DESBRAVA_PLUS_PDF' && (
-              <button onClick={onOpenProfile} className="w-14 h-14 bg-white rounded-full shadow-sm border border-slate-100 flex items-center justify-center text-slate-300 overflow-hidden active:scale-90 transition-all">
-                {userAvatar ? <img src={userAvatar} className="w-full h-full object-cover" /> : <User size={24} />}
-              </button>
-            )}
+            {/* Profile button removed from here as per user request */}
           </div>
         </div>
       )}
@@ -2729,6 +2947,7 @@ const ClubManagement: React.FC<{
         {activeSubView === 'IDEALS_ANTHEM' && renderIdealsAnthem()}
         {activeSubView === 'IDEALS' && renderIdeals()}
         {activeSubView === 'ANTHEM' && renderAnthem()}
+        {activeSubView === 'CULTURE_ADMIN_MENU' && renderCultureAdminMenu()}
         {activeSubView === 'CULTURE_ADMIN' && (
           <CultureAdmin 
             culturaData={culturaData}
@@ -2736,10 +2955,13 @@ const ClubManagement: React.FC<{
             updateCultura={updateCultura}
             setCulturaData={setCulturaData}
             setActiveSubView={setActiveSubView}
+            initialTab={cultureAdminTab}
           />
         )}
         {activeSubView === 'HISTORY_LIST' && renderHistoryList()}
         {activeSubView === 'HISTORY_DETAIL' && renderHistoryDetail()}
+        {activeSubView === 'UNIFORMS' && renderUniforms()}
+        {activeSubView === 'EMBLEMS' && renderEmblems()}
         {activeSubView === 'LIBRARY' && renderLibraryMenu()}
         {activeSubView === 'DESBRAVA_PLUS' && renderDesbravaPlus()}
         {activeSubView === 'DESBRAVA_PLUS_DETAILS' && renderDesbravaPlusDetails()}

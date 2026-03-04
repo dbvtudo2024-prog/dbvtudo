@@ -117,6 +117,22 @@ export interface Cultura {
   historia_equador?: string;
   historia_peru?: string;
   historia_uruguai?: string;
+  uniforme_gala?: string;
+  uniforme_atividades?: string;
+  uniforme_unidade?: string;
+  lencos_prendedores?: string;
+  cobertura?: string;
+  cinto?: string;
+  calcados_meias?: string;
+  torcal?: string;
+  platina_galao?: string;
+  uniforme_diretoria?: string;
+  uniforme_lideres?: string;
+  emblemas?: string;
+  insignias_tiras?: string;
+  distintivos?: string;
+  bandeira_oficial?: string;
+  bandeirim?: string;
 }
 
 export interface UserProfile {

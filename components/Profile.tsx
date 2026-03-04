@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { ChevronLeft, LogOut, Shield, MapPin, Briefcase, Award, Camera, Check, X, User, Mail, Phone, ChevronDown, Heart, Search } from 'lucide-react';
 import { ClubType, Especialidade, UserProfile } from '../types';
-import { fetchEspecialidades, updateUserSpecialties, fetchUserSpecialties, fetchUserProfile, updateUserProfile, supabase } from '../services/supabaseService';
+import { fetchEspecialidades, updateUserSpecialties, fetchUserSpecialties, fetchUserProfile, fetchUserProfileByEmail, updateUserProfile, supabase } from '../services/supabaseService';
 
 const CARGOS = [
   "Diretor(a)",
@@ -98,13 +98,16 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
       clube: "Nome do Clube",
       cargo: "Diretor(a)",
       telefone: "(00) 00000-0000",
-      avatar: "" 
+      avatar: "",
+      cidade: "",
+      estado: "",
+      isAdmin: false
     };
   };
 
   const [userData, setUserData] = useState(getInitialData);
   const [userId, setUserId] = useState<string | null>(null);
-  const isAdmin = userData.email === 'ronaldosonic@gmail.com' || userData.email === 'dbvtudo2024@gmail.com';
+  const isAdmin = userData.isAdmin || userData.email === 'ronaldosonic@gmail.com' || userData.email === 'dbvtudo2024@gmail.com';
   const userClubType = userData.tipo === "Desbravador" ? ClubType.PATHFINDER : ClubType.ADVENTURER;
   const likedKey = `dbv_tudo_liked_specialties_${userClubType}`;
 
@@ -115,18 +118,29 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUserId(user.id);
-        const profile = await fetchUserProfile(user.id);
+        let profile = await fetchUserProfile(user.id);
+        
+        // Fallback para buscar por email se não encontrar por ID (usuários antigos)
+        if (!profile && user.email) {
+          profile = await fetchUserProfileByEmail(user.email);
+          // Se encontrou por email, atualiza o user_id para futuras buscas rápidas
+          if (profile) {
+            await updateUserProfile({ user_id: user.id, email: user.email });
+          }
+        }
+
         if (profile) {
           const mappedData = {
             name: profile.nome || userData.name,
-            email: profile.email || userData.email,
+            email: profile.email || (profile as any)['e - mail'] || user.email || userData.email,
             tipo: profile.clubes === "Aventureiro" ? "Aventureiro" : "Desbravador",
-            clube: profile.clube || userData.clube,
+            clube: profile.clube || profile.clube_de || (profile as any)['clube de'] || userData.clube,
             cargo: profile.funçao || userData.cargo,
             telefone: profile.telefone || userData.telefone,
             avatar: profile.foto || userData.avatar,
             cidade: profile.cidade || "",
-            estado: profile.estado || ""
+            estado: profile.estado || "",
+            isAdmin: profile.ADM || false
           };
           setUserData(mappedData);
           localStorage.setItem(storageKey, JSON.stringify(mappedData));
@@ -272,8 +286,9 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
           clube: userData.clube,
           funçao: userData.cargo,
           clubes: userData.tipo,
-          cidade: userData.cidade || "",
-          estado: userData.estado || ""
+          cidade: userData.cidade,
+          estado: userData.estado,
+          ADM: userData.isAdmin
         };
         await updateUserProfile(profile);
       }

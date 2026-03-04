@@ -253,12 +253,14 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
         if (profile) {
           localStorage.setItem(`dbv_tudo_global_user_profile`, JSON.stringify({
             name: profile.nome,
-            email: profile.email,
+            email: profile.email || (profile as any)['e - mail'] || data.user.email,
             tipo: profile.clubes,
-            clube: profile.clube,
+            clube: profile.clube || profile.clube_de || (profile as any)['clube de'] || "",
             cargo: profile.funçao,
             telefone: profile.telefone,
             avatar: profile.foto || "",
+            cidade: profile.cidade || "",
+            estado: profile.estado || "",
             isAdmin: profile.ADM || false
           }));
         }
