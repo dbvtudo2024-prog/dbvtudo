@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { ClubType } from '../types';
-import { PathfinderLogo, AdventurerLogo } from '../constants';
+import { PathfinderLogo, AdventurerLogo, PROFILE_KEY } from '../constants';
 import { Settings, Sparkles, User } from 'lucide-react';
 
 interface HomeProps {
@@ -10,8 +10,6 @@ interface HomeProps {
   onOpenAdvisor: () => void;
   onOpenProfile: () => void;
 }
-
-const PROFILE_KEY = `dbv_tudo_global_user_profile`;
 
 const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenAdvisor, onOpenProfile }) => {
   const [userAvatar, setUserAvatar] = React.useState<string | null>(null);

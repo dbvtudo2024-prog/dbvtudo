@@ -1,6 +1,8 @@
 
 import React from 'react';
 
+export const PROFILE_KEY = `dbv_tudo_global_user_profile`;
+
 export const COLORS = {
   primary: '#dc371b', // Novo Vermelho DBV
   secondary: '#800000', // Novo Vinho/Marrom AVT
