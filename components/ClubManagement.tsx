@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, BibleNote, Devocional, Cultura, UserProfile } from '../types';
+import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, BibleNote, Devocional, Cultura, UserProfile, CulturaItem } from '../types';
 import { fetchCategories, fetchEspecialidades, fetchClasses, fetchDesbravaMais, fetchBibleBooks, fetchBibleVerses, fetchBibleDictionary, fetchDevocionais, createDevocional, deleteDevocional, fetchUserSpecialties, updateUserSpecialties, fetchCultura, updateCultura, fetchUserProfile, supabase } from '../services/supabaseService';
 import { PROFILE_KEY } from '../constants';
 import { 
@@ -55,24 +55,56 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
     historia_equador: culturaData?.historia_equador || '',
     historia_peru: culturaData?.historia_peru || '',
     historia_uruguai: culturaData?.historia_uruguai || '',
-    uniforme_gala: culturaData?.uniforme_gala || '',
-    uniforme_atividades: culturaData?.uniforme_atividades || '',
-    uniforme_unidade: culturaData?.uniforme_unidade || '',
-    lencos_prendedores: culturaData?.lencos_prendedores || '',
-    cobertura: culturaData?.cobertura || '',
-    cinto: culturaData?.cinto || '',
-    calcados_meias: culturaData?.calcados_meias || '',
-    torcal: culturaData?.torcal || '',
-    platina_galao: culturaData?.platina_galao || '',
-    uniforme_diretoria: culturaData?.uniforme_diretoria || '',
-    uniforme_lideres: culturaData?.uniforme_lideres || '',
-    emblemas: culturaData?.emblemas || '',
-    insignias_tiras: culturaData?.insignias_tiras || '',
-    distintivos: culturaData?.distintivos || '',
-    bandeira_oficial: culturaData?.bandeira_oficial || '',
-    bandeirim: culturaData?.bandeirim || ''
+    uniformes_list: culturaData?.uniformes_list || [] as CulturaItem[],
+    emblemas_list: culturaData?.emblemas_list || [] as CulturaItem[]
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [newItem, setNewItem] = useState<Partial<CulturaItem>>({
+    titulo: '',
+    subtitulo: '',
+    descricao: '',
+    imagem: ''
+  });
+
+  const handleItemImageUpload = (file: File) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      setNewItem(prev => ({ ...prev, imagem: base64String }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const addItem = (type: 'UNIFORMS' | 'EMBLEMS') => {
+    if (!newItem.titulo || !newItem.descricao) {
+      alert("Título e Descrição são obrigatórios.");
+      return;
+    }
+
+    const item: CulturaItem = {
+      id: Date.now().toString(),
+      titulo: newItem.titulo!,
+      subtitulo: newItem.subtitulo,
+      descricao: newItem.descricao!,
+      imagem: newItem.imagem
+    };
+
+    const listKey = type === 'UNIFORMS' ? 'uniformes_list' : 'emblemas_list';
+    setLocalCultura(prev => ({
+      ...prev,
+      [listKey]: [...(prev as any)[listKey], item]
+    }));
+
+    setNewItem({ titulo: '', subtitulo: '', descricao: '', imagem: '' });
+  };
+
+  const removeItem = (type: 'UNIFORMS' | 'EMBLEMS', id: string) => {
+    const listKey = type === 'UNIFORMS' ? 'uniformes_list' : 'emblemas_list';
+    setLocalCultura(prev => ({
+      ...prev,
+      [listKey]: (prev as any)[listKey].filter((item: CulturaItem) => item.id !== id)
+    }));
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -200,52 +232,220 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
           )}
 
           {activeTab === 'UNIFORMS' && (
-            <div className="space-y-6">
-              {[
-                { id: 'uniforme_gala', label: 'Uniforme de Gala' },
-                { id: 'uniforme_atividades', label: 'Uniforme de Atividades' },
-                { id: 'uniforme_unidade', label: 'Uniforme de Unidade' },
-                { id: 'lencos_prendedores', label: 'Lenços e Prendedores' },
-                { id: 'cobertura', label: 'Cobertura' },
-                { id: 'cinto', label: 'Cinto' },
-                { id: 'calcados_meias', label: 'Calçados e Meias' },
-                { id: 'torcal', label: 'Torçal' },
-                { id: 'platina_galao', label: 'Platina ou Galão' },
-                { id: 'uniforme_diretoria', label: 'Uniforme de Diretoria' },
-                { id: 'uniforme_lideres', label: 'Uniforme de Líderes' }
-              ].map((field) => (
-                <div key={field.id} className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{field.label}</label>
-                  <textarea 
-                    value={(localCultura as any)[field.id]}
-                    onChange={(e) => setLocalCultura({...localCultura, [field.id]: e.target.value})}
-                    placeholder={`Digite sobre ${field.label.toLowerCase()}...`}
-                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[150px]"
-                  />
+            <div className="space-y-8">
+              {/* Form to add new item */}
+              <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100 space-y-4">
+                <h4 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center space-x-2">
+                  <Plus size={16} className="text-indigo-600" />
+                  <span>Adicionar Novo Item de Uniforme</span>
+                </h4>
+                
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Título</label>
+                    <input 
+                      type="text"
+                      value={newItem.titulo}
+                      onChange={(e) => setNewItem({...newItem, titulo: e.target.value})}
+                      placeholder="Ex: Uniforme de Gala"
+                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Subtítulo (Opcional)</label>
+                    <input 
+                      type="text"
+                      value={newItem.subtitulo}
+                      onChange={(e) => setNewItem({...newItem, subtitulo: e.target.value})}
+                      placeholder="Ex: Uso obrigatório em cerimônias"
+                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Descrição</label>
+                    <textarea 
+                      value={newItem.descricao}
+                      onChange={(e) => setNewItem({...newItem, descricao: e.target.value})}
+                      placeholder="Descreva os detalhes do item..."
+                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[100px]"
+                    />
+                  </div>
+                  
+                  <div className="flex items-center space-x-4">
+                    <div className="relative w-24 h-24 bg-white border-2 border-dashed border-slate-200 rounded-2xl overflow-hidden flex items-center justify-center group cursor-pointer">
+                      {newItem.imagem ? (
+                        <img 
+                          src={newItem.imagem} 
+                          alt="Preview" 
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <Plus className="text-slate-300 group-hover:text-indigo-500 transition-colors" size={24} />
+                      )}
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleItemImageUpload(file);
+                        }}
+                        className="absolute inset-0 opacity-0 cursor-pointer"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Imagem do Item</p>
+                      <p className="text-[9px] text-slate-300">Clique para adicionar uma foto</p>
+                    </div>
+                  </div>
                 </div>
-              ))}
+
+                <button 
+                  onClick={() => addItem('UNIFORMS')}
+                  className="w-full py-3 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-md active:scale-95 transition-all"
+                >
+                  Adicionar à Lista
+                </button>
+              </div>
+
+              {/* List of added items */}
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Itens Adicionados ({localCultura.uniformes_list.length})</h4>
+                {localCultura.uniformes_list.length === 0 ? (
+                  <p className="text-center py-8 text-slate-300 italic text-xs">Nenhum item adicionado ainda.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {localCultura.uniformes_list.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl shadow-sm">
+                        <div className="flex items-center space-x-3">
+                          {item.imagem && (
+                            <img src={item.imagem} alt={item.titulo} className="w-10 h-10 rounded-lg object-cover" referrerPolicy="no-referrer" />
+                          )}
+                          <div>
+                            <p className="text-sm font-black text-slate-700 uppercase tracking-tight">{item.titulo}</p>
+                            <p className="text-[10px] text-slate-400 truncate max-w-[200px]">{item.descricao}</p>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => removeItem('UNIFORMS', item.id)}
+                          className="p-2 text-red-400 hover:bg-red-50 rounded-xl transition-colors"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
           {activeTab === 'EMBLEMS' && (
-            <div className="space-y-6">
-              {[
-                { id: 'emblemas', label: 'Emblemas' },
-                { id: 'insignias_tiras', label: 'Insígnias e Tiras' },
-                { id: 'distintivos', label: 'Distintivos' },
-                { id: 'bandeira_oficial', label: 'Bandeira Oficial' },
-                { id: 'bandeirim', label: 'Bandeirim' }
-              ].map((field) => (
-                <div key={field.id} className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{field.label}</label>
-                  <textarea 
-                    value={(localCultura as any)[field.id]}
-                    onChange={(e) => setLocalCultura({...localCultura, [field.id]: e.target.value})}
-                    placeholder={`Digite sobre ${field.label.toLowerCase()}...`}
-                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[150px]"
-                  />
+            <div className="space-y-8">
+              {/* Form to add new item */}
+              <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100 space-y-4">
+                <h4 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center space-x-2">
+                  <Plus size={16} className="text-indigo-600" />
+                  <span>Adicionar Novo Emblema</span>
+                </h4>
+                
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Título</label>
+                    <input 
+                      type="text"
+                      value={newItem.titulo}
+                      onChange={(e) => setNewItem({...newItem, titulo: e.target.value})}
+                      placeholder="Ex: Emblema D1"
+                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Subtítulo (Opcional)</label>
+                    <input 
+                      type="text"
+                      value={newItem.subtitulo}
+                      onChange={(e) => setNewItem({...newItem, subtitulo: e.target.value})}
+                      placeholder="Ex: Representa o triângulo invertido"
+                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Descrição</label>
+                    <textarea 
+                      value={newItem.descricao}
+                      onChange={(e) => setNewItem({...newItem, descricao: e.target.value})}
+                      placeholder="Descreva o significado e uso..."
+                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[100px]"
+                    />
+                  </div>
+                  
+                  <div className="flex items-center space-x-4">
+                    <div className="relative w-24 h-24 bg-white border-2 border-dashed border-slate-200 rounded-2xl overflow-hidden flex items-center justify-center group cursor-pointer">
+                      {newItem.imagem ? (
+                        <img 
+                          src={newItem.imagem} 
+                          alt="Preview" 
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <Plus className="text-slate-300 group-hover:text-indigo-500 transition-colors" size={24} />
+                      )}
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleItemImageUpload(file);
+                        }}
+                        className="absolute inset-0 opacity-0 cursor-pointer"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Imagem do Emblema</p>
+                      <p className="text-[9px] text-slate-300">Clique para adicionar uma foto</p>
+                    </div>
+                  </div>
                 </div>
-              ))}
+
+                <button 
+                  onClick={() => addItem('EMBLEMS')}
+                  className="w-full py-3 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-md active:scale-95 transition-all"
+                >
+                  Adicionar à Lista
+                </button>
+              </div>
+
+              {/* List of added items */}
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Emblemas Adicionados ({localCultura.emblemas_list.length})</h4>
+                {localCultura.emblemas_list.length === 0 ? (
+                  <p className="text-center py-8 text-slate-300 italic text-xs">Nenhum emblema adicionado ainda.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {localCultura.emblemas_list.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl shadow-sm">
+                        <div className="flex items-center space-x-3">
+                          {item.imagem && (
+                            <img src={item.imagem} alt={item.titulo} className="w-10 h-10 rounded-lg object-cover" referrerPolicy="no-referrer" />
+                          )}
+                          <div>
+                            <p className="text-sm font-black text-slate-700 uppercase tracking-tight">{item.titulo}</p>
+                            <p className="text-[10px] text-slate-400 truncate max-w-[200px]">{item.descricao}</p>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => removeItem('EMBLEMS', item.id)}
+                          className="p-2 text-red-400 hover:bg-red-50 rounded-xl transition-colors"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -1098,39 +1298,55 @@ const ClubManagement: React.FC<{
     );
   };
 
-  const renderHistoryList = () => (
-    <div className="animate-slide-in space-y-4 pt-4 pb-28">
-      {[
-        { id: 'historia_mundial', label: 'Mundial' },
-        { id: 'historia_america_sul', label: 'América do Sul' },
-        { id: 'historia_argentina', label: 'Argentina' },
-        { id: 'historia_bolivia', label: 'Bolívia' },
-        { id: 'historia_brasil', label: 'Brasil' },
-        { id: 'historia_chile', label: 'Chile' },
-        { id: 'historia_colombia', label: 'Colômbia' },
-        { id: 'historia_equador', label: 'Equador' },
-        { id: 'historia_peru', label: 'Peru' },
-        { id: 'historia_uruguai', label: 'Uruguai' }
-      ].map((item) => (
-        <button 
-          key={item.id}
-          onClick={() => {
-            setSelectedHistory(item.id);
-            setActiveSubView('HISTORY_DETAIL');
-          }}
-          className="w-full bg-white border border-slate-100 rounded-[24px] p-5 flex items-center justify-between shadow-sm active:scale-[0.98] transition-all group"
-        >
-          <div className="flex items-center space-x-4">
-            <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600">
-              <Globe size={20} />
+  const renderHistoryList = () => {
+    const availableHistories = [
+      { id: 'historia_mundial', label: 'Mundial' },
+      { id: 'historia_america_sul', label: 'América do Sul' },
+      { id: 'historia_argentina', label: 'Argentina' },
+      { id: 'historia_bolivia', label: 'Bolívia' },
+      { id: 'historia_brasil', label: 'Brasil' },
+      { id: 'historia_chile', label: 'Chile' },
+      { id: 'historia_colombia', label: 'Colômbia' },
+      { id: 'historia_equador', label: 'Equador' },
+      { id: 'historia_peru', label: 'Peru' },
+      { id: 'historia_uruguai', label: 'Uruguai' }
+    ].filter(item => {
+      const content = (culturaData as any)?.[item.id];
+      return content && content.trim().length > 0;
+    });
+
+    return (
+      <div className="animate-slide-in space-y-4 pt-4 pb-28">
+        {availableHistories.length === 0 ? (
+          <div className="bg-white rounded-[32px] p-12 text-center border border-slate-100 shadow-sm">
+            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
+              <Globe size={40} />
             </div>
-            <span className="font-black text-slate-700 uppercase tracking-tight">{item.label}</span>
+            <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Nenhuma história disponível no momento.</p>
           </div>
-          <ChevronRight size={20} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
-        </button>
-      ))}
-    </div>
-  );
+        ) : (
+          availableHistories.map((item) => (
+            <button 
+              key={item.id}
+              onClick={() => {
+                setSelectedHistory(item.id);
+                setActiveSubView('HISTORY_DETAIL');
+              }}
+              className="w-full bg-white border border-slate-100 rounded-[24px] p-5 flex items-center justify-between shadow-sm active:scale-[0.98] transition-all group"
+            >
+              <div className="flex items-center space-x-4">
+                <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600">
+                  <Globe size={20} />
+                </div>
+                <span className="font-black text-slate-700 uppercase tracking-tight">{item.label}</span>
+              </div>
+              <ChevronRight size={20} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
+            </button>
+          ))
+        )}
+      </div>
+    );
+  };
 
   const renderHistoryDetail = () => {
     const historyMap: Record<string, string> = {
@@ -1152,6 +1368,12 @@ const ClubManagement: React.FC<{
     return (
       <div className="animate-slide-in space-y-6 pt-4 pb-28">
         <div className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100">
+          <div className="mb-6">
+            <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">
+              {title}
+            </h3>
+            <div className="w-12 h-1 bg-indigo-500 rounded-full mt-2"></div>
+          </div>
           
           {content ? (
             <div className="prose prose-slate max-w-none">
@@ -1169,97 +1391,123 @@ const ClubManagement: React.FC<{
     );
   };
 
-  const renderUniforms = () => (
-    <div className="animate-slide-in space-y-4 pt-4 pb-28">
-      <div className="bg-white rounded-[40px] p-6 shadow-sm border border-slate-100">
-        
-        <div className="space-y-3">
-          {[
-            { id: 'uniforme_gala', label: 'Uniforme de Gala' },
-            { id: 'lencos_prendedores', label: 'Lenços e Prendedores' },
-            { id: 'cobertura', label: 'Cobertura' },
-            { id: 'cinto', label: 'Cinto' },
-            { id: 'calcados_meias', label: 'Calçados e Meias' },
-            { id: 'torcal', label: 'Torçal' },
-            { id: 'platina_galao', label: 'Platina ou Galão' },
-            { id: 'uniforme_diretoria', label: 'Uniforme de diretoria e associados' },
-            { id: 'uniforme_lideres', label: 'Uniforme do Clube de Líderes' }
-          ].map((item) => (
-            <div key={item.id} className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
-              <button 
-                onClick={() => setActiveAccordion(activeAccordion === item.id ? null : item.id)}
-                className="w-full p-4 flex items-center justify-between bg-white hover:bg-slate-50 transition-all text-left"
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center text-white shadow-md">
-                    <Shirt size={20} />
-                  </div>
-                  <span className="text-xs font-black text-slate-700 uppercase tracking-tight leading-tight flex-1">{item.label}</span>
-                </div>
-                <ChevronDown size={16} className={`text-slate-400 transition-transform duration-300 ${activeAccordion === item.id ? 'rotate-180' : ''}`} />
-              </button>
-              
-              {activeAccordion === item.id && (
-                <div className="p-5 bg-slate-50 border-t border-slate-100 animate-slide-down">
-                  {(culturaData as any)?.[item.id] ? (
-                    <p className="text-slate-600 font-medium leading-relaxed whitespace-pre-wrap text-sm">
-                      {(culturaData as any)[item.id]}
-                    </p>
-                  ) : (
-                    <p className="text-slate-400 italic text-xs text-center">Informações em breve...</p>
+  const renderUniforms = () => {
+    const uniforms = culturaData?.uniformes_list || [];
+    
+    return (
+      <div className="animate-slide-in space-y-4 pt-4 pb-28">
+        <div className="bg-white rounded-[40px] p-6 shadow-sm border border-slate-100">
+          {uniforms.length === 0 ? (
+            <div className="py-12 text-center">
+              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
+                <Shirt size={40} />
+              </div>
+              <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Informações em breve...</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {uniforms.map((item) => (
+                <div key={item.id} className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+                  <button 
+                    onClick={() => setActiveAccordion(activeAccordion === item.id ? null : item.id)}
+                    className="w-full p-4 flex items-center justify-between bg-white hover:bg-slate-50 transition-all text-left"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center text-white shadow-md">
+                        <Shirt size={20} />
+                      </div>
+                      <div className="flex-1">
+                        <span className="text-xs font-black text-slate-700 uppercase tracking-tight leading-tight block">{item.titulo}</span>
+                        {item.subtitulo && <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">{item.subtitulo}</span>}
+                      </div>
+                    </div>
+                    <ChevronDown size={16} className={`text-slate-400 transition-transform duration-300 ${activeAccordion === item.id ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {activeAccordion === item.id && (
+                    <div className="p-5 bg-slate-50 border-t border-slate-100 animate-slide-down space-y-4">
+                      {item.imagem && (
+                        <div className="w-full aspect-video rounded-2xl overflow-hidden border border-slate-200 shadow-inner bg-white">
+                          <img 
+                            src={item.imagem} 
+                            alt={item.titulo} 
+                            className="w-full h-full object-contain"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                      )}
+                      <p className="text-slate-600 font-medium leading-relaxed whitespace-pre-wrap text-sm">
+                        {item.descricao}
+                      </p>
+                    </div>
                   )}
                 </div>
-              )}
+              ))}
             </div>
-          ))}
+          )}
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
-  const renderEmblems = () => (
-    <div className="animate-slide-in space-y-4 pt-4 pb-28">
-      <div className="bg-white rounded-[40px] p-6 shadow-sm border border-slate-100">
-        
-        <div className="space-y-3">
-          {[
-            { id: 'emblemas', label: 'Emblemas' },
-            { id: 'insignias_tiras', label: 'Insígnias e Tiras' },
-            { id: 'distintivos', label: 'Distintivos' },
-            { id: 'bandeira_oficial', label: 'Bandeira Oficial dos Desbravadores' },
-            { id: 'bandeirim', label: 'Bandeirim' }
-          ].map((item) => (
-            <div key={item.id} className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
-              <button 
-                onClick={() => setActiveAccordion(activeAccordion === item.id ? null : item.id)}
-                className="w-full p-4 flex items-center justify-between bg-white hover:bg-slate-50 transition-all text-left"
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-red-500 rounded-xl flex items-center justify-center text-white shadow-md">
-                    <Shield size={20} />
-                  </div>
-                  <span className="text-xs font-black text-slate-700 uppercase tracking-tight leading-tight flex-1">{item.label}</span>
-                </div>
-                <ChevronDown size={16} className={`text-slate-400 transition-transform duration-300 ${activeAccordion === item.id ? 'rotate-180' : ''}`} />
-              </button>
-              
-              {activeAccordion === item.id && (
-                <div className="p-5 bg-slate-50 border-t border-slate-100 animate-slide-down">
-                  {(culturaData as any)?.[item.id] ? (
-                    <p className="text-slate-600 font-medium leading-relaxed whitespace-pre-wrap text-sm">
-                      {(culturaData as any)[item.id]}
-                    </p>
-                  ) : (
-                    <p className="text-slate-400 italic text-xs text-center">Informações sobre emblemas em breve...</p>
+  const renderEmblems = () => {
+    const emblems = culturaData?.emblemas_list || [];
+
+    return (
+      <div className="animate-slide-in space-y-4 pt-4 pb-28">
+        <div className="bg-white rounded-[40px] p-6 shadow-sm border border-slate-100">
+          {emblems.length === 0 ? (
+            <div className="py-12 text-center">
+              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
+                <Shield size={40} />
+              </div>
+              <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Informações em breve...</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {emblems.map((item) => (
+                <div key={item.id} className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+                  <button 
+                    onClick={() => setActiveAccordion(activeAccordion === item.id ? null : item.id)}
+                    className="w-full p-4 flex items-center justify-between bg-white hover:bg-slate-50 transition-all text-left"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-red-500 rounded-xl flex items-center justify-center text-white shadow-md">
+                        <Shield size={20} />
+                      </div>
+                      <div className="flex-1">
+                        <span className="text-xs font-black text-slate-700 uppercase tracking-tight leading-tight block">{item.titulo}</span>
+                        {item.subtitulo && <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">{item.subtitulo}</span>}
+                      </div>
+                    </div>
+                    <ChevronDown size={16} className={`text-slate-400 transition-transform duration-300 ${activeAccordion === item.id ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {activeAccordion === item.id && (
+                    <div className="p-5 bg-slate-50 border-t border-slate-100 animate-slide-down space-y-4">
+                      {item.imagem && (
+                        <div className="w-full aspect-video rounded-2xl overflow-hidden border border-slate-200 shadow-inner bg-white">
+                          <img 
+                            src={item.imagem} 
+                            alt={item.titulo} 
+                            className="w-full h-full object-contain"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                      )}
+                      <p className="text-slate-600 font-medium leading-relaxed whitespace-pre-wrap text-sm">
+                        {item.descricao}
+                      </p>
+                    </div>
                   )}
                 </div>
-              )}
+              ))}
             </div>
-          ))}
+          )}
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderLibraryMenu = () => (
     <div className="animate-slide-in space-y-4 pt-4 pb-28">
@@ -2839,7 +3087,18 @@ const ClubManagement: React.FC<{
                activeSubView === 'CULTURE_ADMIN' ? 'Gestão de Cultura' :
                activeSubView === 'CULTURE_ADMIN_MENU' ? 'Gestão de Cultura' :
                activeSubView === 'HISTORY_LIST' ? 'Nossa História' :
-               activeSubView === 'HISTORY_DETAIL' ? 'História Detalhada' :
+               activeSubView === 'HISTORY_DETAIL' ? (
+                 selectedHistory === 'historia_mundial' ? 'História Mundial' :
+                 selectedHistory === 'historia_america_sul' ? 'América do Sul' :
+                 selectedHistory === 'historia_argentina' ? 'Argentina' :
+                 selectedHistory === 'historia_bolivia' ? 'Bolívia' :
+                 selectedHistory === 'historia_brasil' ? 'Brasil' :
+                 selectedHistory === 'historia_chile' ? 'Chile' :
+                 selectedHistory === 'historia_colombia' ? 'Colômbia' :
+                 selectedHistory === 'historia_equador' ? 'Equador' :
+                 selectedHistory === 'historia_peru' ? 'Peru' :
+                 selectedHistory === 'historia_uruguai' ? 'Uruguai' : 'História Detalhada'
+               ) :
                activeSubView === 'UNIFORMS' ? 'Uniformes' :
                activeSubView === 'EMBLEMS' ? 'Emblemas' :
                activeSubView === 'MANAGEMENT' ? 'Gerenciar Clube' :

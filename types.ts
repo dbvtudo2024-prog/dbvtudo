@@ -95,6 +95,14 @@ export interface Devocional {
   created_at?: string;
 }
 
+export interface CulturaItem {
+  id: string;
+  titulo: string;
+  subtitulo?: string;
+  descricao: string;
+  imagem?: string;
+}
+
 export interface Cultura {
   id: number;
   club_type: string;
@@ -117,22 +125,41 @@ export interface Cultura {
   historia_equador?: string;
   historia_peru?: string;
   historia_uruguai?: string;
+  uniformes_list?: CulturaItem[];
+  emblemas_list?: CulturaItem[];
+  // Deprecated fixed fields
   uniforme_gala?: string;
+  uniforme_gala_img?: string;
   uniforme_atividades?: string;
+  uniforme_atividades_img?: string;
   uniforme_unidade?: string;
+  uniforme_unidade_img?: string;
   lencos_prendedores?: string;
+  lencos_prendedores_img?: string;
   cobertura?: string;
+  cobertura_img?: string;
   cinto?: string;
+  cinto_img?: string;
   calcados_meias?: string;
+  calcados_meias_img?: string;
   torcal?: string;
+  torcal_img?: string;
   platina_galao?: string;
+  platina_galao_img?: string;
   uniforme_diretoria?: string;
+  uniforme_diretoria_img?: string;
   uniforme_lideres?: string;
+  uniforme_lideres_img?: string;
   emblemas?: string;
+  emblemas_img?: string;
   insignias_tiras?: string;
+  insignias_tiras_img?: string;
   distintivos?: string;
+  distintivos_img?: string;
   bandeira_oficial?: string;
+  bandeira_oficial_img?: string;
   bandeirim?: string;
+  bandeirim_img?: string;
 }
 
 export interface UserProfile {
