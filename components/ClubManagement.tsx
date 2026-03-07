@@ -1,12 +1,19 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, BibleNote, Devocional, Cultura, UserProfile, CulturaItem } from '../types';
-import { fetchCategories, fetchEspecialidades, fetchClasses, fetchDesbravaMais, fetchBibleBooks, fetchBibleVerses, fetchBibleDictionary, fetchDevocionais, createDevocional, deleteDevocional, fetchUserSpecialties, updateUserSpecialties, fetchCultura, updateCultura, fetchUserProfile, supabase } from '../services/supabaseService';
+import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, BibleNote, Devocional, Cultura, UserProfile, CulturaItem, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario } from '../types';
+import { 
+  fetchCategories, fetchEspecialidades, fetchClasses, fetchDesbravaMais, 
+  fetchBibleBooks, fetchBibleVerses, fetchBibleDictionary, fetchDevocionais, 
+  createDevocional, deleteDevocional, fetchUserSpecialties, updateUserSpecialties, 
+  fetchCultura, updateCultura, fetchUserProfile, supabase,
+  fetchLivrosClasses, fetchLivrosAno, fetchOutrosLivros, fetchManuaisDBV,
+  fetchCampingDBV, fetchFormularios, createFormulario, deleteFormulario
+} from '../services/supabaseService';
 import { PROFILE_KEY } from '../constants';
 import { 
   Shield, Award, User, Layers, Sparkles, Home as HomeIcon, Search,
   ChevronRight, ChevronLeft, ChevronDown, Info, Book, Settings, Zap, Music, Flag, Shirt, Globe, Key, FileText, Library, CreditCard, MapPin, Video, Folder, BookOpen, Heart, ArrowUp,
-  Trash2, Plus, Save, Share2, Calendar
+  Trash2, Plus, Save, Share2, Calendar, X
 } from 'lucide-react';
 
 
@@ -63,7 +70,8 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
     titulo: '',
     subtitulo: '',
     descricao: '',
-    imagem: ''
+    imagem: '',
+    parentId: undefined
   });
 
   const handleItemImageUpload = (file: File) => {
@@ -73,6 +81,58 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
       setNewItem(prev => ({ ...prev, imagem: base64String }));
     };
     reader.readAsDataURL(file);
+  };
+
+  const findItemTitle = (items: CulturaItem[], id: string): string | null => {
+    for (const item of items) {
+      if (item.id === id) return item.titulo;
+      if (item.subitems && item.subitems.length > 0) {
+        const found = findItemTitle(item.subitems, id);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  const renderAdminItemList = (items: CulturaItem[], type: 'UNIFORMS' | 'EMBLEMS', depth = 0) => {
+    return items.map((item) => (
+      <div key={item.id} className="space-y-2">
+        <div className={`flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl shadow-sm ${depth > 0 ? 'ml-8' : ''}`}>
+          <div className="flex items-center space-x-3">
+            {item.imagem && (
+              <img src={item.imagem} alt={item.titulo} className="w-10 h-10 rounded-lg object-cover" referrerPolicy="no-referrer" />
+            )}
+            <div>
+              <p className="text-sm font-black text-slate-700 uppercase tracking-tight">{item.titulo}</p>
+              <p className="text-[10px] text-slate-400 truncate max-w-[200px]">{item.descricao}</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button 
+              onClick={() => {
+                setNewItem({ ...newItem, parentId: item.id });
+                document.getElementById('admin-item-form')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="p-2 text-indigo-400 hover:bg-indigo-50 rounded-xl transition-colors"
+              title="Adicionar Sub-item"
+            >
+              <Plus size={18} />
+            </button>
+            <button 
+              onClick={() => removeItem(type, item.id)}
+              className="p-2 text-red-400 hover:bg-red-50 rounded-xl transition-colors"
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
+        </div>
+        {item.subitems && item.subitems.length > 0 && (
+          <div className="space-y-2">
+            {renderAdminItemList(item.subitems, type, depth + 1)}
+          </div>
+        )}
+      </div>
+    ));
   };
 
   const addItem = (type: 'UNIFORMS' | 'EMBLEMS') => {
@@ -92,23 +152,56 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
       titulo: newItem.titulo!,
       subtitulo: newItem.subtitulo,
       descricao: newItem.descricao!,
-      imagem: newItem.imagem
+      imagem: newItem.imagem,
+      subitems: []
     };
 
     const listKey = type === 'UNIFORMS' ? 'uniformes_list' : 'emblemas_list';
-    setLocalCultura(prev => ({
-      ...prev,
-      [listKey]: [...(prev as any)[listKey], item]
-    }));
+    
+    if (newItem.parentId) {
+      // Recursive function to add subitem
+      const addSubItemRecursive = (items: CulturaItem[]): CulturaItem[] => {
+        return items.map(i => {
+          if (i.id === newItem.parentId) {
+            return { ...i, subitems: [...(i.subitems || []), item] };
+          }
+          if (i.subitems && i.subitems.length > 0) {
+            return { ...i, subitems: addSubItemRecursive(i.subitems) };
+          }
+          return i;
+        });
+      };
 
-    setNewItem({ titulo: '', subtitulo: '', descricao: '', imagem: '' });
+      setLocalCultura(prev => ({
+        ...prev,
+        [listKey]: addSubItemRecursive((prev as any)[listKey])
+      }));
+    } else {
+      setLocalCultura(prev => ({
+        ...prev,
+        [listKey]: [...(prev as any)[listKey], item]
+      }));
+    }
+
+    setNewItem({ titulo: '', subtitulo: '', descricao: '', imagem: '', parentId: undefined });
   };
 
   const removeItem = (type: 'UNIFORMS' | 'EMBLEMS', id: string) => {
     const listKey = type === 'UNIFORMS' ? 'uniformes_list' : 'emblemas_list';
+    
+    // Recursive function to remove item
+    const removeItemRecursive = (items: CulturaItem[]): CulturaItem[] => {
+      return items
+        .filter(item => item.id !== id)
+        .map(item => ({
+          ...item,
+          subitems: item.subitems ? removeItemRecursive(item.subitems) : []
+        }));
+    };
+
     setLocalCultura(prev => ({
       ...prev,
-      [listKey]: (prev as any)[listKey].filter((item: CulturaItem) => item.id !== id)
+      [listKey]: removeItemRecursive((prev as any)[listKey])
     }));
   };
 
@@ -251,11 +344,22 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
           {activeTab === 'UNIFORMS' && (
             <div className="space-y-8">
               {/* Form to add new item */}
-              <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100 space-y-4">
+              <div id="admin-item-form" className="bg-slate-50 rounded-3xl p-6 border border-slate-100 space-y-4">
                 <h4 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center space-x-2">
                   <Plus size={16} className="text-indigo-600" />
-                  <span>Adicionar Novo Item de Uniforme</span>
+                  <span>{newItem.parentId ? 'Adicionar Sub-item de Uniforme' : 'Adicionar Novo Item de Uniforme'}</span>
                 </h4>
+
+                {newItem.parentId && (
+                  <div className="bg-indigo-50 p-3 rounded-xl flex items-center justify-between">
+                    <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">
+                      Pai: {findItemTitle(localCultura.uniformes_list, newItem.parentId)}
+                    </span>
+                    <button onClick={() => setNewItem({ ...newItem, parentId: undefined })} className="text-indigo-400 hover:text-indigo-600">
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
                 
                 <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
@@ -327,30 +431,12 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
 
               {/* List of added items */}
               <div className="space-y-4">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Itens Adicionados ({localCultura.uniformes_list.length})</h4>
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Itens Adicionados</h4>
                 {localCultura.uniformes_list.length === 0 ? (
                   <p className="text-center py-8 text-slate-300 italic text-xs">Nenhum item adicionado ainda.</p>
                 ) : (
                   <div className="space-y-3">
-                    {localCultura.uniformes_list.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl shadow-sm">
-                        <div className="flex items-center space-x-3">
-                          {item.imagem && (
-                            <img src={item.imagem} alt={item.titulo} className="w-10 h-10 rounded-lg object-cover" referrerPolicy="no-referrer" />
-                          )}
-                          <div>
-                            <p className="text-sm font-black text-slate-700 uppercase tracking-tight">{item.titulo}</p>
-                            <p className="text-[10px] text-slate-400 truncate max-w-[200px]">{item.descricao}</p>
-                          </div>
-                        </div>
-                        <button 
-                          onClick={() => removeItem('UNIFORMS', item.id)}
-                          className="p-2 text-red-400 hover:bg-red-50 rounded-xl transition-colors"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    ))}
+                    {renderAdminItemList(localCultura.uniformes_list, 'UNIFORMS')}
                   </div>
                 )}
               </div>
@@ -360,11 +446,22 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
           {activeTab === 'EMBLEMS' && (
             <div className="space-y-8">
               {/* Form to add new item */}
-              <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100 space-y-4">
+              <div id="admin-item-form" className="bg-slate-50 rounded-3xl p-6 border border-slate-100 space-y-4">
                 <h4 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center space-x-2">
                   <Plus size={16} className="text-indigo-600" />
-                  <span>Adicionar Novo Emblema</span>
+                  <span>{newItem.parentId ? 'Adicionar Sub-emblema' : 'Adicionar Novo Emblema'}</span>
                 </h4>
+
+                {newItem.parentId && (
+                  <div className="bg-indigo-50 p-3 rounded-xl flex items-center justify-between">
+                    <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">
+                      Pai: {findItemTitle(localCultura.emblemas_list, newItem.parentId)}
+                    </span>
+                    <button onClick={() => setNewItem({ ...newItem, parentId: undefined })} className="text-indigo-400 hover:text-indigo-600">
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
                 
                 <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
@@ -436,30 +533,12 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
 
               {/* List of added items */}
               <div className="space-y-4">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Emblemas Adicionados ({localCultura.emblemas_list.length})</h4>
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Emblemas Adicionados</h4>
                 {localCultura.emblemas_list.length === 0 ? (
                   <p className="text-center py-8 text-slate-300 italic text-xs">Nenhum emblema adicionado ainda.</p>
                 ) : (
                   <div className="space-y-3">
-                    {localCultura.emblemas_list.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl shadow-sm">
-                        <div className="flex items-center space-x-3">
-                          {item.imagem && (
-                            <img src={item.imagem} alt={item.titulo} className="w-10 h-10 rounded-lg object-cover" referrerPolicy="no-referrer" />
-                          )}
-                          <div>
-                            <p className="text-sm font-black text-slate-700 uppercase tracking-tight">{item.titulo}</p>
-                            <p className="text-[10px] text-slate-400 truncate max-w-[200px]">{item.descricao}</p>
-                          </div>
-                        </div>
-                        <button 
-                          onClick={() => removeItem('EMBLEMS', item.id)}
-                          className="p-2 text-red-400 hover:bg-red-50 rounded-xl transition-colors"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    ))}
+                    {renderAdminItemList(localCultura.emblemas_list, 'EMBLEMS')}
                   </div>
                 )}
               </div>
@@ -487,10 +566,10 @@ const ClubManagement: React.FC<{
   onOpenProfile?: () => void; 
   onOpenAdvisor?: (prompt: string) => void;
   isGuest?: boolean; 
-  initialSubView?: 'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS';
+  initialSubView?: 'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS';
   onClearSubView?: () => void;
 }> = ({ club, onBack, onSwitchClub, onOpenProfile, onOpenAdvisor, isGuest, initialSubView, onClearSubView }) => {
-  const [activeSubView, setActiveSubView] = useState<'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS'>(initialSubView || 'MAIN');
+  const [activeSubView, setActiveSubView] = useState<'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS'>(initialSubView || 'MAIN');
   const [classes, setClasses] = useState<ClubClass[]>([]);
   const [selectedClass, setSelectedClass] = useState<ClubClass | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -518,6 +597,15 @@ const ClubManagement: React.FC<{
   const [noteSearch, setNoteSearch] = useState('');
   const [newNote, setNewNote] = useState({ title: '', reference: '', content: '' });
   
+  // Library and Materials State
+  const [livrosClasses, setLivrosClasses] = useState<LivroClasse[]>([]);
+  const [livrosAno, setLivrosAno] = useState<LivroAno[]>([]);
+  const [outrosLivros, setOutrosLivros] = useState<OutroLivro[]>([]);
+  const [manuaisDBV, setManuaisDBV] = useState<ManualDBV[]>([]);
+  const [campingDBV, setCampingDBV] = useState<CampingDBV[]>([]);
+  const [formularios, setFormularios] = useState<Formulario[]>([]);
+  const [selectedLibraryCategory, setSelectedLibraryCategory] = useState<'CLASSES' | 'ANO' | 'OUTROS' | 'MANUAIS' | null>(null);
+
   // Bible Settings State
   const [selectedHistory, setSelectedHistory] = useState<string | null>(null);
   const [bibleSettings, setBibleSettings] = useState(() => {
@@ -771,6 +859,25 @@ const ClubManagement: React.FC<{
     } else if (activeSubView === 'DESBRAVA_PLUS') {
       setIsLoading(true);
       fetchDesbravaMais().then(setDesbravaPlusItems).finally(() => setIsLoading(false));
+    } else if (activeSubView === 'LIBRARY') {
+      setIsLoading(true);
+      Promise.all([
+        fetchLivrosClasses(),
+        fetchLivrosAno(),
+        fetchOutrosLivros(),
+        fetchManuaisDBV()
+      ]).then(([classes, ano, outros, manuais]) => {
+        setLivrosClasses(classes);
+        setLivrosAno(ano);
+        setOutrosLivros(outros);
+        setManuaisDBV(manuais);
+      }).finally(() => setIsLoading(false));
+    } else if (activeSubView === 'CAMPING') {
+      setIsLoading(true);
+      fetchCampingDBV().then(setCampingDBV).finally(() => setIsLoading(false));
+    } else if (activeSubView === 'FORMULARIOS') {
+      setIsLoading(true);
+      fetchFormularios().then(setFormularios).finally(() => setIsLoading(false));
     } else if (activeSubView === 'BIBLE_BOOKS') {
       setIsLoading(true);
       fetchBibleBooks().then(setBibleBooks).finally(() => setIsLoading(false));
@@ -1411,6 +1518,55 @@ const ClubManagement: React.FC<{
     );
   };
 
+  const renderCulturaItem = (item: CulturaItem, depth = 0) => {
+    const isExpanded = activeAccordion === item.id;
+    
+    return (
+      <div key={item.id} className={`border border-slate-100 rounded-2xl overflow-hidden shadow-sm ${depth > 0 ? 'ml-4 mt-2' : ''}`}>
+        <button 
+          onClick={() => setActiveAccordion(isExpanded ? null : item.id)}
+          className={`w-full p-4 flex items-center justify-between transition-all text-left ${isExpanded ? 'bg-slate-50' : 'bg-white hover:bg-slate-50'}`}
+        >
+          <div className="flex items-center space-x-3">
+            <div className={`w-10 h-10 ${depth === 0 ? 'bg-amber-500' : 'bg-indigo-500'} rounded-xl flex items-center justify-center text-white shadow-md`}>
+              {depth === 0 ? <Shirt size={20} /> : <Sparkles size={18} />}
+            </div>
+            <div className="flex-1">
+              <span className="text-xs font-black text-slate-700 uppercase tracking-tight leading-tight block">{item.titulo}</span>
+              {item.subtitulo && <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">{item.subtitulo}</span>}
+            </div>
+          </div>
+          <ChevronDown size={16} className={`text-slate-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
+        </button>
+        
+        {isExpanded && (
+          <div className="p-5 bg-white border-t border-slate-100 animate-slide-down space-y-4">
+            {item.imagem && (
+              <div className="w-full aspect-video rounded-2xl overflow-hidden border border-slate-200 shadow-inner bg-slate-50">
+                <img 
+                  src={item.imagem} 
+                  alt={item.titulo} 
+                  className="w-full h-full object-contain"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+            )}
+            <p className="text-slate-600 font-medium leading-relaxed whitespace-pre-wrap text-sm">
+              {item.descricao}
+            </p>
+            
+            {item.subitems && item.subitems.length > 0 && (
+              <div className="pt-2 space-y-2">
+                <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Componentes / Detalhes</h5>
+                {item.subitems.map(sub => renderCulturaItem(sub, depth + 1))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderUniforms = () => {
     const uniforms = culturaData?.uniformes_list || [];
     
@@ -1426,43 +1582,7 @@ const ClubManagement: React.FC<{
             </div>
           ) : (
             <div className="space-y-3">
-              {uniforms.map((item) => (
-                <div key={item.id} className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
-                  <button 
-                    onClick={() => setActiveAccordion(activeAccordion === item.id ? null : item.id)}
-                    className="w-full p-4 flex items-center justify-between bg-white hover:bg-slate-50 transition-all text-left"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center text-white shadow-md">
-                        <Shirt size={20} />
-                      </div>
-                      <div className="flex-1">
-                        <span className="text-xs font-black text-slate-700 uppercase tracking-tight leading-tight block">{item.titulo}</span>
-                        {item.subtitulo && <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">{item.subtitulo}</span>}
-                      </div>
-                    </div>
-                    <ChevronDown size={16} className={`text-slate-400 transition-transform duration-300 ${activeAccordion === item.id ? 'rotate-180' : ''}`} />
-                  </button>
-                  
-                  {activeAccordion === item.id && (
-                    <div className="p-5 bg-slate-50 border-t border-slate-100 animate-slide-down space-y-4">
-                      {item.imagem && (
-                        <div className="w-full aspect-video rounded-2xl overflow-hidden border border-slate-200 shadow-inner bg-white">
-                          <img 
-                            src={item.imagem} 
-                            alt={item.titulo} 
-                            className="w-full h-full object-contain"
-                            referrerPolicy="no-referrer"
-                          />
-                        </div>
-                      )}
-                      <p className="text-slate-600 font-medium leading-relaxed whitespace-pre-wrap text-sm">
-                        {item.descricao}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ))}
+              {uniforms.map((item) => renderCulturaItem(item))}
             </div>
           )}
         </div>
@@ -1472,7 +1592,7 @@ const ClubManagement: React.FC<{
 
   const renderEmblems = () => {
     const emblems = culturaData?.emblemas_list || [];
-
+    
     return (
       <div className="animate-slide-in space-y-4 pt-4 pb-28">
         <div className="bg-white rounded-[40px] p-6 shadow-sm border border-slate-100">
@@ -1485,43 +1605,7 @@ const ClubManagement: React.FC<{
             </div>
           ) : (
             <div className="space-y-3">
-              {emblems.map((item) => (
-                <div key={item.id} className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
-                  <button 
-                    onClick={() => setActiveAccordion(activeAccordion === item.id ? null : item.id)}
-                    className="w-full p-4 flex items-center justify-between bg-white hover:bg-slate-50 transition-all text-left"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-red-500 rounded-xl flex items-center justify-center text-white shadow-md">
-                        <Shield size={20} />
-                      </div>
-                      <div className="flex-1">
-                        <span className="text-xs font-black text-slate-700 uppercase tracking-tight leading-tight block">{item.titulo}</span>
-                        {item.subtitulo && <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">{item.subtitulo}</span>}
-                      </div>
-                    </div>
-                    <ChevronDown size={16} className={`text-slate-400 transition-transform duration-300 ${activeAccordion === item.id ? 'rotate-180' : ''}`} />
-                  </button>
-                  
-                  {activeAccordion === item.id && (
-                    <div className="p-5 bg-slate-50 border-t border-slate-100 animate-slide-down space-y-4">
-                      {item.imagem && (
-                        <div className="w-full aspect-video rounded-2xl overflow-hidden border border-slate-200 shadow-inner bg-white">
-                          <img 
-                            src={item.imagem} 
-                            alt={item.titulo} 
-                            className="w-full h-full object-contain"
-                            referrerPolicy="no-referrer"
-                          />
-                        </div>
-                      )}
-                      <p className="text-slate-600 font-medium leading-relaxed whitespace-pre-wrap text-sm">
-                        {item.descricao}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ))}
+              {emblems.map((item) => renderCulturaItem(item))}
             </div>
           )}
         </div>
@@ -1529,15 +1613,119 @@ const ClubManagement: React.FC<{
     );
   };
 
-  const renderLibraryMenu = () => (
+  const renderLibraryMenu = () => {
+    const categories = [
+      { id: 'CLASSES', label: 'Livro das Classes', icon: <Layers size={24} />, color: 'bg-amber-500', data: livrosClasses },
+      { id: 'ANO', label: 'Livros do Ano', icon: <Calendar size={24} />, color: 'bg-emerald-500', data: livrosAno },
+      { id: 'OUTROS', label: 'Outros Livros', icon: <BookOpen size={24} />, color: 'bg-blue-500', data: outrosLivros },
+      { id: 'MANUAIS', label: 'Manuais DBV', icon: <FileText size={24} />, color: 'bg-indigo-500', data: manuaisDBV },
+      { id: 'MATERIALS', label: 'Materiais', icon: <Folder size={24} />, color: 'bg-purple-500', data: [] }
+    ];
+
+    if (selectedLibraryCategory && selectedLibraryCategory !== 'MATERIALS') {
+      let currentData: any[] = [];
+      if (selectedLibraryCategory === 'CLASSES') currentData = livrosClasses;
+      if (selectedLibraryCategory === 'ANO') currentData = livrosAno;
+      if (selectedLibraryCategory === 'OUTROS') currentData = outrosLivros;
+      if (selectedLibraryCategory === 'MANUAIS') currentData = manuaisDBV;
+
+      return (
+        <div className="animate-slide-in space-y-4 pt-4 pb-28">
+          <button 
+            onClick={() => setSelectedLibraryCategory(null)}
+            className="flex items-center space-x-2 text-slate-400 font-bold text-xs uppercase tracking-widest mb-2"
+          >
+            <ChevronLeft size={16} />
+            <span>Voltar</span>
+          </button>
+          
+          <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-4">
+            {categories.find(c => c.id === selectedLibraryCategory)?.label}
+          </h3>
+
+          {currentData.length === 0 ? (
+            <div className="bg-white rounded-[32px] p-12 text-center border border-slate-100 shadow-sm">
+              <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Nenhum item disponível.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4">
+              {currentData.map((item: any) => (
+                <button 
+                  key={item.id}
+                  onClick={() => {
+                    if (item.Conteudo && (item.Conteudo.startsWith('http') || item.Conteudo.includes('.pdf'))) {
+                      window.open(item.Conteudo, '_blank');
+                    }
+                  }}
+                  className="w-full bg-white border border-slate-100 rounded-[28px] p-4 flex items-center space-x-4 shadow-sm active:scale-[0.98] transition-all group"
+                >
+                  <div className="w-16 h-20 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-inner">
+                    {item.Capa || item.capa ? (
+                      <img src={item.Capa || item.capa} className="w-full h-full object-cover" alt={item.Nome} referrerPolicy="no-referrer" />
+                    ) : (
+                      <Book size={24} className="text-slate-200" />
+                    )}
+                  </div>
+                  <div className="flex-grow text-left">
+                    <h4 className="font-black text-slate-800 text-sm uppercase tracking-tight line-clamp-1">{item.Nome}</h4>
+                    <p className="text-[10px] text-slate-400 font-bold mt-1 line-clamp-2">{item.Resumo || item.Descricao || 'Sem descrição'}</p>
+                    {item.Ano && <span className="inline-block mt-2 px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black rounded-full uppercase">{item.Ano}</span>}
+                    {item.Classe && <span className="inline-block mt-2 px-2 py-0.5 bg-amber-50 text-amber-600 text-[8px] font-black rounded-full uppercase">{item.Classe}</span>}
+                  </div>
+                  <ChevronRight size={18} className="text-slate-200" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="animate-slide-in space-y-4 pt-4 pb-28">
+        {categories.map((item) => (
+          <button 
+            key={item.id}
+            onClick={() => {
+              if (item.id === 'MATERIALS') {
+                setActiveSubView('MATERIALS');
+              } else {
+                setSelectedLibraryCategory(item.id as any);
+              }
+            }}
+            className="w-full bg-white border border-slate-100 rounded-[28px] p-5 flex items-center space-x-5 shadow-sm active:scale-[0.98] transition-all group"
+          >
+            <div className={`w-14 h-14 ${item.color} rounded-2xl flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform`}>
+              {item.icon}
+            </div>
+            <div className="flex-grow text-left">
+              <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight">{item.label}</h4>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Acessar Arquivos</p>
+            </div>
+            <ChevronRight size={20} className="text-slate-200" />
+          </button>
+        ))}
+      </div>
+    );
+  };
+
+  const renderMaterialsMenu = () => (
     <div className="animate-slide-in space-y-4 pt-4 pb-28">
+      <button 
+        onClick={() => setActiveSubView('LIBRARY')}
+        className="flex items-center space-x-2 text-slate-400 font-bold text-xs uppercase tracking-widest mb-2"
+      >
+        <ChevronLeft size={16} />
+        <span>Voltar</span>
+      </button>
+
       {[
-        { label: 'Livros', icon: <Book size={24} />, color: 'bg-emerald-500' },
-        { label: 'Manuais', icon: <FileText size={24} />, color: 'bg-blue-500' },
-        { label: 'Materiais', icon: <Folder size={24} />, color: 'bg-purple-500' }
-      ].map((item, i) => (
+        { id: 'CAMPING', label: 'Camping', icon: <MapPin size={24} />, color: 'bg-orange-500' },
+        { id: 'FORMULARIOS', label: 'Formulários', icon: <FileText size={24} />, color: 'bg-red-500' }
+      ].map((item) => (
         <button 
-          key={i}
+          key={item.id}
+          onClick={() => setActiveSubView(item.id as any)}
           className="w-full bg-white border border-slate-100 rounded-[28px] p-5 flex items-center space-x-5 shadow-sm active:scale-[0.98] transition-all group"
         >
           <div className={`w-14 h-14 ${item.color} rounded-2xl flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform`}>
@@ -1545,13 +1733,147 @@ const ClubManagement: React.FC<{
           </div>
           <div className="flex-grow text-left">
             <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight">{item.label}</h4>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Acessar Arquivos</p>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Acessar Materiais</p>
           </div>
           <ChevronRight size={20} className="text-slate-200" />
         </button>
       ))}
     </div>
   );
+
+  const renderCamping = () => (
+    <div className="animate-slide-in space-y-4 pt-4 pb-28">
+      <button 
+        onClick={() => setActiveSubView('MATERIALS')}
+        className="flex items-center space-x-2 text-slate-400 font-bold text-xs uppercase tracking-widest mb-2"
+      >
+        <ChevronLeft size={16} />
+        <span>Voltar</span>
+      </button>
+      
+      <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-4">Camping</h3>
+
+      {campingDBV.length === 0 ? (
+        <div className="bg-white rounded-[32px] p-12 text-center border border-slate-100 shadow-sm">
+          <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Nenhum material de camping disponível.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4">
+          {campingDBV.map((item) => (
+            <button 
+              key={item.id}
+              onClick={() => {
+                if (item.Conteudo && (item.Conteudo.startsWith('http') || item.Conteudo.includes('.pdf'))) {
+                  window.open(item.Conteudo, '_blank');
+                }
+              }}
+              className="w-full bg-white border border-slate-100 rounded-[28px] p-4 flex items-center space-x-4 shadow-sm active:scale-[0.98] transition-all group"
+            >
+              <div className="w-20 h-20 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-inner">
+                {item.Capa ? (
+                  <img src={item.Capa} className="w-full h-full object-cover" alt={item.Nome} referrerPolicy="no-referrer" />
+                ) : (
+                  <MapPin size={32} className="text-slate-200" />
+                )}
+              </div>
+              <div className="flex-grow text-left">
+                <h4 className="font-black text-slate-800 text-sm uppercase tracking-tight">{item.Nome}</h4>
+                <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-widest">Clique para abrir</p>
+              </div>
+              <ChevronRight size={18} className="text-slate-200" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderFormularios = () => {
+    const categories = [
+      { id: 'fichas', label: 'Fichas de Atividades', icon: <FileText size={18} /> },
+      { id: 'forms', label: 'Formulários', icon: <Layers size={18} /> },
+      { id: 'certificados', label: 'Certificados', icon: <Award size={18} /> },
+      { id: 'graficos', label: 'Materiais Gráficos', icon: <Sparkles size={18} /> }
+    ];
+
+    return (
+      <div className="animate-slide-in space-y-6 pt-4 pb-28">
+        <button 
+          onClick={() => setActiveSubView('MATERIALS')}
+          className="flex items-center space-x-2 text-slate-400 font-bold text-xs uppercase tracking-widest mb-2"
+        >
+          <ChevronLeft size={16} />
+          <span>Voltar</span>
+        </button>
+
+        {categories.map((cat) => (
+          <div key={cat.id} className="space-y-3">
+            <div className="flex items-center space-x-3 pl-1">
+              <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center text-white shadow-sm">
+                {cat.icon}
+              </div>
+              <h3 className="font-black text-slate-800 uppercase tracking-tight text-sm">{cat.label}</h3>
+            </div>
+            
+            <div className="bg-slate-50 rounded-[24px] p-3 border-l-4 border-red-500 space-y-3 shadow-sm">
+              {formularios.filter(f => f.categoria === cat.id).length === 0 ? (
+                <div className="bg-white rounded-[18px] p-4 flex items-center justify-between shadow-sm border border-slate-100">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center text-red-400">
+                      <Calendar size={20} />
+                    </div>
+                    <span className="text-xs font-black text-slate-400 uppercase tracking-tight">Em Breve Atualizações</span>
+                  </div>
+                  <div className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
+                    <Search size={16} />
+                  </div>
+                </div>
+              ) : (
+                formularios.filter(f => f.categoria === cat.id).map((form) => (
+                  <button 
+                    key={form.id}
+                    onClick={() => window.open(form.link, '_blank')}
+                    className="w-full bg-white rounded-[18px] p-4 flex items-center justify-between shadow-sm border border-slate-100 active:scale-[0.98] transition-all group"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform">
+                        <FileText size={20} />
+                      </div>
+                      <div className="text-left">
+                        <span className="text-xs font-black text-slate-700 uppercase tracking-tight block">{form.titulo}</span>
+                        {form.descricao && <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{form.descricao}</span>}
+                      </div>
+                    </div>
+                    <div className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 group-hover:bg-red-50 group-hover:text-red-500 transition-colors">
+                      <Search size={16} />
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        ))}
+
+        {isUserAdmin && (
+          <div className="mt-8 p-6 bg-white rounded-[32px] border border-slate-100 shadow-sm space-y-4">
+            <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center space-x-2">
+              <Settings size={16} className="text-red-500" />
+              <span>Painel Admin: Formulários</span>
+            </h4>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Adicione novos links para todos os usuários.</p>
+            
+            <button 
+              onClick={() => alert("Funcionalidade de adicionar formulário em desenvolvimento...")}
+              className="w-full py-3 bg-red-500 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2"
+            >
+              <Plus size={16} />
+              <span>Novo Formulário</span>
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderDesbravaPlus = () => (
     <div className="animate-slide-in space-y-5 pt-4 pb-28">
@@ -3185,6 +3507,9 @@ const ClubManagement: React.FC<{
         {activeSubView === 'UNIFORMS' && renderUniforms()}
         {activeSubView === 'EMBLEMS' && renderEmblems()}
         {activeSubView === 'LIBRARY' && renderLibraryMenu()}
+        {activeSubView === 'MATERIALS' && renderMaterialsMenu()}
+        {activeSubView === 'CAMPING' && renderCamping()}
+        {activeSubView === 'FORMULARIOS' && renderFormularios()}
         {activeSubView === 'DESBRAVA_PLUS' && renderDesbravaPlus()}
         {activeSubView === 'DESBRAVA_PLUS_DETAILS' && renderDesbravaPlusDetails()}
         {activeSubView === 'DESBRAVA_PLUS_PDF' && renderDesbravaPlusPdf()}

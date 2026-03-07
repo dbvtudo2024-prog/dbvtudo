@@ -11,13 +11,13 @@
       "src": "https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/logo%20app.PNG",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      
     },
     {
       "src": "https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/logo%20app.PNG",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      
     }
   ]
 }

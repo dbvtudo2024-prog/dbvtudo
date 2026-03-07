@@ -1,11 +1,58 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, UserProfile, Devocional, Cultura } from '../types';
+import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, UserProfile, Devocional, Cultura, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario } from '../types';
 
 const supabaseUrl = 'https://qfpyjavbncijowjvznkg.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmcHlqYXZibmNpam93anZ6bmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NDcxMDUsImV4cCI6MjA3NDQyMzEwNX0.adxRCkobV-m_XUHp1KBXmg67VXkR-HL4QKFVtgQOmYc'; 
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
+
+export async function fetchLivrosClasses(): Promise<LivroClasse[]> {
+  const { data, error } = await supabase.from('LivroDasClasses').select('*').order('id', { ascending: true });
+  if (error) return [];
+  return data;
+}
+
+export async function fetchLivrosAno(): Promise<LivroAno[]> {
+  const { data, error } = await supabase.from('LivrosDoAno').select('*').order('id', { ascending: true });
+  if (error) return [];
+  return data;
+}
+
+export async function fetchOutrosLivros(): Promise<OutroLivro[]> {
+  const { data, error } = await supabase.from('OutrosLivros').select('*').order('id', { ascending: true });
+  if (error) return [];
+  return data;
+}
+
+export async function fetchManuaisDBV(): Promise<ManualDBV[]> {
+  const { data, error } = await supabase.from('ManuaisDBV').select('*').order('id', { ascending: true });
+  if (error) return [];
+  return data;
+}
+
+export async function fetchCampingDBV(): Promise<CampingDBV[]> {
+  const { data, error } = await supabase.from('CampingDBV').select('*').order('id', { ascending: true });
+  if (error) return [];
+  return data;
+}
+
+export async function fetchFormularios(): Promise<Formulario[]> {
+  // Assuming a table 'Formularios' exists or will be created
+  const { data, error } = await supabase.from('Formularios').select('*').order('id', { ascending: true });
+  if (error) return [];
+  return data;
+}
+
+export async function createFormulario(formulario: Omit<Formulario, 'id' | 'created_at'>) {
+  const { data, error } = await supabase.from('Formularios').insert([formulario]).select().single();
+  return { data, error };
+}
+
+export async function deleteFormulario(id: number) {
+  const { error } = await supabase.from('Formularios').delete().eq('id', id);
+  return { error };
+}
 
 export async function fetchCategories(club: ClubType): Promise<Category[]> {
   const table = club === ClubType.PATHFINDER ? 'CategoriaEspecialidadeDBV' : 'CategoriaEspecialidadeAVT';

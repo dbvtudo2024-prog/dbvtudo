@@ -101,6 +101,7 @@ export interface CulturaItem {
   subtitulo?: string;
   descricao: string;
   imagem?: string;
+  subitems?: CulturaItem[];
 }
 
 export interface Cultura {
@@ -178,6 +179,63 @@ export interface UserProfile {
   fundo?: string;
   clube?: string;
   Especialidades?: string;
+}
+
+export interface LivroClasse {
+  id: number;
+  created_at: string;
+  Nome: string;
+  Capa: string;
+  Resumo: string;
+  Conteudo: string;
+  Classe: string;
+  ClasseIMG: string;
+}
+
+export interface LivroAno {
+  id: number;
+  created_at: string;
+  Nome: string;
+  Capa: string;
+  Resumo: string;
+  Conteudo: string;
+  Ano: string;
+}
+
+export interface OutroLivro {
+  id: number;
+  created_at: string;
+  Nome: string;
+  capa: string;
+  Resumo: string;
+  Conteudo: string;
+}
+
+export interface ManualDBV {
+  id: number;
+  created_at: string;
+  Nome: string;
+  Capa: string;
+  Descricao: string;
+  Conteudo: string;
+}
+
+export interface CampingDBV {
+  id: number;
+  created_at: string;
+  Nome: string;
+  Capa: string;
+  Conteudo: string;
+}
+
+export interface Formulario {
+  id: number;
+  created_at: string;
+  titulo: string;
+  categoria: string;
+  link: string;
+  descricao?: string;
+  icone?: string;
 }
 
 export type ViewState = 'LOGIN' | 'SIGNUP' | 'HOME' | 'CLUB_LIST' | 'AI_ADVISOR' | 'SETTINGS' | 'PROFILE';
