@@ -272,16 +272,28 @@ export async function updateCultura(cultura: Partial<Cultura>) {
     .select()
     .single();
   
-  // If error is "column does not exist", try removing the list fields
-  if (error && error.message && (error.message.includes('column') && error.message.includes('does not exist'))) {
-    console.warn("Colunas de lista não encontradas, tentando salvar sem elas...", error.message);
+  // If error is "column does not exist" or "not found in schema cache", try removing the list fields
+  if (error && error.message && (
+    (error.message.includes('column') && error.message.includes('does not exist')) ||
+    (error.message.includes('Could not find') && error.message.includes('column') && error.message.includes('schema cache'))
+  )) {
+    console.warn("Colunas de lista não encontradas no banco de dados, tentando salvar apenas campos básicos...", error.message);
     const { uniformes_list, emblemas_list, ...rest } = cultura;
     const { data: retryData, error: retryError } = await supabase
       .from('Cultura')
       .upsert(rest, { onConflict: 'club_type' })
       .select()
       .single();
-    return { data: retryData, error: retryError };
+    
+    if (retryError) return { data: retryData, error: retryError };
+    
+    // If retry succeeded, return the data but with a warning about the lists
+    return { 
+      data: retryData, 
+      error: { 
+        message: "Os campos básicos foram salvos, mas as listas de Uniformes e Emblemas não puderam ser salvas porque as colunas ainda não existem no banco de dados. Entre em contato com o suporte para atualizar a tabela 'Cultura'." 
+      } as any 
+    };
   }
   
   return { data, error };
