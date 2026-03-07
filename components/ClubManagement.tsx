@@ -81,6 +81,12 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
       return;
     }
 
+    // Check image size (limit to ~500KB to be safe)
+    if (newItem.imagem && newItem.imagem.length > 700000) {
+      alert("A imagem é muito grande. Por favor, escolha uma imagem menor ou comprima-a.");
+      return;
+    }
+
     const item: CulturaItem = {
       id: Date.now().toString(),
       titulo: newItem.titulo!,
@@ -109,10 +115,20 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
   const handleSave = async () => {
     setIsSaving(true);
     const clubType = club === ClubType.PATHFINDER ? 'PATHFINDER' : 'ADVENTURER';
-    const { data, error } = await updateCultura({
+    
+    const payload: any = {
       club_type: clubType,
       ...localCultura
-    });
+    };
+
+    // Include ID if we have it to ensure we update the correct row
+    if (culturaData?.id && culturaData.id > 0) {
+      payload.id = culturaData.id;
+    }
+
+    console.log("Saving culture with payload:", payload);
+
+    const { data, error } = await updateCultura(payload);
     
     if (!error) {
       if (data) {
@@ -122,7 +138,8 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
       }
       alert("Cultura atualizada com sucesso!");
     } else {
-      alert("Erro ao salvar cultura.");
+      console.error("Erro ao salvar cultura:", error);
+      alert(`Erro ao salvar cultura: ${error.message || "Erro desconhecido"}`);
     }
     setIsSaving(false);
   };
@@ -644,7 +661,10 @@ const ClubManagement: React.FC<{
 
   useEffect(() => {
     const clubType = club === ClubType.PATHFINDER ? 'PATHFINDER' : 'ADVENTURER';
-    fetchCultura(clubType).then(setCulturaData);
+    fetchCultura(clubType).then(data => {
+      console.log("Cultura data fetched:", data);
+      setCulturaData(data);
+    });
   }, [club]);
 
   const toggleSpecialty = async (specialtyId: string) => {

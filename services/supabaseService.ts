@@ -265,11 +265,24 @@ export async function fetchCultura(clubType: string): Promise<Cultura | null> {
 }
 
 export async function updateCultura(cultura: Partial<Cultura>) {
+  // First attempt with all fields
   const { data, error } = await supabase
     .from('Cultura')
     .upsert(cultura, { onConflict: 'club_type' })
     .select()
     .single();
+  
+  // If error is "column does not exist", try removing the list fields
+  if (error && error.message && (error.message.includes('column') && error.message.includes('does not exist'))) {
+    console.warn("Colunas de lista não encontradas, tentando salvar sem elas...", error.message);
+    const { uniformes_list, emblemas_list, ...rest } = cultura;
+    const { data: retryData, error: retryError } = await supabase
+      .from('Cultura')
+      .upsert(rest, { onConflict: 'club_type' })
+      .select()
+      .single();
+    return { data: retryData, error: retryError };
+  }
   
   return { data, error };
 }
