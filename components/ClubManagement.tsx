@@ -13,7 +13,7 @@ import { PROFILE_KEY } from '../constants';
 import { 
   Shield, Award, User, Layers, Sparkles, Home as HomeIcon, Search,
   ChevronRight, ChevronLeft, ChevronDown, Info, Book, Settings, Zap, Music, Flag, Shirt, Globe, Key, FileText, Library, CreditCard, MapPin, Video, Folder, BookOpen, Heart, ArrowUp,
-  Trash2, Plus, Save, Share2, Calendar, X
+  Trash2, Plus, Save, Share2, Calendar, X, Image as ImageIcon
 } from 'lucide-react';
 
 
@@ -97,32 +97,43 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
   const renderAdminItemList = (items: CulturaItem[], type: 'UNIFORMS' | 'EMBLEMS', depth = 0) => {
     return items.map((item) => (
       <div key={item.id} className="space-y-2">
-        <div className={`flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl shadow-sm ${depth > 0 ? 'ml-8' : ''}`}>
-          <div className="flex items-center space-x-3">
-            {item.imagem && (
-              <img src={item.imagem} alt={item.titulo} className="w-10 h-10 rounded-lg object-cover" referrerPolicy="no-referrer" />
-            )}
-            <div>
-              <p className="text-sm font-black text-slate-700 uppercase tracking-tight">{item.titulo}</p>
-              <p className="text-[10px] text-slate-400 truncate max-w-[200px]">{item.descricao}</p>
+        <div className={`flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl shadow-sm transition-all hover:border-indigo-200 ${depth > 0 ? 'ml-8' : ''}`}>
+          <div className="flex items-center space-x-4">
+            <div className="relative">
+              {item.imagem ? (
+                <img src={item.imagem} alt={item.titulo} className="w-12 h-12 rounded-xl object-cover border border-slate-100" referrerPolicy="no-referrer" />
+              ) : (
+                <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-slate-300 border border-slate-100">
+                  <ImageIcon size={20} />
+                </div>
+              )}
+              <div className="absolute -top-1 -right-1 w-5 h-5 bg-indigo-600 rounded-full flex items-center justify-center text-[10px] text-white font-bold border-2 border-white">
+                {depth + 1}
+              </div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-black text-slate-800 uppercase tracking-tight truncate">{item.titulo}</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight truncate">
+                {item.subitems?.length || 0} sub-itens • {item.descricao.substring(0, 30)}...
+              </p>
             </div>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1">
             <button 
               onClick={() => {
                 setNewItem({ ...newItem, parentId: item.id });
                 document.getElementById('admin-item-form')?.scrollIntoView({ behavior: 'smooth' });
               }}
-              className="p-2 text-indigo-400 hover:bg-indigo-50 rounded-xl transition-colors"
+              className="p-2.5 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all active:scale-90"
               title="Adicionar Sub-item"
             >
-              <Plus size={18} />
+              <Plus size={20} />
             </button>
             <button 
               onClick={() => removeItem(type, item.id)}
-              className="p-2 text-red-400 hover:bg-red-50 rounded-xl transition-colors"
+              className="p-2.5 text-red-500 hover:bg-red-50 rounded-xl transition-all active:scale-90"
             >
-              <Trash2 size={18} />
+              <Trash2 size={20} />
             </button>
           </div>
         </div>
@@ -361,62 +372,77 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                   </div>
                 )}
                 
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 gap-5">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Título</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Título do Item</label>
                     <input 
                       type="text"
                       value={newItem.titulo}
                       onChange={(e) => setNewItem({...newItem, titulo: e.target.value})}
                       placeholder="Ex: Uniforme de Gala"
-                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Subtítulo (Opcional)</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Subtítulo ou Contexto (Opcional)</label>
                     <input 
                       type="text"
                       value={newItem.subtitulo}
                       onChange={(e) => setNewItem({...newItem, subtitulo: e.target.value})}
-                      placeholder="Ex: Uso obrigatório em cerimônias"
-                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                      placeholder="Ex: Admissão em Lenço"
+                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Descrição</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Conteúdo / Descrição Detalhada</label>
                     <textarea 
                       value={newItem.descricao}
                       onChange={(e) => setNewItem({...newItem, descricao: e.target.value})}
-                      placeholder="Descreva os detalhes do item..."
-                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[100px]"
+                      placeholder="Descreva as regras, componentes e detalhes..."
+                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm min-h-[120px]"
                     />
                   </div>
                   
-                  <div className="flex items-center space-x-4">
-                    <div className="relative w-24 h-24 bg-white border-2 border-dashed border-slate-200 rounded-2xl overflow-hidden flex items-center justify-center group cursor-pointer">
-                      {newItem.imagem ? (
-                        <img 
-                          src={newItem.imagem} 
-                          alt="Preview" 
-                          className="w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center space-x-4">
+                      <div className="relative w-20 h-20 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl overflow-hidden flex items-center justify-center group cursor-pointer">
+                        {newItem.imagem ? (
+                          <>
+                            <img 
+                              src={newItem.imagem} 
+                              alt="Preview" 
+                              className="w-full h-full object-cover"
+                              referrerPolicy="no-referrer"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <Plus className="text-white" size={20} />
+                            </div>
+                          </>
+                        ) : (
+                          <Plus className="text-slate-300 group-hover:text-indigo-500 transition-colors" size={24} />
+                        )}
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleItemImageUpload(file);
+                          }}
+                          className="absolute inset-0 opacity-0 cursor-pointer"
                         />
-                      ) : (
-                        <Plus className="text-slate-300 group-hover:text-indigo-500 transition-colors" size={24} />
-                      )}
-                      <input 
-                        type="file" 
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleItemImageUpload(file);
-                        }}
-                        className="absolute inset-0 opacity-0 cursor-pointer"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Imagem do Item</p>
-                      <p className="text-[9px] text-slate-300">Clique para adicionar uma foto</p>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-[11px] font-black text-slate-700 uppercase tracking-tight">Imagem Ilustrativa</p>
+                        <p className="text-[10px] text-slate-400 font-medium">Adicione uma foto para este item (opcional)</p>
+                        {newItem.imagem && (
+                          <button 
+                            onClick={() => setNewItem(prev => ({ ...prev, imagem: '' }))}
+                            className="text-[10px] text-red-500 font-bold uppercase mt-1"
+                          >
+                            Remover Imagem
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -463,62 +489,94 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                   </div>
                 )}
                 
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 gap-5">
+                  {newItem.parentId && (
+                    <div className="bg-indigo-50 p-3 rounded-2xl border border-indigo-100 flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Layers size={14} className="text-indigo-500" />
+                        <span className="text-[10px] font-black text-indigo-700 uppercase tracking-tight">
+                          Vinculado a: <span className="text-indigo-900">{findItemTitle(culturaData?.uniformes_list || [], newItem.parentId) || findItemTitle(culturaData?.emblemas_list || [], newItem.parentId) || 'Item Selecionado'}</span>
+                        </span>
+                      </div>
+                      <button 
+                        onClick={() => setNewItem({...newItem, parentId: undefined})}
+                        className="text-[10px] font-black text-red-500 uppercase hover:underline"
+                      >
+                        Remover Vínculo
+                      </button>
+                    </div>
+                  )}
+                  
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Título</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Título do Emblema</label>
                     <input 
                       type="text"
                       value={newItem.titulo}
                       onChange={(e) => setNewItem({...newItem, titulo: e.target.value})}
                       placeholder="Ex: Emblema D1"
-                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Subtítulo (Opcional)</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Subtítulo ou Significado (Opcional)</label>
                     <input 
                       type="text"
                       value={newItem.subtitulo}
                       onChange={(e) => setNewItem({...newItem, subtitulo: e.target.value})}
                       placeholder="Ex: Representa o triângulo invertido"
-                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Descrição</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Descrição / Simbolismo</label>
                     <textarea 
                       value={newItem.descricao}
                       onChange={(e) => setNewItem({...newItem, descricao: e.target.value})}
-                      placeholder="Descreva o significado e uso..."
-                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[100px]"
+                      placeholder="Descreva o significado, uso e simbolismo..."
+                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm min-h-[120px]"
                     />
                   </div>
                   
-                  <div className="flex items-center space-x-4">
-                    <div className="relative w-24 h-24 bg-white border-2 border-dashed border-slate-200 rounded-2xl overflow-hidden flex items-center justify-center group cursor-pointer">
-                      {newItem.imagem ? (
-                        <img 
-                          src={newItem.imagem} 
-                          alt="Preview" 
-                          className="w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center space-x-4">
+                      <div className="relative w-20 h-20 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl overflow-hidden flex items-center justify-center group cursor-pointer">
+                        {newItem.imagem ? (
+                          <>
+                            <img 
+                              src={newItem.imagem} 
+                              alt="Preview" 
+                              className="w-full h-full object-cover"
+                              referrerPolicy="no-referrer"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <Plus className="text-white" size={20} />
+                            </div>
+                          </>
+                        ) : (
+                          <Plus className="text-slate-300 group-hover:text-indigo-500 transition-colors" size={24} />
+                        )}
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleItemImageUpload(file);
+                          }}
+                          className="absolute inset-0 opacity-0 cursor-pointer"
                         />
-                      ) : (
-                        <Plus className="text-slate-300 group-hover:text-indigo-500 transition-colors" size={24} />
-                      )}
-                      <input 
-                        type="file" 
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleItemImageUpload(file);
-                        }}
-                        className="absolute inset-0 opacity-0 cursor-pointer"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Imagem do Emblema</p>
-                      <p className="text-[9px] text-slate-300">Clique para adicionar uma foto</p>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-[11px] font-black text-slate-700 uppercase tracking-tight">Imagem do Emblema</p>
+                        <p className="text-[10px] text-slate-400 font-medium">Adicione uma foto para este emblema (opcional)</p>
+                        {newItem.imagem && (
+                          <button 
+                            onClick={() => setNewItem(prev => ({ ...prev, imagem: '' }))}
+                            className="text-[10px] text-red-500 font-bold uppercase mt-1"
+                          >
+                            Remover Imagem
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -566,10 +624,10 @@ const ClubManagement: React.FC<{
   onOpenProfile?: () => void; 
   onOpenAdvisor?: (prompt: string) => void;
   isGuest?: boolean; 
-  initialSubView?: 'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS';
+  initialSubView?: 'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS' | 'PDF_VIEWER' | 'LIBRARY_BOOKS_MENU';
   onClearSubView?: () => void;
 }> = ({ club, onBack, onSwitchClub, onOpenProfile, onOpenAdvisor, isGuest, initialSubView, onClearSubView }) => {
-  const [activeSubView, setActiveSubView] = useState<'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS'>(initialSubView || 'MAIN');
+  const [activeSubView, setActiveSubView] = useState<'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS' | 'PDF_VIEWER' | 'LIBRARY_BOOKS_MENU'>(initialSubView || 'MAIN');
   const [classes, setClasses] = useState<ClubClass[]>([]);
   const [selectedClass, setSelectedClass] = useState<ClubClass | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -605,6 +663,8 @@ const ClubManagement: React.FC<{
   const [campingDBV, setCampingDBV] = useState<CampingDBV[]>([]);
   const [formularios, setFormularios] = useState<Formulario[]>([]);
   const [selectedLibraryCategory, setSelectedLibraryCategory] = useState<'CLASSES' | 'ANO' | 'OUTROS' | 'MANUAIS' | null>(null);
+  const [selectedPdfUrl, setSelectedPdfUrl] = useState<string | null>(null);
+  const [pdfTitle, setPdfTitle] = useState<string>('');
 
   // Bible Settings State
   const [selectedHistory, setSelectedHistory] = useState<string | null>(null);
@@ -634,7 +694,7 @@ const ClubManagement: React.FC<{
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [completedSpecialties, setCompletedSpecialties] = useState<string[]>([]);
   const [culturaData, setCulturaData] = useState<Cultura | null>(null);
-  const [activeAccordion, setActiveAccordion] = useState<string | null>(null);
+  const [activeAccordions, setActiveAccordions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [classRequirements, setClassRequirements] = useState<string[]>([]);
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -1283,8 +1343,8 @@ const ClubManagement: React.FC<{
       {[
         { label: 'Ideais e Hino', icon: <Music size={24} />, color: 'bg-blue-500', action: () => setActiveSubView('IDEALS_ANTHEM') },
         { label: 'História', icon: <Globe size={24} />, color: 'bg-amber-500', action: () => setActiveSubView('HISTORY_LIST') },
-        { label: 'Uniformes', icon: <Shirt size={24} />, color: 'bg-emerald-500', action: () => setActiveSubView('UNIFORMS') },
-        { label: 'Emblemas', icon: <Shield size={24} />, color: 'bg-indigo-500', action: () => setActiveSubView('EMBLEMS') }
+        { label: 'Uniformes', icon: <Shirt size={24} />, color: 'bg-emerald-500', action: () => { setActiveAccordions([]); setActiveSubView('UNIFORMS'); } },
+        { label: 'Emblemas', icon: <Shield size={24} />, color: 'bg-indigo-500', action: () => { setActiveAccordions([]); setActiveSubView('EMBLEMS'); } }
       ].map((item, i) => (
         <button 
           key={i}
@@ -1518,49 +1578,130 @@ const ClubManagement: React.FC<{
     );
   };
 
-  const renderCulturaItem = (item: CulturaItem, depth = 0) => {
-    const isExpanded = activeAccordion === item.id;
+  const renderCulturaItem = (item: CulturaItem, depth = 0, index = 0) => {
+    const isExpanded = activeAccordions.includes(item.id);
     
-    return (
-      <div key={item.id} className={`border border-slate-100 rounded-2xl overflow-hidden shadow-sm ${depth > 0 ? 'ml-4 mt-2' : ''}`}>
-        <button 
-          onClick={() => setActiveAccordion(isExpanded ? null : item.id)}
-          className={`w-full p-4 flex items-center justify-between transition-all text-left ${isExpanded ? 'bg-slate-50' : 'bg-white hover:bg-slate-50'}`}
-        >
-          <div className="flex items-center space-x-3">
-            <div className={`w-10 h-10 ${depth === 0 ? 'bg-amber-500' : 'bg-indigo-500'} rounded-xl flex items-center justify-center text-white shadow-md`}>
-              {depth === 0 ? <Shirt size={20} /> : <Sparkles size={18} />}
-            </div>
-            <div className="flex-1">
-              <span className="text-xs font-black text-slate-700 uppercase tracking-tight leading-tight block">{item.titulo}</span>
-              {item.subtitulo && <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">{item.subtitulo}</span>}
-            </div>
-          </div>
-          <ChevronDown size={16} className={`text-slate-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
-        </button>
-        
-        {isExpanded && (
-          <div className="p-5 bg-white border-t border-slate-100 animate-slide-down space-y-4">
+    const toggleAccordion = (id: string) => {
+      setActiveAccordions(prev => 
+        prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+      );
+    };
+
+    // Se for um sub-item (profundidade > 0), renderizamos como um bloco de conteúdo com wrap
+    if (depth > 0) {
+      const isImageLeft = index % 2 === 0;
+      
+      return (
+        <div key={item.id} className="py-10 first:pt-4 last:pb-4 border-b border-slate-50 last:border-0 overflow-hidden">
+          <h5 className="text-base font-black text-slate-800 uppercase tracking-tight mb-6 text-center">
+            {item.titulo}
+          </h5>
+          
+          <div className="relative">
             {item.imagem && (
-              <div className="w-full aspect-video rounded-2xl overflow-hidden border border-slate-200 shadow-inner bg-slate-50">
+              <div className={`w-32 sm:w-40 mb-4 rounded-2xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50 ${isImageLeft ? 'float-left mr-6' : 'float-right ml-6'}`}>
                 <img 
                   src={item.imagem} 
                   alt={item.titulo} 
-                  className="w-full h-full object-contain"
+                  className="w-full h-auto object-contain"
                   referrerPolicy="no-referrer"
                 />
               </div>
             )}
-            <p className="text-slate-600 font-medium leading-relaxed whitespace-pre-wrap text-sm">
-              {item.descricao}
-            </p>
             
-            {item.subitems && item.subitems.length > 0 && (
-              <div className="pt-2 space-y-2">
-                <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Componentes / Detalhes</h5>
-                {item.subitems.map(sub => renderCulturaItem(sub, depth + 1))}
+            <div className="text-slate-600 text-sm leading-relaxed font-medium">
+              {item.subtitulo && (
+                <span className="inline-block text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-2 block">
+                  {item.subtitulo}
+                </span>
+              )}
+              <div className="whitespace-pre-wrap">
+                {item.descricao}
               </div>
-            )}
+            </div>
+            <div className="clear-both" />
+          </div>
+
+          {item.subitems && item.subitems.length > 0 && (
+            <div className="mt-8 pl-6 border-l-2 border-slate-100 space-y-6">
+              {item.subitems.map((sub, i) => renderCulturaItem(sub, depth + 1, i))}
+            </div>
+          )}
+        </div>
+      );
+    }
+    
+    // Ícone dinâmico baseado no título para o card principal
+    const getHeaderIcon = (title: string) => {
+      const t = title.toLowerCase();
+      if (t.includes('emblema')) return <Shield size={22} />;
+      if (t.includes('uniforme')) return <Shirt size={22} />;
+      return <FileText size={22} />;
+    };
+
+    return (
+      <div key={item.id} className="bg-white border border-slate-100 rounded-[32px] shadow-sm overflow-hidden mb-4">
+        <button 
+          onClick={() => toggleAccordion(item.id)}
+          className={`w-full p-6 flex items-center justify-between transition-all text-left ${isExpanded ? 'bg-slate-50/30' : 'bg-white'}`}
+        >
+          <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 bg-slate-100 text-slate-500 rounded-2xl flex items-center justify-center shadow-sm">
+              {getHeaderIcon(item.titulo)}
+            </div>
+            <div className="flex-1">
+              <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight leading-tight">{item.titulo || 'Sem Título'}</h4>
+            </div>
+          </div>
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isExpanded ? 'bg-indigo-600 text-white rotate-180 shadow-md shadow-indigo-100' : 'bg-slate-50 text-slate-400'}`}>
+            <ChevronDown size={18} />
+          </div>
+        </button>
+        
+        {isExpanded && (
+          <div className="px-8 pb-8 bg-white border-t border-slate-50 animate-slide-down">
+            <div className="space-y-6">
+              {/* Título interno (ex: Emblema D1) em destaque */}
+              {item.subtitulo && (
+                <div className="mt-8 text-center">
+                  <h5 className="text-base font-black text-slate-800 uppercase tracking-tight">
+                    {item.subtitulo}
+                  </h5>
+                  <div className="w-8 h-1 bg-indigo-500 mx-auto mt-2 rounded-full opacity-20" />
+                </div>
+              )}
+
+              {/* Conteúdo Principal do Card (Imagem pequena e Texto contornando) */}
+              <div className="relative mt-6">
+                {item.imagem && (
+                  <div className="w-32 sm:w-40 mb-4 rounded-2xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50 float-left mr-6">
+                    <img 
+                      src={item.imagem} 
+                      alt={item.titulo} 
+                      className="w-full h-auto object-contain"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                )}
+                
+                {item.descricao && (
+                  <div className="text-slate-600 text-sm leading-relaxed font-medium whitespace-pre-wrap">
+                    {item.descricao}
+                  </div>
+                )}
+                <div className="clear-both" />
+              </div>
+              
+              {item.subitems && item.subitems.length > 0 && (
+                <div className="mt-10 divide-y divide-slate-50 border-t border-slate-50">
+                  {item.subitems.map((sub, i) => renderCulturaItem(sub, depth + 1, i))}
+                </div>
+              )}
+
+              {!item.imagem && !item.descricao && (!item.subitems || item.subitems.length === 0) && (
+                <p className="text-center py-10 text-slate-300 italic text-xs">Nenhum conteúdo cadastrado para este item.</p>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -1571,18 +1712,18 @@ const ClubManagement: React.FC<{
     const uniforms = culturaData?.uniformes_list || [];
     
     return (
-      <div className="animate-slide-in space-y-4 pt-4 pb-28">
-        <div className="bg-white rounded-[40px] p-6 shadow-sm border border-slate-100">
+      <div className="animate-slide-in space-y-6 pt-4 pb-28">
+        <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 min-h-[60vh]">
           {uniforms.length === 0 ? (
-            <div className="py-12 text-center">
-              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
+            <div className="py-20 text-center">
+              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-200">
                 <Shirt size={40} />
               </div>
-              <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Informações em breve...</p>
+              <p className="text-slate-400 font-black text-[10px] uppercase tracking-widest">Nenhum uniforme cadastrado</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {uniforms.map((item) => renderCulturaItem(item))}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {uniforms.map((item, i) => renderCulturaItem(item, 0, i))}
             </div>
           )}
         </div>
@@ -1594,18 +1735,18 @@ const ClubManagement: React.FC<{
     const emblems = culturaData?.emblemas_list || [];
     
     return (
-      <div className="animate-slide-in space-y-4 pt-4 pb-28">
-        <div className="bg-white rounded-[40px] p-6 shadow-sm border border-slate-100">
+      <div className="animate-slide-in space-y-6 pt-4 pb-28">
+        <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 min-h-[60vh]">
           {emblems.length === 0 ? (
-            <div className="py-12 text-center">
-              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
+            <div className="py-20 text-center">
+              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-200">
                 <Shield size={40} />
               </div>
-              <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Informações em breve...</p>
+              <p className="text-slate-400 font-black text-[10px] uppercase tracking-widest">Nenhum emblema cadastrado</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {emblems.map((item) => renderCulturaItem(item))}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {emblems.map((item, i) => renderCulturaItem(item, 0, i))}
             </div>
           )}
         </div>
@@ -1613,13 +1754,26 @@ const ClubManagement: React.FC<{
     );
   };
 
+  const formatDriveUrl = (url: string) => {
+    if (!url) return url;
+    if (url.includes('drive.google.com')) {
+      // Converte links de visualização/compartilhamento para links de preview incorporáveis
+      if (url.includes('/view')) {
+        return url.replace('/view', '/preview');
+      }
+      if (url.includes('id=')) {
+        const id = url.split('id=')[1].split('&')[0];
+        return `https://drive.google.com/file/d/${id}/preview`;
+      }
+    }
+    return url;
+  };
+
   const renderLibraryMenu = () => {
     const categories = [
-      { id: 'CLASSES', label: 'Livro das Classes', icon: <Layers size={24} />, color: 'bg-amber-500', data: livrosClasses },
-      { id: 'ANO', label: 'Livros do Ano', icon: <Calendar size={24} />, color: 'bg-emerald-500', data: livrosAno },
-      { id: 'OUTROS', label: 'Outros Livros', icon: <BookOpen size={24} />, color: 'bg-blue-500', data: outrosLivros },
-      { id: 'MANUAIS', label: 'Manuais DBV', icon: <FileText size={24} />, color: 'bg-indigo-500', data: manuaisDBV },
-      { id: 'MATERIALS', label: 'Materiais', icon: <Folder size={24} />, color: 'bg-purple-500', data: [] }
+      { id: 'BOOKS', label: 'Livros', icon: <Book size={24} />, color: 'bg-emerald-500' },
+      { id: 'MANUAIS', label: 'Manuais DBV', icon: <FileText size={24} />, color: 'bg-indigo-500' },
+      { id: 'MATERIALS', label: 'Materiais', icon: <Folder size={24} />, color: 'bg-purple-500' }
     ];
 
     if (selectedLibraryCategory && selectedLibraryCategory !== 'MATERIALS') {
@@ -1631,16 +1785,10 @@ const ClubManagement: React.FC<{
 
       return (
         <div className="animate-slide-in space-y-4 pt-4 pb-28">
-          <button 
-            onClick={() => setSelectedLibraryCategory(null)}
-            className="flex items-center space-x-2 text-slate-400 font-bold text-xs uppercase tracking-widest mb-2"
-          >
-            <ChevronLeft size={16} />
-            <span>Voltar</span>
-          </button>
-          
           <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-4">
-            {categories.find(c => c.id === selectedLibraryCategory)?.label}
+            {selectedLibraryCategory === 'CLASSES' ? 'Livro das Classes' : 
+             selectedLibraryCategory === 'ANO' ? 'Livros do Ano' : 
+             selectedLibraryCategory === 'OUTROS' ? 'Outros Livros' : 'Manuais DBV'}
           </h3>
 
           {currentData.length === 0 ? (
@@ -1653,8 +1801,11 @@ const ClubManagement: React.FC<{
                 <button 
                   key={item.id}
                   onClick={() => {
-                    if (item.Conteudo && (item.Conteudo.startsWith('http') || item.Conteudo.includes('.pdf'))) {
-                      window.open(item.Conteudo, '_blank');
+                    const url = item.Conteudo || item.PDF;
+                    if (url && (url.startsWith('http') || url.includes('.pdf'))) {
+                      setPdfTitle(item.Nome);
+                      setSelectedPdfUrl(formatDriveUrl(url));
+                      setActiveSubView('PDF_VIEWER');
                     }
                   }}
                   className="w-full bg-white border border-slate-100 rounded-[28px] p-4 flex items-center space-x-4 shadow-sm active:scale-[0.98] transition-all group"
@@ -1689,6 +1840,8 @@ const ClubManagement: React.FC<{
             onClick={() => {
               if (item.id === 'MATERIALS') {
                 setActiveSubView('MATERIALS');
+              } else if (item.id === 'BOOKS') {
+                setActiveSubView('LIBRARY_BOOKS_MENU');
               } else {
                 setSelectedLibraryCategory(item.id as any);
               }
@@ -1709,16 +1862,65 @@ const ClubManagement: React.FC<{
     );
   };
 
+  const renderLibraryBooksMenu = () => (
+    <div className="animate-slide-in space-y-4 pt-4 pb-28">
+      {[
+        { id: 'CLASSES', label: 'Livro das Classes', icon: <Layers size={24} />, color: 'bg-amber-500' },
+        { id: 'ANO', label: 'Livros do Ano', icon: <Calendar size={24} />, color: 'bg-emerald-500' },
+        { id: 'OUTROS', label: 'Outros Livros', icon: <BookOpen size={24} />, color: 'bg-blue-500' }
+      ].map((item) => (
+        <button 
+          key={item.id}
+          onClick={() => {
+            setSelectedLibraryCategory(item.id as any);
+            setActiveSubView('LIBRARY');
+          }}
+          className="w-full bg-white border border-slate-100 rounded-[28px] p-5 flex items-center space-x-5 shadow-sm active:scale-[0.98] transition-all group"
+        >
+          <div className={`w-14 h-14 ${item.color} rounded-2xl flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform`}>
+            {item.icon}
+          </div>
+          <div className="flex-grow text-left">
+            <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight">{item.label}</h4>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Acessar Livros</p>
+          </div>
+          <ChevronRight size={20} className="text-slate-200" />
+        </button>
+      ))}
+    </div>
+  );
+
+  const renderPdfViewer = () => (
+    <div className="animate-slide-in h-full flex flex-col pb-28">
+      <div className="flex-grow bg-slate-200 relative flex flex-col">
+        <div className="p-2 bg-white/80 backdrop-blur-sm border-b border-slate-100 flex justify-end">
+          <a 
+            href={selectedPdfUrl || '#'} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-[9px] font-black text-blue-600 uppercase tracking-widest bg-white px-3 py-1.5 rounded-full border border-blue-100 shadow-sm active:scale-95 transition-all"
+          >
+            Abrir Externo
+          </a>
+        </div>
+        {selectedPdfUrl ? (
+          <iframe 
+            src={selectedPdfUrl} 
+            className="w-full h-full border-none flex-grow"
+            title={pdfTitle}
+            allow="autoplay"
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full text-slate-400">
+            PDF não disponível
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   const renderMaterialsMenu = () => (
     <div className="animate-slide-in space-y-4 pt-4 pb-28">
-      <button 
-        onClick={() => setActiveSubView('LIBRARY')}
-        className="flex items-center space-x-2 text-slate-400 font-bold text-xs uppercase tracking-widest mb-2"
-      >
-        <ChevronLeft size={16} />
-        <span>Voltar</span>
-      </button>
-
       {[
         { id: 'CAMPING', label: 'Camping', icon: <MapPin size={24} />, color: 'bg-orange-500' },
         { id: 'FORMULARIOS', label: 'Formulários', icon: <FileText size={24} />, color: 'bg-red-500' }
@@ -1743,14 +1945,6 @@ const ClubManagement: React.FC<{
 
   const renderCamping = () => (
     <div className="animate-slide-in space-y-4 pt-4 pb-28">
-      <button 
-        onClick={() => setActiveSubView('MATERIALS')}
-        className="flex items-center space-x-2 text-slate-400 font-bold text-xs uppercase tracking-widest mb-2"
-      >
-        <ChevronLeft size={16} />
-        <span>Voltar</span>
-      </button>
-      
       <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-4">Camping</h3>
 
       {campingDBV.length === 0 ? (
@@ -1763,8 +1957,11 @@ const ClubManagement: React.FC<{
             <button 
               key={item.id}
               onClick={() => {
-                if (item.Conteudo && (item.Conteudo.startsWith('http') || item.Conteudo.includes('.pdf'))) {
-                  window.open(item.Conteudo, '_blank');
+                const url = item.Conteudo;
+                if (url && (url.startsWith('http') || url.includes('.pdf'))) {
+                  setPdfTitle(item.Nome);
+                  setSelectedPdfUrl(formatDriveUrl(url));
+                  setActiveSubView('PDF_VIEWER');
                 }
               }}
               className="w-full bg-white border border-slate-100 rounded-[28px] p-4 flex items-center space-x-4 shadow-sm active:scale-[0.98] transition-all group"
@@ -1798,14 +1995,6 @@ const ClubManagement: React.FC<{
 
     return (
       <div className="animate-slide-in space-y-6 pt-4 pb-28">
-        <button 
-          onClick={() => setActiveSubView('MATERIALS')}
-          className="flex items-center space-x-2 text-slate-400 font-bold text-xs uppercase tracking-widest mb-2"
-        >
-          <ChevronLeft size={16} />
-          <span>Voltar</span>
-        </button>
-
         {categories.map((cat) => (
           <div key={cat.id} className="space-y-3">
             <div className="flex items-center space-x-3 pl-1">
@@ -1832,7 +2021,15 @@ const ClubManagement: React.FC<{
                 formularios.filter(f => f.categoria === cat.id).map((form) => (
                   <button 
                     key={form.id}
-                    onClick={() => window.open(form.link, '_blank')}
+                    onClick={() => {
+                      if (form.link && (form.link.includes('.pdf') || form.link.includes('drive.google.com'))) {
+                        setPdfTitle(form.titulo);
+                        setSelectedPdfUrl(formatDriveUrl(form.link));
+                        setActiveSubView('PDF_VIEWER');
+                      } else {
+                        window.open(form.link, '_blank');
+                      }
+                    }}
                     className="w-full bg-white rounded-[18px] p-4 flex items-center justify-between shadow-sm border border-slate-100 active:scale-[0.98] transition-all group"
                   >
                     <div className="flex items-center space-x-3">
@@ -2033,9 +2230,10 @@ const ClubManagement: React.FC<{
             </a>
           </div>
           <iframe 
-            src={`https://docs.google.com/viewer?url=${encodeURIComponent(pdfUrl)}&embedded=true`}
+            src={formatDriveUrl(pdfUrl)}
             className="w-full flex-grow border-none"
             title="PDF Viewer"
+            allow="autoplay"
           ></iframe>
         </div>
       </div>
@@ -3374,9 +3572,30 @@ const ClubManagement: React.FC<{
                   } else if (activeSubView === 'HISTORY_DETAIL') {
                     setActiveSubView('HISTORY_LIST');
                   } else if (activeSubView === 'UNIFORMS') {
+                    setActiveAccordions([]);
                     setActiveSubView('CULTURE');
                   } else if (activeSubView === 'EMBLEMS') {
+                    setActiveAccordions([]);
                     setActiveSubView('CULTURE');
+                  } else if (activeSubView === 'LIBRARY') {
+                    if (selectedLibraryCategory) {
+                      const prevCat = selectedLibraryCategory;
+                      setSelectedLibraryCategory(null);
+                      if (prevCat !== 'MANUAIS') setActiveSubView('LIBRARY_BOOKS_MENU');
+                    } else {
+                      setActiveSubView('MAIN');
+                    }
+                  } else if (activeSubView === 'LIBRARY_BOOKS_MENU') {
+                    setSelectedLibraryCategory(null);
+                    setActiveSubView('LIBRARY');
+                  } else if (activeSubView === 'PDF_VIEWER') {
+                    setActiveSubView('LIBRARY');
+                  } else if (activeSubView === 'MATERIALS') {
+                    setActiveSubView('LIBRARY');
+                  } else if (activeSubView === 'CAMPING') {
+                    setActiveSubView('MATERIALS');
+                  } else if (activeSubView === 'FORMULARIOS') {
+                    setActiveSubView('MATERIALS');
                   } else if (activeSubView === 'BIBLE_BOOKS') {
                     setActiveSubView('BIBLE');
                   } else if (activeSubView === 'BIBLE_CHAPTERS') {
@@ -3507,6 +3726,8 @@ const ClubManagement: React.FC<{
         {activeSubView === 'UNIFORMS' && renderUniforms()}
         {activeSubView === 'EMBLEMS' && renderEmblems()}
         {activeSubView === 'LIBRARY' && renderLibraryMenu()}
+        {activeSubView === 'LIBRARY_BOOKS_MENU' && renderLibraryBooksMenu()}
+        {activeSubView === 'PDF_VIEWER' && renderPdfViewer()}
         {activeSubView === 'MATERIALS' && renderMaterialsMenu()}
         {activeSubView === 'CAMPING' && renderCamping()}
         {activeSubView === 'FORMULARIOS' && renderFormularios()}
