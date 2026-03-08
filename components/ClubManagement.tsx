@@ -75,6 +75,37 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
     parentId: undefined
   });
 
+  useEffect(() => {
+    setNewItem(prev => ({ ...prev, parentId: undefined }));
+  }, [activeTab]);
+
+  // Sync local state with prop data when it changes (e.g. after a save)
+  useEffect(() => {
+    setLocalCultura({
+      ideais: culturaData?.ideais || '',
+      voto: culturaData?.voto || '',
+      lei: culturaData?.lei || '',
+      alvo: culturaData?.alvo || '',
+      lema: culturaData?.lema || '',
+      objetivo: culturaData?.objetivo || '',
+      voto_biblia: culturaData?.voto_biblia || '',
+      hino_letra: culturaData?.hino_letra || '',
+      hino_video: culturaData?.hino_video || '',
+      historia_mundial: culturaData?.historia_mundial || '',
+      historia_america_sul: culturaData?.historia_america_sul || '',
+      historia_argentina: culturaData?.historia_argentina || '',
+      historia_bolivia: culturaData?.historia_bolivia || '',
+      historia_brasil: culturaData?.historia_brasil || '',
+      historia_chile: culturaData?.historia_chile || '',
+      historia_colombia: culturaData?.historia_colombia || '',
+      historia_equador: culturaData?.historia_equador || '',
+      historia_peru: culturaData?.historia_peru || '',
+      historia_uruguai: culturaData?.historia_uruguai || '',
+      uniformes_list: culturaData?.uniformes_list || [] as CulturaItem[],
+      emblemas_list: culturaData?.emblemas_list || [] as CulturaItem[]
+    });
+  }, [culturaData]);
+
   const handleItemImageUpload = (file: File) => {
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -222,7 +253,7 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
     }
 
     const item: CulturaItem = {
-      id: Date.now().toString(),
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
       titulo: newItem.titulo!,
       subtitulo: newItem.subtitulo,
       descricao: newItem.descricao!,
@@ -459,6 +490,27 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                 
                 <div className="grid grid-cols-1 gap-5">
                   <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Destino do Conteúdo</label>
+                    <div className="flex p-1 bg-slate-100 rounded-2xl">
+                      <button 
+                        disabled={!!newItem.parentId}
+                        onClick={() => setNewItem({...newItem, club: ClubType.PATHFINDER})}
+                        className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all ${newItem.club === ClubType.PATHFINDER ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'} ${newItem.parentId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        Desbravadores
+                      </button>
+                      <button 
+                        disabled={!!newItem.parentId}
+                        onClick={() => setNewItem({...newItem, club: ClubType.ADVENTURER})}
+                        className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all ${newItem.club === ClubType.ADVENTURER ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'} ${newItem.parentId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        Aventureiros
+                      </button>
+                    </div>
+                    {newItem.parentId && <p className="text-[9px] text-indigo-400 font-bold uppercase ml-1">* Sub-itens herdam o clube do item pai</p>}
+                  </div>
+
+                  <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Título do Item</label>
                     <input 
                       type="text"
@@ -587,7 +639,7 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                 {newItem.parentId && (
                   <div className="bg-indigo-50 p-3 rounded-xl flex items-center justify-between">
                     <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">
-                      Pai: {findItemTitle(localCultura.emblemas_list, newItem.parentId)}
+                      Pai: {findItemTitle(localCultura.emblemas_list, newItem.parentId) || findItemTitle(localCultura.uniformes_list, newItem.parentId)}
                     </span>
                     <button onClick={() => setNewItem({ ...newItem, parentId: undefined })} className="text-indigo-400 hover:text-indigo-600">
                       <X size={14} />
@@ -596,39 +648,25 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                 )}
                 
                 <div className="grid grid-cols-1 gap-5">
-                  {newItem.parentId && (
-                    <div className="bg-indigo-50 p-3 rounded-2xl border border-indigo-100 flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <Layers size={14} className="text-indigo-500" />
-                        <span className="text-[10px] font-black text-indigo-700 uppercase tracking-tight">
-                          Vinculado a: <span className="text-indigo-900">{findItemTitle(culturaData?.uniformes_list || [], newItem.parentId) || findItemTitle(culturaData?.emblemas_list || [], newItem.parentId) || 'Item Selecionado'}</span>
-                        </span>
-                      </div>
-                      <button 
-                        onClick={() => setNewItem({...newItem, parentId: undefined})}
-                        className="text-[10px] font-black text-red-500 uppercase hover:underline"
-                      >
-                        Remover Vínculo
-                      </button>
-                    </div>
-                  )}
-                  
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Destino do Conteúdo</label>
                     <div className="flex p-1 bg-slate-100 rounded-2xl">
                       <button 
+                        disabled={!!newItem.parentId}
                         onClick={() => setNewItem({...newItem, club: ClubType.PATHFINDER})}
-                        className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all ${newItem.club === ClubType.PATHFINDER ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                        className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all ${newItem.club === ClubType.PATHFINDER ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'} ${newItem.parentId ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
                         Desbravadores
                       </button>
                       <button 
+                        disabled={!!newItem.parentId}
                         onClick={() => setNewItem({...newItem, club: ClubType.ADVENTURER})}
-                        className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all ${newItem.club === ClubType.ADVENTURER ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                        className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all ${newItem.club === ClubType.ADVENTURER ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'} ${newItem.parentId ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
                         Aventureiros
                       </button>
                     </div>
+                    {newItem.parentId && <p className="text-[9px] text-indigo-400 font-bold uppercase ml-1">* Sub-itens herdam o clube do item pai</p>}
                   </div>
 
                   <div className="space-y-2">
@@ -1908,7 +1946,7 @@ const ClubManagement: React.FC<{
       if (selectedLibraryCategory === 'MANUAIS') currentData = manuaisDBV;
 
       return (
-        <div className="animate-slide-in space-y-4 pt-4 pb-28">
+        <div className="animate-slide-in space-y-4 pt-2 pb-28">
           <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-4">
             {selectedLibraryCategory === 'CLASSES' ? 'Livro das Classes' : 
              selectedLibraryCategory === 'ANO' ? 'Livros do Ano' : 
@@ -1957,7 +1995,7 @@ const ClubManagement: React.FC<{
     }
 
     return (
-      <div className="animate-slide-in space-y-4 pt-4 pb-28">
+      <div className="animate-slide-in space-y-4 pt-2 pb-28">
         {categories.map((item) => (
           <button 
             key={item.id}
@@ -1987,7 +2025,7 @@ const ClubManagement: React.FC<{
   };
 
   const renderLibraryBooksMenu = () => (
-    <div className="animate-slide-in space-y-4 pt-4 pb-28">
+    <div className="animate-slide-in space-y-4 pt-2 pb-28">
       {[
         { id: 'CLASSES', label: 'Livro das Classes', icon: <Layers size={24} />, color: 'bg-amber-500' },
         { id: 'ANO', label: 'Livros do Ano', icon: <Calendar size={24} />, color: 'bg-emerald-500' },
@@ -2044,7 +2082,7 @@ const ClubManagement: React.FC<{
   );
 
   const renderMaterialsMenu = () => (
-    <div className="animate-slide-in space-y-4 pt-4 pb-28">
+    <div className="animate-slide-in space-y-4 pt-2 pb-28">
       {[
         { id: 'CAMPING', label: 'Camping', icon: <MapPin size={24} />, color: 'bg-orange-500' },
         { id: 'FORMULARIOS', label: 'Formulários', icon: <FileText size={24} />, color: 'bg-red-500' }
@@ -2068,7 +2106,7 @@ const ClubManagement: React.FC<{
   );
 
   const renderCamping = () => (
-    <div className="animate-slide-in space-y-4 pt-4 pb-28">
+    <div className="animate-slide-in space-y-4 pt-2 pb-28">
       <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-4">Camping</h3>
 
       {campingDBV.length === 0 ? (
@@ -2118,7 +2156,7 @@ const ClubManagement: React.FC<{
     ];
 
     return (
-      <div className="animate-slide-in space-y-6 pt-4 pb-28">
+      <div className="animate-slide-in space-y-6 pt-2 pb-28">
         {categories.map((cat) => (
           <div key={cat.id} className="space-y-3">
             <div className="flex items-center space-x-3 pl-1">
@@ -3664,7 +3702,7 @@ const ClubManagement: React.FC<{
   return (
     <div className="flex flex-col h-full bg-[#F8FAFC] animate-slide-in overflow-hidden relative">
       {activeSubView !== 'BIBLE' && activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && (
-        <div className="px-8 pt-12 pb-6 flex items-center justify-between z-10 bg-[#F8FAFC]">
+        <div className="px-6 pt-10 pb-4 flex items-center justify-between z-10 bg-[#F8FAFC]">
           <div className="w-14 h-14 flex items-center justify-center">
             {activeSubView === 'MAIN' ? (
               <img src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/logo%20app.PNG" className="w-full h-full object-contain" />
@@ -3786,8 +3824,14 @@ const ClubManagement: React.FC<{
                ) :
                activeSubView === 'UNIFORMS' ? 'Uniformes' :
                activeSubView === 'EMBLEMS' ? 'Emblemas' :
+               activeSubView === 'FAIXA' ? 'Faixa de Especialidades' :
                activeSubView === 'MANAGEMENT' ? 'Gerenciar Clube' :
                activeSubView === 'LIBRARY' ? 'Biblioteca Digital' :
+               activeSubView === 'LIBRARY_BOOKS_MENU' ? 'Categorias de Livros' :
+               activeSubView === 'MATERIALS' ? 'Materiais' :
+               activeSubView === 'CAMPING' ? 'Camping' :
+               activeSubView === 'FORMULARIOS' ? 'Formulários' :
+               activeSubView === 'PDF_VIEWER' ? pdfTitle :
                activeSubView === 'DESBRAVA_PLUS' ? 'Desbrava +' :
                activeSubView === 'DESBRAVA_PLUS_DETAILS' ? selectedDesbravaPlusItem?.Nome :
                activeSubView === 'DESBRAVA_PLUS_PDF' ? selectedDesbravaPlusItem?.Nome :
@@ -3820,7 +3864,7 @@ const ClubManagement: React.FC<{
       <div 
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className={`flex-grow overflow-y-auto scrollbar-hide ${activeSubView === 'DESBRAVA_PLUS_PDF' ? 'p-2' : activeSubView === 'BIBLE' ? 'p-4' : 'p-5'}`}
+        className={`flex-grow overflow-y-auto scrollbar-hide ${activeSubView === 'DESBRAVA_PLUS_PDF' ? 'p-2' : activeSubView === 'BIBLE' ? 'p-4' : 'px-5 py-2'}`}
       >
         {activeSubView === 'MAIN' && renderDashboard()}
         {activeSubView === 'CLASSES' && renderClassesMenu()}
