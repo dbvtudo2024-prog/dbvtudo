@@ -101,6 +101,7 @@ export interface CulturaItem {
   subtitulo?: string;
   descricao: string;
   imagem?: string;
+  club?: ClubType;
   subitems?: CulturaItem[];
 }
 

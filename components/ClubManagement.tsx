@@ -71,6 +71,7 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
     subtitulo: '',
     descricao: '',
     imagem: '',
+    club: club,
     parentId: undefined
   });
 
@@ -112,7 +113,14 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
               </div>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-black text-slate-800 uppercase tracking-tight truncate">{item.titulo}</p>
+              <div className="flex items-center space-x-2">
+                <p className="text-sm font-black text-slate-800 uppercase tracking-tight truncate">{item.titulo}</p>
+                {item.club && (
+                  <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-tighter ${item.club === ClubType.PATHFINDER ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                    {item.club === ClubType.PATHFINDER ? 'DBV' : 'AVT'}
+                  </span>
+                )}
+              </div>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight truncate">
                 {item.subitems?.length || 0} sub-itens • {item.descricao.substring(0, 30)}...
               </p>
@@ -146,6 +154,61 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
     ));
   };
 
+  const UNIFORM_TEMPLATES = club === ClubType.PATHFINDER ? [
+    "Uniforme de Gala",
+    "Lenços e Prendedores",
+    "Cobertura",
+    "Cinto",
+    "Calçados e Meias",
+    "Torçal",
+    "Platina ou Galão",
+    "Uniforme de Diretores e Associados",
+    "Uniforme do Clube de Líderes"
+  ] : [
+    "Uniforme de Gala",
+    "Lenço e Prendedor",
+    "Cobertura (Boné)",
+    "Cinto e Calçados",
+    "Uniforme de Atividades",
+    "Uniforme de Líder"
+  ];
+
+  const EMBLEM_TEMPLATES = club === ClubType.PATHFINDER ? [
+    "Emblemas",
+    "Insígnias e Tiras",
+    "Distintivos",
+    "Bandeira Oficial",
+    "Bandeirim"
+  ] : [
+    "Emblemas",
+    "Insígnias",
+    "Bandeira Oficial Aventureiros",
+    "Bandeirim de Unidade"
+  ];
+
+  const addTemplateItem = (type: 'UNIFORMS' | 'EMBLEMS', title: string) => {
+    const listKey = type === 'UNIFORMS' ? 'uniformes_list' : 'emblemas_list';
+    const existing = (localCultura as any)[listKey] || [];
+    
+    if (existing.some((i: any) => i.titulo === title)) {
+      alert("Este item já existe na lista.");
+      return;
+    }
+
+    const item: CulturaItem = {
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+      titulo: title,
+      descricao: `Informações detalhadas sobre ${title.toLowerCase()}...`,
+      club: club,
+      subitems: []
+    };
+
+    setLocalCultura(prev => ({
+      ...prev,
+      [listKey]: [...(prev as any)[listKey], item]
+    }));
+  };
+
   const addItem = (type: 'UNIFORMS' | 'EMBLEMS') => {
     if (!newItem.titulo || !newItem.descricao) {
       alert("Título e Descrição são obrigatórios.");
@@ -164,6 +227,7 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
       subtitulo: newItem.subtitulo,
       descricao: newItem.descricao!,
       imagem: newItem.imagem,
+      club: newItem.club || club,
       subitems: []
     };
 
@@ -194,7 +258,7 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
       }));
     }
 
-    setNewItem({ titulo: '', subtitulo: '', descricao: '', imagem: '', parentId: undefined });
+    setNewItem({ titulo: '', subtitulo: '', descricao: '', imagem: '', club: club, parentId: undefined });
   };
 
   const removeItem = (type: 'UNIFORMS' | 'EMBLEMS', id: string) => {
@@ -354,6 +418,27 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
 
           {activeTab === 'UNIFORMS' && (
             <div className="space-y-8">
+              {/* Templates Suggestions */}
+              <div className="bg-amber-50 rounded-3xl p-6 border border-amber-100 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[10px] font-black text-amber-700 uppercase tracking-widest flex items-center space-x-2">
+                    <Zap size={14} />
+                    <span>Sugestões de Uniformes</span>
+                  </h4>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {UNIFORM_TEMPLATES.map((template) => (
+                    <button 
+                      key={template}
+                      onClick={() => addTemplateItem('UNIFORMS', template)}
+                      className="bg-white border border-amber-200 px-3 py-2 rounded-xl text-[10px] font-bold text-amber-700 hover:bg-amber-100 transition-colors shadow-sm"
+                    >
+                      + {template}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Form to add new item */}
               <div id="admin-item-form" className="bg-slate-50 rounded-3xl p-6 border border-slate-100 space-y-4">
                 <h4 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center space-x-2">
@@ -471,6 +556,27 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
 
           {activeTab === 'EMBLEMS' && (
             <div className="space-y-8">
+              {/* Templates Suggestions */}
+              <div className="bg-red-50 rounded-3xl p-6 border border-red-100 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[10px] font-black text-red-700 uppercase tracking-widest flex items-center space-x-2">
+                    <Zap size={14} />
+                    <span>Sugestões de Emblemas</span>
+                  </h4>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {EMBLEM_TEMPLATES.map((template) => (
+                    <button 
+                      key={template}
+                      onClick={() => addTemplateItem('EMBLEMS', template)}
+                      className="bg-white border border-red-200 px-3 py-2 rounded-xl text-[10px] font-bold text-red-700 hover:bg-red-100 transition-colors shadow-sm"
+                    >
+                      + {template}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Form to add new item */}
               <div id="admin-item-form" className="bg-slate-50 rounded-3xl p-6 border border-slate-100 space-y-4">
                 <h4 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center space-x-2">
@@ -507,6 +613,24 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                     </div>
                   )}
                   
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Destino do Conteúdo</label>
+                    <div className="flex p-1 bg-slate-100 rounded-2xl">
+                      <button 
+                        onClick={() => setNewItem({...newItem, club: ClubType.PATHFINDER})}
+                        className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all ${newItem.club === ClubType.PATHFINDER ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                      >
+                        Desbravadores
+                      </button>
+                      <button 
+                        onClick={() => setNewItem({...newItem, club: ClubType.ADVENTURER})}
+                        className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all ${newItem.club === ClubType.ADVENTURER ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                      >
+                        Aventureiros
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Título do Emblema</label>
                     <input 
@@ -1709,7 +1833,7 @@ const ClubManagement: React.FC<{
   };
 
   const renderUniforms = () => {
-    const uniforms = culturaData?.uniformes_list || [];
+    const uniforms = (culturaData?.uniformes_list || []).filter(item => !item.club || item.club === club);
     
     return (
       <div className="animate-slide-in space-y-6 pt-4 pb-28">
@@ -1732,7 +1856,7 @@ const ClubManagement: React.FC<{
   };
 
   const renderEmblems = () => {
-    const emblems = culturaData?.emblemas_list || [];
+    const emblems = (culturaData?.emblemas_list || []).filter(item => !item.club || item.club === club);
     
     return (
       <div className="animate-slide-in space-y-6 pt-4 pb-28">
