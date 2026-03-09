@@ -1,19 +1,21 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, BibleNote, Devocional, Cultura, UserProfile, CulturaItem, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario } from '../types';
+import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, BibleNote, Devocional, Cultura, UserProfile, CulturaItem, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario, Video as VideoType, VideoCategory } from '../types';
 import { 
   fetchCategories, fetchEspecialidades, fetchClasses, fetchDesbravaMais, 
   fetchBibleBooks, fetchBibleVerses, fetchBibleDictionary, fetchDevocionais, 
   createDevocional, deleteDevocional, fetchUserSpecialties, updateUserSpecialties, 
   fetchCultura, updateCultura, fetchUserProfile, supabase,
   fetchLivrosClasses, fetchLivrosAno, fetchOutrosLivros, fetchManuaisDBV,
-  fetchCampingDBV, fetchFormularios, createFormulario, deleteFormulario
+  fetchCampingDBV, fetchFormularios, createFormulario, deleteFormulario,
+  fetchVideos, fetchVideoCategories,
+  createVideo, deleteVideo, createVideoCategory, deleteVideoCategory
 } from '../services/supabaseService';
 import { PROFILE_KEY } from '../constants';
 import { 
   Shield, Award, User, Layers, Sparkles, Home as HomeIcon, Search,
   ChevronRight, ChevronLeft, ChevronDown, Info, Book, Settings, Zap, Music, Flag, Shirt, Globe, Key, FileText, Library, CreditCard, MapPin, Video, Folder, BookOpen, Heart, ArrowUp,
-  Trash2, Plus, Save, Share2, Calendar, X, Image as ImageIcon
+  Trash2, Plus, Save, Share2, Calendar, X, Image as ImageIcon, Download
 } from 'lucide-react';
 
 
@@ -786,10 +788,10 @@ const ClubManagement: React.FC<{
   onOpenProfile?: () => void; 
   onOpenAdvisor?: (prompt: string) => void;
   isGuest?: boolean; 
-  initialSubView?: 'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS' | 'PDF_VIEWER' | 'LIBRARY_BOOKS_MENU' | 'VIDEOS';
+  initialSubView?: 'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS' | 'PDF_VIEWER' | 'LIBRARY_BOOKS_MENU' | 'VIDEOS' | 'VIDEO_ADMIN' | 'FORM_ADMIN' | 'VIDEO_PLAYER';
   onClearSubView?: () => void;
 }> = ({ club, onBack, onSwitchClub, onOpenProfile, onOpenAdvisor, isGuest, initialSubView, onClearSubView }) => {
-  const [activeSubView, setActiveSubView] = useState<'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS' | 'PDF_VIEWER' | 'LIBRARY_BOOKS_MENU' | 'VIDEOS'>(initialSubView || 'MAIN');
+  const [activeSubView, setActiveSubView] = useState<'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS' | 'PDF_VIEWER' | 'LIBRARY_BOOKS_MENU' | 'VIDEOS' | 'VIDEO_ADMIN' | 'FORM_ADMIN' | 'VIDEO_PLAYER'>(initialSubView || 'MAIN');
   const [classes, setClasses] = useState<ClubClass[]>([]);
   const [selectedClass, setSelectedClass] = useState<ClubClass | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -798,7 +800,7 @@ const ClubManagement: React.FC<{
   const [selectedSpecialty, setSelectedSpecialty] = useState<Especialidade | null>(null);
   const [desbravaPlusItems, setDesbravaPlusItems] = useState<DesbravaMais[]>([]);
   const [selectedDesbravaPlusItem, setSelectedDesbravaPlusItem] = useState<DesbravaMais | null>(null);
-  const [videos, setVideos] = useState<Video[]>([]);
+  const [videos, setVideos] = useState<VideoType[]>([]);
   const [videoCategories, setVideoCategories] = useState<VideoCategory[]>([]);
   const [bibleBooks, setBibleBooks] = useState<BibleBook[]>([]);
   const [selectedBibleBook, setSelectedBibleBook] = useState<BibleBook | null>(null);
@@ -851,6 +853,29 @@ const ClubManagement: React.FC<{
     agendado_para: new Date().toISOString().slice(0, 16)
   });
   const [selectedDevocional, setSelectedDevocional] = useState<Devocional | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<VideoType | null>(null);
+
+  const [newVideo, setNewVideo] = useState<Partial<VideoType>>({
+    titulo: '',
+    canal: '',
+    duracao: '',
+    visualizacoes: '0',
+    link: '',
+    categoria_id: 0,
+    club: club
+  });
+  const [newVideoCategory, setNewVideoCategory] = useState<Partial<VideoCategory>>({
+    nome: '',
+    icone: 'Folder',
+    club: club
+  });
+  const [newForm, setNewForm] = useState<Partial<Formulario>>({
+    titulo: '',
+    categoria: '',
+    link: '',
+    descricao: '',
+    icone: 'FileText'
+  });
 
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -2217,8 +2242,20 @@ const ClubManagement: React.FC<{
                         {form.descricao && <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{form.descricao}</span>}
                       </div>
                     </div>
-                    <div className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 group-hover:bg-red-50 group-hover:text-red-500 transition-colors">
-                      <Search size={16} />
+                    <div className="flex items-center space-x-2">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(form.link, '_blank');
+                        }}
+                        className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                        title="Download / Abrir Original"
+                      >
+                        <Download size={16} />
+                      </button>
+                      <div className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 group-hover:bg-red-50 group-hover:text-red-500 transition-colors">
+                        <Search size={16} />
+                      </div>
                     </div>
                   </button>
                 ))
@@ -3015,6 +3052,32 @@ const ClubManagement: React.FC<{
               <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Editar Ideais e Hino</p>
             </div>
           </button>
+
+          <button 
+            onClick={() => setActiveSubView('VIDEO_ADMIN')}
+            className="bg-white border border-slate-100 p-6 rounded-[32px] flex items-center space-x-4 shadow-sm active:scale-95 transition-all group"
+          >
+            <div className="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center text-red-600 group-hover:bg-red-600 group-hover:text-white transition-colors">
+              <Video size={28} />
+            </div>
+            <div className="text-left">
+              <h4 className="font-black text-slate-800 uppercase tracking-tight">Gestão de Vídeos</h4>
+              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Adicionar e remover vídeos</p>
+            </div>
+          </button>
+
+          <button 
+            onClick={() => setActiveSubView('FORM_ADMIN')}
+            className="bg-white border border-slate-100 p-6 rounded-[32px] flex items-center space-x-4 shadow-sm active:scale-95 transition-all group"
+          >
+            <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition-colors">
+              <FileText size={28} />
+            </div>
+            <div className="text-left">
+              <h4 className="font-black text-slate-800 uppercase tracking-tight">Gestão de Formulários</h4>
+              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Links de formulários externos</p>
+            </div>
+          </button>
         </div>
       </div>
     );
@@ -3542,6 +3605,78 @@ const ClubManagement: React.FC<{
     );
   };
 
+  const getYouTubeId = (url: string) => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  };
+
+  const renderVideoPlayer = () => {
+    if (!selectedVideo) return null;
+    const videoId = getYouTubeId(selectedVideo.link);
+
+    return (
+      <div className="animate-slide-in space-y-6 pt-4 pb-28">
+        <div className="bg-white rounded-[32px] overflow-hidden shadow-lg border border-slate-100">
+          <div className="aspect-video bg-black">
+            {videoId ? (
+              <iframe 
+                width="100%" 
+                height="100%" 
+                src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
+                title={selectedVideo.titulo}
+                frameBorder="0" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                allowFullScreen
+              ></iframe>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-white flex-col space-y-4">
+                <Video size={48} className="opacity-20" />
+                <p className="text-xs font-bold uppercase tracking-widest opacity-50">Link inválido ou não suportado</p>
+                <button 
+                  onClick={() => window.open(selectedVideo.link, '_blank')}
+                  className="bg-white/10 px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-white/20 transition-all"
+                >
+                  Abrir no YouTube
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="p-6 space-y-4">
+            <div>
+              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight leading-tight">{selectedVideo.titulo}</h3>
+              <p className="text-red-600 text-xs font-black uppercase tracking-widest mt-1">{selectedVideo.canal}</p>
+            </div>
+            <div className="flex items-center space-x-6 pt-2 border-t border-slate-50">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Duração</span>
+                <span className="text-sm font-black text-slate-700 uppercase">{selectedVideo.duracao}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Visualizações</span>
+                <span className="text-sm font-black text-slate-700 uppercase">{selectedVideo.visualizacoes}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-red-50 rounded-[28px] p-6 border border-red-100/50">
+          <div className="flex items-start space-x-4">
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-red-500 shadow-sm flex-shrink-0">
+              <Sparkles size={20} />
+            </div>
+            <div>
+              <h4 className="text-sm font-black text-red-900 uppercase tracking-tight">Dica de Estudo</h4>
+              <p className="text-red-700/70 text-xs font-medium leading-relaxed mt-1">
+                Assista ao vídeo com atenção e faça anotações. Se for um requisito de classe, lembre-se de preencher seu relatório após assistir.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderVideos = () => {
     const categories = videoCategories.filter(c => c.club === club);
     const clubVideos = videos.filter(v => v.club === club);
@@ -3587,12 +3722,13 @@ const ClubManagement: React.FC<{
 
                   <div className="bg-white rounded-[32px] p-4 shadow-sm border border-slate-100 space-y-3">
                     {categoryVideos.map(video => (
-                      <a 
+                      <button 
                         key={video.id}
-                        href={video.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center space-x-4 p-3 rounded-2xl hover:bg-slate-50 transition-all active:scale-[0.98] group"
+                        onClick={() => {
+                          setSelectedVideo(video);
+                          setActiveSubView('VIDEO_PLAYER');
+                        }}
+                        className="w-full flex items-center space-x-4 p-3 rounded-2xl hover:bg-slate-50 transition-all active:scale-[0.98] group"
                       >
                         <div className="w-16 h-12 bg-red-600 rounded-xl flex items-center justify-center text-white shadow-md flex-shrink-0 group-hover:scale-105 transition-transform">
                           <Video size={24} />
@@ -3606,7 +3742,7 @@ const ClubManagement: React.FC<{
                           </div>
                         </div>
                         <ChevronRight size={18} className="text-slate-200 group-hover:translate-x-1 transition-transform" />
-                      </a>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -3653,6 +3789,289 @@ const ClubManagement: React.FC<{
             </p>
           </div>
         )}
+      </div>
+    );
+  };
+
+  const handleCreateVideo = async () => {
+    if (!newVideo.titulo || !newVideo.link || !newVideo.categoria_id) {
+      return;
+    }
+    setIsLoading(true);
+    const { data, error } = await createVideo(newVideo as Omit<VideoType, 'id' | 'created_at'>);
+    if (!error) {
+      setVideos([...videos, data as VideoType]);
+      setNewVideo({
+        titulo: '',
+        canal: '',
+        duracao: '',
+        visualizacoes: '0',
+        link: '',
+        categoria_id: 0,
+        club: club
+      });
+    }
+    setIsLoading(false);
+  };
+
+  const handleDeleteVideo = async (id: number) => {
+    setIsLoading(true);
+    const { error } = await deleteVideo(id);
+    if (!error) {
+      setVideos(videos.filter(v => v.id !== id));
+    }
+    setIsLoading(false);
+  };
+
+  const handleCreateVideoCategory = async () => {
+    if (!newVideoCategory.nome) return;
+    setIsLoading(true);
+    const { data, error } = await createVideoCategory(newVideoCategory as Omit<VideoCategory, 'id'>);
+    if (!error) {
+      setVideoCategories([...videoCategories, data as VideoCategory]);
+      setNewVideoCategory({ nome: '', icone: 'Folder', club: club });
+    }
+    setIsLoading(false);
+  };
+
+  const handleDeleteVideoCategory = async (id: number) => {
+    setIsLoading(true);
+    const { error } = await deleteVideoCategory(id);
+    if (!error) {
+      setVideoCategories(videoCategories.filter(c => c.id !== id));
+    }
+    setIsLoading(false);
+  };
+
+  const handleCreateForm = async () => {
+    if (!newForm.titulo || !newForm.link) return;
+    setIsLoading(true);
+    const { data, error } = await createFormulario(newForm as Omit<Formulario, 'id' | 'created_at'>);
+    if (!error) {
+      setFormularios([...formularios, data as Formulario]);
+      setNewForm({ titulo: '', categoria: '', link: '', descricao: '', icone: 'FileText' });
+    }
+    setIsLoading(false);
+  };
+
+  const handleDeleteForm = async (id: number) => {
+    setIsLoading(true);
+    const { error } = await deleteFormulario(id);
+    if (!error) {
+      setFormularios(formularios.filter(f => f.id !== id));
+    }
+    setIsLoading(false);
+  };
+
+  const renderVideoAdmin = () => {
+    const clubCategories = videoCategories.filter(c => c.club === club);
+    const clubVideos = videos.filter(v => v.club === club);
+
+    return (
+      <div className="animate-slide-in space-y-8 pt-4 pb-28">
+        {/* Nova Categoria */}
+        <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 space-y-4">
+          <h4 className="font-black text-slate-800 uppercase tracking-tight flex items-center space-x-2">
+            <Folder size={20} className="text-red-600" />
+            <span>Nova Categoria</span>
+          </h4>
+          <div className="flex space-x-2">
+            <input 
+              type="text" 
+              placeholder="Nome da Categoria"
+              value={newVideoCategory.nome}
+              onChange={e => setNewVideoCategory({...newVideoCategory, nome: e.target.value})}
+              className="flex-1 bg-slate-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-red-500 transition-all"
+            />
+            <button 
+              onClick={handleCreateVideoCategory}
+              disabled={isLoading}
+              className="bg-red-600 text-white px-6 rounded-2xl font-black uppercase text-xs active:scale-95 transition-all disabled:opacity-50"
+            >
+              Add
+            </button>
+          </div>
+        </div>
+
+        {/* Novo Vídeo */}
+        <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 space-y-4">
+          <h4 className="font-black text-slate-800 uppercase tracking-tight flex items-center space-x-2">
+            <Video size={20} className="text-red-600" />
+            <span>Novo Vídeo</span>
+          </h4>
+          <div className="space-y-3">
+            <input 
+              type="text" 
+              placeholder="Título do Vídeo"
+              value={newVideo.titulo}
+              onChange={e => setNewVideo({...newVideo, titulo: e.target.value})}
+              className="w-full bg-slate-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-red-500 transition-all"
+            />
+            <input 
+              type="text" 
+              placeholder="Canal"
+              value={newVideo.canal}
+              onChange={e => setNewVideo({...newVideo, canal: e.target.value})}
+              className="w-full bg-slate-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-red-500 transition-all"
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <input 
+                type="text" 
+                placeholder="Duração (ex: 10:00)"
+                value={newVideo.duracao}
+                onChange={e => setNewVideo({...newVideo, duracao: e.target.value})}
+                className="bg-slate-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-red-500 transition-all"
+              />
+              <select 
+                value={newVideo.categoria_id}
+                onChange={e => setNewVideo({...newVideo, categoria_id: Number(e.target.value)})}
+                className="bg-slate-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-red-500 transition-all"
+              >
+                <option value={0}>Selecionar Categoria</option>
+                {clubCategories.map(c => (
+                  <option key={c.id} value={c.id}>{c.nome}</option>
+                ))}
+              </select>
+            </div>
+            <input 
+              type="text" 
+              placeholder="Link do YouTube"
+              value={newVideo.link}
+              onChange={e => setNewVideo({...newVideo, link: e.target.value})}
+              className="w-full bg-slate-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-red-500 transition-all"
+            />
+            <button 
+              onClick={handleCreateVideo}
+              disabled={isLoading}
+              className="w-full bg-red-600 text-white py-4 rounded-2xl font-black uppercase text-xs active:scale-95 transition-all disabled:opacity-50"
+            >
+              Salvar Vídeo
+            </button>
+          </div>
+        </div>
+
+        {/* Lista de Vídeos por Categoria */}
+        {clubCategories.map(category => {
+          const categoryVideos = clubVideos.filter(v => v.categoria_id === category.id);
+          return (
+            <div key={category.id} className="space-y-4">
+              <div className="flex items-center justify-between px-2">
+                <h4 className="font-black text-slate-800 uppercase tracking-tight">{category.nome}</h4>
+                <button 
+                  onClick={() => handleDeleteVideoCategory(category.id)}
+                  className="text-red-500 p-2"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+              <div className="bg-white rounded-[32px] p-4 shadow-sm border border-slate-100 space-y-2">
+                {categoryVideos.length === 0 ? (
+                  <p className="text-center py-4 text-slate-400 text-xs font-bold uppercase">Nenhum vídeo</p>
+                ) : (
+                  categoryVideos.map(video => (
+                    <div key={video.id} className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 transition-all">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-8 bg-red-600 rounded-lg flex items-center justify-center text-white">
+                          <Video size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-black text-slate-800 uppercase truncate">{video.titulo}</p>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase">{video.canal}</p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => handleDeleteVideo(video.id)}
+                        className="text-slate-300 hover:text-red-500 p-2 transition-colors"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderFormAdmin = () => {
+    return (
+      <div className="animate-slide-in space-y-8 pt-4 pb-28">
+        {/* Novo Formulário */}
+        <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 space-y-4">
+          <h4 className="font-black text-slate-800 uppercase tracking-tight flex items-center space-x-2">
+            <FileText size={20} className="text-amber-600" />
+            <span>Novo Formulário</span>
+          </h4>
+          <div className="space-y-3">
+            <input 
+              type="text" 
+              placeholder="Título do Formulário"
+              value={newForm.titulo}
+              onChange={e => setNewForm({...newForm, titulo: e.target.value})}
+              className="w-full bg-slate-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500 transition-all"
+            />
+            <input 
+              type="text" 
+              placeholder="Categoria (ex: Inscrição, Saúde)"
+              value={newForm.categoria}
+              onChange={e => setNewForm({...newForm, categoria: e.target.value})}
+              className="w-full bg-slate-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500 transition-all"
+            />
+            <input 
+              type="text" 
+              placeholder="Link do Google Forms / PDF"
+              value={newForm.link}
+              onChange={e => setNewForm({...newForm, link: e.target.value})}
+              className="w-full bg-slate-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500 transition-all"
+            />
+            <textarea 
+              placeholder="Descrição curta"
+              value={newForm.descricao}
+              onChange={e => setNewForm({...newForm, descricao: e.target.value})}
+              className="w-full bg-slate-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500 transition-all h-24 resize-none"
+            />
+            <button 
+              onClick={handleCreateForm}
+              disabled={isLoading}
+              className="w-full bg-amber-600 text-white py-4 rounded-2xl font-black uppercase text-xs active:scale-95 transition-all disabled:opacity-50"
+            >
+              Salvar Formulário
+            </button>
+          </div>
+        </div>
+
+        {/* Lista de Formulários */}
+        <div className="space-y-4">
+          <h4 className="font-black text-slate-800 uppercase tracking-tight px-2">Formulários Ativos</h4>
+          <div className="bg-white rounded-[32px] p-4 shadow-sm border border-slate-100 space-y-2">
+            {formularios.length === 0 ? (
+              <p className="text-center py-8 text-slate-400 text-xs font-bold uppercase tracking-widest">Nenhum formulário cadastrado</p>
+            ) : (
+              formularios.map(form => (
+                <div key={form.id} className="flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 transition-all border border-slate-50">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
+                      <FileText size={24} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-slate-800 uppercase tracking-tight truncate">{form.titulo}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{form.categoria}</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => handleDeleteForm(form.id)}
+                    className="text-slate-300 hover:text-red-500 p-2 transition-colors"
+                  >
+                    <Trash2 size={20} />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
     );
   };
@@ -3881,8 +4300,12 @@ const ClubManagement: React.FC<{
                     setActiveSubView('BIBLE_ADMIN');
                   } else if (activeSubView === 'BIBLE_DEVOTIONAL_VIEW') {
                     setActiveSubView(isAdmin ? 'BIBLE_DEVOTIONAL_LIST' : 'BIBLE');
+                  } else if (activeSubView === 'VIDEO_ADMIN' || activeSubView === 'FORM_ADMIN') {
+                    setActiveSubView('BIBLE_ADMIN');
                   } else if (activeSubView === 'VIDEOS') {
                     setActiveSubView('MAIN');
+                  } else if (activeSubView === 'VIDEO_PLAYER') {
+                    setActiveSubView('VIDEOS');
                   } else {
                     setActiveSubView('MAIN');
                   }
@@ -3949,6 +4372,10 @@ const ClubManagement: React.FC<{
                activeSubView === 'BIBLE_ADMIN_ADD' ? 'Novo Devocional' :
                activeSubView === 'BIBLE_DEVOTIONAL_LIST' ? 'Agendados' :
                activeSubView === 'BIBLE_DEVOTIONAL_VIEW' ? 'Devocional' :
+               activeSubView === 'VIDEOS' ? 'Vídeos' :
+               activeSubView === 'VIDEO_PLAYER' ? 'Assistir Vídeo' :
+               activeSubView === 'VIDEO_ADMIN' ? 'Gestão de Vídeos' :
+               activeSubView === 'FORM_ADMIN' ? 'Gestão de Formulários' :
                activeSubView}
             </p>
           </div>
@@ -4004,6 +4431,9 @@ const ClubManagement: React.FC<{
         {activeSubView === 'DESBRAVA_PLUS_DETAILS' && renderDesbravaPlusDetails()}
         {activeSubView === 'DESBRAVA_PLUS_PDF' && renderDesbravaPlusPdf()}
         {activeSubView === 'VIDEOS' && renderVideos()}
+        {activeSubView === 'VIDEO_PLAYER' && renderVideoPlayer()}
+        {activeSubView === 'VIDEO_ADMIN' && renderVideoAdmin()}
+        {activeSubView === 'FORM_ADMIN' && renderFormAdmin()}
         {activeSubView === 'BIBLE' && renderBible()}
         {activeSubView === 'BIBLE_BOOKS' && renderBibleBooks()}
         {activeSubView === 'BIBLE_CHAPTERS' && renderBibleChapters()}
