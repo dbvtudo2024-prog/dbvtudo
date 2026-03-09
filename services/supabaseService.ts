@@ -1,11 +1,51 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, UserProfile, Devocional, Cultura, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario } from '../types';
+import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, UserProfile, Devocional, Cultura, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario, Video, VideoCategory } from '../types';
 
 const supabaseUrl = 'https://qfpyjavbncijowjvznkg.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmcHlqYXZibmNpam93anZ6bmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NDcxMDUsImV4cCI6MjA3NDQyMzEwNX0.adxRCkobV-m_XUHp1KBXmg67VXkR-HL4QKFVtgQOmYc'; 
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
+
+export async function fetchVideos(club: ClubType): Promise<Video[]> {
+  const { data, error } = await supabase
+    .from('Videos')
+    .select('*')
+    .eq('club', club)
+    .order('id', { ascending: true });
+  if (error) return [];
+  return data;
+}
+
+export async function fetchVideoCategories(club: ClubType): Promise<VideoCategory[]> {
+  const { data, error } = await supabase
+    .from('VideoCategories')
+    .select('*')
+    .eq('club', club)
+    .order('id', { ascending: true });
+  if (error) return [];
+  return data;
+}
+
+export async function createVideo(video: Omit<Video, 'id' | 'created_at'>) {
+  const { data, error } = await supabase.from('Videos').insert([video]).select().single();
+  return { data, error };
+}
+
+export async function deleteVideo(id: number) {
+  const { error } = await supabase.from('Videos').delete().eq('id', id);
+  return { error };
+}
+
+export async function createVideoCategory(category: Omit<VideoCategory, 'id'>) {
+  const { data, error } = await supabase.from('VideoCategories').insert([category]).select().single();
+  return { data, error };
+}
+
+export async function deleteVideoCategory(id: number) {
+  const { error } = await supabase.from('VideoCategories').delete().eq('id', id);
+  return { error };
+}
 
 export async function fetchLivrosClasses(): Promise<LivroClasse[]> {
   const { data, error } = await supabase.from('LivroDasClasses').select('*').order('id', { ascending: true });

@@ -233,10 +233,10 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-screen bg-[#f8fafc] flex items-center justify-center p-0 sm:p-4 md:p-8 overflow-x-hidden overflow-y-auto">
+    <div className="h-screen w-screen bg-[#f8fafc] flex items-center justify-center p-0 sm:p-4 md:p-8 overflow-hidden">
       <style>{styles}</style>
-      <div className="min-h-full w-full max-w-7xl bg-white shadow-2xl relative overflow-hidden sm:rounded-[48px] sm:border-[8px] sm:border-slate-900 flex flex-col">
-        <main className="flex-1 w-full bg-mesh overflow-hidden">
+      <div className="h-full w-full max-w-7xl bg-white shadow-2xl relative overflow-hidden sm:rounded-[48px] sm:border-[8px] sm:border-slate-900 flex flex-col">
+        <main className="flex-1 w-full bg-mesh overflow-hidden flex flex-col">
           {renderContent()}
         </main>
       </div>

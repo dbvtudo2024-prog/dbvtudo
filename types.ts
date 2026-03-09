@@ -239,4 +239,23 @@ export interface Formulario {
   icone?: string;
 }
 
+export interface Video {
+  id: number;
+  created_at: string;
+  titulo: string;
+  canal: string;
+  duracao: string;
+  visualizacoes: string;
+  link: string;
+  categoria_id: number;
+  club: ClubType;
+}
+
+export interface VideoCategory {
+  id: number;
+  nome: string;
+  icone: string;
+  club: ClubType;
+}
+
 export type ViewState = 'LOGIN' | 'SIGNUP' | 'HOME' | 'CLUB_LIST' | 'AI_ADVISOR' | 'SETTINGS' | 'PROFILE';

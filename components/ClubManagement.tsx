@@ -786,10 +786,10 @@ const ClubManagement: React.FC<{
   onOpenProfile?: () => void; 
   onOpenAdvisor?: (prompt: string) => void;
   isGuest?: boolean; 
-  initialSubView?: 'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS' | 'PDF_VIEWER' | 'LIBRARY_BOOKS_MENU';
+  initialSubView?: 'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS' | 'PDF_VIEWER' | 'LIBRARY_BOOKS_MENU' | 'VIDEOS';
   onClearSubView?: () => void;
 }> = ({ club, onBack, onSwitchClub, onOpenProfile, onOpenAdvisor, isGuest, initialSubView, onClearSubView }) => {
-  const [activeSubView, setActiveSubView] = useState<'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS' | 'PDF_VIEWER' | 'LIBRARY_BOOKS_MENU'>(initialSubView || 'MAIN');
+  const [activeSubView, setActiveSubView] = useState<'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS' | 'PDF_VIEWER' | 'LIBRARY_BOOKS_MENU' | 'VIDEOS'>(initialSubView || 'MAIN');
   const [classes, setClasses] = useState<ClubClass[]>([]);
   const [selectedClass, setSelectedClass] = useState<ClubClass | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -798,6 +798,8 @@ const ClubManagement: React.FC<{
   const [selectedSpecialty, setSelectedSpecialty] = useState<Especialidade | null>(null);
   const [desbravaPlusItems, setDesbravaPlusItems] = useState<DesbravaMais[]>([]);
   const [selectedDesbravaPlusItem, setSelectedDesbravaPlusItem] = useState<DesbravaMais | null>(null);
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [videoCategories, setVideoCategories] = useState<VideoCategory[]>([]);
   const [bibleBooks, setBibleBooks] = useState<BibleBook[]>([]);
   const [selectedBibleBook, setSelectedBibleBook] = useState<BibleBook | null>(null);
   const [selectedBibleChapter, setSelectedBibleChapter] = useState<number | null>(null);
@@ -1097,6 +1099,15 @@ const ClubManagement: React.FC<{
     } else if (activeSubView === 'CAMPING') {
       setIsLoading(true);
       fetchCampingDBV().then(setCampingDBV).finally(() => setIsLoading(false));
+    } else if (activeSubView === 'VIDEOS') {
+      setIsLoading(true);
+      Promise.all([
+        fetchVideos(club),
+        fetchVideoCategories(club)
+      ]).then(([v, c]) => {
+        setVideos(v);
+        setVideoCategories(c);
+      }).finally(() => setIsLoading(false));
     } else if (activeSubView === 'FORMULARIOS') {
       setIsLoading(true);
       fetchFormularios().then(setFormularios).finally(() => setIsLoading(false));
@@ -1614,6 +1625,9 @@ const ClubManagement: React.FC<{
           
           {culturaData?.hino_letra ? (
             <div className="text-left mb-8">
+              <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight mb-4 text-center">
+                {club === ClubType.PATHFINDER ? 'Hino dos Desbravadores' : 'Hino dos Aventureiros'}
+              </h3>
               <div className="whitespace-pre-wrap text-slate-600 font-medium leading-relaxed text-center italic">
                 {culturaData.hino_letra}
               </div>
@@ -1761,7 +1775,7 @@ const ClubManagement: React.FC<{
           
           <div className="relative">
             {item.imagem && (
-              <div className={`w-32 sm:w-40 mb-4 rounded-2xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50 ${isImageLeft ? 'float-left mr-6' : 'float-right ml-6'}`}>
+              <div className={`w-32 sm:w-40 mb-4 overflow-hidden border border-slate-100 shadow-sm bg-slate-50 ${isImageLeft ? 'float-left mr-6' : 'float-right ml-6'}`}>
                 <img 
                   src={item.imagem} 
                   alt={item.titulo} 
@@ -1836,7 +1850,7 @@ const ClubManagement: React.FC<{
               {/* Conteúdo Principal do Card (Imagem pequena e Texto contornando) */}
               <div className="relative mt-6">
                 {item.imagem && (
-                  <div className="w-32 sm:w-40 mb-4 rounded-2xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50 float-left mr-6">
+                  <div className="w-32 sm:w-40 mb-4 overflow-hidden border border-slate-100 shadow-sm bg-slate-50 float-left mr-6">
                     <img 
                       src={item.imagem} 
                       alt={item.titulo} 
@@ -3528,6 +3542,82 @@ const ClubManagement: React.FC<{
     );
   };
 
+  const renderVideos = () => {
+    const categories = videoCategories.filter(c => c.club === club);
+    const clubVideos = videos.filter(v => v.club === club);
+
+    return (
+      <div className="animate-slide-in space-y-8 pt-4 pb-28">
+        <div className="bg-red-600 rounded-[40px] p-8 shadow-xl text-center relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+          <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <Video size={40} className="text-red-600" />
+          </div>
+          <h3 className="text-2xl font-black text-white uppercase tracking-tight mb-1">Vídeos</h3>
+          <p className="text-red-100 text-[10px] font-black uppercase tracking-[0.2em]">Aprenda mais sobre o Clube</p>
+        </div>
+
+        <p className="text-center text-slate-500 text-sm font-medium px-4">
+          Use os Vídeos pra aprender mais sobre as atividades do Clube de {club === ClubType.PATHFINDER ? 'Desbravadores' : 'Aventureiros'}.
+        </p>
+
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="w-8 h-8 border-3 border-slate-100 border-t-red-500 rounded-full animate-spin"></div>
+          </div>
+        ) : categories.length === 0 ? (
+          <div className="bg-white rounded-[32px] p-12 text-center border border-slate-100 shadow-sm">
+            <Video size={48} className="text-slate-100 mx-auto mb-4" />
+            <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Nenhum vídeo disponível no momento.</p>
+          </div>
+        ) : (
+          <div className="space-y-10">
+            {categories.map(category => {
+              const categoryVideos = clubVideos.filter(v => v.categoria_id === category.id);
+              if (categoryVideos.length === 0) return null;
+
+              return (
+                <div key={category.id} className="space-y-4">
+                  <div className="flex items-center space-x-3 px-2">
+                    <div className="w-10 h-10 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center shadow-sm">
+                      <Folder size={20} strokeWidth={2.5} />
+                    </div>
+                    <h4 className="text-lg font-black text-slate-800 uppercase tracking-tight">{category.nome}</h4>
+                  </div>
+
+                  <div className="bg-white rounded-[32px] p-4 shadow-sm border border-slate-100 space-y-3">
+                    {categoryVideos.map(video => (
+                      <a 
+                        key={video.id}
+                        href={video.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center space-x-4 p-3 rounded-2xl hover:bg-slate-50 transition-all active:scale-[0.98] group"
+                      >
+                        <div className="w-16 h-12 bg-red-600 rounded-xl flex items-center justify-center text-white shadow-md flex-shrink-0 group-hover:scale-105 transition-transform">
+                          <Video size={24} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h5 className="text-sm font-black text-slate-800 uppercase tracking-tight truncate">{video.titulo}</h5>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{video.canal}</p>
+                          <div className="flex items-center space-x-3 mt-1">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">{video.duracao}</span>
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">{video.visualizacoes} visualizações</span>
+                          </div>
+                        </div>
+                        <ChevronRight size={18} className="text-slate-200 group-hover:translate-x-1 transition-transform" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderFaixa = () => {
     return (
       <div className="animate-slide-in space-y-6 pt-4 pb-28">
@@ -3681,20 +3771,29 @@ const ClubManagement: React.FC<{
           ))}
         </div>
 
-        {/* Botão Desbrava + */}
-        {isPathfinder && (
-          <div className="flex justify-center mt-4">
+        {/* Botões Desbrava + e Vídeos */}
+        <div className="flex justify-center mt-4 mb-12 space-x-4">
+          {isPathfinder && (
             <button 
               onClick={() => setActiveSubView('DESBRAVA_PLUS')}
-              className="w-full max-w-[180px] bg-indigo-600 h-11 rounded-full shadow-lg shadow-indigo-100 flex items-center justify-center text-white active:scale-[0.98] transition-all px-6"
+              className="flex-1 max-w-[160px] bg-indigo-600 h-11 rounded-full shadow-lg shadow-indigo-100 flex items-center justify-center text-white active:scale-[0.98] transition-all px-4"
             >
               <div className="flex items-center space-x-2">
                 <Sparkles size={14} strokeWidth={2.5} />
                 <span className="font-black text-[11px] uppercase tracking-[0.15em]">Desbrava +</span>
               </div>
             </button>
-          </div>
-        )}
+          )}
+          <button 
+            onClick={() => setActiveSubView('VIDEOS')}
+            className="flex-1 max-w-[160px] bg-red-600 h-11 rounded-full shadow-lg shadow-red-100 flex items-center justify-center text-white active:scale-[0.98] transition-all px-4"
+          >
+            <div className="flex items-center space-x-2">
+              <Video size={14} strokeWidth={2.5} />
+              <span className="font-black text-[11px] uppercase tracking-[0.15em]">Vídeos</span>
+            </div>
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -3702,7 +3801,7 @@ const ClubManagement: React.FC<{
   return (
     <div className="flex flex-col h-full bg-[#F8FAFC] animate-slide-in overflow-hidden relative">
       {activeSubView !== 'BIBLE' && activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && (
-        <div className="px-6 pt-10 pb-4 flex items-center justify-between z-10 bg-[#F8FAFC]">
+        <div className="px-8 pt-12 pb-6 flex items-center justify-between z-10 bg-[#F8FAFC]">
           <div className="w-14 h-14 flex items-center justify-center">
             {activeSubView === 'MAIN' ? (
               <img src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/logo%20app.PNG" className="w-full h-full object-contain" />
@@ -3782,6 +3881,8 @@ const ClubManagement: React.FC<{
                     setActiveSubView('BIBLE_ADMIN');
                   } else if (activeSubView === 'BIBLE_DEVOTIONAL_VIEW') {
                     setActiveSubView(isAdmin ? 'BIBLE_DEVOTIONAL_LIST' : 'BIBLE');
+                  } else if (activeSubView === 'VIDEOS') {
+                    setActiveSubView('MAIN');
                   } else {
                     setActiveSubView('MAIN');
                   }
@@ -3902,6 +4003,7 @@ const ClubManagement: React.FC<{
         {activeSubView === 'DESBRAVA_PLUS' && renderDesbravaPlus()}
         {activeSubView === 'DESBRAVA_PLUS_DETAILS' && renderDesbravaPlusDetails()}
         {activeSubView === 'DESBRAVA_PLUS_PDF' && renderDesbravaPlusPdf()}
+        {activeSubView === 'VIDEOS' && renderVideos()}
         {activeSubView === 'BIBLE' && renderBible()}
         {activeSubView === 'BIBLE_BOOKS' && renderBibleBooks()}
         {activeSubView === 'BIBLE_CHAPTERS' && renderBibleChapters()}
