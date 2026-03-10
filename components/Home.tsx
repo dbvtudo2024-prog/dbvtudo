@@ -7,11 +7,10 @@ import { Settings, Sparkles, User } from 'lucide-react';
 interface HomeProps {
   onSelectClub: (club: ClubType) => void;
   onOpenSettings: () => void;
-  onOpenAdvisor: () => void;
   onOpenProfile: () => void;
 }
 
-const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenAdvisor, onOpenProfile }) => {
+const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile }) => {
   const [userAvatar, setUserAvatar] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -37,9 +36,6 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenAdvisor
         <div className="flex items-center space-x-3">
           <button onClick={onOpenSettings} className="p-2.5 bg-white/80 backdrop-blur-md rounded-2xl shadow-sm border border-white text-slate-400 active:scale-90 transition-all">
             <Settings size={18} />
-          </button>
-          <button onClick={onOpenAdvisor} className="p-2.5 bg-white/80 backdrop-blur-md rounded-2xl shadow-sm border border-white text-amber-500 active:scale-90 transition-all">
-            <Sparkles size={18} />
           </button>
         </div>
         

@@ -1,9 +1,15 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, UserProfile, Devocional, Cultura, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario, Video, VideoCategory } from '../types';
+import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, UserProfile, Devocional, Cultura, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario, Video, VideoCategory, LivroAVT, ManualAVT, AppLink } from '../types';
 
-const supabaseUrl = 'https://qfpyjavbncijowjvznkg.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmcHlqYXZibmNpam93anZ6bmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NDcxMDUsImV4cCI6MjA3NDQyMzEwNX0.adxRCkobV-m_XUHp1KBXmg67VXkR-HL4QKFVtgQOmYc'; 
+const DEFAULT_URL = 'https://qfpyjavbncijowjvznkg.supabase.co';
+const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmcHlqYXZibmNpam93anZ6bmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NDcxMDUsImV4cCI6MjA3NDQyMzEwNX0.adxRCkobV-m_XUHp1KBXmg67VXkR-HL4QKFVtgQOmYc';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_URL.startsWith('http') 
+  ? import.meta.env.VITE_SUPABASE_URL 
+  : DEFAULT_URL;
+
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_KEY;
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -431,5 +437,28 @@ export async function updateCultura(cultura: Partial<Cultura>) {
     };
   }
   
+  return { data, error };
+}
+
+export async function fetchLivrosAVT(): Promise<LivroAVT[]> {
+  const { data, error } = await supabase.from('LivrosAVT').select('*').order('id', { ascending: true });
+  if (error) return [];
+  return data;
+}
+
+export async function fetchManuaisAVT(): Promise<ManualAVT[]> {
+  const { data, error } = await supabase.from('ManuaisAVT').select('*').order('id', { ascending: true });
+  if (error) return [];
+  return data;
+}
+
+export async function fetchAppLinks(): Promise<AppLink[]> {
+  const { data, error } = await supabase.from('AppLinks').select('*').order('id', { ascending: true });
+  if (error) return [];
+  return data;
+}
+
+export async function updateAppLink(link: Partial<AppLink>) {
+  const { data, error } = await supabase.from('AppLinks').upsert(link).select().single();
   return { data, error };
 }

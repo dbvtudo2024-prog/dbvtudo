@@ -258,4 +258,29 @@ export interface VideoCategory {
   club: ClubType;
 }
 
-export type ViewState = 'LOGIN' | 'SIGNUP' | 'HOME' | 'CLUB_LIST' | 'AI_ADVISOR' | 'SETTINGS' | 'PROFILE';
+export interface LivroAVT {
+  id: number;
+  created_at: string;
+  Nome: string;
+  Capa: string;
+  Resumo: string;
+  Conteudo: string;
+  Ano: string;
+}
+
+export interface ManualAVT {
+  id: number;
+  created_at: string;
+  Nome: string;
+  Capa: string;
+  Descricao: string;
+  Conteudo: string;
+}
+
+export interface AppLink {
+  id: number;
+  name: string;
+  url: string;
+}
+
+export type ViewState = 'LOGIN' | 'SIGNUP' | 'HOME' | 'CLUB_LIST' | 'SETTINGS' | 'PROFILE';

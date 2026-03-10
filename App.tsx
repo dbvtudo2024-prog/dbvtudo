@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { ViewState, ClubType } from './types';
 import Home from './components/Home';
 import ClubManagement from './components/ClubManagement';
-import AiAssistant from './components/AiAssistant';
 import Auth from './components/Auth';
 import Profile from './components/Profile';
 import { Settings, X, ChevronLeft } from 'lucide-react';
@@ -146,7 +145,6 @@ const App: React.FC = () => {
         return <Home 
           onSelectClub={navigateToClub} 
           onOpenSettings={() => setCurrentView('SETTINGS')} 
-          onOpenAdvisor={() => setCurrentView('AI_ADVISOR')} 
           onOpenProfile={handleOpenProfile}
         />;
       case 'CLUB_LIST':
@@ -156,23 +154,11 @@ const App: React.FC = () => {
             onBack={() => setCurrentView('HOME')}
             onSwitchClub={(club) => setSelectedClub(club)}
             onOpenProfile={handleOpenProfile}
-            onOpenAdvisor={(prompt) => {
-              setPendingPrompt(prompt);
-              setCurrentView('AI_ADVISOR');
-            }}
             isGuest={isGuest}
             initialSubView={pendingSubView as any}
             onClearSubView={() => setPendingSubView(undefined)}
           />
         );
-      case 'AI_ADVISOR':
-        return <AiAssistant 
-          onBack={() => {
-            setPendingPrompt(undefined);
-            setCurrentView('HOME');
-          }} 
-          initialPrompt={pendingPrompt} 
-        />;
       case 'PROFILE':
         return (
           <Profile 
@@ -228,7 +214,7 @@ const App: React.FC = () => {
           </div>
         );
       default:
-        return <Home onSelectClub={navigateToClub} onOpenSettings={() => setCurrentView('SETTINGS')} onOpenAdvisor={() => setCurrentView('AI_ADVISOR')} />;
+        return <Home onSelectClub={navigateToClub} onOpenSettings={() => setCurrentView('SETTINGS')} onOpenProfile={handleOpenProfile} />;
     }
   };
 
