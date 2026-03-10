@@ -898,6 +898,11 @@ const ClubManagement: React.FC<{
   const themeColor = isPathfinder ? '#dc371b' : '#800000';
   const themeBgLight = isPathfinder ? 'bg-[#dc371b]/5' : 'bg-[#800000]/5';
 
+  useEffect(() => {
+    setNewVideo(prev => ({ ...prev, club: club }));
+    setNewVideoCategory(prev => ({ ...prev, club: club }));
+  }, [club]);
+
   // Reset view state when switching clubs
   useEffect(() => {
     // Only reset to MAIN if we are NOT coming from an initialSubView request
@@ -913,6 +918,8 @@ const ClubManagement: React.FC<{
     setClassRequirements([]);
     setDesbravaPlusItems([]);
     setSelectedDesbravaPlusItem(null);
+    setVideos([]);
+    setVideoCategories([]);
   }, [club]);
 
   useEffect(() => {
@@ -1124,7 +1131,7 @@ const ClubManagement: React.FC<{
     } else if (activeSubView === 'CAMPING') {
       setIsLoading(true);
       fetchCampingDBV().then(setCampingDBV).finally(() => setIsLoading(false));
-    } else if (activeSubView === 'VIDEOS') {
+    } else if (activeSubView === 'VIDEOS' || activeSubView === 'VIDEO_ADMIN') {
       setIsLoading(true);
       Promise.all([
         fetchVideos(club),
@@ -1133,7 +1140,7 @@ const ClubManagement: React.FC<{
         setVideos(v);
         setVideoCategories(c);
       }).finally(() => setIsLoading(false));
-    } else if (activeSubView === 'FORMULARIOS') {
+    } else if (activeSubView === 'FORMULARIOS' || activeSubView === 'FORM_ADMIN') {
       setIsLoading(true);
       fetchFormularios().then(setFormularios).finally(() => setIsLoading(false));
     } else if (activeSubView === 'BIBLE_BOOKS') {
@@ -3810,6 +3817,8 @@ const ClubManagement: React.FC<{
         categoria_id: 0,
         club: club
       });
+    } else {
+      console.error("Erro ao criar vídeo:", error);
     }
     setIsLoading(false);
   };
@@ -3830,6 +3839,8 @@ const ClubManagement: React.FC<{
     if (!error) {
       setVideoCategories([...videoCategories, data as VideoCategory]);
       setNewVideoCategory({ nome: '', icone: 'Folder', club: club });
+    } else {
+      console.error("Erro ao criar categoria de vídeo:", error);
     }
     setIsLoading(false);
   };
