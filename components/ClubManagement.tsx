@@ -3818,11 +3818,15 @@ const ClubManagement: React.FC<{
                           <Video size={24} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h5 className="text-sm font-black text-slate-800 uppercase tracking-tight truncate">{video.titulo}</h5>
+                          <h5 className="text-sm font-black text-slate-800 uppercase tracking-tight whitespace-normal break-words">{video.titulo}</h5>
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{video.canal}</p>
                           <div className="flex items-center space-x-3 mt-1">
                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">{video.duracao}</span>
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">{video.visualizacoes} visualizações</span>
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">
+                              {video.visualizacoes.toLowerCase().includes('visualiza') 
+                                ? video.visualizacoes 
+                                : `${video.visualizacoes} visualizações`}
+                            </span>
                           </div>
                         </div>
                         <ChevronRight size={18} className="text-slate-200 group-hover:translate-x-1 transition-transform" />
@@ -4068,8 +4072,8 @@ const ClubManagement: React.FC<{
                         <div className="w-10 h-8 bg-red-600 rounded-lg flex items-center justify-center text-white">
                           <Video size={16} />
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-black text-slate-800 uppercase truncate">{video.titulo}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-black text-slate-800 uppercase whitespace-normal break-words">{video.titulo}</p>
                           <p className="text-[9px] font-bold text-slate-400 uppercase">{video.canal}</p>
                         </div>
                       </div>
@@ -4152,8 +4156,8 @@ const ClubManagement: React.FC<{
                     <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
                       <FileText size={24} />
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-black text-slate-800 uppercase tracking-tight truncate">{form.titulo}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-black text-slate-800 uppercase tracking-tight whitespace-normal break-words">{form.titulo}</p>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{form.categoria}</p>
                     </div>
                   </div>
