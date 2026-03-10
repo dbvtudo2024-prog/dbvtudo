@@ -17,6 +17,54 @@ export async function fetchVideos(club: ClubType): Promise<Video[]> {
   return data;
 }
 
+export async function fetchAtividadesJogosDBV(): Promise<Video[]> {
+  const { data, error } = await supabase.from('AtividadesJogosDBV').select('*').order('id', { ascending: true });
+  if (error) return [];
+  return data.map(v => ({
+    id: v.id,
+    created_at: v.created_at,
+    titulo: v.Titulo || '',
+    canal: v.Canal || '',
+    duracao: v.Minutos || '',
+    visualizacoes: v.Visualizacao || '0',
+    link: v.Link || '',
+    categoria_id: -1, // Virtual ID
+    club: ClubType.PATHFINDER
+  }));
+}
+
+export async function fetchCerimoniasDBV(): Promise<Video[]> {
+  const { data, error } = await supabase.from('CerimoniasDBV').select('*').order('id', { ascending: true });
+  if (error) return [];
+  return data.map(v => ({
+    id: v.id,
+    created_at: v.created_at,
+    titulo: v.Titulo || '',
+    canal: v.Canal || '',
+    duracao: v.Minutos || '',
+    visualizacoes: v.Visualizacao || '0',
+    link: v.Link || '',
+    categoria_id: -2, // Virtual ID
+    club: ClubType.PATHFINDER
+  }));
+}
+
+export async function fetchVideosDBV(): Promise<Video[]> {
+  const { data, error } = await supabase.from('VideosDBV').select('*').order('id', { ascending: true });
+  if (error) return [];
+  return data.map(v => ({
+    id: v.id,
+    created_at: v.created_at,
+    titulo: v.Titulo || '',
+    canal: v.Canal || '',
+    duracao: v.Minutos || '',
+    visualizacoes: v.Visualizacao || '0',
+    link: v.Link || '',
+    categoria_id: -3, // Virtual ID
+    club: ClubType.PATHFINDER
+  }));
+}
+
 export async function fetchVideoCategories(club: ClubType): Promise<VideoCategory[]> {
   const { data, error } = await supabase
     .from('VideoCategories')

@@ -9,6 +9,7 @@ import {
   fetchLivrosClasses, fetchLivrosAno, fetchOutrosLivros, fetchManuaisDBV,
   fetchCampingDBV, fetchFormularios, createFormulario, deleteFormulario,
   fetchVideos, fetchVideoCategories,
+  fetchAtividadesJogosDBV, fetchCerimoniasDBV, fetchVideosDBV,
   createVideo, deleteVideo, createVideoCategory, deleteVideoCategory
 } from '../services/supabaseService';
 import { PROFILE_KEY } from '../constants';
@@ -903,6 +904,25 @@ const ClubManagement: React.FC<{
     setNewVideoCategory(prev => ({ ...prev, club: club }));
   }, [club]);
 
+  useEffect(() => {
+    if (newVideo.link && (newVideo.link.includes('youtube.com') || newVideo.link.includes('youtu.be'))) {
+      const timer = setTimeout(async () => {
+        try {
+          const response = await fetch(`https://noembed.com/embed?url=${newVideo.link}`);
+          const data = await response.json();
+          if (data && data.title) {
+            setNewVideo(prev => ({
+              ...prev,
+              titulo: prev.titulo || data.title,
+              canal: prev.canal || data.author_name
+            }));
+          }
+        } catch (e) {}
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [newVideo.link]);
+
   // Reset view state when switching clubs
   useEffect(() => {
     // Only reset to MAIN if we are NOT coming from an initialSubView request
@@ -1133,13 +1153,55 @@ const ClubManagement: React.FC<{
       fetchCampingDBV().then(setCampingDBV).finally(() => setIsLoading(false));
     } else if (activeSubView === 'VIDEOS' || activeSubView === 'VIDEO_ADMIN') {
       setIsLoading(true);
-      Promise.all([
+      const promises: [Promise<VideoType[]>, Promise<VideoCategory[]>] = [
         fetchVideos(club),
         fetchVideoCategories(club)
-      ]).then(([v, c]) => {
-        setVideos(v);
-        setVideoCategories(c);
-      }).finally(() => setIsLoading(false));
+      ];
+
+      if (club === ClubType.PATHFINDER) {
+        Promise.all([
+          ...promises,
+          fetchAtividadesJogosDBV(),
+          fetchCerimoniasDBV(),
+          fetchVideosDBV()
+        ]).then(async ([v, c, aj, cer, vdbv]) => {
+          const virtualCategories: VideoCategory[] = [
+            { id: -3, nome: 'Tutorial de Especialidades', icone: 'Video', club: ClubType.PATHFINDER },
+            { id: -1, nome: 'Atividades e Jogos', icone: 'Zap', club: ClubType.PATHFINDER },
+            { id: -2, nome: 'Cerimônias', icone: 'Award', club: ClubType.PATHFINDER }
+          ];
+          
+          const allVideos = [...v, ...aj, ...cer, ...vdbv];
+          
+          // Fetch YouTube metadata for videos that might need it
+          const videosWithMetadata = await Promise.all(allVideos.map(async (video) => {
+            if (video.link && (!video.titulo || video.titulo === '' || video.canal === '')) {
+              try {
+                const response = await fetch(`https://noembed.com/embed?url=${video.link}`);
+                const data = await response.json();
+                if (data && data.title) {
+                  return {
+                    ...video,
+                    titulo: data.title || video.titulo,
+                    canal: data.author_name || video.canal
+                  };
+                }
+              } catch (e) {
+                console.error("Error fetching YT metadata", e);
+              }
+            }
+            return video;
+          }));
+
+          setVideos(videosWithMetadata);
+          setVideoCategories([...virtualCategories, ...c]);
+        }).finally(() => setIsLoading(false));
+      } else {
+        Promise.all(promises).then(([v, c]) => {
+          setVideos(v);
+          setVideoCategories(c);
+        }).finally(() => setIsLoading(false));
+      }
     } else if (activeSubView === 'FORMULARIOS' || activeSubView === 'FORM_ADMIN') {
       setIsLoading(true);
       fetchFormularios().then(setFormularios).finally(() => setIsLoading(false));
@@ -3685,8 +3747,23 @@ const ClubManagement: React.FC<{
   };
 
   const renderVideos = () => {
-    const categories = videoCategories.filter(c => c.club === club);
+    const categories = [...videoCategories.filter(c => c.club === club)].sort((a, b) => {
+      if (a.id === -3) return -1;
+      if (b.id === -3) return 1;
+      return 0;
+    });
     const clubVideos = videos.filter(v => v.club === club);
+
+    const getDailyVideos = (videoList: VideoType[], count: number = 4) => {
+      if (videoList.length <= count) return videoList;
+      const day = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
+      const startIndex = day % videoList.length;
+      const result = [];
+      for (let i = 0; i < count; i++) {
+        result.push(videoList[(startIndex + i) % videoList.length]);
+      }
+      return result;
+    };
 
     return (
       <div className="animate-slide-in space-y-8 pt-4 pb-28">
@@ -3715,7 +3792,7 @@ const ClubManagement: React.FC<{
         ) : (
           <div className="space-y-10">
             {categories.map(category => {
-              const categoryVideos = clubVideos.filter(v => v.categoria_id === category.id);
+              const categoryVideos = getDailyVideos(clubVideos.filter(v => v.categoria_id === category.id));
               if (categoryVideos.length === 0) return null;
 
               return (
@@ -3875,7 +3952,11 @@ const ClubManagement: React.FC<{
   };
 
   const renderVideoAdmin = () => {
-    const clubCategories = videoCategories.filter(c => c.club === club);
+    const clubCategories = [...videoCategories.filter(c => c.club === club)].sort((a, b) => {
+      if (a.id === -3) return -1;
+      if (b.id === -3) return 1;
+      return 0;
+    });
     const clubVideos = videos.filter(v => v.club === club);
 
     return (
@@ -3939,7 +4020,7 @@ const ClubManagement: React.FC<{
                 className="bg-slate-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-red-500 transition-all"
               >
                 <option value={0}>Selecionar Categoria</option>
-                {clubCategories.map(c => (
+                {clubCategories.filter(c => c.id > 0).map(c => (
                   <option key={c.id} value={c.id}>{c.nome}</option>
                 ))}
               </select>
@@ -3968,12 +4049,14 @@ const ClubManagement: React.FC<{
             <div key={category.id} className="space-y-4">
               <div className="flex items-center justify-between px-2">
                 <h4 className="font-black text-slate-800 uppercase tracking-tight">{category.nome}</h4>
-                <button 
-                  onClick={() => handleDeleteVideoCategory(category.id)}
-                  className="text-red-500 p-2"
-                >
-                  <Trash2 size={18} />
-                </button>
+                {category.id > 0 && (
+                  <button 
+                    onClick={() => handleDeleteVideoCategory(category.id)}
+                    className="text-red-500 p-2"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                )}
               </div>
               <div className="bg-white rounded-[32px] p-4 shadow-sm border border-slate-100 space-y-2">
                 {categoryVideos.length === 0 ? (
@@ -3990,12 +4073,14 @@ const ClubManagement: React.FC<{
                           <p className="text-[9px] font-bold text-slate-400 uppercase">{video.canal}</p>
                         </div>
                       </div>
-                      <button 
-                        onClick={() => handleDeleteVideo(video.id)}
-                        className="text-slate-300 hover:text-red-500 p-2 transition-colors"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      {video.categoria_id > 0 && (
+                        <button 
+                          onClick={() => handleDeleteVideo(video.id)}
+                          className="text-slate-300 hover:text-red-500 p-2 transition-colors"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      )}
                     </div>
                   ))
                 )}
