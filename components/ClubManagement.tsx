@@ -3767,19 +3767,6 @@ const ClubManagement: React.FC<{
 
     return (
       <div className="animate-slide-in space-y-8 pt-4 pb-28">
-        <div className="bg-red-600 rounded-[40px] p-8 shadow-xl text-center relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
-          <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <Video size={40} className="text-red-600" />
-          </div>
-          <h3 className="text-2xl font-black text-white uppercase tracking-tight mb-1">Vídeos</h3>
-          <p className="text-red-100 text-[10px] font-black uppercase tracking-[0.2em]">Aprenda mais sobre o Clube</p>
-        </div>
-
-        <p className="text-center text-slate-500 text-sm font-medium px-4">
-          Use os Vídeos pra aprender mais sobre as atividades do Clube de {club === ClubType.PATHFINDER ? 'Desbravadores' : 'Aventureiros'}.
-        </p>
-
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="w-8 h-8 border-3 border-slate-100 border-t-red-500 rounded-full animate-spin"></div>
@@ -3845,12 +3832,6 @@ const ClubManagement: React.FC<{
   const renderFaixa = () => {
     return (
       <div className="animate-slide-in space-y-6 pt-4 pb-28">
-        <div className="bg-slate-900 rounded-[40px] p-8 shadow-xl text-center relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl"></div>
-          <h3 className="text-2xl font-black text-white uppercase tracking-tight mb-1">Minha Faixa</h3>
-          <p className="text-indigo-300 text-[10px] font-black uppercase tracking-[0.2em]">{completedSpecialties.length} Especialidades Concluídas</p>
-        </div>
-
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="w-8 h-8 border-3 border-slate-100 border-t-indigo-500 rounded-full animate-spin"></div>
