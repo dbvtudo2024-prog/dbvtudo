@@ -1,5 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, BibleNote, Devocional, Cultura, UserProfile, CulturaItem, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario, Video as VideoType, VideoCategory, LivroAVT, ManualAVT, AppLink } from '../types';
 import { 
   fetchCategories, fetchEspecialidades, fetchClasses, fetchDesbravaMais, 
@@ -888,6 +890,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   const [culturaData, setCulturaData] = useState<Cultura | null>(null);
   const [activeAccordions, setActiveAccordions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [classRequirements, setClassRequirements] = useState<string[]>([]);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -1347,59 +1350,128 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     if (!selectedClass) return null;
     const classColor = getClassColor(selectedClass);
 
+    const generateClassPDF = async () => {
+      setIsGeneratingPDF(true);
+      try {
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const margin = 15;
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const innerWidth = pageWidth - (margin * 2);
+        const gap = 5;
+        let currentY = margin;
+
+        const captureAndAdd = async (el: HTMLElement) => {
+          const canvas = await html2canvas(el, {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            backgroundColor: '#ffffff',
+            windowWidth: 800,
+            scrollX: 0,
+            scrollY: 0
+          });
+          
+          const imgData = canvas.toDataURL('image/png', 1.0);
+          const imgProps = pdf.getImageProperties(imgData);
+          const imgHeight = (imgProps.height * innerWidth) / imgProps.width;
+
+          // Se o elemento sozinho for maior que a página, ele será cortado, 
+          // mas requisitos geralmente são curtos.
+          if (currentY + imgHeight > pageHeight - margin) {
+            pdf.addPage();
+            currentY = margin;
+          }
+
+          pdf.addImage(imgData, 'PNG', margin, currentY, innerWidth, imgHeight, undefined, 'FAST');
+          currentY += imgHeight + gap;
+        };
+
+        // Captura o Header
+        const header = document.getElementById('class-header');
+        if (header) await captureAndAdd(header);
+
+        // Captura os Cards de Requisitos
+        const cards = document.getElementsByClassName('class-requirement-card');
+        if (cards.length === 0) {
+          console.warn('Nenhum card de requisito encontrado para o PDF');
+        }
+        for (let i = 0; i < cards.length; i++) {
+          await captureAndAdd(cards[i] as HTMLElement);
+        }
+
+        pdf.save(`${selectedClass.titulo.replace(/\s+/g, '_')}_Requisitos.pdf`);
+      } catch (error) {
+        console.error('Erro ao gerar PDF:', error);
+      } finally {
+        setIsGeneratingPDF(false);
+      }
+    };
+
     return (
       <div className="animate-slide-in space-y-6 pt-2 pb-28">
-        {/* Header da Classe */}
-        <div className="relative overflow-hidden rounded-[40px] p-8 shadow-xl" style={{ backgroundColor: classColor }}>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
-          <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full -ml-12 -mb-12 blur-xl"></div>
-          
-          <div className="relative z-10 flex flex-col items-center text-center">
-            <div className="w-24 h-24 bg-white rounded-3xl shadow-lg flex items-center justify-center mb-6 p-4">
-              {selectedClass.imagem ? (
-                <img src={selectedClass.imagem} className="w-full h-full object-contain" alt={selectedClass.titulo} />
-              ) : (
-                <Layers size={40} style={{ color: classColor }} />
+        <div id="class-details-content" className="space-y-6">
+          {/* Header da Classe */}
+          <div id="class-header" className="relative overflow-hidden rounded-[40px] p-8 shadow-xl" style={{ backgroundColor: classColor }}>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full -ml-12 -mb-12 blur-xl"></div>
+            
+            <div className="relative z-10 flex flex-col items-center text-center">
+              <div className="w-24 h-24 bg-white rounded-3xl shadow-lg flex items-center justify-center mb-6 p-4">
+                {selectedClass.imagem ? (
+                  <img src={selectedClass.imagem} className="w-full h-full object-contain" alt={selectedClass.titulo} referrerPolicy="no-referrer" />
+                ) : (
+                  <Layers size={40} style={{ color: classColor }} />
+                )}
+              </div>
+              <h3 className="text-2xl font-black text-white uppercase tracking-tight leading-tight">
+                {selectedClass.titulo}
+              </h3>
+              {selectedClass.subtitulo && (
+                <p className="text-white/80 text-xs font-bold uppercase tracking-widest mt-2 px-4">
+                  {selectedClass.subtitulo}
+                </p>
               )}
             </div>
-            <h3 className="text-2xl font-black text-white uppercase tracking-tight leading-tight">
-              {selectedClass.titulo}
-            </h3>
-            {selectedClass.subtitulo && (
-              <p className="text-white/80 text-xs font-bold uppercase tracking-widest mt-2 px-4">
-                {selectedClass.subtitulo}
-              </p>
+          </div>
+
+          {/* Lista de Requisitos */}
+          <div className="space-y-4">
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <div className="w-6 h-6 border-2 border-slate-100 border-t-slate-300 rounded-full animate-spin"></div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {classRequirements.map((req, idx) => {
+                  const [title, ...rest] = req.split(':');
+                  return (
+                    <div key={idx} className="class-requirement-card bg-white border border-slate-100 rounded-[24px] p-5 shadow-sm flex items-start space-x-4 group transition-colors">
+                      <div className="w-1.5 h-1.5 rounded-full bg-slate-200 mt-2.5 flex-shrink-0"></div>
+                      <div className="flex-grow">
+                        <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">
+                          {title}
+                        </p>
+                        <p className="text-[14px] font-bold text-slate-700 leading-snug">
+                          {rest.join(':').trim()}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
 
-        {/* Lista de Requisitos */}
-        <div className="space-y-4">
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <div className="w-6 h-6 border-2 border-slate-100 border-t-slate-300 rounded-full animate-spin"></div>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {classRequirements.map((req, idx) => {
-                const [title, ...rest] = req.split(':');
-                return (
-                  <div key={idx} className="bg-white border border-slate-100 rounded-[24px] p-5 shadow-sm flex items-start space-x-4 group transition-colors">
-                    <div className="w-1.5 h-1.5 rounded-full bg-slate-200 mt-2.5 flex-shrink-0"></div>
-                    <div className="flex-grow">
-                      <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">
-                        {title}
-                      </p>
-                      <p className="text-[14px] font-bold text-slate-700 leading-snug">
-                        {rest.join(':').trim()}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <button 
+          onClick={generateClassPDF}
+          disabled={isGeneratingPDF}
+          className="w-full py-4 bg-slate-800 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2"
+        >
+          <Download size={18} />
+          <span>{isGeneratingPDF ? 'Gerando...' : 'Gerar PDF da Classe'}</span>
+        </button>
 
         {/* Botão de Ajuda da IA removido */}
       </div>
@@ -1518,82 +1590,153 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     if (!selectedSpecialty) return null;
     const isCompleted = completedSpecialties.includes(selectedSpecialty.id.toString());
 
+    const generateSpecialtyPDF = async () => {
+      setIsGeneratingPDF(true);
+      try {
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const margin = 15;
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const innerWidth = pageWidth - (margin * 2);
+        const gap = 5;
+        let currentY = margin;
+
+        const captureAndAdd = async (el: HTMLElement) => {
+          const canvas = await html2canvas(el, {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            backgroundColor: '#ffffff',
+            windowWidth: 800,
+            scrollX: 0,
+            scrollY: 0
+          });
+          
+          const imgData = canvas.toDataURL('image/png', 1.0);
+          const imgProps = pdf.getImageProperties(imgData);
+          const imgHeight = (imgProps.height * innerWidth) / imgProps.width;
+
+          if (currentY + imgHeight > pageHeight - margin) {
+            pdf.addPage();
+            currentY = margin;
+          }
+
+          pdf.addImage(imgData, 'PNG', margin, currentY, innerWidth, imgHeight, undefined, 'FAST');
+          currentY += imgHeight + gap;
+        };
+
+        // Captura o Header
+        const header = document.getElementById('specialty-header');
+        if (header) await captureAndAdd(header);
+
+        // Captura o Título de Requisitos
+        const title = document.getElementById('specialty-requirements-title');
+        if (title) await captureAndAdd(title);
+
+        // Captura os Cards de Requisitos
+        const cards = document.getElementsByClassName('specialty-requirement-card');
+        if (cards.length === 0) {
+          console.warn('Nenhum card de requisito encontrado para o PDF');
+        }
+        for (let i = 0; i < cards.length; i++) {
+          await captureAndAdd(cards[i] as HTMLElement);
+        }
+
+        pdf.save(`${selectedSpecialty.nome.replace(/\s+/g, '_')}_Requisitos.pdf`);
+      } catch (error) {
+        console.error('Erro ao gerar PDF:', error);
+      } finally {
+        setIsGeneratingPDF(false);
+      }
+    };
+
     return (
       <div className="animate-slide-in space-y-6 pt-2 pb-28">
-        <div className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100 flex flex-col items-center text-center relative">
-          <button 
-            onClick={() => toggleSpecialty(selectedSpecialty.id.toString())}
-            className={`absolute top-6 right-6 p-4 rounded-2xl transition-all active:scale-90 ${isCompleted ? 'text-red-500 bg-red-50 shadow-sm' : 'text-slate-200 bg-slate-50'}`}
-          >
-            <Heart size={24} fill={isCompleted ? "currentColor" : "none"} />
-          </button>
-          <div className="w-32 h-32 bg-slate-50 rounded-[32px] flex items-center justify-center mb-6 shadow-inner border border-slate-50">
-            {selectedSpecialty.logo ? (
-              <img src={selectedSpecialty.logo} className="w-24 h-24 object-contain" alt={selectedSpecialty.nome} />
-            ) : (
-              <Award size={48} className="text-slate-200" />
-            )}
+        <div id="specialty-details-content" className="space-y-6">
+          <div id="specialty-header" className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100 flex flex-col items-center text-center relative">
+            <button 
+              onClick={() => toggleSpecialty(selectedSpecialty.id.toString())}
+              className={`absolute top-6 right-6 p-4 rounded-2xl transition-all active:scale-90 ${isCompleted ? 'text-red-500 bg-red-50 shadow-sm' : 'text-slate-200 bg-slate-50'}`}
+            >
+              <Heart size={24} fill={isCompleted ? "currentColor" : "none"} />
+            </button>
+            <div className="w-32 h-32 bg-slate-50 rounded-[32px] flex items-center justify-center mb-6 shadow-inner border border-slate-50">
+              {selectedSpecialty.logo ? (
+                <img src={selectedSpecialty.logo} className="w-24 h-24 object-contain" alt={selectedSpecialty.nome} referrerPolicy="no-referrer" />
+              ) : (
+                <Award size={48} className="text-slate-200" />
+              )}
+            </div>
+            <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight leading-tight mb-2">
+              {selectedSpecialty.nome}
+            </h3>
+            <div className="flex flex-wrap justify-center gap-2">
+              <div className="px-3 py-1 bg-slate-100 rounded-full">
+                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
+                  {selectedSpecialty.area}
+                </span>
+              </div>
+              <div className="px-3 py-1 bg-indigo-50 rounded-full">
+                <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">
+                  {selectedSpecialty.codigo || `${selectedSpecialty.sigla}${String(selectedSpecialty.id).padStart(3, '0')}`}
+                </span>
+              </div>
+              {selectedSpecialty.nivel && (
+                <div className="px-3 py-1 bg-slate-50 rounded-full border border-slate-100">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                    Nível {selectedSpecialty.nivel.toUpperCase().replace('NÍVEL', '').replace('NIVEL', '').trim()}
+                  </span>
+                </div>
+              )}
+              {selectedSpecialty.ano && (
+                <div className="px-3 py-1 bg-slate-50 rounded-full border border-slate-100">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                    {selectedSpecialty.ano}
+                  </span>
+                </div>
+              )}
+              {selectedSpecialty.origem && (
+                <div className="px-3 py-1 bg-slate-50 rounded-full border border-slate-100">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                    {selectedSpecialty.origem}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
-          <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight leading-tight mb-2">
-            {selectedSpecialty.nome}
-          </h3>
-          <div className="flex flex-wrap justify-center gap-2">
-            <div className="px-3 py-1 bg-slate-100 rounded-full">
-              <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
-                {selectedSpecialty.area}
-              </span>
+
+          <div className="space-y-4">
+            <div id="specialty-requirements-title" className="px-2">
+              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Requisitos</h4>
             </div>
-            <div className="px-3 py-1 bg-indigo-50 rounded-full">
-              <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">
-                {selectedSpecialty.codigo || `${selectedSpecialty.sigla}${String(selectedSpecialty.id).padStart(3, '0')}`}
-              </span>
+            
+            <div className="space-y-3">
+              {selectedSpecialty.requisitos.length > 0 ? (
+                selectedSpecialty.requisitos.map((req, idx) => (
+                  <div key={idx} className="specialty-requirement-card bg-white border border-slate-100 rounded-[24px] p-5 shadow-sm flex items-start space-x-4">
+                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2.5 flex-shrink-0"></div>
+                    <p className="text-[14px] font-bold text-slate-700 leading-snug">
+                      {req.trim()}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <div className="bg-white border border-slate-100 rounded-[24px] p-8 text-center">
+                  <p className="text-slate-400 font-bold text-sm">Nenhum requisito listado no momento.</p>
+                </div>
+              )}
             </div>
-            {selectedSpecialty.nivel && (
-              <div className="px-3 py-1 bg-slate-50 rounded-full border border-slate-100">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                  Nível {selectedSpecialty.nivel.toUpperCase().replace('NÍVEL', '').replace('NIVEL', '').trim()}
-                </span>
-              </div>
-            )}
-            {selectedSpecialty.ano && (
-              <div className="px-3 py-1 bg-slate-50 rounded-full border border-slate-100">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                  {selectedSpecialty.ano}
-                </span>
-              </div>
-            )}
-            {selectedSpecialty.origem && (
-              <div className="px-3 py-1 bg-slate-50 rounded-full border border-slate-100">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                  {selectedSpecialty.origem}
-                </span>
-              </div>
-            )}
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="px-2">
-            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Requisitos</h4>
-          </div>
-          
-          <div className="space-y-3">
-            {selectedSpecialty.requisitos.length > 0 ? (
-              selectedSpecialty.requisitos.map((req, idx) => (
-                <div key={idx} className="bg-white border border-slate-100 rounded-[24px] p-5 shadow-sm flex items-start space-x-4">
-                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2.5 flex-shrink-0"></div>
-                  <p className="text-[14px] font-bold text-slate-700 leading-snug">
-                    {req.trim()}
-                  </p>
-                </div>
-              ))
-            ) : (
-              <div className="bg-white border border-slate-100 rounded-[24px] p-8 text-center">
-                <p className="text-slate-400 font-bold text-sm">Nenhum requisito listado no momento.</p>
-              </div>
-            )}
-          </div>
-        </div>
+        <button 
+          onClick={generateSpecialtyPDF}
+          disabled={isGeneratingPDF}
+          className="w-full py-4 bg-indigo-600 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2"
+        >
+          <Download size={18} />
+          <span>{isGeneratingPDF ? 'Gerando...' : 'Gerar PDF da Especialidade'}</span>
+        </button>
 
         {/* Botão de Ajuda da IA removido */}
       </div>
