@@ -44,6 +44,7 @@ const styles = `
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('LOGIN');
+  const [activeSubView, setActiveSubView] = useState<string | undefined>(undefined);
   const [selectedClub, setSelectedClub] = useState<ClubType | null>(null);
   const [isGuest, setIsGuest] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -82,12 +83,19 @@ const App: React.FC = () => {
   // Gerenciar histórico para o botão voltar do Android
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
-      if (event.state && event.state.view) {
-        setCurrentView(event.state.view);
+      if (event.state) {
+        if (event.state.view) setCurrentView(event.state.view);
+        if (event.state.subView !== undefined) {
+          setActiveSubView(event.state.subView);
+        } else {
+          setActiveSubView(undefined);
+        }
+        if (event.state.club) setSelectedClub(event.state.club);
       } else {
-        // Se não houver estado, voltamos para a LOGIN se não estivermos nela
-        if (currentView !== 'LOGIN') {
-          setCurrentView('LOGIN');
+        // Se não houver estado e não for LOGIN, tentamos manter ou ir para HOME
+        if (currentView !== 'LOGIN' && currentView !== 'SIGNUP') {
+          setCurrentView('HOME');
+          setActiveSubView(undefined);
         }
       }
     };
@@ -96,20 +104,21 @@ const App: React.FC = () => {
     
     // Inicializar o estado inicial do histórico
     if (!window.history.state) {
-      window.history.replaceState({ view: currentView }, '', '');
+      window.history.replaceState({ view: currentView, subView: activeSubView, club: selectedClub }, '', '');
     }
 
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  }, [currentView, activeSubView, selectedClub]);
 
-  // Sincronizar histórico quando a view muda
+  // Sincronizar histórico quando a view ou subView muda
   useEffect(() => {
     if (isInitialized) {
-      if (window.history.state?.view !== currentView) {
-        window.history.pushState({ view: currentView }, '', '');
+      const state = window.history.state;
+      if (state?.view !== currentView || state?.subView !== activeSubView || state?.club !== selectedClub) {
+        window.history.pushState({ view: currentView, subView: activeSubView, club: selectedClub }, '', '');
       }
     }
-  }, [currentView, isInitialized]);
+  }, [currentView, activeSubView, selectedClub, isInitialized]);
 
   const navigateToClub = (club: ClubType) => {
     setSelectedClub(club);
@@ -118,6 +127,8 @@ const App: React.FC = () => {
 
   const handleLoginSuccess = (asGuest: boolean = false) => {
     setIsGuest(asGuest);
+    // Use replaceState ao fazer login para que o botão voltar não retorne à tela de login
+    window.history.replaceState({ view: 'HOME', subView: undefined, club: selectedClub, guest: asGuest }, '', '');
     setCurrentView('HOME');
   };
 
@@ -151,12 +162,25 @@ const App: React.FC = () => {
         return (
           <ClubManagement 
             club={selectedClub || ClubType.PATHFINDER} 
-            onBack={() => setCurrentView('HOME')}
+            onBack={() => {
+              if (activeSubView) {
+                setActiveSubView(undefined);
+              } else {
+                setCurrentView('HOME');
+              }
+            }}
             onSwitchClub={(club) => setSelectedClub(club)}
             onOpenProfile={handleOpenProfile}
             isGuest={isGuest}
-            initialSubView={pendingSubView as any}
-            onClearSubView={() => setPendingSubView(undefined)}
+            initialSubView={pendingSubView || activeSubView}
+            onSubViewChange={(sub) => {
+              setActiveSubView(sub);
+              if (pendingSubView) setPendingSubView(undefined);
+            }}
+            onClearSubView={() => {
+              setPendingSubView(undefined);
+              setActiveSubView(undefined);
+            }}
           />
         );
       case 'PROFILE':

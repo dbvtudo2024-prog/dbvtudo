@@ -214,7 +214,10 @@ export async function fetchDesbravaMais(): Promise<DesbravaMais[]> {
     console.error("Erro ao buscar DesbravaMais:", error);
     return [];
   }
-  return data;
+  return data.map(item => ({
+    ...item,
+    PDF: item.PDF || item.pdf || item.Pdf || item.Link || item.link
+  }));
 }
 
 // Funções para a Faixa (Especialidades Curtidas) no Banco de Dados - Tabela Usuarios, Coluna Especialidades

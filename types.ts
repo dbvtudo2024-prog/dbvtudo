@@ -118,15 +118,25 @@ export interface Cultura {
   hino_letra: string;
   hino_video: string;
   historia_mundial?: string;
+  historia_mundial_img?: string;
   historia_america_sul?: string;
+  historia_america_sul_img?: string;
   historia_argentina?: string;
+  historia_argentina_img?: string;
   historia_bolivia?: string;
+  historia_bolivia_img?: string;
   historia_brasil?: string;
+  historia_brasil_img?: string;
   historia_chile?: string;
+  historia_chile_img?: string;
   historia_colombia?: string;
+  historia_colombia_img?: string;
   historia_equador?: string;
+  historia_equador_img?: string;
   historia_peru?: string;
+  historia_peru_img?: string;
   historia_uruguai?: string;
+  historia_uruguai_img?: string;
   uniformes_list?: CulturaItem[];
   emblemas_list?: CulturaItem[];
   // Deprecated fixed fields

@@ -316,6 +316,15 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
     }));
   };
 
+  const handleHistoryImageUpload = (file: File, fieldId: string) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      setLocalCultura(prev => ({ ...prev, [`${fieldId}_img`]: base64String }));
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     const clubType = club === ClubType.PATHFINDER ? 'PATHFINDER' : 'ADVENTURER';
@@ -439,14 +448,59 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                 { id: 'historia_peru', label: 'História Peru' },
                 { id: 'historia_uruguai', label: 'História Uruguai' }
               ].map((field) => (
-                <div key={field.id} className="space-y-2">
+                <div key={field.id} className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-4">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{field.label}</label>
+                  
                   <textarea 
                     value={(localCultura as any)[field.id]}
                     onChange={(e) => setLocalCultura({...localCultura, [field.id]: e.target.value})}
                     placeholder={`Digite a ${field.label.toLowerCase()}...`}
-                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[150px]"
+                    className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[150px] shadow-sm"
                   />
+
+                  <div className="flex items-center space-x-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <div className="relative w-24 h-24 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl overflow-hidden flex items-center justify-center group cursor-pointer shrink-0">
+                      {(localCultura as any)[`${field.id}_img`] ? (
+                        <>
+                          <img 
+                            src={(localCultura as any)[`${field.id}_img`]} 
+                            alt="Preview" 
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <Plus className="text-white" size={24} />
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-center p-2">
+                          <Plus className="text-slate-300 group-hover:text-indigo-500 transition-colors mx-auto mb-1" size={24} />
+                          <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Adicionar<br/>Imagem</p>
+                        </div>
+                      )}
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleHistoryImageUpload(file, field.id);
+                        }}
+                        className="absolute inset-0 opacity-0 cursor-pointer"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-[10px] font-black text-slate-700 uppercase tracking-tight">Imagem da {field.label}</p>
+                      <p className="text-[9px] text-slate-400 font-medium leading-tight">Escolha uma imagem representativa para ser exibida nos detalhes da história.</p>
+                      {(localCultura as any)[`${field.id}_img`] && (
+                        <button 
+                          onClick={() => setLocalCultura(prev => ({ ...prev, [`${field.id}_img`]: '' }))}
+                          className="text-[9px] text-red-500 font-black uppercase mt-2 active:scale-95 transition-all"
+                        >
+                          Remover Imagem
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -791,10 +845,11 @@ interface ClubManagementProps {
   onOpenProfile?: () => void;
   isGuest?: boolean;
   initialSubView?: 'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS' | 'PDF_VIEWER' | 'LIBRARY_BOOKS_MENU' | 'VIDEOS' | 'VIDEO_ADMIN' | 'FORM_ADMIN' | 'VIDEO_PLAYER' | 'LINKS_ADMIN' | 'WEB_VIEWER';
+  onSubViewChange?: (view: any) => void;
   onClearSubView?: () => void;
 }
 
-const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchClub, onOpenProfile, isGuest, initialSubView, onClearSubView }) => {
+const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchClub, onOpenProfile, isGuest, initialSubView, onSubViewChange, onClearSubView }) => {
   const [activeSubView, setActiveSubView] = useState<'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS' | 'PDF_VIEWER' | 'LIBRARY_BOOKS_MENU' | 'VIDEOS' | 'VIDEO_ADMIN' | 'FORM_ADMIN' | 'VIDEO_PLAYER' | 'LINKS_ADMIN' | 'WEB_VIEWER'>(initialSubView || 'MAIN');
   const [classes, setClasses] = useState<ClubClass[]>([]);
   const [selectedClass, setSelectedClass] = useState<ClubClass | null>(null);
@@ -804,6 +859,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   const [selectedSpecialty, setSelectedSpecialty] = useState<Especialidade | null>(null);
   const [desbravaPlusItems, setDesbravaPlusItems] = useState<DesbravaMais[]>([]);
   const [selectedDesbravaPlusItem, setSelectedDesbravaPlusItem] = useState<DesbravaMais | null>(null);
+
+  useEffect(() => {
+    if (onSubViewChange) {
+      onSubViewChange(activeSubView === 'MAIN' ? undefined : activeSubView);
+    }
+  }, [activeSubView]);
   const [videos, setVideos] = useState<VideoType[]>([]);
   const [videoCategories, setVideoCategories] = useState<VideoCategory[]>([]);
   const [bibleBooks, setBibleBooks] = useState<BibleBook[]>([]);
@@ -1043,8 +1104,6 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   }, [club]);
 
   const toggleSpecialty = async (specialtyId: string) => {
-    if (!userEmail) return;
-    
     const sId = specialtyId.toString();
     const isCompleted = completedSpecialties.includes(sId);
     const newCompleted = isCompleted 
@@ -1054,11 +1113,20 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     // Optimistic update
     setCompletedSpecialties(newCompleted);
     
-    const { error } = await updateUserSpecialties(userEmail, newCompleted);
-    if (error) {
-      // Rollback on error
-      setCompletedSpecialties(completedSpecialties);
-      alert("Erro ao atualizar especialidades.");
+    // Always save locally for instant feedback and guest support
+    localStorage.setItem(`dbv_tudo_completed_specialties_${userEmail || 'guest'}`, JSON.stringify(newCompleted));
+
+    if (userEmail && userEmail !== 'email@exemplo.com' && !isGuest) {
+      try {
+        const { error } = await updateUserSpecialties(userEmail, newCompleted);
+        if (error) {
+          console.error("Erro ao sincronizar especialidades com o servidor:", error);
+          // Don't alert here to avoid annoying the user if it's a minor sync issue, 
+          // the local storage keeps it working for the session.
+        }
+      } catch (err) {
+        console.error("Erro fatal ao atualizar especialidades:", err);
+      }
     }
   };
 
@@ -1980,6 +2048,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
     const title = selectedHistory ? historyMap[selectedHistory] : '';
     const content = selectedHistory ? (culturaData as any)?.[selectedHistory] : '';
+    const historyImage = selectedHistory ? (culturaData as any)?.[`${selectedHistory}_img`] : '';
 
     return (
       <div className="animate-slide-in space-y-6 pt-4 pb-28">
@@ -1990,6 +2059,17 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             </h3>
             <div className="w-12 h-1 bg-indigo-500 rounded-full mt-2"></div>
           </div>
+
+          {historyImage && (
+            <div className="mb-8 rounded-[32px] overflow-hidden shadow-xl shadow-slate-200/50">
+              <img 
+                src={historyImage} 
+                alt={title} 
+                className="w-full object-cover max-h-[300px]"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+          )}
           
           {content ? (
             <div className="prose prose-slate max-w-none">
@@ -2185,16 +2265,47 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
   const formatDriveUrl = (url: string) => {
     if (!url) return url;
+    
+    // Google Drive
     if (url.includes('drive.google.com')) {
       // Converte links de visualização/compartilhamento para links de preview incorporáveis
       if (url.includes('/view')) {
         return url.replace('/view', '/preview');
       }
+      if (url.includes('/sharing') || url.includes('usp=sharing')) {
+        const fileIdMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (fileIdMatch) {
+          return `https://drive.google.com/file/d/${fileIdMatch[1]}/preview`;
+        }
+      }
       if (url.includes('id=')) {
         const id = url.split('id=')[1].split('&')[0];
         return `https://drive.google.com/file/d/${id}/preview`;
       }
+      if (url.includes('/file/d/')) {
+        const parts = url.split('/file/d/');
+        if (parts.length > 1) {
+          const id = parts[1].split('/')[0];
+          return `https://drive.google.com/file/d/${id}/preview`;
+        }
+      }
     }
+    
+    // Google Docs/Sheets/Slides
+    if (url.includes('docs.google.com')) {
+      if (url.includes('/edit')) {
+        return url.replace('/edit', '/preview');
+      }
+      if (!url.includes('/preview') && !url.includes('/pub')) {
+        return `${url}${url.includes('?') ? '&' : '?'}embedded=true`;
+      }
+    }
+    
+    // Fallback for other PDF links using Google Docs Viewer
+    if ((url.toLowerCase().endsWith('.pdf') || url.includes('.pdf?')) && !url.includes('google.com')) {
+      return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+    }
+    
     return url;
   };
 
@@ -2533,8 +2644,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               key={item.id} 
               onClick={() => {
                 setSelectedDesbravaPlusItem(item);
-                // Se o conteúdo for um link, abre o PDF viewer diretamente
-                if (item.Conteudo && (item.Conteudo.startsWith('http') || item.Conteudo.includes('.pdf'))) {
+                // Se o PDF ou o conteúdo for um link, abre o PDF viewer diretamente
+                const hasPdfLink = item.PDF && (item.PDF.startsWith('http') || item.PDF.includes('.pdf'));
+                const hasConteudoLink = item.Conteudo && (item.Conteudo.startsWith('http') || item.Conteudo.includes('.pdf'));
+                
+                if (hasPdfLink || hasConteudoLink) {
                   setActiveSubView('DESBRAVA_PLUS_PDF');
                 } else {
                   setActiveSubView('DESBRAVA_PLUS_DETAILS');
@@ -2638,22 +2752,37 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   const renderDesbravaPlusPdf = () => {
     if (!selectedDesbravaPlusItem) return null;
     
-    // Usa Conteudo como link se PDF não estiver presente ou se Conteudo for um link
-    const pdfUrl = selectedDesbravaPlusItem.PDF || selectedDesbravaPlusItem.Conteudo;
+    // Usa PDF como link se presente, senão tenta Conteudo (se for link)
+    let pdfUrl = selectedDesbravaPlusItem.PDF || '';
+    
+    // Se não tem PDF mas o conteúdo parece um link, usa o conteúdo
+    if (!pdfUrl && selectedDesbravaPlusItem.Conteudo?.startsWith('http')) {
+      pdfUrl = selectedDesbravaPlusItem.Conteudo;
+    }
     
     if (!pdfUrl || !pdfUrl.startsWith('http')) {
       return (
         <div className="animate-slide-in p-8 text-center">
-          <p className="text-slate-400 font-bold">Link inválido ou não encontrado.</p>
-          <button onClick={() => setActiveSubView('DESBRAVA_PLUS')} className="mt-4 text-indigo-600 font-black uppercase text-xs">Voltar</button>
+          <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
+            <FileText size={40} className="text-slate-300" />
+          </div>
+          <p className="text-slate-400 font-bold mb-6">Link inválido ou não encontrado para este item.</p>
+          <button 
+            onClick={() => setActiveSubView('DESBRAVA_PLUS')} 
+            className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black uppercase text-xs shadow-lg active:scale-95 transition-all"
+          >
+            Voltar
+          </button>
         </div>
       );
     }
 
+    const formattedUrl = formatDriveUrl(pdfUrl);
+
     return (
       <div className="animate-slide-in h-full flex flex-col">
         <div className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-100 flex-grow flex flex-col h-[calc(100vh-180px)]">
-          <div className="p-4 border-bottom border-slate-50 flex items-center justify-end bg-slate-50/50">
+          <div className="p-4 border-b border-slate-50 flex items-center justify-end bg-slate-50/50">
             <a 
               href={pdfUrl} 
               target="_blank" 
@@ -2663,12 +2792,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               Abrir Externo
             </a>
           </div>
-          <iframe 
-            src={formatDriveUrl(pdfUrl)}
-            className="w-full flex-grow border-none"
-            title="PDF Viewer"
-            allow="autoplay"
-          ></iframe>
+          <div className="flex-grow relative bg-slate-100">
+            <iframe 
+              src={formattedUrl}
+              className="w-full h-full border-none"
+              title="PDF Viewer"
+              allow="autoplay"
+            ></iframe>
+          </div>
         </div>
       </div>
     );
@@ -3576,43 +3707,72 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       .sort((a, b) => new Date(b.agendado_para).getTime() - new Date(a.agendado_para).getTime());
 
     return (
-      <div className="animate-slide-in space-y-6 pt-6 pb-28">
-        {/* Devocional do Dia ou Estado Vazio */}
-        {currentDev ? (
-          <div className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100 space-y-6">
-            <div className="text-center space-y-2">
-              <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">{currentDev.titulo}</h2>
-              <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em]">
-                {new Date(currentDev.agendado_para).toLocaleDateString('pt-BR')}
-              </p>
-            </div>
-
-            <div className="h-px bg-slate-100 w-full"></div>
-
-            <p className="text-slate-600 font-bold text-base leading-relaxed text-justify whitespace-pre-wrap">
-              {currentDev.texto}
-            </p>
-
-            {currentDev.link && (
-              <a 
-                href={currentDev.link} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center space-x-2 shadow-lg shadow-blue-100 active:scale-95 transition-all"
-              >
-                <Video size={18} />
-                <span>Ver Conteúdo</span>
-              </a>
-            )}
+      <div className="animate-slide-in h-full flex flex-col pt-2 pb-28">
+        {/* Cabeçalho Customizado */}
+        <div className="flex items-center justify-between mb-6 px-1">
+          <button 
+            onClick={() => {
+              if (isAdmin && selectedDevocional) {
+                setActiveSubView('BIBLE_DEVOTIONAL_LIST');
+              } else {
+                setActiveSubView('BIBLE');
+              }
+            }}
+            className="p-3 bg-white rounded-2xl shadow-sm border border-slate-100 text-slate-400 active:scale-95 transition-all"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <div className="text-center">
+            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Meditação</h3>
+            <p className="text-[9px] font-black text-blue-500 uppercase tracking-[0.2em]">Devocional</p>
           </div>
-        ) : (
-          <div className="bg-white rounded-[40px] p-12 text-center border border-slate-100 shadow-sm">
-            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mx-auto mb-4">
-              <Heart size={32} />
+          <div className="w-11"></div> {/* Espaçador para centralizar */}
+        </div>
+
+        <div className="space-y-6 overflow-y-auto scrollbar-hide px-1 pb-10">
+          {/* Devocional do Dia ou Estado Vazio */}
+          {currentDev ? (
+            <div className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100 space-y-6">
+              <div className="text-center space-y-2">
+                <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">{currentDev.titulo}</h2>
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="h-px bg-blue-100 w-8"></div>
+                  <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em]">
+                    {new Date(currentDev.agendado_para).toLocaleDateString('pt-BR')}
+                  </p>
+                  <div className="h-px bg-blue-100 w-8"></div>
+                </div>
+              </div>
+
+              <div className="h-px bg-slate-100 w-full opacity-50"></div>
+
+              <div className="prose prose-slate max-w-none">
+                <p className="text-slate-600 font-bold text-[17px] leading-[1.8] text-justify whitespace-pre-wrap selection:bg-blue-100 selection:text-blue-900">
+                  {currentDev.texto}
+                </p>
+              </div>
+
+              {currentDev.link && (
+                <a 
+                  href={currentDev.link} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="w-full py-5 bg-blue-600 text-white rounded-[24px] font-black uppercase tracking-widest text-[11px] flex items-center justify-center space-x-3 shadow-xl shadow-blue-100 active:scale-[0.98] transition-all group"
+                >
+                  <Video size={18} className="group-hover:scale-110 transition-transform" />
+                  <span>Assistir Conteúdo em Vídeo</span>
+                </a>
+              )}
             </div>
-            <p className="text-slate-400 font-bold text-sm">Nenhum devocional disponível para hoje.</p>
-          </div>
-        )}
+          ) : (
+            <div className="bg-white rounded-[40px] p-12 text-center border border-slate-100 shadow-sm">
+              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mx-auto mb-6">
+                <Heart size={40} className="animate-pulse" />
+              </div>
+              <p className="text-slate-400 font-black uppercase text-xs tracking-widest mb-2">Momento de Reflexão</p>
+              <p className="text-slate-300 font-bold text-sm">Nenhum devocional disponível no momento.</p>
+            </div>
+          )}
 
         {/* Devocionais Anteriores */}
         {previousDevs.length > 0 && (
@@ -3643,6 +3803,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             </div>
           </div>
         )}
+        </div>
       </div>
     );
   };
@@ -4647,7 +4808,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                   } else if (activeSubView === 'BIBLE_DEVOTIONAL_LIST') {
                     setActiveSubView('BIBLE_ADMIN');
                   } else if (activeSubView === 'BIBLE_DEVOTIONAL_VIEW') {
-                    setActiveSubView(isAdmin ? 'BIBLE_DEVOTIONAL_LIST' : 'BIBLE');
+                    setActiveSubView((isAdmin && selectedDevocional) ? 'BIBLE_DEVOTIONAL_LIST' : 'BIBLE');
                   } else if (activeSubView === 'VIDEO_ADMIN' || activeSubView === 'FORM_ADMIN' || activeSubView === 'LINKS_ADMIN') {
                     setActiveSubView('BIBLE_ADMIN');
                   } else if (activeSubView === 'VIDEOS') {
