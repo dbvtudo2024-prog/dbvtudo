@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
 import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, BibleNote, Devocional, Cultura, UserProfile, CulturaItem, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario, Video as VideoType, VideoCategory, LivroAVT, ManualAVT, AppLink } from '../types';
 import { 
   fetchCategories, fetchEspecialidades, fetchClasses, fetchDesbravaMais, 
@@ -1354,51 +1353,71 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       setIsGeneratingPDF(true);
       try {
         const pdf = new jsPDF('p', 'mm', 'a4');
-        const margin = 15;
+        const margin = 20;
         const pageWidth = pdf.internal.pageSize.getWidth();
         const pageHeight = pdf.internal.pageSize.getHeight();
         const innerWidth = pageWidth - (margin * 2);
-        const gap = 5;
         let currentY = margin;
 
-        const captureAndAdd = async (el: HTMLElement) => {
-          const canvas = await html2canvas(el, {
-            scale: 2,
-            useCORS: true,
-            logging: false,
-            backgroundColor: '#ffffff',
-            windowWidth: 800,
-            scrollX: 0,
-            scrollY: 0
-          });
-          
-          const imgData = canvas.toDataURL('image/png', 1.0);
-          const imgProps = pdf.getImageProperties(imgData);
-          const imgHeight = (imgProps.height * innerWidth) / imgProps.width;
-
-          // Se o elemento sozinho for maior que a página, ele será cortado, 
-          // mas requisitos geralmente são curtos.
-          if (currentY + imgHeight > pageHeight - margin) {
+        const checkPageBreak = (height: number) => {
+          if (currentY + height > pageHeight - margin) {
             pdf.addPage();
             currentY = margin;
+            return true;
           }
-
-          pdf.addImage(imgData, 'PNG', margin, currentY, innerWidth, imgHeight, undefined, 'FAST');
-          currentY += imgHeight + gap;
+          return false;
         };
 
-        // Captura o Header
-        const header = document.getElementById('class-header');
-        if (header) await captureAndAdd(header);
+        // Header
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(22);
+        pdf.setTextColor(30, 41, 59); // slate-800
+        pdf.text(selectedClass.titulo.toUpperCase(), margin, currentY);
+        currentY += 12;
 
-        // Captura os Cards de Requisitos
-        const cards = document.getElementsByClassName('class-requirement-card');
-        if (cards.length === 0) {
-          console.warn('Nenhum card de requisito encontrado para o PDF');
+        if (selectedClass.subtitulo) {
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(12);
+          pdf.setTextColor(100, 116, 139); // slate-500
+          const subtitleLines = pdf.splitTextToSize(selectedClass.subtitulo, innerWidth);
+          pdf.text(subtitleLines, margin, currentY);
+          currentY += (subtitleLines.length * 6) + 8;
         }
-        for (let i = 0; i < cards.length; i++) {
-          await captureAndAdd(cards[i] as HTMLElement);
-        }
+
+        pdf.setDrawColor(226, 232, 240); // slate-200
+        pdf.line(margin, currentY, margin + innerWidth, currentY);
+        currentY += 12;
+
+        // Requisitos
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(16);
+        pdf.setTextColor(30, 41, 59);
+        pdf.text('REQUISITOS', margin, currentY);
+        currentY += 12;
+
+        classRequirements.forEach((req) => {
+          const parts = req.split(':');
+          const title = parts[0];
+          const content = parts.slice(1).join(':').trim();
+
+          // Title of requirement
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(10);
+          pdf.setTextColor(148, 163, 184); // slate-400
+          const titleLines = pdf.splitTextToSize(title.toUpperCase(), innerWidth);
+          checkPageBreak(titleLines.length * 5 + 10);
+          pdf.text(titleLines, margin, currentY);
+          currentY += titleLines.length * 5 + 2;
+
+          // Content of requirement
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(11);
+          pdf.setTextColor(51, 65, 85); // slate-700
+          const contentLines = pdf.splitTextToSize(content, innerWidth);
+          checkPageBreak(contentLines.length * 6 + 15);
+          pdf.text(contentLines, margin, currentY);
+          currentY += (contentLines.length * 6) + 10;
+        });
 
         pdf.save(`${selectedClass.titulo.replace(/\s+/g, '_')}_Requisitos.pdf`);
       } catch (error) {
@@ -1594,53 +1613,56 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       setIsGeneratingPDF(true);
       try {
         const pdf = new jsPDF('p', 'mm', 'a4');
-        const margin = 15;
+        const margin = 20;
         const pageWidth = pdf.internal.pageSize.getWidth();
         const pageHeight = pdf.internal.pageSize.getHeight();
         const innerWidth = pageWidth - (margin * 2);
-        const gap = 5;
         let currentY = margin;
 
-        const captureAndAdd = async (el: HTMLElement) => {
-          const canvas = await html2canvas(el, {
-            scale: 2,
-            useCORS: true,
-            logging: false,
-            backgroundColor: '#ffffff',
-            windowWidth: 800,
-            scrollX: 0,
-            scrollY: 0
-          });
-          
-          const imgData = canvas.toDataURL('image/png', 1.0);
-          const imgProps = pdf.getImageProperties(imgData);
-          const imgHeight = (imgProps.height * innerWidth) / imgProps.width;
-
-          if (currentY + imgHeight > pageHeight - margin) {
+        const checkPageBreak = (height: number) => {
+          if (currentY + height > pageHeight - margin) {
             pdf.addPage();
             currentY = margin;
+            return true;
           }
-
-          pdf.addImage(imgData, 'PNG', margin, currentY, innerWidth, imgHeight, undefined, 'FAST');
-          currentY += imgHeight + gap;
+          return false;
         };
 
-        // Captura o Header
-        const header = document.getElementById('specialty-header');
-        if (header) await captureAndAdd(header);
+        // Header
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(22);
+        pdf.setTextColor(79, 70, 229); // indigo-600
+        pdf.text(selectedSpecialty.nome.toUpperCase(), margin, currentY);
+        currentY += 12;
 
-        // Captura o Título de Requisitos
-        const title = document.getElementById('specialty-requirements-title');
-        if (title) await captureAndAdd(title);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(10);
+        pdf.setTextColor(100, 116, 139); // slate-500
+        pdf.text(`ÁREA: ${selectedSpecialty.area.toUpperCase()}`, margin, currentY);
+        currentY += 6;
+        pdf.text(`CÓDIGO: ${selectedSpecialty.codigo} | NÍVEL: ${selectedSpecialty.nivel} | ANO: ${selectedSpecialty.ano_origem}`, margin, currentY);
+        currentY += 12;
 
-        // Captura os Cards de Requisitos
-        const cards = document.getElementsByClassName('specialty-requirement-card');
-        if (cards.length === 0) {
-          console.warn('Nenhum card de requisito encontrado para o PDF');
-        }
-        for (let i = 0; i < cards.length; i++) {
-          await captureAndAdd(cards[i] as HTMLElement);
-        }
+        pdf.setDrawColor(226, 232, 240); // slate-200
+        pdf.line(margin, currentY, margin + innerWidth, currentY);
+        currentY += 12;
+
+        // Requisitos
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(16);
+        pdf.setTextColor(30, 41, 59);
+        pdf.text('REQUISITOS', margin, currentY);
+        currentY += 12;
+
+        selectedSpecialty.requisitos.forEach((req, idx) => {
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(11);
+          pdf.setTextColor(51, 65, 85); // slate-700
+          const contentLines = pdf.splitTextToSize(`${idx + 1}. ${req.trim()}`, innerWidth);
+          checkPageBreak(contentLines.length * 6 + 10);
+          pdf.text(contentLines, margin, currentY);
+          currentY += (contentLines.length * 6) + 6;
+        });
 
         pdf.save(`${selectedSpecialty.nome.replace(/\s+/g, '_')}_Requisitos.pdf`);
       } catch (error) {
