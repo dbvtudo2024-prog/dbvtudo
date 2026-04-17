@@ -1996,7 +1996,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       { id: 'historia_uruguai', label: 'Uruguai' }
     ].filter(item => {
       const content = (culturaData as any)?.[item.id];
-      return content && content.trim().length > 0;
+      const image = (culturaData as any)?.[`${item.id}_img`];
+      return (content && content.trim().length > 0) || image;
     });
 
     return (
@@ -2019,8 +2020,17 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               className="w-full bg-white border border-slate-100 rounded-[24px] p-5 flex items-center justify-between shadow-sm active:scale-[0.98] transition-all group"
             >
               <div className="flex items-center space-x-4">
-                <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600">
-                  <Globe size={20} />
+                <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center overflow-hidden border border-slate-100 shadow-inner shrink-0">
+                  {(culturaData as any)?.[`${item.id}_img`] ? (
+                    <img 
+                      src={(culturaData as any)?.[`${item.id}_img`]} 
+                      alt={item.label} 
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <Globe size={22} className="text-amber-500" />
+                  )}
                 </div>
                 <span className="font-black text-slate-700 uppercase tracking-tight">{item.label}</span>
               </div>
