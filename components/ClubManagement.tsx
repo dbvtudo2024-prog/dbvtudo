@@ -1241,7 +1241,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           fetchManuaisDBV()
         ]).then(([classes, ano, outros, manuais]) => {
           setLivrosClasses(classes);
-          setLivrosAno(ano);
+          // Ordenar por ano descendente (atual primeiro)
+          setLivrosAno([...ano].sort((a, b) => {
+            const anoA = parseInt(a.Ano.toString()) || 0;
+            const anoB = parseInt(b.Ano.toString()) || 0;
+            return anoB - anoA;
+          }));
           setOutrosLivros(outros);
           setManuaisDBV(manuais);
         }).finally(() => setIsLoading(false));
@@ -2380,8 +2385,15 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                       setActiveSubView('PDF_VIEWER');
                     }
                   }}
-                  className="w-full bg-white border border-slate-100 rounded-[28px] p-4 flex items-center space-x-4 shadow-sm active:scale-[0.98] transition-all group"
+                  className="w-full bg-white border border-slate-100 rounded-[28px] p-4 flex items-center space-x-4 shadow-sm active:scale-[0.98] transition-all group relative overflow-hidden"
                 >
+                  {selectedLibraryCategory === 'CLASSES' && item.ClasseIMG && (
+                    <img 
+                      src={item.ClasseIMG} 
+                      className="absolute -top-1 -right-1 w-14 h-14 object-contain opacity-20 group-hover:opacity-40 transition-opacity translate-x-1 -translate-y-1"
+                      alt=""
+                    />
+                  )}
                   <div className="w-16 h-20 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-inner">
                     {item.Capa || item.capa ? (
                       <img src={item.Capa || item.capa} className="w-full h-full object-cover" alt={item.Nome} referrerPolicy="no-referrer" />
@@ -2463,16 +2475,27 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   );
 
   const renderPdfViewer = () => (
-    <div className="animate-slide-in h-full flex flex-col pb-28">
-      <div className="flex-grow bg-slate-200 relative flex flex-col">
-        <div className="p-2 bg-white/80 backdrop-blur-sm border-b border-slate-100 flex justify-end">
+    <div className="animate-slide-in h-full flex flex-col fixed inset-0 z-[100] bg-slate-200">
+      <div className="flex-grow relative flex flex-col">
+        <div className="p-3 bg-white/90 backdrop-blur-md border-b border-slate-100 flex items-center justify-between shadow-sm">
+          <button 
+            onClick={() => setActiveSubView('LIBRARY')}
+            className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-600 transition-all active:scale-90"
+          >
+            <ChevronLeft size={24} strokeWidth={3} />
+          </button>
+          
+          <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight truncate max-w-[200px]">
+            {pdfTitle}
+          </h3>
+
           <a 
             href={selectedPdfUrl || '#'} 
             target="_blank" 
             rel="noopener noreferrer"
-            className="text-[9px] font-black text-blue-600 uppercase tracking-widest bg-white px-3 py-1.5 rounded-full border border-blue-100 shadow-sm active:scale-95 transition-all"
+            className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 transition-all active:scale-90"
           >
-            Abrir Externo
+            <ExternalLink size={20} />
           </a>
         </div>
         {selectedPdfUrl ? (
@@ -2805,26 +2828,33 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     const formattedUrl = formatDriveUrl(pdfUrl);
 
     return (
-      <div className="animate-slide-in h-full flex flex-col">
-        <div className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-100 flex-grow flex flex-col h-[calc(100vh-180px)]">
-          <div className="p-4 border-b border-slate-50 flex items-center justify-end bg-slate-50/50">
+      <div className="animate-slide-in h-full flex flex-col fixed inset-0 z-[100] bg-slate-200">
+        <div className="flex-grow flex flex-col relative">
+          <div className="p-3 bg-white/90 backdrop-blur-md border-b border-slate-100 flex items-center justify-between shadow-sm">
+            <button 
+              onClick={() => setActiveSubView('DESBRAVA_PLUS')}
+              className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-600 transition-all active:scale-90"
+            >
+              <ChevronLeft size={24} strokeWidth={3} />
+            </button>
+            <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight truncate max-w-[200px]">
+              {selectedDesbravaPlusItem.titulo}
+            </h3>
             <a 
               href={pdfUrl} 
               target="_blank" 
               rel="noopener noreferrer"
-              className="text-[10px] font-black text-indigo-600 uppercase tracking-widest bg-white px-4 py-2 rounded-full border border-indigo-100 shadow-sm active:scale-95 transition-all"
+              className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 transition-all active:scale-90"
             >
-              Abrir Externo
+              <ExternalLink size={20} />
             </a>
           </div>
-          <div className="flex-grow relative bg-slate-100">
-            <iframe 
-              src={formattedUrl}
-              className="w-full h-full border-none"
-              title="PDF Viewer"
-              allow="autoplay"
-            ></iframe>
-          </div>
+          <iframe 
+            src={formattedUrl} 
+            className="w-full h-full border-none flex-grow"
+            title={selectedDesbravaPlusItem.titulo}
+            allow="autoplay"
+          />
         </div>
       </div>
     );
@@ -5209,7 +5239,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         </div>
       )}
 
-      {activeSubView !== 'DESBRAVA_PLUS_PDF' && activeSubView !== 'BIBLE' && activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && (
+      {activeSubView !== 'DESBRAVA_PLUS_PDF' && activeSubView !== 'PDF_VIEWER' && activeSubView !== 'BIBLE' && activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && (
         <div className="absolute bottom-10 left-0 right-0 px-8 flex justify-center z-50 pointer-events-none">
           <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md h-16 w-full max-w-[320px] rounded-full shadow-2xl flex p-2 items-center border border-white dark:border-slate-700 space-x-2 pointer-events-auto">
             <button 

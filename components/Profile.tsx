@@ -80,7 +80,10 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   const [isSashView, setIsSashView] = useState(false);
   const [allSpecialties, setAllSpecialties] = useState<Especialidade[]>([]);
   const [allConquistas, setAllConquistas] = useState<Conquista[]>([]);
-  const [userAchievements, setUserAchievements] = useState<number[]>([]);
+  const [userAchievements, setUserAchievements] = useState<number[]>(() => {
+    const saved = localStorage.getItem('dbv_tudo_user_achievements');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -230,20 +233,34 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   useEffect(() => {
     fetchConquistas().then(setAllConquistas);
     if (userData.email && userData.email !== "email@exemplo.com") {
-      fetchUserAchievements(userData.email).then(setUserAchievements);
+      fetchUserAchievements(userData.email).then(data => {
+        if (data && data.length > 0) {
+          setUserAchievements(data);
+          localStorage.setItem('dbv_tudo_user_achievements', JSON.stringify(data));
+        }
+      });
     }
   }, [userData.email]);
 
-  const toggleAchievement = async (id: number) => {
-    const isAcquired = userAchievements.includes(id);
-    const newList = isAcquired 
-      ? userAchievements.filter(i => i !== id) 
-      : [...userAchievements, id];
+  // Salvar conquistas no localStorage ao mudar
+  useEffect(() => {
+    localStorage.setItem('dbv_tudo_user_achievements', JSON.stringify(userAchievements));
+  }, [userAchievements]);
 
-    setUserAchievements(newList);
-    if (userData.email && userData.email !== "email@exemplo.com") {
-      await updateUserAchievements(userData.email, newList);
-    }
+  const toggleAchievement = async (id: number) => {
+    setUserAchievements(prev => {
+      const isAcquired = prev.includes(id);
+      const newList = isAcquired 
+        ? prev.filter(i => i !== id) 
+        : [...prev, id];
+      
+      // Update Supabase in background
+      if (userData.email && userData.email !== "email@exemplo.com") {
+        updateUserAchievements(userData.email, newList);
+      }
+      
+      return newList;
+    });
   };
 
   const toggleLike = async (id: number) => {
@@ -704,7 +721,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
             ))}
 
             {/* Row 2: Classes Avançadas (Retangulares) - Grid 3x2 ou similar */}
-            <div className="grid grid-cols-3 gap-3 w-full max-w-[280px]">
+            <div className="grid grid-cols-3 gap-x-3 gap-y-0 w-full max-w-[280px]">
               {allConquistas.filter(c => c.tipo === 'CLASSE_AVANCADA').map(con => (
                 <button 
                   key={con.id}
@@ -759,9 +776,9 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
           {likedIds.length > 0 && (
             <div className="w-full pt-6 border-t border-slate-50 dark:border-slate-700">
               <p className="text-center text-[9px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-[0.2em] mb-4">Especialidades na Faixa</p>
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 {allSpecialties.length === 0 && likedIds.length > 0 ? (
-                  <div className="col-span-4 py-4 text-center text-[10px] text-slate-300 dark:text-slate-600 font-bold uppercase tracking-widest">
+                  <div className="col-span-3 py-4 text-center text-[10px] text-slate-300 dark:text-slate-600 font-bold uppercase tracking-widest">
                     Carregando...
                   </div>
                 ) : (
@@ -770,7 +787,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                     .slice(0, 8) // Mostra apenas as 8 primeiras no resumo
                     .map(esp => (
                       <div key={esp.id} className="flex flex-col items-center group">
-                        <div className="w-14 h-14 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center justify-center p-2.5 group-hover:scale-110 transition-transform shadow-sm">
+                        <div className="w-20 h-20 bg-slate-50 dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-700 flex items-center justify-center p-3 group-hover:scale-110 transition-transform shadow-sm">
                           <img src={esp.logo} className="w-full h-full object-contain" alt={esp.nome} />
                         </div>
                       </div>
