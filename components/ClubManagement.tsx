@@ -4576,14 +4576,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   const renderManagementMenu = () => (
     <div className="animate-slide-in space-y-4 pt-4 pb-28">
       {[
-        { label: 'SGC', icon: <Globe size={24} />, color: 'bg-blue-600', url: 'https://sgc.adventistas.org' },
-        { label: 'Cartão Virtual', icon: <CreditCard size={24} />, color: 'bg-emerald-600', url: 'https://cartaovirtual.adventistas.org' },
+        { label: 'SGC', icon: <Globe size={24} />, color: 'bg-blue-600', url: 'https://sg.sdasystems.org/cms/login.php?lang=pt_br' },
+        { label: 'Cartão Virtual', icon: <CreditCard size={24} />, color: 'bg-emerald-600', url: 'https://clubes.adventistas.org/br/personal-card/' },
         { label: 'Clubes', icon: <HomeIcon size={24} />, color: 'bg-amber-600', url: 'https://clubes.adventistas.org' },
-        { label: 'Unidade', icon: <Layers size={24} />, color: 'bg-indigo-600', url: '#' }
+        { label: 'Unidade', icon: <Layers size={24} />, color: 'bg-indigo-600', url: 'https://clubes.adventistas.org/br/unit-control/' }
       ].map((item, i) => (
         <button 
           key={i}
-          onClick={() => item.url !== '#' && window.open(item.url, '_blank')}
+          onClick={() => window.open(item.url, '_blank')}
           className="w-full bg-white border border-slate-100 rounded-[28px] p-5 flex items-center space-x-5 shadow-sm active:scale-[0.98] transition-all group"
         >
           <div className={`w-14 h-14 ${item.color} rounded-2xl flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform`}>
@@ -4711,6 +4711,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           </button>
         </div>
 
+        {/* Links Dinâmicos */}
         <div className="grid grid-cols-2 gap-3 mb-12">
           {appLinks.map((link) => (
             <button 
