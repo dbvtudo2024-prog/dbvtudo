@@ -95,12 +95,19 @@ export interface Devocional {
   created_at?: string;
 }
 
+export interface ContentBlock {
+  id: string;
+  type: 'text' | 'image';
+  content: string;
+}
+
 export interface CulturaItem {
   id: string;
   titulo: string;
   subtitulo?: string;
   descricao: string;
   imagem?: string;
+  blocks?: ContentBlock[];
   club?: ClubType;
   subitems?: CulturaItem[];
 }

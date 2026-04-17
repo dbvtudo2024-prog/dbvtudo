@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { ChevronLeft, LogOut, Shield, MapPin, Briefcase, Award, Camera, Check, X, User, Mail, Phone, ChevronDown, Heart, Search, Settings, Layers, Globe } from 'lucide-react';
+import { ChevronLeft, LogOut, Shield, MapPin, Briefcase, Award, Camera, Check, X, User, Mail, Phone, ChevronDown, Heart, Search, Settings, Layers, Globe, Trophy } from 'lucide-react';
 import { ClubType, Especialidade, UserProfile, Conquista } from '../types';
 import { 
   fetchEspecialidades, updateUserSpecialties, fetchUserSpecialties, 
@@ -292,6 +292,18 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     );
   }, [allSpecialties, searchTerm]);
 
+  // Bloquear scroll do fundo quando modal aberto
+  useEffect(() => {
+    if (isSashView || isEditing) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isSashView, isEditing]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setUserData(prev => ({ ...prev, [name]: value }));
@@ -351,74 +363,13 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     onBack(clubToNavigate);
   };
 
-  const renderSashView = () => (
-    <div className="flex flex-col h-full bg-[#F8FAFC] dark:bg-slate-900 animate-slide-in">
-      <div className="px-8 pt-6 pb-4 space-y-4">
-        <div className="relative">
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600">
-            <Search size={18} />
-          </div>
-          <input 
-            type="text"
-            placeholder="Buscar especialidade..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-3 pl-12 pr-4 text-sm font-bold text-slate-700 dark:text-slate-200 focus:outline-none shadow-sm placeholder:text-slate-200 dark:placeholder:text-slate-600"
-          />
-        </div>
-      </div>
-
-      <div className="flex-grow overflow-y-auto px-8 pb-24 space-y-3 scrollbar-hide">
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-8 h-8 border-3 border-slate-100 dark:border-slate-700 border-t-indigo-500 rounded-full animate-spin"></div>
-          </div>
-        ) : filteredSpecialties.length > 0 ? (
-          filteredSpecialties.map((esp) => (
-            <div key={esp.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-4 flex items-center space-x-4 shadow-sm">
-              <div className="w-14 h-14 bg-slate-50 dark:bg-slate-700 rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0">
-                {esp.logo ? (
-                  <img src={esp.logo} className="w-10 h-10 object-contain" alt={esp.nome} />
-                ) : (
-                  <Award size={24} className="text-slate-200 dark:text-slate-600" />
-                )}
-              </div>
-              <div className="flex-grow text-left">
-                <h4 className="font-black text-slate-700 dark:text-slate-200 text-[12px] uppercase tracking-tight leading-tight">
-                  {esp.nome}
-                </h4>
-                <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mt-1">
-                  {esp.codigo}
-                </p>
-              </div>
-              <button 
-                onClick={() => toggleLike(esp.id)}
-                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
-                  likedIds.includes(esp.id.toString()) 
-                    ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-500' 
-                    : 'bg-slate-50 dark:bg-slate-700 text-slate-300 dark:text-slate-500'
-                }`}
-              >
-                <Heart size={20} fill={likedIds.includes(esp.id.toString()) ? "currentColor" : "none"} />
-              </button>
-            </div>
-          ))
-        ) : (
-          <div className="text-center py-20">
-            <p className="text-slate-400 dark:text-slate-600 font-bold text-sm">Nenhuma especialidade encontrada.</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
   return (
-    <div className="flex flex-col h-full bg-[#F8FAFC] dark:bg-slate-900 animate-slide-in transition-colors duration-500 overflow-y-auto scrollbar-hide pb-12">
+    <>
       <input type="file" ref={fileInputRef} onChange={handlePhotoUpload} accept="image/*" className="hidden" />
 
       {/* Modal Minha Faixa */}
       {isSashView && (
-        <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsSashView(false)}></div>
           <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-[40px] sm:rounded-[40px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 h-[90vh] flex flex-col">
             <div 
@@ -499,7 +450,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
       {/* Modal de Edição */}
       {isEditing && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsEditing(false)}></div>
           <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-[40px] sm:rounded-[40px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 max-h-[90vh] flex flex-col">
             <div className="p-8 pb-4 flex items-center justify-between border-b border-slate-50 dark:border-slate-800">
@@ -584,6 +535,8 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
           </div>
         </div>
       )}
+
+      <div className="flex flex-col h-full bg-[#F8FAFC] dark:bg-slate-900 animate-slide-in transition-colors duration-500 overflow-y-auto scrollbar-hide pb-12">
 
       {/* Header */}
       <div 
@@ -726,13 +679,23 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                 <button 
                   key={con.id}
                   onClick={() => toggleAchievement(con.id)}
-                  className="aspect-[5/3] w-full relative group transition-all active:scale-95"
+                  className="aspect-[5/3] w-full relative group transition-all active:scale-95 flex items-center justify-center bg-slate-50 dark:bg-slate-800/50 rounded-lg overflow-hidden"
                 >
-                  <img 
-                    src={userAchievements.includes(con.id) ? con.imagem_colorida : con.imagem_cinza} 
-                    className="w-full h-full object-contain" 
-                    alt={con.nome}
-                  />
+                  {userAchievements.includes(con.id) ? (
+                    <img 
+                      src={con.imagem_colorida} 
+                      className="w-full h-full object-contain" 
+                      alt={con.nome}
+                    />
+                  ) : con.imagem_cinza ? (
+                    <img 
+                      src={con.imagem_cinza} 
+                      className="w-full h-full object-contain opacity-40 grayscale" 
+                      alt={con.nome}
+                    />
+                  ) : (
+                    <Award size={20} className="text-slate-200 dark:text-slate-700" />
+                  )}
                 </button>
               ))}
             </div>
@@ -743,13 +706,23 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                 <button 
                   key={con.id}
                   onClick={() => toggleAchievement(con.id)}
-                  className="w-16 h-12 relative group transition-all active:scale-95"
+                  className="w-16 h-12 relative group transition-all active:scale-95 flex items-center justify-center bg-slate-50 dark:bg-slate-800/50 rounded-xl overflow-hidden"
                 >
-                  <img 
-                    src={userAchievements.includes(con.id) ? con.imagem_colorida : con.imagem_cinza} 
-                    className="w-full h-full object-contain" 
-                    alt={con.nome}
-                  />
+                  {userAchievements.includes(con.id) ? (
+                    <img 
+                      src={con.imagem_colorida} 
+                      className="w-full h-full object-contain" 
+                      alt={con.nome}
+                    />
+                  ) : con.imagem_cinza ? (
+                    <img 
+                      src={con.imagem_cinza} 
+                      className="w-full h-full object-contain opacity-40 grayscale" 
+                      alt={con.nome}
+                    />
+                  ) : (
+                    <Trophy size={18} className="text-slate-200 dark:text-slate-700" />
+                  )}
                 </button>
               ))}
             </div>
@@ -760,13 +733,23 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                 <button 
                   key={con.id}
                   onClick={() => toggleAchievement(con.id)}
-                  className="aspect-square w-full relative group transition-all active:scale-95"
+                  className="aspect-square w-full relative group transition-all active:scale-95 flex items-center justify-center bg-slate-50 dark:bg-slate-800/50 rounded-full overflow-hidden"
                 >
-                  <img 
-                    src={userAchievements.includes(con.id) ? con.imagem_colorida : con.imagem_cinza} 
-                    className="w-full h-full object-contain" 
-                    alt={con.nome}
-                  />
+                  {userAchievements.includes(con.id) ? (
+                    <img 
+                      src={con.imagem_colorida} 
+                      className="w-full h-full object-contain" 
+                      alt={con.nome}
+                    />
+                  ) : con.imagem_cinza ? (
+                    <img 
+                      src={con.imagem_cinza} 
+                      className="w-full h-full object-contain opacity-40 grayscale" 
+                      alt={con.nome}
+                    />
+                  ) : (
+                    <Check size={14} className="text-slate-200 dark:text-slate-700" />
+                  )}
                 </button>
               ))}
             </div>
@@ -788,7 +771,11 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                     .map(esp => (
                       <div key={esp.id} className="flex flex-col items-center group">
                         <div className="w-20 h-20 bg-slate-50 dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-700 flex items-center justify-center p-3 group-hover:scale-110 transition-transform shadow-sm">
-                          <img src={esp.logo} className="w-full h-full object-contain" alt={esp.nome} />
+                          {esp.logo ? (
+                            <img src={esp.logo} className="w-full h-full object-contain" alt={esp.nome} />
+                          ) : (
+                            <Award size={24} className="text-slate-200 dark:text-slate-700" />
+                          )}
                         </div>
                       </div>
                     ))
@@ -804,7 +791,8 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
         </div>
       </div>
     </div>
-  );
+  </>
+);
 };
 
 export default Profile;

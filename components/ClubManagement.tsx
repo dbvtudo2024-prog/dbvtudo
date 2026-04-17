@@ -77,12 +77,15 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
     subtitulo: '',
     descricao: '',
     imagem: '',
+    blocks: [],
     club: club,
     parentId: undefined
   });
+  const [currentBlockContent, setCurrentBlockContent] = useState('');
+  const [currentBlockType, setCurrentBlockType] = useState<'text' | 'image'>('text');
 
   useEffect(() => {
-    setNewItem(prev => ({ ...prev, parentId: undefined }));
+    setNewItem(prev => ({ ...prev, parentId: undefined, blocks: [] }));
   }, [activeTab]);
 
   // Sync local state with prop data when it changes (e.g. after a save)
@@ -246,15 +249,39 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
     }));
   };
 
-  const addItem = (type: 'UNIFORMS' | 'EMBLEMS') => {
-    if (!newItem.titulo || !newItem.descricao) {
-      alert("Título e Descrição são obrigatórios.");
-      return;
-    }
+  const handleBlockImageUpload = (file: File) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      addBlock('image', base64String);
+    };
+    reader.readAsDataURL(file);
+  };
 
-    // Check image size (limit to ~500KB to be safe)
-    if (newItem.imagem && newItem.imagem.length > 700000) {
-      alert("A imagem é muito grande. Por favor, escolha uma imagem menor ou comprima-a.");
+  const addBlock = (type: 'text' | 'image', content: string) => {
+    if (!content) return;
+    const newBlock = {
+      id: Date.now().toString(),
+      type,
+      content
+    };
+    setNewItem(prev => ({
+      ...prev,
+      blocks: [...(prev.blocks || []), newBlock]
+    }));
+    if (type === 'text') setCurrentBlockContent('');
+  };
+
+  const removeBlock = (id: string) => {
+    setNewItem(prev => ({
+      ...prev,
+      blocks: (prev.blocks || []).filter(b => b.id !== id)
+    }));
+  };
+
+  const addItem = (type: 'UNIFORMS' | 'EMBLEMS') => {
+    if (!newItem.titulo) {
+      alert("O título é obrigatório.");
       return;
     }
 
@@ -262,8 +289,9 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
       id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
       titulo: newItem.titulo!,
       subtitulo: newItem.subtitulo,
-      descricao: newItem.descricao!,
+      descricao: newItem.descricao || '',
       imagem: newItem.imagem,
+      blocks: newItem.blocks || [],
       club: newItem.club || club,
       subitems: []
     };
@@ -295,7 +323,7 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
       }));
     }
 
-    setNewItem({ titulo: '', subtitulo: '', descricao: '', imagem: '', club: club, parentId: undefined });
+    setNewItem({ titulo: '', subtitulo: '', descricao: '', imagem: '', blocks: [], club: club, parentId: undefined });
   };
 
   const removeItem = (type: 'UNIFORMS' | 'EMBLEMS', id: string) => {
@@ -590,57 +618,71 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                       className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Conteúdo / Descrição Detalhada</label>
-                    <textarea 
-                      value={newItem.descricao}
-                      onChange={(e) => setNewItem({...newItem, descricao: e.target.value})}
-                      placeholder="Descreva as regras, componentes e detalhes..."
-                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm min-h-[120px]"
-                    />
-                  </div>
-                  
-                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                    <div className="flex items-center space-x-4">
-                      <div className="relative w-20 h-20 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl overflow-hidden flex items-center justify-center group cursor-pointer">
-                        {newItem.imagem ? (
-                          <>
-                            <img 
-                              src={newItem.imagem} 
-                              alt="Preview" 
-                              className="w-full h-full object-cover"
-                              referrerPolicy="no-referrer"
-                            />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <Plus className="text-white" size={20} />
+                  <div className="space-y-4 border-2 border-indigo-50 p-4 rounded-3xl bg-indigo-50/30">
+                    <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Construtor de Conteúdo (Texto e Imagem)</label>
+                    
+                    {/* Lista de Blocos Atuais */}
+                    <div className="space-y-3">
+                      {newItem.blocks && newItem.blocks.length > 0 ? (
+                        newItem.blocks.map((block, idx) => (
+                          <div key={block.id} className="relative group bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+                            <button 
+                              onClick={() => removeBlock(block.id)}
+                              className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                            >
+                              <X size={12} />
+                            </button>
+                            <div className="flex items-center space-x-3">
+                              <div className="w-6 h-6 bg-slate-100 rounded-lg flex items-center justify-center text-[10px] font-black text-slate-400 shrink-0">
+                                {idx + 1}
+                              </div>
+                              {block.type === 'text' ? (
+                                <p className="text-xs text-slate-600 line-clamp-2">{block.content}</p>
+                              ) : (
+                                <img src={block.content} alt="" className="w-12 h-12 rounded-lg object-cover" />
+                              )}
                             </div>
-                          </>
-                        ) : (
-                          <Plus className="text-slate-300 group-hover:text-indigo-500 transition-colors" size={24} />
-                        )}
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-[10px] text-slate-400 italic text-center py-4">Nenhum bloco de conteúdo adicionado ainda.</p>
+                      )}
+                    </div>
+
+                    {/* Controles para Adicionar */}
+                    <div className="space-y-3 pt-4 border-t border-indigo-100">
+                      <div className="flex space-x-2">
+                        <textarea 
+                          value={currentBlockContent}
+                          onChange={(e) => setCurrentBlockContent(e.target.value)}
+                          placeholder="Digite um bloco de texto..."
+                          className="flex-1 bg-white border border-slate-200 rounded-2xl p-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm min-h-[60px]"
+                        />
+                        <button 
+                          onClick={() => addBlock('text', currentBlockContent)}
+                          className="px-4 bg-indigo-100 text-indigo-600 rounded-2xl font-black text-[10px] uppercase tracking-tighter hover:bg-indigo-200 transition-all shrink-0"
+                        >
+                          + Texto
+                        </button>
+                      </div>
+
+                      <div className="relative">
                         <input 
                           type="file" 
                           accept="image/*"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
-                            if (file) handleItemImageUpload(file);
+                            if (file) handleBlockImageUpload(file);
                           }}
-                          className="absolute inset-0 opacity-0 cursor-pointer"
+                          className="absolute inset-0 opacity-0 cursor-pointer z-10"
                         />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-[11px] font-black text-slate-700 uppercase tracking-tight">Imagem Ilustrativa</p>
-                        <p className="text-[10px] text-slate-400 font-medium">Adicione uma foto para este item (opcional)</p>
-                        {newItem.imagem && (
-                          <button 
-                            onClick={() => setNewItem(prev => ({ ...prev, imagem: '' }))}
-                            className="text-[10px] text-red-500 font-bold uppercase mt-1"
-                          >
-                            Remover Imagem
-                          </button>
-                        )}
+                        <div className="w-full py-3 bg-white border-2 border-dashed border-indigo-200 rounded-2xl flex items-center justify-center space-x-2 text-indigo-400 group-hover:border-indigo-400 transition-all">
+                          <ImageIcon size={16} />
+                          <span className="text-[10px] font-black uppercase tracking-widest">Adicionar Imagem</span>
+                        </div>
                       </div>
                     </div>
+                    <p className="text-[9px] text-indigo-400 font-medium italic">* Adicione os itens na ordem que deseja exibir (texto, imagem, texto...)</p>
                   </div>
                 </div>
 
@@ -749,55 +791,68 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                       className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Descrição / Simbolismo</label>
-                    <textarea 
-                      value={newItem.descricao}
-                      onChange={(e) => setNewItem({...newItem, descricao: e.target.value})}
-                      placeholder="Descreva o significado, uso e simbolismo..."
-                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm min-h-[120px]"
-                    />
-                  </div>
-                  
-                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                    <div className="flex items-center space-x-4">
-                      <div className="relative w-20 h-20 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl overflow-hidden flex items-center justify-center group cursor-pointer">
-                        {newItem.imagem ? (
-                          <>
-                            <img 
-                              src={newItem.imagem} 
-                              alt="Preview" 
-                              className="w-full h-full object-cover"
-                              referrerPolicy="no-referrer"
-                            />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <Plus className="text-white" size={20} />
+                  <div className="space-y-4 border-2 border-indigo-50 p-4 rounded-3xl bg-indigo-50/30">
+                    <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Construtor de Conteúdo (Texto e Imagem)</label>
+                    
+                    {/* Lista de Blocos Atuais */}
+                    <div className="space-y-3">
+                      {newItem.blocks && newItem.blocks.length > 0 ? (
+                        newItem.blocks.map((block, idx) => (
+                          <div key={block.id} className="relative group bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+                            <button 
+                              onClick={() => removeBlock(block.id)}
+                              className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                            >
+                              <X size={12} />
+                            </button>
+                            <div className="flex items-center space-x-3">
+                              <div className="w-6 h-6 bg-slate-100 rounded-lg flex items-center justify-center text-[10px] font-black text-slate-400 shrink-0">
+                                {idx + 1}
+                              </div>
+                              {block.type === 'text' ? (
+                                <p className="text-xs text-slate-600 line-clamp-2">{block.content}</p>
+                              ) : (
+                                <img src={block.content} alt="" className="w-12 h-12 rounded-lg object-cover" />
+                              )}
                             </div>
-                          </>
-                        ) : (
-                          <Plus className="text-slate-300 group-hover:text-indigo-500 transition-colors" size={24} />
-                        )}
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-[10px] text-slate-400 italic text-center py-4">Nenhum bloco de conteúdo adicionado ainda.</p>
+                      )}
+                    </div>
+
+                    {/* Controles para Adicionar */}
+                    <div className="space-y-3 pt-4 border-t border-indigo-100">
+                      <div className="flex space-x-2">
+                        <textarea 
+                          value={currentBlockContent}
+                          onChange={(e) => setCurrentBlockContent(e.target.value)}
+                          placeholder="Digite o significado ou texto..."
+                          className="flex-1 bg-white border border-slate-200 rounded-2xl p-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm min-h-[60px]"
+                        />
+                        <button 
+                          onClick={() => addBlock('text', currentBlockContent)}
+                          className="px-4 bg-indigo-100 text-indigo-600 rounded-2xl font-black text-[10px] uppercase tracking-tighter hover:bg-indigo-200 transition-all shrink-0"
+                        >
+                          + Texto
+                        </button>
+                      </div>
+
+                      <div className="relative">
                         <input 
                           type="file" 
                           accept="image/*"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
-                            if (file) handleItemImageUpload(file);
+                            if (file) handleBlockImageUpload(file);
                           }}
-                          className="absolute inset-0 opacity-0 cursor-pointer"
+                          className="absolute inset-0 opacity-0 cursor-pointer z-10"
                         />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-[11px] font-black text-slate-700 uppercase tracking-tight">Imagem do Emblema</p>
-                        <p className="text-[10px] text-slate-400 font-medium">Adicione uma foto para este emblema (opcional)</p>
-                        {newItem.imagem && (
-                          <button 
-                            onClick={() => setNewItem(prev => ({ ...prev, imagem: '' }))}
-                            className="text-[10px] text-red-500 font-bold uppercase mt-1"
-                          >
-                            Remover Imagem
-                          </button>
-                        )}
+                        <div className="w-full py-3 bg-white border-2 border-dashed border-indigo-200 rounded-2xl flex items-center justify-center space-x-2 text-indigo-400 group-hover:border-indigo-400 transition-all">
+                          <ImageIcon size={16} />
+                          <span className="text-[10px] font-black uppercase tracking-widest">Adicionar Imagem</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2137,27 +2192,52 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           </h5>
           
           <div className="relative">
-            {item.imagem && (
-              <div className={`w-32 sm:w-40 mb-4 overflow-hidden border border-slate-100 shadow-sm bg-slate-50 ${isImageLeft ? 'float-left mr-6' : 'float-right ml-6'}`}>
-                <img 
-                  src={item.imagem} 
-                  alt={item.titulo} 
-                  className="w-full h-auto object-contain"
-                  referrerPolicy="no-referrer"
-                />
+            {item.blocks && item.blocks.length > 0 ? (
+              <div className="space-y-4">
+                {item.blocks.map((block) => (
+                  <div key={block.id}>
+                    {block.type === 'text' ? (
+                      <div className="text-slate-600 text-sm leading-relaxed font-medium whitespace-pre-wrap">
+                        {block.content}
+                      </div>
+                    ) : (
+                      <div className="w-full max-w-sm mx-auto my-4 overflow-hidden border border-slate-100 shadow-sm bg-slate-50 rounded-2xl">
+                        <img 
+                          src={block.content} 
+                          alt="" 
+                          className="w-full h-auto object-contain"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
+            ) : (
+              <>
+                {item.imagem && (
+                  <div className={`w-32 sm:w-40 mb-4 overflow-hidden border border-slate-100 shadow-sm bg-slate-50 ${isImageLeft ? 'float-left mr-6' : 'float-right ml-6'}`}>
+                    <img 
+                      src={item.imagem} 
+                      alt={item.titulo} 
+                      className="w-full h-auto object-contain"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                )}
+                
+                <div className="text-slate-600 text-sm leading-relaxed font-medium">
+                  {item.subtitulo && (
+                    <span className="inline-block text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-2 block">
+                      {item.subtitulo}
+                    </span>
+                  )}
+                  <div className="whitespace-pre-wrap">
+                    {item.descricao}
+                  </div>
+                </div>
+              </>
             )}
-            
-            <div className="text-slate-600 text-sm leading-relaxed font-medium">
-              {item.subtitulo && (
-                <span className="inline-block text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-2 block">
-                  {item.subtitulo}
-                </span>
-              )}
-              <div className="whitespace-pre-wrap">
-                {item.descricao}
-              </div>
-            </div>
             <div className="clear-both" />
           </div>
 
@@ -2212,21 +2292,46 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
               {/* Conteúdo Principal do Card (Imagem pequena e Texto contornando) */}
               <div className="relative mt-6">
-                {item.imagem && (
-                  <div className="w-32 sm:w-40 mb-4 overflow-hidden border border-slate-100 shadow-sm bg-slate-50 float-left mr-6">
-                    <img 
-                      src={item.imagem} 
-                      alt={item.titulo} 
-                      className="w-full h-auto object-contain"
-                      referrerPolicy="no-referrer"
-                    />
+                {item.blocks && item.blocks.length > 0 ? (
+                  <div className="space-y-4">
+                    {item.blocks.map((block) => (
+                      <div key={block.id}>
+                        {block.type === 'text' ? (
+                          <div className="text-slate-600 text-sm leading-relaxed font-medium whitespace-pre-wrap">
+                            {block.content}
+                          </div>
+                        ) : (
+                          <div className="w-full max-w-sm mx-auto my-4 overflow-hidden border border-slate-100 shadow-sm bg-slate-50 rounded-2xl">
+                            <img 
+                              src={block.content} 
+                              alt="" 
+                              className="w-full h-auto object-contain"
+                              referrerPolicy="no-referrer"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                )}
-                
-                {item.descricao && (
-                  <div className="text-slate-600 text-sm leading-relaxed font-medium whitespace-pre-wrap">
-                    {item.descricao}
-                  </div>
+                ) : (
+                  <>
+                    {item.imagem && (
+                      <div className="w-32 sm:w-40 mb-4 overflow-hidden border border-slate-100 shadow-sm bg-slate-50 float-left mr-6">
+                        <img 
+                          src={item.imagem} 
+                          alt={item.titulo} 
+                          className="w-full h-auto object-contain"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    )}
+                    
+                    {item.descricao && (
+                      <div className="text-slate-600 text-sm leading-relaxed font-medium whitespace-pre-wrap">
+                        {item.descricao}
+                      </div>
+                    )}
+                  </>
                 )}
                 <div className="clear-both" />
               </div>
