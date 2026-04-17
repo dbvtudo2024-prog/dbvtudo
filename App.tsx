@@ -48,18 +48,40 @@ const App: React.FC = () => {
   const [selectedClub, setSelectedClub] = useState<ClubType | null>(null);
   const [isGuest, setIsGuest] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dbv_tudo_app_state');
+      if (saved) {
+        const { darkMode: savedDarkMode } = JSON.parse(saved);
+        return savedDarkMode || false;
+      }
+    } catch (e) {
+      console.error("Erro ao carregar darkMode inicial:", e);
+    }
+    return false;
+  });
   const [pendingPrompt, setPendingPrompt] = useState<string | undefined>(undefined);
   const [pendingSubView, setPendingSubView] = useState<string | undefined>(undefined);
+
+  // Sincronizar classe dark para Tailwind
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
 
   // Carregar estado inicial apenas uma vez na montagem
   useEffect(() => {
     const savedState = localStorage.getItem('dbv_tudo_app_state');
     if (savedState) {
       try {
-        const { view, club, guest } = JSON.parse(savedState);
+        const { view, club, guest, darkMode: savedDarkMode } = JSON.parse(savedState);
         if (view) setCurrentView(view);
         if (club) setSelectedClub(club);
         if (guest !== undefined) setIsGuest(guest);
+        if (savedDarkMode !== undefined) setDarkMode(savedDarkMode);
       } catch (e) {
         console.error("Erro ao restaurar estado:", e);
       }
@@ -74,11 +96,12 @@ const App: React.FC = () => {
       const stateToSave = {
         view: currentView,
         club: selectedClub,
-        guest: isGuest
+        guest: isGuest,
+        darkMode
       };
       localStorage.setItem('dbv_tudo_app_state', JSON.stringify(stateToSave));
     }
-  }, [currentView, selectedClub, isGuest, isInitialized]);
+  }, [currentView, selectedClub, isGuest, isInitialized, darkMode]);
 
   // Gerenciar histórico para o botão voltar do Android
   useEffect(() => {
@@ -201,38 +224,35 @@ const App: React.FC = () => {
         );
       case 'SETTINGS':
         return (
-          <div className="p-8 animate-slide-up h-full flex flex-col bg-slate-50 relative">
+          <div className={`p-8 animate-slide-up h-full flex flex-col relative transition-colors duration-500 ${darkMode ? 'bg-slate-900' : 'bg-slate-50'}`}>
             <button 
               onClick={() => setCurrentView('HOME')}
-              className="absolute top-6 right-6 p-2 bg-white rounded-full shadow-md text-slate-400"
+              className={`absolute top-6 right-6 p-2 rounded-full shadow-md transition-colors ${darkMode ? 'bg-slate-800 text-slate-400' : 'bg-white text-slate-400'}`}
             >
               <X size={20} />
             </button>
             <div className="mt-12">
-              <h2 className="text-3xl font-black text-slate-800 mb-2">Ajustes</h2>
-              <p className="text-slate-500 mb-10 text-lg">Personalize sua experiência.</p>
+              <h2 className={`text-3xl font-black mb-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>Ajustes</h2>
+              <p className={`mb-10 text-lg ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Personalize sua experiência.</p>
               
               <div className="space-y-4">
-                {[
-                  { label: 'Notificações Push', enabled: true },
-                  { label: 'Sincronizar SGC', enabled: true },
-                  { label: 'Sair da Conta', enabled: false, action: handleLogout }
-                ].map((item, i) => (
-                  <button 
-                    key={i} 
-                    onClick={item.action}
-                    className="w-full bg-white p-5 rounded-3xl flex justify-between items-center shadow-sm border border-slate-100"
-                  >
-                    <span className="font-semibold text-slate-700">{item.label}</span>
-                    {item.action ? (
-                      <ChevronLeft className="rotate-180 text-slate-300" size={18} />
-                    ) : (
-                      <div className={`w-14 h-7 rounded-full p-1 transition-colors duration-300 ${item.enabled ? 'bg-indigo-500' : 'bg-slate-200'}`}>
-                        <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ${item.enabled ? 'translate-x-7' : ''}`}></div>
-                      </div>
-                    )}
-                  </button>
-                ))}
+                <button 
+                  onClick={() => setDarkMode(!darkMode)}
+                  className={`w-full p-5 rounded-3xl flex justify-between items-center shadow-sm border transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
+                >
+                  <span className={`font-semibold ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>Tema Escuro</span>
+                  <div className={`w-14 h-7 rounded-full p-1 transition-colors duration-300 ${darkMode ? 'bg-indigo-500' : 'bg-slate-200'}`}>
+                    <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ${darkMode ? 'translate-x-7' : ''}`}></div>
+                  </div>
+                </button>
+
+                <button 
+                  onClick={handleLogout}
+                  className={`w-full p-5 rounded-3xl flex justify-between items-center shadow-sm border transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
+                >
+                  <span className={`font-semibold ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>Sair da Conta</span>
+                  <ChevronLeft className="rotate-180 text-slate-300" size={18} />
+                </button>
               </div>
             </div>
           </div>
@@ -243,10 +263,10 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="h-screen w-screen bg-[#f8fafc] flex items-center justify-center p-0 sm:p-4 md:p-8 overflow-hidden">
+    <div className={`h-screen w-screen flex items-center justify-center p-0 sm:p-4 md:p-8 overflow-hidden transition-colors duration-500 ${darkMode ? 'bg-slate-950' : 'bg-[#f8fafc]'}`}>
       <style>{styles}</style>
-      <div className="h-full w-full max-w-7xl bg-white shadow-2xl relative overflow-hidden sm:rounded-[48px] sm:border-[8px] sm:border-slate-900 flex flex-col">
-        <main className="flex-1 w-full bg-mesh overflow-hidden flex flex-col">
+      <div className={`h-full w-full max-w-7xl shadow-2xl relative overflow-hidden sm:rounded-[48px] sm:border-[8px] flex flex-col transition-colors duration-500 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+        <main className={`flex-1 w-full overflow-hidden flex flex-col transition-colors duration-500 ${darkMode ? 'bg-slate-900' : 'bg-mesh'}`}>
           {renderContent()}
         </main>
       </div>

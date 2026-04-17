@@ -27,13 +27,13 @@ interface EditInputProps {
 
 const EditInput: React.FC<EditInputProps> = ({ label, value, name, type = "text", onChange }) => (
   <div className="space-y-1.5 text-left">
-    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">{label}</label>
+    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] ml-1">{label}</label>
     <input 
       type={type}
       value={value}
       name={name}
       onChange={onChange}
-      className="w-full bg-white border border-slate-100 rounded-2xl py-3.5 px-5 text-sm text-slate-800 focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500 transition-all shadow-sm font-bold placeholder:text-slate-300"
+      className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-3.5 px-5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500 transition-all shadow-sm font-bold placeholder:text-slate-300 dark:placeholder:text-slate-600"
     />
   </div>
 );
@@ -48,18 +48,18 @@ interface EditSelectProps {
 
 const EditSelect: React.FC<EditSelectProps> = ({ label, value, name, options, onChange }) => (
   <div className="space-y-1.5 text-left">
-    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">{label}</label>
+    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] ml-1">{label}</label>
     <div className="relative">
       <select 
         value={value}
         name={name}
         onChange={onChange}
-        className="w-full bg-white border border-slate-100 rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-800 focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500 transition-all shadow-sm font-bold appearance-none"
+        className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500 transition-all shadow-sm font-bold appearance-none"
       >
         <option value="">Selecione...</option>
         {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
       </select>
-      <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
+      <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600 pointer-events-none" />
     </div>
   </div>
 );
@@ -309,10 +309,10 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   };
 
   const renderSashView = () => (
-    <div className="flex flex-col h-full bg-[#F8FAFC] animate-slide-in">
+    <div className="flex flex-col h-full bg-[#F8FAFC] dark:bg-slate-900 animate-slide-in">
       <div className="px-8 pt-6 pb-4 space-y-4">
         <div className="relative">
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300">
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600">
             <Search size={18} />
           </div>
           <input 
@@ -320,7 +320,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
             placeholder="Buscar especialidade..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-white border border-slate-100 rounded-2xl py-3 pl-12 pr-4 text-sm font-bold text-slate-700 focus:outline-none shadow-sm placeholder:text-slate-200"
+            className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-3 pl-12 pr-4 text-sm font-bold text-slate-700 dark:text-slate-200 focus:outline-none shadow-sm placeholder:text-slate-200 dark:placeholder:text-slate-600"
           />
         </div>
       </div>
@@ -328,20 +328,20 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
       <div className="flex-grow overflow-y-auto px-8 pb-24 space-y-3 scrollbar-hide">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-8 h-8 border-3 border-slate-100 border-t-indigo-500 rounded-full animate-spin"></div>
+            <div className="w-8 h-8 border-3 border-slate-100 dark:border-slate-700 border-t-indigo-500 rounded-full animate-spin"></div>
           </div>
         ) : filteredSpecialties.length > 0 ? (
           filteredSpecialties.map((esp) => (
-            <div key={esp.id} className="bg-white border border-slate-100 rounded-[24px] p-4 flex items-center space-x-4 shadow-sm">
-              <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0">
+            <div key={esp.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-4 flex items-center space-x-4 shadow-sm">
+              <div className="w-14 h-14 bg-slate-50 dark:bg-slate-700 rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0">
                 {esp.logo ? (
                   <img src={esp.logo} className="w-10 h-10 object-contain" alt={esp.nome} />
                 ) : (
-                  <Award size={24} className="text-slate-200" />
+                  <Award size={24} className="text-slate-200 dark:text-slate-600" />
                 )}
               </div>
               <div className="flex-grow text-left">
-                <h4 className="font-black text-slate-700 text-[12px] uppercase tracking-tight leading-tight">
+                <h4 className="font-black text-slate-700 dark:text-slate-200 text-[12px] uppercase tracking-tight leading-tight">
                   {esp.nome}
                 </h4>
                 <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mt-1">
@@ -352,8 +352,8 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                 onClick={() => toggleLike(esp.id)}
                 className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
                   likedIds.includes(esp.id.toString()) 
-                    ? 'bg-rose-50 text-rose-500' 
-                    : 'bg-slate-50 text-slate-300'
+                    ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-500' 
+                    : 'bg-slate-50 dark:bg-slate-700 text-slate-300 dark:text-slate-500'
                 }`}
               >
                 <Heart size={20} fill={likedIds.includes(esp.id.toString()) ? "currentColor" : "none"} />
@@ -362,7 +362,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
           ))
         ) : (
           <div className="text-center py-20">
-            <p className="text-slate-400 font-bold text-sm">Nenhuma especialidade encontrada.</p>
+            <p className="text-slate-400 dark:text-slate-600 font-bold text-sm">Nenhuma especialidade encontrada.</p>
           </div>
         )}
       </div>
@@ -370,14 +370,14 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   );
 
   return (
-    <div className="flex flex-col h-full bg-[#F8FAFC] animate-slide-in overflow-y-auto scrollbar-hide pb-12">
+    <div className="flex flex-col h-full bg-[#F8FAFC] dark:bg-slate-900 animate-slide-in transition-colors duration-500 overflow-y-auto scrollbar-hide pb-12">
       <input type="file" ref={fileInputRef} onChange={handlePhotoUpload} accept="image/*" className="hidden" />
 
       {/* Modal Minha Faixa */}
       {isSashView && (
         <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsSashView(false)}></div>
-          <div className="relative w-full max-w-lg bg-white rounded-t-[40px] sm:rounded-[40px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 h-[90vh] flex flex-col">
+          <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-[40px] sm:rounded-[40px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 h-[90vh] flex flex-col">
             <div 
               style={{ backgroundColor: currentThemeColor }}
               className="p-8 pb-6 flex items-center justify-between text-white"
@@ -396,7 +396,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
             
             <div className="p-6 pb-2">
               <div className="relative">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600">
                   <Search size={18} />
                 </div>
                 <input 
@@ -404,7 +404,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                   placeholder="Buscar especialidade..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-3.5 pl-12 pr-4 text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 transition-all shadow-inner placeholder:text-slate-300"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-3.5 pl-12 pr-4 text-sm font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 transition-all shadow-inner placeholder:text-slate-300 dark:placeholder:text-slate-600"
                 />
               </div>
             </div>
@@ -412,20 +412,20 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
             <div className="flex-grow overflow-y-auto p-6 pt-2 space-y-3 scrollbar-hide">
               {isLoading ? (
                 <div className="flex flex-col items-center justify-center py-20">
-                  <div className="w-8 h-8 border-3 border-slate-100 border-t-indigo-500 rounded-full animate-spin"></div>
+                  <div className="w-8 h-8 border-3 border-slate-100 dark:border-slate-700 border-t-indigo-500 rounded-full animate-spin"></div>
                 </div>
               ) : filteredSpecialties.length > 0 ? (
                 filteredSpecialties.map((esp) => (
-                  <div key={esp.id} className="bg-white border border-slate-100 rounded-[28px] p-4 flex items-center space-x-4 shadow-sm hover:border-slate-200 transition-all">
-                    <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0 border border-slate-50">
+                  <div key={esp.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-4 flex items-center space-x-4 shadow-sm hover:border-slate-200 dark:hover:border-slate-600 transition-all">
+                    <div className="w-14 h-14 bg-slate-50 dark:bg-slate-700 rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0 border border-slate-50 dark:border-slate-600">
                       {esp.logo ? (
                         <img src={esp.logo} className="w-10 h-10 object-contain" alt={esp.nome} />
                       ) : (
-                        <Award size={24} className="text-slate-200" />
+                        <Award size={24} className="text-slate-200 dark:text-slate-600" />
                       )}
                     </div>
                     <div className="flex-grow text-left">
-                      <h4 className="font-black text-slate-700 text-[12px] uppercase tracking-tight leading-tight">
+                      <h4 className="font-black text-slate-700 dark:text-slate-200 text-[12px] uppercase tracking-tight leading-tight">
                         {esp.nome}
                       </h4>
                       <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mt-1">
@@ -436,8 +436,8 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                       onClick={() => toggleLike(esp.id)}
                       className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
                         likedIds.includes(esp.id.toString()) 
-                          ? 'bg-rose-50 text-rose-500 shadow-sm' 
-                          : 'bg-slate-50 text-slate-300'
+                          ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-500 shadow-sm' 
+                          : 'bg-slate-50 dark:bg-slate-700 text-slate-300 dark:text-slate-500'
                       }`}
                     >
                       <Heart size={20} fill={likedIds.includes(esp.id.toString()) ? "currentColor" : "none"} />
@@ -446,7 +446,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                 ))
               ) : (
                 <div className="text-center py-20">
-                  <p className="text-slate-400 font-bold text-sm">Nenhuma especialidade encontrada.</p>
+                  <p className="text-slate-400 dark:text-slate-600 font-bold text-sm">Nenhuma especialidade encontrada.</p>
                 </div>
               )}
             </div>
@@ -458,12 +458,12 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
       {isEditing && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsEditing(false)}></div>
-          <div className="relative w-full max-w-lg bg-white rounded-t-[40px] sm:rounded-[40px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 max-h-[90vh] flex flex-col">
-            <div className="p-8 pb-4 flex items-center justify-between border-b border-slate-50">
-              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Editar Perfil</h3>
+          <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-[40px] sm:rounded-[40px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 max-h-[90vh] flex flex-col">
+            <div className="p-8 pb-4 flex items-center justify-between border-b border-slate-50 dark:border-slate-800">
+              <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Editar Perfil</h3>
               <button 
                 onClick={() => setIsEditing(false)}
-                className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 active:scale-90 transition-all"
+                className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 active:scale-90 transition-all"
               >
                 <X size={20} strokeWidth={3} />
               </button>
@@ -472,11 +472,11 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
             <div className="flex-grow overflow-y-auto p-8 pt-6 space-y-6 scrollbar-hide">
               <div className="flex flex-col items-center mb-8">
                 <div className="relative group">
-                  <div className="w-28 h-28 rounded-[32px] border-[5px] border-slate-50 shadow-lg overflow-hidden bg-slate-100 transition-all flex items-center justify-center ring-8 ring-emerald-500/5">
+                  <div className="w-28 h-28 rounded-[32px] border-[5px] border-slate-50 dark:border-slate-800 shadow-lg overflow-hidden bg-slate-100 dark:bg-slate-800 transition-all flex items-center justify-center ring-8 ring-emerald-500/5">
                     {userData.avatar ? (
                       <img src={userData.avatar} className="w-full h-full object-cover" alt="Avatar" />
                     ) : (
-                      <User size={48} className="text-slate-300" />
+                      <User size={48} className="text-slate-300 dark:text-slate-600" />
                     )}
                   </div>
                   <button 
@@ -486,25 +486,25 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                   >
                     <Camera size={24} className="text-white" />
                   </button>
-                  <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-xl border-4 border-white shadow-md bg-amber-500 flex items-center justify-center">
+                  <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-xl border-4 border-white dark:border-slate-900 shadow-md bg-amber-500 flex items-center justify-center">
                     <Settings size={12} className="text-white" />
                   </div>
                 </div>
-                <p className="mt-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Alterar Foto</p>
+                <p className="mt-3 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Alterar Foto</p>
               </div>
 
               <div className="space-y-2 text-left">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">Tipo de Ministério</label>
-                <div className="flex p-1.5 bg-slate-100 rounded-[24px] space-x-1.5 border border-slate-200/50">
+                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] ml-1">Tipo de Ministério</label>
+                <div className="flex p-1.5 bg-slate-100 dark:bg-slate-800 rounded-[24px] space-x-1.5 border border-slate-200/50 dark:border-slate-700/50">
                   <button 
                     onClick={() => handleClubToggle("Desbravador")} 
-                    className={`flex-1 py-3 rounded-[18px] text-[10px] font-black uppercase transition-all ${userData.tipo === "Desbravador" ? 'bg-[#dc371b] text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
+                    className={`flex-1 py-3 rounded-[18px] text-[10px] font-black uppercase transition-all ${userData.tipo === "Desbravador" ? 'bg-[#dc371b] text-white shadow-lg' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400'}`}
                   >
                     Desbravador
                   </button>
                   <button 
                     onClick={() => handleClubToggle("Aventureiro")} 
-                    className={`flex-1 py-3 rounded-[18px] text-[10px] font-black uppercase transition-all ${userData.tipo === "Aventureiro" ? 'bg-[#800000] text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
+                    className={`flex-1 py-3 rounded-[18px] text-[10px] font-black uppercase transition-all ${userData.tipo === "Aventureiro" ? 'bg-[#800000] text-white shadow-lg' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400'}`}
                   >
                     Aventureiro
                   </button>
@@ -522,7 +522,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
               </div>
             </div>
 
-            <div className="p-8 pt-4 border-t border-slate-50 bg-slate-50/50">
+            <div className="p-8 pt-4 border-t border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
               <button 
                 onClick={handleSave} 
                 disabled={isLoading}
@@ -600,12 +600,12 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
       <div className="mt-24 text-center px-8">
         <div className="animate-slide-up">
-          <h2 className="text-3xl font-black tracking-tight text-slate-800 leading-none">{userData.name}</h2>
-          <p className="text-slate-400 font-bold text-xs mt-2 uppercase tracking-widest opacity-60">{userData.email}</p>
+          <h2 className="text-3xl font-black tracking-tight text-slate-800 dark:text-white leading-none">{userData.name}</h2>
+          <p className="text-slate-400 dark:text-slate-500 font-bold text-xs mt-2 uppercase tracking-widest opacity-60">{userData.email}</p>
         </div>
       </div>
 
-      <div className="px-8 mt-6 border-t border-slate-100 pt-5">
+      <div className="px-8 mt-6 border-t border-slate-100 dark:border-slate-800 pt-5">
         <div className="grid grid-cols-2 gap-2">
           {[
             { label: 'Tipo', value: userData.tipo },
@@ -615,9 +615,9 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
             { label: 'Cidade', value: userData.cidade || '-' },
             { label: 'Estado', value: userData.estado || '-' }
           ].map((item, i) => (
-            <div key={i} className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm flex flex-col items-center text-center group hover:border-slate-200 transition-all">
-              <p className="text-[7px] font-black text-slate-300 uppercase tracking-[0.2em] mb-0.5">{item.label}</p>
-              <p className="text-[11px] font-black text-slate-700 leading-tight line-clamp-1">{item.value}</p>
+            <div key={i} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-3 shadow-sm flex flex-col items-center text-center group hover:border-slate-200 dark:hover:border-slate-600 transition-all">
+              <p className="text-[7px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-[0.2em] mb-0.5">{item.label}</p>
+              <p className="text-[11px] font-black text-slate-700 dark:text-slate-200 leading-tight line-clamp-1">{item.value}</p>
             </div>
           ))}
         </div>
@@ -655,28 +655,28 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
       <div className="mt-10 px-8 pb-10 animate-slide-up">
         <div className="flex items-center justify-between mb-6">
-          <div className="h-[1px] flex-grow bg-slate-100"></div>
-          <h3 className="px-6 font-black uppercase text-[10px] text-slate-400 tracking-[0.3em]">Conquistas</h3>
-          <div className="h-[1px] flex-grow bg-slate-100"></div>
+          <div className="h-[1px] flex-grow bg-slate-100 dark:bg-slate-800"></div>
+          <h3 className="px-6 font-black uppercase text-[10px] text-slate-400 dark:text-slate-600 tracking-[0.3em]">Conquistas</h3>
+          <div className="h-[1px] flex-grow bg-slate-100 dark:bg-slate-800"></div>
         </div>
         
-        <div className="bg-white border border-slate-100 rounded-[40px] p-8 shadow-sm flex flex-col items-center space-y-6">
+        <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[40px] p-8 shadow-sm flex flex-col items-center space-y-6">
           <div className="flex flex-col items-center space-y-6 w-full">
             <div className="grid grid-cols-1 gap-4 w-full max-w-[240px]">
-              <div className="h-8 w-full rounded-lg shadow-inner flex overflow-hidden border border-slate-100">
+              <div className="h-8 w-full rounded-lg shadow-inner flex overflow-hidden border border-slate-100 dark:border-slate-700">
                 <div className="w-1/4 bg-[#1a237e]"></div><div className="w-2/4 bg-[#fbc02d]"></div><div className="w-1/4 bg-[#1a237e]"></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="h-8 rounded-lg shadow-inner flex overflow-hidden border border-slate-100"><div className="w-1/3 bg-[#1a237e]"></div><div className="w-1/3 bg-[#fbc02d]"></div><div className="w-1/3 bg-[#1a237e]"></div></div>
-                <div className="h-8 rounded-lg shadow-inner flex overflow-hidden border border-slate-100"><div className="w-1/3 bg-[#c62828]"></div><div className="w-1/3 bg-[#fbc02d]"></div><div className="w-1/3 bg-[#c62828]"></div></div>
-                <div className="h-8 rounded-lg shadow-inner flex overflow-hidden border border-slate-100"><div className="w-full bg-[#757575]"></div></div>
-                <div className="h-8 rounded-lg shadow-inner flex overflow-hidden border border-slate-100"><div className="w-full bg-[#4a148c]"></div></div>
+                <div className="h-8 rounded-lg shadow-inner flex overflow-hidden border border-slate-100 dark:border-slate-700"><div className="w-1/3 bg-[#1a237e]"></div><div className="w-1/3 bg-[#fbc02d]"></div><div className="w-1/3 bg-[#1a237e]"></div></div>
+                <div className="h-8 rounded-lg shadow-inner flex overflow-hidden border border-slate-100 dark:border-slate-700"><div className="w-1/3 bg-[#c62828]"></div><div className="w-1/3 bg-[#fbc02d]"></div><div className="w-1/3 bg-[#c62828]"></div></div>
+                <div className="h-8 rounded-lg shadow-inner flex overflow-hidden border border-slate-100 dark:border-slate-700"><div className="w-full bg-[#757575]"></div></div>
+                <div className="h-8 rounded-lg shadow-inner flex overflow-hidden border border-slate-100 dark:border-slate-700"><div className="w-full bg-[#4a148c]"></div></div>
               </div>
             </div>
             
             <div className="flex justify-center space-x-6">
               {[Shield, Award, MapPin].map((Icon, i) => (
-                <div key={i} className="w-14 h-14 bg-slate-50 rounded-[20px] border border-slate-100 flex items-center justify-center text-slate-200 shadow-inner">
+                <div key={i} className="w-14 h-14 bg-slate-50 dark:bg-slate-900 rounded-[20px] border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-200 dark:text-slate-700 shadow-inner">
                   <Icon size={28} />
                 </div>
               ))}
@@ -685,11 +685,11 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
           {/* Especialidades Curtidas (Minha Faixa) */}
           {likedIds.length > 0 && (
-            <div className="w-full pt-6 border-t border-slate-50">
-              <p className="text-center text-[9px] font-black text-slate-300 uppercase tracking-[0.2em] mb-4">Especialidades na Faixa</p>
+            <div className="w-full pt-6 border-t border-slate-50 dark:border-slate-700">
+              <p className="text-center text-[9px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-[0.2em] mb-4">Especialidades na Faixa</p>
               <div className="grid grid-cols-4 gap-4">
                 {allSpecialties.length === 0 && likedIds.length > 0 ? (
-                  <div className="col-span-4 py-4 text-center text-[10px] text-slate-300 font-bold uppercase tracking-widest">
+                  <div className="col-span-4 py-4 text-center text-[10px] text-slate-300 dark:text-slate-600 font-bold uppercase tracking-widest">
                     Carregando...
                   </div>
                 ) : (
@@ -698,14 +698,14 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                     .slice(0, 8) // Mostra apenas as 8 primeiras no resumo
                     .map(esp => (
                       <div key={esp.id} className="flex flex-col items-center group">
-                        <div className="w-14 h-14 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-center p-2.5 group-hover:scale-110 transition-transform shadow-sm">
+                        <div className="w-14 h-14 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center justify-center p-2.5 group-hover:scale-110 transition-transform shadow-sm">
                           <img src={esp.logo} className="w-full h-full object-contain" alt={esp.nome} />
                         </div>
                       </div>
                     ))
                 )}
                 {likedIds.length > 8 && (
-                  <div className="w-14 h-14 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-center text-slate-400 font-black text-xs shadow-sm">
+                  <div className="w-14 h-14 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-400 dark:text-slate-500 font-black text-xs shadow-sm">
                     +{likedIds.length - 8}
                   </div>
                 )}

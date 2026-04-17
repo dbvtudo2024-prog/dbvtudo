@@ -25,7 +25,7 @@ const InputField = ({ icon: Icon, label, name, type = "text", placeholder, requi
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="w-full bg-white border border-slate-200 rounded-2xl py-3.5 pl-12 pr-4 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all placeholder:text-slate-300"
+        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 pl-12 pr-4 text-sm text-slate-800 dark:text-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
       />
     </div>
   </div>
@@ -126,15 +126,15 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
   const renderSignup = () => (
     <div className="animate-slide-up space-y-6 px-7 pb-20 pt-6">
       <div className="flex items-center space-x-4 mb-4">
-        <button onClick={() => onViewChange('LOGIN')} className="p-2.5 bg-white rounded-2xl shadow-sm border border-slate-100 text-slate-400 active:scale-90 transition-all">
+        <button onClick={() => onViewChange('LOGIN')} className="p-2.5 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 text-slate-400 active:scale-90 transition-all">
           <ChevronLeft size={20} />
         </button>
-        <h2 className="text-2xl font-black text-[#004d40] tracking-tighter uppercase">Criar Nova Conta</h2>
+        <h2 className="text-2xl font-black text-[#004d40] dark:text-emerald-500 tracking-tighter uppercase">Criar Nova Conta</h2>
       </div>
 
       <div className="space-y-4">
         {error && (
-          <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-2xl text-xs font-bold animate-slide-up">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 text-red-600 dark:text-red-400 p-4 rounded-2xl text-xs font-bold animate-slide-up">
             {error}
           </div>
         )}
@@ -153,7 +153,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
               value={formData.password}
               onChange={handleInputChange}
               placeholder="Sua senha secreta"
-              className="w-full bg-white border border-slate-200 rounded-2xl py-3.5 pl-12 pr-12 text-sm text-slate-800 shadow-sm focus:outline-none focus:border-emerald-500 transition-all placeholder:text-slate-300"
+              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 pl-12 pr-12 text-sm text-slate-800 dark:text-slate-200 shadow-sm focus:outline-none focus:border-emerald-500 transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
             />
             <button 
               type="button"
@@ -170,14 +170,14 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
           <div className="flex space-x-3">
             <button 
               onClick={() => setClubType(ClubType.PATHFINDER)}
-              className={`flex-1 p-4 rounded-2xl border-2 transition-all flex items-center justify-center space-x-2 ${clubType === ClubType.PATHFINDER ? 'border-[#dc371b] bg-[#dc371b]/5 text-[#dc371b]' : 'border-slate-100 bg-white text-slate-400'}`}
+              className={`flex-1 p-4 rounded-2xl border-2 transition-all flex items-center justify-center space-x-2 ${clubType === ClubType.PATHFINDER ? 'border-[#dc371b] bg-[#dc371b]/5 text-[#dc371b]' : 'border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-400'}`}
             >
               <Shield size={16} />
               <span className="text-xs font-black uppercase">Desbravador</span>
             </button>
             <button 
               onClick={() => setClubType(ClubType.ADVENTURER)}
-              className={`flex-1 p-4 rounded-2xl border-2 transition-all flex items-center justify-center space-x-2 ${clubType === ClubType.ADVENTURER ? 'border-[#800000] bg-[#800000]/5 text-[#800000]' : 'border-slate-100 bg-white text-slate-400'}`}
+              className={`flex-1 p-4 rounded-2xl border-2 transition-all flex items-center justify-center space-x-2 ${clubType === ClubType.ADVENTURER ? 'border-[#800000] bg-[#800000]/5 text-[#800000]' : 'border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-400'}`}
             >
               <Shield size={16} />
               <span className="text-xs font-black uppercase">Aventureiro</span>
@@ -197,7 +197,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
               name="cargo"
               value={formData.cargo}
               onChange={handleInputChange}
-              className="w-full bg-white border border-slate-200 rounded-2xl py-3.5 pl-12 pr-10 text-sm shadow-sm focus:outline-none focus:border-emerald-500 appearance-none text-slate-800 font-medium"
+              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 pl-12 pr-10 text-sm shadow-sm focus:outline-none focus:border-emerald-500 appearance-none text-slate-800 dark:text-slate-200 font-medium"
             >
               <option value="" className="text-slate-400">Selecione um cargo</option>
               {cargos.map(c => <option key={c} value={c} className="text-slate-800">{c}</option>)}
@@ -284,13 +284,13 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
             alt="Logo" 
           />
         </div>
-        <h1 className="text-3xl font-black text-slate-800 tracking-tighter uppercase leading-none">DBV Tudo</h1>
+        <h1 className="text-3xl font-black text-slate-800 dark:text-white tracking-tighter uppercase leading-none">DBV Tudo</h1>
         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.4em] mt-3">Sua Gestão Digital</p>
       </div>
 
       <div className="space-y-4">
         {error && (
-          <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-2xl text-xs font-bold animate-slide-up">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 text-red-600 dark:text-red-400 p-4 rounded-2xl text-xs font-bold animate-slide-up">
             {error}
           </div>
         )}
@@ -315,7 +315,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
               placeholder="Sua senha"
               value={loginData.password}
               onChange={(e) => setLoginData({...loginData, password: e.target.value})}
-              className="w-full bg-white border border-slate-200 rounded-2xl py-3.5 pl-12 pr-4 text-sm text-slate-800 shadow-sm focus:outline-none focus:border-emerald-500 transition-all placeholder:text-slate-300"
+              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 pl-12 pr-4 text-sm text-slate-800 dark:text-slate-200 shadow-sm focus:outline-none focus:border-emerald-500 transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
             />
           </div>
         </div>
@@ -332,7 +332,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
 
         <button 
           onClick={() => onLoginSuccess(true)}
-          className="w-full py-3.5 bg-white text-slate-500 border border-slate-100 rounded-[24px] font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all flex items-center justify-center space-x-2"
+          className="w-full py-3.5 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-100 dark:border-slate-700 rounded-[24px] font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all flex items-center justify-center space-x-2"
         >
           <UserCircle size={16} />
           <span>Entrar sem login</span>
@@ -340,16 +340,16 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
       </div>
 
       <div className="text-center space-y-4 pt-4">
-        <p className="text-slate-500 text-[11px] font-medium">
+        <p className="text-slate-500 dark:text-slate-400 text-[11px] font-medium">
           Ainda não é cadastrado? <br/>
-          <button onClick={() => onViewChange('SIGNUP')} className="text-[#004d40] font-black mt-2 text-xs underline underline-offset-4">CRIAR NOVA CONTA</button>
+          <button onClick={() => onViewChange('SIGNUP')} className="text-[#004d40] dark:text-emerald-500 font-black mt-2 text-xs underline underline-offset-4">CRIAR NOVA CONTA</button>
         </p>
       </div>
     </div>
   );
 
   return (
-    <div className="h-full flex flex-col bg-[#F8FAFC] overflow-y-auto scrollbar-hide">
+    <div className="h-full flex flex-col bg-[#F8FAFC] dark:bg-slate-900 transition-colors duration-500 overflow-y-auto scrollbar-hide">
       {view === 'LOGIN' ? renderLogin() : renderSignup()}
     </div>
   );

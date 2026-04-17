@@ -30,16 +30,16 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
   }, []);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden animate-slide-up bg-[#F8FAFC]">
+    <div className="flex flex-col h-full overflow-hidden animate-slide-up bg-[#F8FAFC] dark:bg-slate-900 transition-colors duration-500">
       {/* Top Actions - Minimalistas */}
       <div className="pt-7 px-8 flex justify-between items-center z-10">
         <div className="flex items-center space-x-3">
-          <button onClick={onOpenSettings} className="p-2.5 bg-white/80 backdrop-blur-md rounded-2xl shadow-sm border border-white text-slate-400 active:scale-90 transition-all">
+          <button onClick={onOpenSettings} className="p-2.5 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-2xl shadow-sm border border-white dark:border-slate-700 text-slate-400 active:scale-90 transition-all">
             <Settings size={18} />
           </button>
         </div>
         
-        <button onClick={onOpenProfile} className="w-11 h-11 bg-white rounded-2xl shadow-sm border border-white flex items-center justify-center text-slate-300 overflow-hidden active:scale-90 transition-all">
+        <button onClick={onOpenProfile} className="w-11 h-11 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-white dark:border-slate-700 flex items-center justify-center text-slate-300 overflow-hidden active:scale-90 transition-all">
           {userAvatar ? <img src={userAvatar} className="w-full h-full object-cover" /> : <User size={20} />}
         </button>
       </div>
@@ -58,11 +58,11 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
         </div>
         
         <div className="mt-4 text-center">
-          <h1 className="text-xl font-black text-slate-800 tracking-tighter leading-none mb-1">DBV Tudo</h1>
+          <h1 className="text-xl font-black text-slate-800 dark:text-white tracking-tighter leading-none mb-1">DBV Tudo</h1>
           <div className="flex items-center justify-center space-x-2">
-            <span className="h-[1px] w-3 bg-slate-200"></span>
+            <span className="h-[1px] w-3 bg-slate-200 dark:bg-slate-700"></span>
             <p className="text-[7px] font-bold text-slate-400 uppercase tracking-[0.4em]">Gestão Digital</p>
-            <span className="h-[1px] w-3 bg-slate-200"></span>
+            <span className="h-[1px] w-3 bg-slate-200 dark:bg-slate-700"></span>
           </div>
         </div>
       </div>
@@ -78,10 +78,10 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
         {/* Card Desbravadores - Borda Vermelha */}
         <button 
           onClick={() => onSelectClub(ClubType.PATHFINDER)}
-          className="w-full group relative bg-white p-5 rounded-[32px] shadow-[0_10px_30px_rgba(220,55,27,0.05)] border-2 border-[#dc371b]/40 flex items-center justify-center active:scale-[0.98] transition-all overflow-hidden hover:border-[#dc371b] hover:shadow-[0_10px_35px_rgba(220,55,27,0.1)]"
+          className="w-full group relative bg-white dark:bg-slate-800 p-5 rounded-[32px] shadow-[0_10px_30px_rgba(220,55,27,0.05)] border-2 border-[#dc371b]/40 flex items-center justify-center active:scale-[0.98] transition-all overflow-hidden hover:border-[#dc371b] hover:shadow-[0_10px_35px_rgba(220,55,27,0.1)]"
         >
           {/* Logo de fundo transparente */}
-          <div className="absolute right-[-15px] top-1/2 -translate-y-1/2 opacity-[0.06] grayscale pointer-events-none group-hover:scale-125 transition-transform duration-1000">
+          <div className="absolute right-[-15px] top-1/2 -translate-y-1/2 opacity-[0.06] dark:opacity-[0.03] grayscale pointer-events-none group-hover:scale-125 transition-transform duration-1000">
             <img 
               src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png" 
               alt=""
@@ -94,8 +94,8 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
               <PathfinderLogo />
             </div>
             <div className="text-left">
-              <h4 className="text-xl font-black text-slate-800 leading-tight tracking-tight">Desbravadores</h4>
-              <div className="bg-[#dc371b]/5 px-3 py-1 rounded-full border border-[#dc371b]/10 mt-1 inline-block">
+              <h4 className="text-xl font-black text-slate-800 dark:text-white leading-tight tracking-tight">Desbravadores</h4>
+              <div className="bg-[#dc371b]/5 dark:bg-[#dc371b]/10 px-3 py-1 rounded-full border border-[#dc371b]/10 mt-1 inline-block">
                 <span className="text-[#dc371b] font-black text-[8px] uppercase tracking-wider">de 10 a 15 Anos</span>
               </div>
             </div>
@@ -105,10 +105,10 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
         {/* Card Aventureiros - Borda Vinho */}
         <button 
           onClick={() => onSelectClub(ClubType.ADVENTURER)}
-          className="w-full group relative bg-white p-5 rounded-[32px] shadow-[0_10px_30px_rgba(128,0,0,0.05)] border-2 border-[#800000]/40 flex items-center justify-center active:scale-[0.98] transition-all overflow-hidden hover:border-[#800000] hover:shadow-[0_10px_35px_rgba(128,0,0,0.1)]"
+          className="w-full group relative bg-white dark:bg-slate-800 p-5 rounded-[32px] shadow-[0_10px_30px_rgba(128,0,0,0.05)] border-2 border-[#800000]/40 flex items-center justify-center active:scale-[0.98] transition-all overflow-hidden hover:border-[#800000] hover:shadow-[0_10px_35px_rgba(128,0,0,0.1)]"
         >
           {/* Logo de fundo transparente */}
-          <div className="absolute right-[-15px] top-1/2 -translate-y-1/2 opacity-[0.06] grayscale pointer-events-none group-hover:scale-125 transition-transform duration-1000">
+          <div className="absolute right-[-15px] top-1/2 -translate-y-1/2 opacity-[0.06] dark:opacity-[0.03] grayscale pointer-events-none group-hover:scale-125 transition-transform duration-1000">
             <img 
               src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png" 
               alt=""
@@ -121,8 +121,8 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
               <AdventurerLogo />
             </div>
             <div className="text-left">
-              <h4 className="text-xl font-black text-slate-800 leading-tight tracking-tight">Aventureiros</h4>
-              <div className="bg-[#800000]/5 px-3 py-1 rounded-full border border-[#800000]/10 mt-1 inline-block">
+              <h4 className="text-xl font-black text-slate-800 dark:text-white leading-tight tracking-tight">Aventureiros</h4>
+              <div className="bg-[#800000]/5 dark:bg-[#800000]/10 px-3 py-1 rounded-full border border-[#800000]/10 mt-1 inline-block">
                 <span className="text-[#800000] font-black text-[8px] uppercase tracking-wider">de 6 a 9 Anos</span>
               </div>
             </div>
