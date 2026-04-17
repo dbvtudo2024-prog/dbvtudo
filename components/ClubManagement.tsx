@@ -2064,23 +2064,21 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       <div className="animate-slide-in space-y-6 pt-4 pb-28">
         <div className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100">
           <div className="mb-6">
-            <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">
-              {title}
-            </h3>
-            <div className="w-12 h-1 bg-indigo-500 rounded-full mt-2"></div>
+            <div className="flex items-center space-x-4">
+              {historyImage && (
+                <div className="w-12 h-12 rounded-xl overflow-hidden border border-slate-100 shadow-sm shrink-0">
+                  <img src={historyImage} alt={title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                </div>
+              )}
+              <div>
+                <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">
+                  {title}
+                </h3>
+                <div className="w-12 h-1 bg-indigo-500 rounded-full mt-1"></div>
+              </div>
+            </div>
           </div>
 
-          {historyImage && (
-            <div className="mb-8 rounded-[32px] overflow-hidden shadow-xl shadow-slate-200/50">
-              <img 
-                src={historyImage} 
-                alt={title} 
-                className="w-full object-cover max-h-[300px]"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-          )}
-          
           {content ? (
             <div className="prose prose-slate max-w-none">
               <div className="whitespace-pre-wrap text-slate-600 font-medium leading-relaxed">
