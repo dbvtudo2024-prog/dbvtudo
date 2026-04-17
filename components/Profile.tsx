@@ -1,8 +1,12 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { ChevronLeft, LogOut, Shield, MapPin, Briefcase, Award, Camera, Check, X, User, Mail, Phone, ChevronDown, Heart, Search, Settings, Layers, Globe } from 'lucide-react';
-import { ClubType, Especialidade, UserProfile } from '../types';
-import { fetchEspecialidades, updateUserSpecialties, fetchUserSpecialties, fetchUserProfile, fetchUserProfileByEmail, updateUserProfile, supabase } from '../services/supabaseService';
+import { ClubType, Especialidade, UserProfile, Conquista } from '../types';
+import { 
+  fetchEspecialidades, updateUserSpecialties, fetchUserSpecialties, 
+  fetchUserProfile, fetchUserProfileByEmail, updateUserProfile, supabase,
+  fetchConquistas, fetchUserAchievements, updateUserAchievements
+} from '../services/supabaseService';
 
 const CARGOS = [
   "Diretor(a)",
@@ -75,6 +79,8 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   const [isEditing, setIsEditing] = useState(false);
   const [isSashView, setIsSashView] = useState(false);
   const [allSpecialties, setAllSpecialties] = useState<Especialidade[]>([]);
+  const [allConquistas, setAllConquistas] = useState<Conquista[]>([]);
+  const [userAchievements, setUserAchievements] = useState<number[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -219,6 +225,26 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
       localStorage.setItem(likedKey, JSON.stringify(likedIds));
     }
   }, [likedIds, likedKey]);
+
+  // Carregar conquistas
+  useEffect(() => {
+    fetchConquistas().then(setAllConquistas);
+    if (userData.email && userData.email !== "email@exemplo.com") {
+      fetchUserAchievements(userData.email).then(setUserAchievements);
+    }
+  }, [userData.email]);
+
+  const toggleAchievement = async (id: number) => {
+    const isAcquired = userAchievements.includes(id);
+    const newList = isAcquired 
+      ? userAchievements.filter(i => i !== id) 
+      : [...userAchievements, id];
+
+    setUserAchievements(newList);
+    if (userData.email && userData.email !== "email@exemplo.com") {
+      await updateUserAchievements(userData.email, newList);
+    }
+  };
 
   const toggleLike = async (id: number) => {
     const idStr = id.toString();
@@ -660,25 +686,71 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
           <div className="h-[1px] flex-grow bg-slate-100 dark:bg-slate-800"></div>
         </div>
         
-        <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[40px] p-8 shadow-sm flex flex-col items-center space-y-6">
-          <div className="flex flex-col items-center space-y-6 w-full">
-            <div className="grid grid-cols-1 gap-4 w-full max-w-[240px]">
-              <div className="h-8 w-full rounded-lg shadow-inner flex overflow-hidden border border-slate-100 dark:border-slate-700">
-                <div className="w-1/4 bg-[#1a237e]"></div><div className="w-2/4 bg-[#fbc02d]"></div><div className="w-1/4 bg-[#1a237e]"></div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="h-8 rounded-lg shadow-inner flex overflow-hidden border border-slate-100 dark:border-slate-700"><div className="w-1/3 bg-[#1a237e]"></div><div className="w-1/3 bg-[#fbc02d]"></div><div className="w-1/3 bg-[#1a237e]"></div></div>
-                <div className="h-8 rounded-lg shadow-inner flex overflow-hidden border border-slate-100 dark:border-slate-700"><div className="w-1/3 bg-[#c62828]"></div><div className="w-1/3 bg-[#fbc02d]"></div><div className="w-1/3 bg-[#c62828]"></div></div>
-                <div className="h-8 rounded-lg shadow-inner flex overflow-hidden border border-slate-100 dark:border-slate-700"><div className="w-full bg-[#757575]"></div></div>
-                <div className="h-8 rounded-lg shadow-inner flex overflow-hidden border border-slate-100 dark:border-slate-700"><div className="w-full bg-[#4a148c]"></div></div>
-              </div>
+        <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[40px] p-6 shadow-sm flex flex-col items-center space-y-8">
+          <div className="flex flex-col items-center space-y-8 w-full">
+            {/* Top: Insígnia de Excelência */}
+            {allConquistas.filter(c => c.tipo === 'INSIGNIA').map(con => (
+              <button 
+                key={con.id}
+                onClick={() => toggleAchievement(con.id)}
+                className="w-40 h-10 relative group transition-all active:scale-95"
+              >
+                <img 
+                  src={userAchievements.includes(con.id) ? con.imagem_colorida : con.imagem_cinza} 
+                  className="w-full h-full object-contain" 
+                  alt={con.nome}
+                />
+              </button>
+            ))}
+
+            {/* Row 2: Classes Avançadas (Retangulares) - Grid 3x2 ou similar */}
+            <div className="grid grid-cols-3 gap-3 w-full max-w-[280px]">
+              {allConquistas.filter(c => c.tipo === 'CLASSE_AVANCADA').map(con => (
+                <button 
+                  key={con.id}
+                  onClick={() => toggleAchievement(con.id)}
+                  className="aspect-[5/3] w-full relative group transition-all active:scale-95"
+                >
+                  <img 
+                    src={userAchievements.includes(con.id) ? con.imagem_colorida : con.imagem_cinza} 
+                    className="w-full h-full object-contain" 
+                    alt={con.nome}
+                  />
+                </button>
+              ))}
             </div>
-            
-            <div className="flex justify-center space-x-6">
-              {[Shield, Award, MapPin].map((Icon, i) => (
-                <div key={i} className="w-14 h-14 bg-slate-50 dark:bg-slate-900 rounded-[20px] border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-200 dark:text-slate-700 shadow-inner">
-                  <Icon size={28} />
-                </div>
+
+            {/* Row 3: Liderança (Ovais) */}
+            <div className="flex justify-center flex-wrap gap-4 w-full">
+              {allConquistas.filter(c => c.tipo === 'LIDERANCA').map(con => (
+                <button 
+                  key={con.id}
+                  onClick={() => toggleAchievement(con.id)}
+                  className="w-16 h-12 relative group transition-all active:scale-95"
+                >
+                  <img 
+                    src={userAchievements.includes(con.id) ? con.imagem_colorida : con.imagem_cinza} 
+                    className="w-full h-full object-contain" 
+                    alt={con.nome}
+                  />
+                </button>
+              ))}
+            </div>
+
+            {/* Row 4: Classes Regulares (Circulares) */}
+            <div className="grid grid-cols-6 gap-2 w-full">
+              {allConquistas.filter(c => c.tipo === 'CLASSE_REGULAR').map(con => (
+                <button 
+                  key={con.id}
+                  onClick={() => toggleAchievement(con.id)}
+                  className="aspect-square w-full relative group transition-all active:scale-95"
+                >
+                  <img 
+                    src={userAchievements.includes(con.id) ? con.imagem_colorida : con.imagem_cinza} 
+                    className="w-full h-full object-contain" 
+                    alt={con.nome}
+                  />
+                </button>
               ))}
             </div>
           </div>

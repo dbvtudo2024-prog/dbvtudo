@@ -293,4 +293,14 @@ export interface AppLink {
   url: string;
 }
 
+export interface Conquista {
+  id: number;
+  nome: string;
+  tipo: 'INSIGNIA' | 'CLASSE_REGULAR' | 'CLASSE_AVANCADA' | 'LIDERANCA';
+  imagem_colorida: string;
+  imagem_cinza: string;
+  ordem: number;
+  shape: 'RECTANGLE' | 'CIRCLE' | 'OVAL' | 'FLAG';
+}
+
 export type ViewState = 'LOGIN' | 'SIGNUP' | 'HOME' | 'CLUB_LIST' | 'SETTINGS' | 'PROFILE';

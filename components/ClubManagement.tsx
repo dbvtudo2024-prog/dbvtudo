@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { jsPDF } from 'jspdf';
-import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, BibleNote, Devocional, Cultura, UserProfile, CulturaItem, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario, Video as VideoType, VideoCategory, LivroAVT, ManualAVT, AppLink } from '../types';
+import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, BibleNote, Devocional, Cultura, UserProfile, CulturaItem, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario, Video as VideoType, VideoCategory, LivroAVT, ManualAVT, AppLink, Conquista } from '../types';
 import { 
   fetchCategories, fetchEspecialidades, fetchClasses, fetchDesbravaMais, 
   fetchBibleBooks, fetchBibleVerses, fetchBibleDictionary, fetchDevocionais, 
@@ -12,13 +12,14 @@ import {
   fetchVideos, fetchVideoCategories,
   fetchAtividadesJogosDBV, fetchCerimoniasDBV, fetchVideosDBV,
   createVideo, deleteVideo, createVideoCategory, deleteVideoCategory,
-  fetchLivrosAVT, fetchManuaisAVT, fetchAppLinks, updateAppLink
+  fetchLivrosAVT, fetchManuaisAVT, fetchAppLinks, updateAppLink,
+  fetchConquistas, updateConquista, deleteConquista
 } from '../services/supabaseService';
 import { PROFILE_KEY } from '../constants';
 import { 
   Shield, Award, User, Layers, Sparkles, Home as HomeIcon, Search,
   ChevronRight, ChevronLeft, ChevronDown, Info, Book, Settings, Zap, Music, Flag, Shirt, Globe, Key, FileText, Library, CreditCard, MapPin, Video, Folder, BookOpen, Heart, ArrowUp,
-  Trash2, Plus, Save, Share2, Calendar, X, Image as ImageIcon, Download, ArrowLeft, ExternalLink
+  Trash2, Plus, Save, Share2, Calendar, X, Image as ImageIcon, Download, ArrowLeft, ExternalLink, Filter
 } from 'lucide-react';
 
 
@@ -844,7 +845,7 @@ interface ClubManagementProps {
   onSwitchClub: (club: ClubType) => void;
   onOpenProfile?: () => void;
   isGuest?: boolean;
-  initialSubView?: 'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS' | 'PDF_VIEWER' | 'LIBRARY_BOOKS_MENU' | 'VIDEOS' | 'VIDEO_ADMIN' | 'FORM_ADMIN' | 'VIDEO_PLAYER' | 'LINKS_ADMIN' | 'WEB_VIEWER';
+  initialSubView?: 'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS' | 'PDF_VIEWER' | 'LIBRARY_BOOKS_MENU' | 'VIDEOS' | 'VIDEO_ADMIN' | 'FORM_ADMIN' | 'VIDEO_PLAYER' | 'LINKS_ADMIN' | 'ACHIEVEMENTS_ADMIN' | 'WEB_VIEWER';
   onSubViewChange?: (view: any) => void;
   onClearSubView?: () => void;
 }
@@ -963,6 +964,18 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   const [livrosAVT, setLivrosAVT] = useState<LivroAVT[]>([]);
   const [manuaisAVT, setManuaisAVT] = useState<ManualAVT[]>([]);
   const [appLinks, setAppLinks] = useState<AppLink[]>([]);
+  const [allConquistas, setAllConquistas] = useState<Conquista[]>([]);
+  const [newConquista, setNewConquista] = useState<Partial<Conquista>>({
+    nome: '',
+    tipo: 'CLASSE_REGULAR',
+    imagem_colorida: '',
+    imagem_cinza: '',
+    ordem: 0,
+    shape: 'CIRCLE'
+  });
+  const [isSavingConquista, setIsSavingConquista] = useState(false);
+  const [conquistaEditId, setConquistaEditId] = useState<number | null>(null);
+  const [isDeletingConquista, setIsDeletingConquista] = useState(false);
   const [newLink, setNewLink] = useState({ name: '', url: '' });
   const [selectedWebUrl, setSelectedWebUrl] = useState<string | null>(null);
   const [webTitle, setWebTitle] = useState('');
@@ -1094,6 +1107,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       }
     }
   }, [userEmail, isUserAdmin]);
+
+  useEffect(() => {
+    fetchConquistas().then(setAllConquistas);
+  }, [activeSubView]);
 
   useEffect(() => {
     const clubType = club === ClubType.PATHFINDER ? 'PATHFINDER' : 'ADVENTURER';
@@ -3383,6 +3400,174 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     </div>
   );
 
+  const renderAchievementsAdmin = () => {
+    const handleSaveConquista = async () => {
+      if (!newConquista.nome || !newConquista.imagem_colorida || !newConquista.imagem_cinza) {
+        alert("Preencha todos os campos obrigatórios.");
+        return;
+      }
+      setIsSavingConquista(true);
+      const { error } = await updateConquista(newConquista);
+      setIsSavingConquista(false);
+      if (error) {
+        alert("Erro ao salvar conquista: " + error.message);
+      } else {
+        setNewConquista({
+          nome: '',
+          tipo: 'CLASSE_REGULAR',
+          imagem_colorida: '',
+          imagem_cinza: '',
+          ordem: 0,
+          shape: 'CIRCLE'
+        });
+        setConquistaEditId(null);
+        fetchConquistas().then(setAllConquistas);
+      }
+    };
+
+    const handleDeleteConquista = async (id: number) => {
+      if (confirm("Tem certeza que deseja excluir esta conquista?")) {
+        setIsDeletingConquista(true);
+        const { error } = await deleteConquista(id);
+        setIsDeletingConquista(false);
+        if (error) alert("Erro ao excluir: " + error.message);
+        else fetchConquistas().then(setAllConquistas);
+      }
+    };
+
+    return (
+      <div className="animate-slide-in space-y-6 pt-2 pb-28 px-4">
+        <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-6 rounded-[32px] shadow-sm space-y-4">
+          <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-tight">
+            {conquistaEditId ? 'Editar Conquista' : 'Nova Conquista'}
+          </h3>
+          
+          <div className="space-y-4">
+            <input 
+              type="text"
+              placeholder="Nome da Conquista"
+              value={newConquista.nome}
+              onChange={(e) => setNewConquista({...newConquista, nome: e.target.value})}
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl py-3 px-4 text-sm font-bold dark:text-white"
+            />
+            
+            <div className="grid grid-cols-2 gap-4">
+              <select 
+                value={newConquista.tipo}
+                onChange={(e) => setNewConquista({...newConquista, tipo: e.target.value as any})}
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl py-3 px-4 text-sm font-bold dark:text-white"
+              >
+                <option value="INSIGNIA">Insignia</option>
+                <option value="CLASSE_REGULAR">Classe Regular</option>
+                <option value="CLASSE_AVANCADA">Classe Avançada</option>
+                <option value="LIDERANCA">Liderança</option>
+              </select>
+              
+              <select 
+                value={newConquista.shape}
+                onChange={(e) => setNewConquista({...newConquista, shape: e.target.value as any})}
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl py-3 px-4 text-sm font-bold dark:text-white"
+              >
+                <option value="CIRCLE">Circular</option>
+                <option value="RECTANGLE">Retangular</option>
+                <option value="OVAL">Oval</option>
+                <option value="FLAG">Bandeira</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">URL Imagem Colorida</label>
+              <input 
+                type="text"
+                placeholder="https://..."
+                value={newConquista.imagem_colorida}
+                onChange={(e) => setNewConquista({...newConquista, imagem_colorida: e.target.value})}
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl py-3 px-4 text-sm font-bold dark:text-white"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">URL Imagem Cinza</label>
+              <input 
+                type="text"
+                placeholder="https://..."
+                value={newConquista.imagem_cinza}
+                onChange={(e) => setNewConquista({...newConquista, imagem_cinza: e.target.value})}
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl py-3 px-4 text-sm font-bold dark:text-white"
+              />
+            </div>
+
+            <div className="flex items-center space-x-4">
+              <div className="w-20">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ordem</label>
+                <input 
+                  type="number"
+                  value={newConquista.ordem}
+                  onChange={(e) => setNewConquista({...newConquista, ordem: parseInt(e.target.value) || 0})}
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl py-3 px-4 text-sm font-bold dark:text-white"
+                />
+              </div>
+              <button 
+                onClick={handleSaveConquista}
+                disabled={isSavingConquista}
+                className="flex-grow bg-indigo-600 py-4 rounded-[20px] text-white font-black uppercase text-xs tracking-widest shadow-lg shadow-indigo-500/20 active:scale-95 transition-all flex items-center justify-center space-x-2"
+              >
+                {isSavingConquista ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : <Save size={18} />}
+                <span>{conquistaEditId ? 'Atualizar' : 'Salvar Conquista'}</span>
+              </button>
+            </div>
+            
+            {conquistaEditId && (
+              <button 
+                onClick={() => {
+                  setConquistaEditId(null);
+                  setNewConquista({ nome: '', tipo: 'CLASSE_REGULAR', imagem_colorida: '', imagem_cinza: '', ordem: 0, shape: 'CIRCLE' });
+                }}
+                className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] tracking-widest"
+              >
+                Cancelar Edição
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-3 mt-8">
+          <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest px-2">Conquistas Cadastradas</h4>
+          {allConquistas.map((con) => (
+            <div key={con.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-4 flex items-center justify-between shadow-sm">
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-slate-50 dark:bg-slate-900 rounded-xl flex items-center justify-center overflow-hidden border border-slate-100 dark:border-slate-700">
+                  <img src={con.imagem_colorida} className="w-10 h-10 object-contain" alt="" />
+                </div>
+                <div>
+                  <h4 className="font-black text-slate-800 dark:text-white text-sm uppercase tracking-tight">{con.nome}</h4>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{con.tipo} - Ordem: {con.ordem}</p>
+                </div>
+              </div>
+              <div className="flex space-x-2">
+                <button 
+                  onClick={() => {
+                    setNewConquista(con);
+                    setConquistaEditId(con.id);
+                  }}
+                  className="p-2 text-indigo-500 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-lg transition-colors"
+                >
+                  <Settings size={18} />
+                </button>
+                <button 
+                  onClick={() => handleDeleteConquista(con.id)}
+                  className="p-2 text-red-500 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-lg transition-colors"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   const renderBibleAdmin = () => {
     return (
       <div className="animate-slide-in space-y-6 pt-2 pb-28">
@@ -3453,6 +3638,19 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             <div className="text-left">
               <h4 className="font-black text-slate-800 uppercase tracking-tight">Links Úteis</h4>
               <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">SGC, Cartão, Clubes</p>
+            </div>
+          </button>
+
+          <button 
+            onClick={() => setActiveSubView('ACHIEVEMENTS_ADMIN')}
+            className="bg-white border border-slate-100 p-6 rounded-[32px] flex items-center space-x-4 shadow-sm active:scale-95 transition-all group"
+          >
+            <div className="w-14 h-14 bg-emerald-500 rounded-2xl flex items-center justify-center text-white group-hover:opacity-90 transition-opacity shadow-lg">
+              <Award size={28} />
+            </div>
+            <div className="text-left">
+              <h4 className="font-black text-slate-800 uppercase tracking-tight">Gestão de Conquistas</h4>
+              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Insignias, Classes e Liderança</p>
             </div>
           </button>
         </div>
@@ -4818,7 +5016,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                     setActiveSubView('BIBLE_ADMIN');
                   } else if (activeSubView === 'BIBLE_DEVOTIONAL_VIEW') {
                     setActiveSubView((isAdmin && selectedDevocional) ? 'BIBLE_DEVOTIONAL_LIST' : 'BIBLE');
-                  } else if (activeSubView === 'VIDEO_ADMIN' || activeSubView === 'FORM_ADMIN' || activeSubView === 'LINKS_ADMIN') {
+                  } else if (activeSubView === 'VIDEO_ADMIN' || activeSubView === 'FORM_ADMIN' || activeSubView === 'LINKS_ADMIN' || activeSubView === 'ACHIEVEMENTS_ADMIN') {
                     setActiveSubView('BIBLE_ADMIN');
                   } else if (activeSubView === 'VIDEOS') {
                     setActiveSubView('MAIN');
@@ -4887,6 +5085,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                activeSubView === 'BIBLE_NOTES' ? 'Anotações' :
                activeSubView === 'BIBLE_SETTINGS' ? 'Configurações' :
                activeSubView === 'BIBLE_ADMIN' ? 'Painel Administrativo' :
+               activeSubView === 'ACHIEVEMENTS_ADMIN' ? 'Gestão de Conquistas' :
                activeSubView === 'BIBLE_ADMIN_ADD' ? 'Novo Devocional' :
                activeSubView === 'BIBLE_DEVOTIONAL_LIST' ? 'Agendados' :
                activeSubView === 'BIBLE_DEVOTIONAL_VIEW' ? 'Devocional' :
@@ -4966,6 +5165,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         {activeSubView === 'BIBLE_DEVOTIONAL_LIST' && renderBibleDevotionalList()}
         {activeSubView === 'BIBLE_DEVOTIONAL_VIEW' && renderBibleDevotionalView()}
         {activeSubView === 'LINKS_ADMIN' && renderLinksAdmin()}
+        {activeSubView === 'ACHIEVEMENTS_ADMIN' && renderAchievementsAdmin()}
         {activeSubView === 'WEB_VIEWER' && renderWebViewer()}
       </div>
 

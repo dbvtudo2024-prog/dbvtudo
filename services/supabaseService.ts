@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, UserProfile, Devocional, Cultura, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario, Video, VideoCategory, LivroAVT, ManualAVT, AppLink } from '../types';
+import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, UserProfile, Devocional, Cultura, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario, Video, VideoCategory, LivroAVT, ManualAVT, AppLink, Conquista } from '../types';
 
 const DEFAULT_URL = 'https://qfpyjavbncijowjvznkg.supabase.co';
 const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmcHlqYXZibmNpam93anZ6bmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NDcxMDUsImV4cCI6MjA3NDQyMzEwNX0.adxRCkobV-m_XUHp1KBXmg67VXkR-HL4QKFVtgQOmYc';
@@ -464,4 +464,48 @@ export async function fetchAppLinks(): Promise<AppLink[]> {
 export async function updateAppLink(link: Partial<AppLink>) {
   const { data, error } = await supabase.from('AppLinks').upsert(link).select().single();
   return { data, error };
+}
+
+export async function fetchConquistas(): Promise<Conquista[]> {
+  const { data, error } = await supabase.from('Conquistas').select('*').order('ordem', { ascending: true });
+  if (error) return [];
+  return data;
+}
+
+export async function updateConquista(conquista: Partial<Conquista>) {
+  const { data, error } = await supabase.from('Conquistas').upsert(conquista).select().single();
+  return { data, error };
+}
+
+export async function deleteConquista(id: number) {
+  const { error } = await supabase.from('Conquistas').delete().eq('id', id);
+  return { error };
+}
+
+export async function fetchUserAchievements(email: string): Promise<number[]> {
+  const { data, error } = await supabase
+    .from('Usuarios')
+    .select('Conquistas')
+    .eq('email', email)
+    .maybeSingle();
+  
+  if (error || !data || !data.Conquistas) return [];
+  
+  if (typeof data.Conquistas === 'string') {
+    return data.Conquistas.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+  }
+  
+  if (Array.isArray(data.Conquistas)) {
+    return data.Conquistas.map(id => parseInt(id.toString())).filter(id => !isNaN(id));
+  }
+
+  return [];
+}
+
+export async function updateUserAchievements(email: string, achievementIds: number[]) {
+  const { error } = await supabase
+    .from('Usuarios')
+    .update({ Conquistas: achievementIds.join(',') })
+    .eq('email', email);
+  return { error };
 }
