@@ -51,7 +51,7 @@ export const MASTERY_RULES: MasteryRule[] = [
     category: "Atividades Profissionais",
     requirementsCount: 7,
     specialties: [
-      "Administração", "Alvenaria", "Barbearia", "Biblioteconomia", "Cães", "Carpintaria", 
+      "Administração", "Alvenaria", "Barbearia", "Biblioteconomia", "Cães - cuidado e treinamento", "Carpintaria", 
       "Colocação de papel de parede", "Conserto de sapatos", "Contabilidade", "Corte e costura", 
       "Cuidados e manutenção de violões", "Software", "Eletricidade", "Eletrônica", 
       "Encadernação", "Evangelismo", "Fotografia", "Hidráulica", "Informática", 
