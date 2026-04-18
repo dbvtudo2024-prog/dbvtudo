@@ -767,7 +767,6 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                 ) : (
                   allSpecialties
                     .filter(s => likedIds.includes(s.id.toString()))
-                    .slice(0, 8) // Mostra apenas as 8 primeiras no resumo
                     .map(esp => (
                       <div key={esp.id} className="flex flex-col items-center group">
                         <div className="w-20 h-20 bg-slate-50 dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-700 flex items-center justify-center p-3 group-hover:scale-110 transition-transform shadow-sm">
@@ -779,11 +778,6 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                         </div>
                       </div>
                     ))
-                )}
-                {likedIds.length > 8 && (
-                  <div className="w-14 h-14 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-400 dark:text-slate-500 font-black text-xs shadow-sm">
-                    +{likedIds.length - 8}
-                  </div>
                 )}
               </div>
             </div>
