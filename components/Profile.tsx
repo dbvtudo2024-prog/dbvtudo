@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { ChevronLeft, LogOut, Shield, MapPin, Briefcase, Award, Camera, Check, X, User, Mail, Phone, ChevronDown, Heart, Search, Settings, Layers, Globe, Trophy } from 'lucide-react';
 import { ClubType, Especialidade, UserProfile, Conquista } from '../types';
+import { MASTERY_RULES } from '../masteryRules';
 import { 
   fetchEspecialidades, updateUserSpecialties, fetchUserSpecialties, 
   fetchUserProfile, fetchUserProfileByEmail, updateUserProfile, supabase,
@@ -758,26 +759,133 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
           {/* Especialidades Curtidas (Minha Faixa) */}
           {likedIds.length > 0 && (
             <div className="w-full pt-6 border-t border-slate-50 dark:border-slate-700">
-              <p className="text-center text-[9px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-[0.2em] mb-4">Especialidades na Faixa</p>
-              <div className="grid grid-cols-3 gap-4">
-                {allSpecialties.length === 0 && likedIds.length > 0 ? (
-                  <div className="col-span-3 py-4 text-center text-[10px] text-slate-300 dark:text-slate-600 font-bold uppercase tracking-widest">
+              <p className="text-center text-[9px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-[0.2em] mb-4">
+                Especialidades na Faixa ({likedIds.length})
+              </p>
+              
+              <div className="space-y-12">
+                {isLoading ? (
+                  <div className="py-4 text-center text-[10px] text-slate-300 dark:text-slate-600 font-bold uppercase tracking-widest">
                     Carregando...
                   </div>
                 ) : (
-                  allSpecialties
-                    .filter(s => likedIds.includes(s.id.toString()))
-                    .map(esp => (
-                      <div key={esp.id} className="flex flex-col items-center group">
-                        <div className="w-20 h-20 bg-slate-50 dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-700 flex items-center justify-center p-3 group-hover:scale-110 transition-transform shadow-sm">
-                          {esp.logo ? (
-                            <img src={esp.logo} className="w-full h-full object-contain" alt={esp.nome} />
-                          ) : (
-                            <Award size={24} className="text-slate-200 dark:text-slate-700" />
-                          )}
-                        </div>
-                      </div>
-                    ))
+                  (() => {
+                    const likedSpecialties = allSpecialties.filter(s => likedIds.includes(s.id.toString()));
+                    const masteries = likedSpecialties.filter(s => s.nome.toLowerCase().includes('mestrado'));
+                    const ordinarySpecialties = likedSpecialties.filter(s => !s.nome.toLowerCase().includes('mestrado'));
+                    
+                    // Track which ordinary specialties have been assigned to a mastery group
+                    const assignedIds = new Set<string>();
+                    
+                    // 1. Agrupar por Mestrados que o usuário POSSUI (curtiu)
+                    const masteryGroups = masteries.map(mastery => {
+                      const rule = MASTERY_RULES.find(r => mastery.nome.toLowerCase().includes(r.name.toLowerCase()) || r.name.toLowerCase().includes(mastery.nome.toLowerCase()));
+                      
+                      let groupItems: Especialidade[] = [];
+                      if (rule) {
+                        if (rule.isGlobalArea) {
+                          groupItems = ordinarySpecialties.filter(s => s.area === rule.category);
+                        } else {
+                          groupItems = ordinarySpecialties.filter(s => 
+                            rule.specialties.some(rs => s.nome.toLowerCase().includes(rs.toLowerCase()))
+                          );
+                        }
+                      } else {
+                        // Fallback: se não achar regra, usa a área
+                        groupItems = ordinarySpecialties.filter(s => s.area === mastery.area);
+                      }
+
+                      // Mark these as assigned
+                      groupItems.forEach(s => assignedIds.add(s.id.toString()));
+
+                      return {
+                        id: mastery.id,
+                        mastery,
+                        items: groupItems
+                      };
+                    });
+
+                    // 2. Agrupar o resto por Área (para quem não tem mestrado ainda)
+                    const remainingSpecialties = ordinarySpecialties.filter(s => !assignedIds.has(s.id.toString()));
+                    const remainingGroups = Object.entries(
+                      remainingSpecialties.reduce((acc, esp) => {
+                        const area = esp.area || 'Outras';
+                        if (!acc[area]) acc[area] = [];
+                        acc[area].push(esp);
+                        return acc;
+                      }, {} as Record<string, Especialidade[]>)
+                    ).map(([area, items]) => ({
+                      id: area,
+                      area,
+                      items
+                    }));
+
+                    return (
+                      <>
+                        {/* Render Mastery Groups */}
+                        {masteryGroups.map(group => (
+                          <div key={group.id} className="space-y-6">
+                            <div className="flex flex-col items-center space-y-4">
+                              <div className="w-24 h-24 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-[32px] border-2 border-amber-200 dark:border-amber-700/50 p-4 shadow-lg shadow-amber-500/10 group-hover:scale-105 transition-transform">
+                                <img src={group.mastery.logo} className="w-full h-full object-contain" alt={group.mastery.nome} />
+                              </div>
+                              <span className="mt-2 text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-tight text-center max-w-[120px]">
+                                {group.mastery.nome}
+                              </span>
+                              <div className="flex items-center space-x-3 w-full px-2">
+                                <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800" />
+                                <span className="text-[10px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-widest">({group.items.length} Especialidades)</span>
+                                <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800" />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-4 gap-3 px-2">
+                              {group.items.sort((a, b) => a.nome.localeCompare(b.nome)).map(esp => (
+                                <div key={esp.id} className="flex flex-col items-center">
+                                  <div className="w-16 h-16 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center justify-center p-2.5 shadow-sm">
+                                    <img src={esp.logo} className="w-full h-full object-contain" alt={esp.nome} />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Render Remaining Groups */}
+                        {remainingGroups.map(group => {
+                          const hasDynamicMastery = group.items.length >= 7;
+                          return (
+                            <div key={group.id} className="space-y-6">
+                              <div className="flex items-center space-x-3 px-2">
+                                <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800" />
+                                {hasDynamicMastery ? (
+                                  <div className="flex items-center space-x-2 bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 rounded-full border border-amber-100 dark:border-amber-900/50 shadow-sm">
+                                    <Trophy size={14} className="text-amber-500" />
+                                    <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-tighter">
+                                      Mestrado em {group.area}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                                    {group.area} ({group.items.length})
+                                  </span>
+                                )}
+                                <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800" />
+                              </div>
+                              <div className="grid grid-cols-4 gap-3 px-2">
+                                {group.items.sort((a, b) => a.nome.localeCompare(b.nome)).map(esp => (
+                                  <div key={esp.id} className="flex flex-col items-center">
+                                    <div className="w-16 h-16 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center justify-center p-2.5 shadow-sm">
+                                      <img src={esp.logo} className="w-full h-full object-contain" alt={esp.nome} />
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </>
+                    );
+                  })()
                 )}
               </div>
             </div>
