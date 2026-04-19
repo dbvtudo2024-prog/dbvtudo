@@ -833,17 +833,17 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                         groupItems = ordinarySpecialties.filter(s => {
                           const sName = s.nome.toLowerCase().trim();
                           
-                          // 1. Por Lista Específica
-                          const inList = !rule.isGlobalArea && rule.specialties.some(rs => {
+                          // Se a regra for de área global (ex: ADRA, Agrícolas), usa a área
+                          if (rule.isGlobalArea) {
+                            return s.area?.toLowerCase() === rule.category.toLowerCase() ||
+                                   s.area?.toLowerCase().includes(rule.category.toLowerCase());
+                          }
+
+                          // Se a regra tiver uma lista específica (ex: Zoologia, Botânica), usa APENAS a lista
+                          return rule.specialties.some(rs => {
                             const rsName = rs.toLowerCase().trim();
-                            // Match literal ou parcial (ex: "Acampamento I" inclui "Acampamento")
                             return sName === rsName || sName.includes(rsName);
                           });
-                          
-                          if (inList) return true;
-
-                          // 2. Por Área (usando o pre-processamento de 0)
-                          return s.area?.toLowerCase() === rule.category.toLowerCase();
                         });
                       }
 
