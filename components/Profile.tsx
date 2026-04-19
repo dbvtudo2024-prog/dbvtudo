@@ -784,53 +784,70 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                 ) : (
                   (() => {
                     const likedSpecialties = allSpecialties.filter(s => likedIds.includes(s.id.toString()));
-                    const masteries = likedSpecialties.filter(s => s.nome.toLowerCase().includes('mestrado'));
-                    const ordinarySpecialties = likedSpecialties.filter(s => !s.nome.toLowerCase().includes('mestrado'));
+                    // 0. Pré-processar TODAS as especialidades curtidas para garantir que tenham a área CORRETA de acordo com as regras
+                    const processedSpecialties = likedSpecialties.map(s => {
+                      // Se for um item de mestrado, não mexemos na área dele aqui
+                      if (s.nome.toLowerCase().includes('mestrado')) return s;
+
+                      // Procuramos se ela pertence a algum mestrado por LISTA específica (Prioridade: Vida Campestre)
+                      const specificRule = MASTERY_RULES.find(r => 
+                        !r.isGlobalArea && 
+                        r.specialties.some(rs => s.nome.toLowerCase().trim().includes(rs.toLowerCase().trim()))
+                      );
+
+                      if (specificRule) {
+                        return { ...s, area: specificRule.category };
+                      }
+                      return s;
+                    });
+
+                    const masteries = processedSpecialties.filter(s => s.nome.toLowerCase().includes('mestrado'));
+                    const ordinarySpecialties = processedSpecialties.filter(s => !s.nome.toLowerCase().includes('mestrado'));
                     
                     // Track which ordinary specialties have been assigned to a mastery group
                     const assignedIds = new Set<string>();
                     
-                    // 1. Processar Mestrados que o usuário POSSUI (curtiu)
-                    // Ordenamos para processar regras com listas específicas PRIMEIRO
-                    const sortedRules = [...MASTERY_RULES].sort((a, b) => {
-                      // Se um tem lista e o outro é global, o com lista vem primeiro
-                      if (!a.isGlobalArea && b.isGlobalArea) return -1;
-                      if (a.isGlobalArea && !b.isGlobalArea) return 1;
-                      // Vida Campestre tem prioridade máxima entre os de lista
-                      if (a.name === "Mestrado em Vida Campestre") return -1;
-                      if (b.name === "Mestrado em Vida Campestre") return 1;
-                      return 0;
-                    });
-
+                    // 1. Processar Mestrados Oficiais
                     const masteryGroups = masteries.map(mastery => {
-                      // Melhorar a correspondência do nome do mestrado com a regra
-                      const rule = sortedRules.find(r => 
-                        mastery.nome.toLowerCase().includes(r.name.toLowerCase().replace('mestrado em ', '')) ||
-                        r.name.toLowerCase().replace('mestrado em ', '').includes(mastery.nome.toLowerCase().replace('mestrado em ', ''))
-                      );
+                      // Normalização ultra-robusta para evitar erros de digitação (ex: Campreste vs Campestre)
+                      const normalize = (txt: string) => 
+                        txt.toLowerCase()
+                           .normalize("NFD")
+                           .replace(/[\u0300-\u036f]/g, "")
+                           .replace('mestrado em ', '')
+                           .replace('mestrado de ', '')
+                           .replace('campreste', 'campestre')
+                           .trim();
+
+                      const mName = normalize(mastery.nome);
+                      
+                      // Encontrar a regra correspondente ao item de mestrado
+                      const rule = MASTERY_RULES.find(r => {
+                        const rName = normalize(r.name);
+                        return mName === rName || mName.includes(rName) || rName.includes(mName);
+                      });
                       
                       let groupItems: Especialidade[] = [];
                       if (rule) {
-                        if (rule.isGlobalArea) {
-                          groupItems = ordinarySpecialties.filter(s => 
-                            s.area?.toLowerCase() === rule.category.toLowerCase() ||
-                            s.area?.toLowerCase().includes(rule.category.toLowerCase())
-                          );
-                        } else {
-                          groupItems = ordinarySpecialties.filter(s => 
-                            rule.specialties.some(rs => {
-                              const sName = s.nome.toLowerCase().trim();
-                              const rName = rs.toLowerCase().trim();
-                              return sName === rName || sName.includes(rName);
-                            })
-                          );
-                        }
-                      } else {
-                        // Fallback: se não achar regra, usa a área
-                        groupItems = ordinarySpecialties.filter(s => s.area === mastery.area);
+                        // Capturamos itens que pertencem a esta regra
+                        groupItems = ordinarySpecialties.filter(s => {
+                          const sName = s.nome.toLowerCase().trim();
+                          
+                          // 1. Por Lista Específica
+                          const inList = !rule.isGlobalArea && rule.specialties.some(rs => {
+                            const rsName = rs.toLowerCase().trim();
+                            // Match literal ou parcial (ex: "Acampamento I" inclui "Acampamento")
+                            return sName === rsName || sName.includes(rsName);
+                          });
+                          
+                          if (inList) return true;
+
+                          // 2. Por Área (usando o pre-processamento de 0)
+                          return s.area?.toLowerCase() === rule.category.toLowerCase();
+                        });
                       }
 
-                      // Mark these as assigned
+                      // Marcar estes itens como atribuídos
                       groupItems.forEach(s => assignedIds.add(s.id.toString()));
 
                       return {
@@ -840,20 +857,10 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                       };
                     });
 
-                    // 2. Agrupar o resto por Área (para quem não tem mestrado ainda)
+                    // 2. Agrupar o resto por Área (Especialidades sozinhas ou mestrados dinâmicos)
                     const remainingSpecialties = ordinarySpecialties.filter(s => !assignedIds.has(s.id.toString()));
-                    
-                    // Ajuste de área para especialidades de Vida Campestre remanescentes
-                    const processedRemaining = remainingSpecialties.map(s => {
-                      const campRule = MASTERY_RULES.find(r => r.name === "Mestrado em Vida Campestre");
-                      if (campRule && campRule.specialties.some(rs => s.nome.toLowerCase().includes(rs.toLowerCase()))) {
-                        return { ...s, area: "Vida Campestre" };
-                      }
-                      return s;
-                    });
-
                     const remainingGroups = Object.entries(
-                      processedRemaining.reduce((acc, esp) => {
+                      remainingSpecialties.reduce((acc, esp) => {
                         const area = esp.area || 'Outras';
                         if (!acc[area]) acc[area] = [];
                         acc[area].push(esp);
@@ -875,7 +882,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                                 <img src={group.mastery.logo} className="w-full h-full object-contain" alt={group.mastery.nome} />
                               </div>
                               <span className="mt-2 text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-tight text-center max-w-[120px]">
-                                {group.mastery.nome}
+                                {group.mastery.nome.replace(/campreste/gi, 'Campestre')}
                               </span>
                               <div className="flex items-center space-x-3 w-full px-2">
                                 <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800" />
