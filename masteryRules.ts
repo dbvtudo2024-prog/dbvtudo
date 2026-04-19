@@ -94,7 +94,7 @@ export const MASTERY_RULES: MasteryRule[] = [
   },
   {
     name: "Mestrado em Vida Campestre",
-    category: "Atividades Recreativas",
+    category: "Vida Campestre",
     requirementsCount: 7,
     specialties: [
       "Acampamento consciente", "Acampamento em baixas temperaturas", "Acampamento I", "Acampamento II", 
