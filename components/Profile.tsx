@@ -772,7 +772,14 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                   (() => {
                     const likedSpecialties = allSpecialties.filter(s => likedIds.includes(s.id.toString()));
                     const masteries = likedSpecialties.filter(s => s.nome.toLowerCase().includes('mestrado'));
-                    const ordinarySpecialties = likedSpecialties.filter(s => !s.nome.toLowerCase().includes('mestrado'));
+                    const ordinarySpecialties = likedSpecialties.filter(s => !s.nome.toLowerCase().includes('mestrado')).map(s => {
+                      // Forçar "Vida Campestre" se a especialidade estiver na lista de regras de Vida Campestre
+                      const campestreRule = MASTERY_RULES.find(r => r.name === "Mestrado em Vida Campestre");
+                      if (campestreRule && campestreRule.specialties.some(name => s.nome.toLowerCase().includes(name.toLowerCase()))) {
+                        return { ...s, area: "Vida Campestre" };
+                      }
+                      return s;
+                    });
                     
                     // Track which ordinary specialties have been assigned to a mastery group
                     const assignedIds = new Set<string>();
