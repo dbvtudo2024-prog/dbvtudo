@@ -842,6 +842,10 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                           // Se a regra tiver uma lista específica (ex: Zoologia, Botânica), usa APENAS a lista
                           return rule.specialties.some(rs => {
                             const rsName = rs.toLowerCase().trim();
+                            
+                            // Caso especial: "Física" vs "Cultura Física"
+                            if (rsName === "fisica" && sName.includes("cultura fisica")) return false;
+                            
                             return sName === rsName || sName.includes(rsName);
                           });
                         });
