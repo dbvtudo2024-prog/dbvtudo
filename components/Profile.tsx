@@ -794,14 +794,18 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                       // Isso permite que especialidades como 'Bactérias' ou 'Plantas Silvestres' 
                       // fujam de suas siglas originais se estiverem em uma lista específica.
                       let specificRule = MASTERY_RULES.find(r => 
-                        !r.isGlobalArea && 
-                        r.specialties.some(rs => rs.toLowerCase().trim() === sName)
+                        r.specialties.some(rs => {
+                          const rsName = rs.toLowerCase().trim();
+                          // Match exato ou tratamento de singular/plural comum
+                          return rsName === sName || 
+                                 (rsName === "bacterias" && sName === "bacteria") ||
+                                 (rsName === "bacteria" && sName === "bacterias");
+                        })
                       );
 
                       // 2. Tentar match por Sigla + Lista Específica
                       if (!specificRule) {
                         specificRule = MASTERY_RULES.find(r => 
-                          !r.isGlobalArea && 
                           s.sigla && r.siglas?.includes(s.sigla) &&
                           r.specialties.some(rs => {
                             const rsName = rs.toLowerCase().trim();
