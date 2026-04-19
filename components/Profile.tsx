@@ -785,29 +785,44 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                   (() => {
                     const likedSpecialties = allSpecialties.filter(s => likedIds.includes(s.id.toString()));
                     const masteries = likedSpecialties.filter(s => s.nome.toLowerCase().includes('mestrado'));
-                    const ordinarySpecialties = likedSpecialties.filter(s => !s.nome.toLowerCase().includes('mestrado')).map(s => {
-                      // Forçar "Vida Campestre" se a especialidade estiver na lista de regras de Vida Campestre
-                      const campestreRule = MASTERY_RULES.find(r => r.name === "Mestrado em Vida Campestre");
-                      if (campestreRule && campestreRule.specialties.some(name => s.nome.toLowerCase().includes(name.toLowerCase()))) {
-                        return { ...s, area: "Vida Campestre" };
-                      }
-                      return s;
-                    });
+                    const ordinarySpecialties = likedSpecialties.filter(s => !s.nome.toLowerCase().includes('mestrado'));
                     
                     // Track which ordinary specialties have been assigned to a mastery group
                     const assignedIds = new Set<string>();
                     
-                    // 1. Agrupar por Mestrados que o usuário POSSUI (curtiu)
+                    // 1. Processar Mestrados que o usuário POSSUI (curtiu)
+                    // Ordenamos para processar regras com listas específicas PRIMEIRO
+                    const sortedRules = [...MASTERY_RULES].sort((a, b) => {
+                      // Se um tem lista e o outro é global, o com lista vem primeiro
+                      if (!a.isGlobalArea && b.isGlobalArea) return -1;
+                      if (a.isGlobalArea && !b.isGlobalArea) return 1;
+                      // Vida Campestre tem prioridade máxima entre os de lista
+                      if (a.name === "Mestrado em Vida Campestre") return -1;
+                      if (b.name === "Mestrado em Vida Campestre") return 1;
+                      return 0;
+                    });
+
                     const masteryGroups = masteries.map(mastery => {
-                      const rule = MASTERY_RULES.find(r => mastery.nome.toLowerCase().includes(r.name.toLowerCase()) || r.name.toLowerCase().includes(mastery.nome.toLowerCase()));
+                      // Melhorar a correspondência do nome do mestrado com a regra
+                      const rule = sortedRules.find(r => 
+                        mastery.nome.toLowerCase().includes(r.name.toLowerCase().replace('mestrado em ', '')) ||
+                        r.name.toLowerCase().replace('mestrado em ', '').includes(mastery.nome.toLowerCase().replace('mestrado em ', ''))
+                      );
                       
                       let groupItems: Especialidade[] = [];
                       if (rule) {
                         if (rule.isGlobalArea) {
-                          groupItems = ordinarySpecialties.filter(s => s.area === rule.category);
+                          groupItems = ordinarySpecialties.filter(s => 
+                            s.area?.toLowerCase() === rule.category.toLowerCase() ||
+                            s.area?.toLowerCase().includes(rule.category.toLowerCase())
+                          );
                         } else {
                           groupItems = ordinarySpecialties.filter(s => 
-                            rule.specialties.some(rs => s.nome.toLowerCase().includes(rs.toLowerCase()))
+                            rule.specialties.some(rs => {
+                              const sName = s.nome.toLowerCase().trim();
+                              const rName = rs.toLowerCase().trim();
+                              return sName === rName || sName.includes(rName);
+                            })
                           );
                         }
                       } else {
@@ -827,8 +842,18 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
                     // 2. Agrupar o resto por Área (para quem não tem mestrado ainda)
                     const remainingSpecialties = ordinarySpecialties.filter(s => !assignedIds.has(s.id.toString()));
+                    
+                    // Ajuste de área para especialidades de Vida Campestre remanescentes
+                    const processedRemaining = remainingSpecialties.map(s => {
+                      const campRule = MASTERY_RULES.find(r => r.name === "Mestrado em Vida Campestre");
+                      if (campRule && campRule.specialties.some(rs => s.nome.toLowerCase().includes(rs.toLowerCase()))) {
+                        return { ...s, area: "Vida Campestre" };
+                      }
+                      return s;
+                    });
+
                     const remainingGroups = Object.entries(
-                      remainingSpecialties.reduce((acc, esp) => {
+                      processedRemaining.reduce((acc, esp) => {
                         const area = esp.area || 'Outras';
                         if (!acc[area]) acc[area] = [];
                         acc[area].push(esp);
