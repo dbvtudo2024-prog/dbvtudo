@@ -790,22 +790,24 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                       // Se for um item de mestrado, não mexemos na área dele aqui
                       if (sName.includes('mestrado')) return s;
 
-                      // 1. Tentar match por Sigla + Lista Específica (Altíssima Precisão)
+                      // 1. Tentar match por NOME EXATO na lista de especialidades (Prioridade Máxima)
+                      // Isso permite que especialidades como 'Bactérias' ou 'Plantas Silvestres' 
+                      // fujam de suas siglas originais se estiverem em uma lista específica.
                       let specificRule = MASTERY_RULES.find(r => 
                         !r.isGlobalArea && 
-                        s.sigla && r.siglas?.includes(s.sigla) &&
-                        r.specialties.some(rs => {
-                          const rsName = rs.toLowerCase().trim();
-                          if (rsName === "fisica" && sName.includes("cultura fisica")) return false;
-                          return sName === rsName || sName.includes(rsName);
-                        })
+                        r.specialties.some(rs => rs.toLowerCase().trim() === sName)
                       );
 
-                      // 2. Tentar match exato de nome se não encontrou por sigla
+                      // 2. Tentar match por Sigla + Lista Específica
                       if (!specificRule) {
                         specificRule = MASTERY_RULES.find(r => 
                           !r.isGlobalArea && 
-                          r.specialties.some(rs => rs.toLowerCase().trim() === sName)
+                          s.sigla && r.siglas?.includes(s.sigla) &&
+                          r.specialties.some(rs => {
+                            const rsName = rs.toLowerCase().trim();
+                            if (rsName === "fisica" && sName.includes("cultura fisica")) return false;
+                            return sName === rsName || sName.includes(rsName);
+                          })
                         );
                       }
                       
