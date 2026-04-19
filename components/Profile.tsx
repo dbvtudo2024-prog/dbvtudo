@@ -786,14 +786,54 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                     const likedSpecialties = allSpecialties.filter(s => likedIds.includes(s.id.toString()));
                     // 0. Pré-processar TODAS as especialidades curtidas para garantir que tenham a área CORRETA de acordo com as regras
                     const processedSpecialties = likedSpecialties.map(s => {
+                      const sName = s.nome.toLowerCase().trim();
                       // Se for um item de mestrado, não mexemos na área dele aqui
-                      if (s.nome.toLowerCase().includes('mestrado')) return s;
+                      if (sName.includes('mestrado')) return s;
 
-                      // Procuramos se ela pertence a algum mestrado por LISTA específica (Prioridade: Vida Campestre)
-                      const specificRule = MASTERY_RULES.find(r => 
+                      // 1. Tentar match por Sigla + Lista Específica (Altíssima Precisão)
+                      let specificRule = MASTERY_RULES.find(r => 
                         !r.isGlobalArea && 
-                        r.specialties.some(rs => s.nome.toLowerCase().trim().includes(rs.toLowerCase().trim()))
+                        s.sigla && r.siglas?.includes(s.sigla) &&
+                        r.specialties.some(rs => {
+                          const rsName = rs.toLowerCase().trim();
+                          if (rsName === "fisica" && sName.includes("cultura fisica")) return false;
+                          return sName === rsName || sName.includes(rsName);
+                        })
                       );
+
+                      // 2. Tentar match exato de nome se não encontrou por sigla
+                      if (!specificRule) {
+                        specificRule = MASTERY_RULES.find(r => 
+                          !r.isGlobalArea && 
+                          r.specialties.some(rs => rs.toLowerCase().trim() === sName)
+                        );
+                      }
+                      
+                      // 3. Se ainda não encontrar, tentar match por inclusão com proteções
+                      if (!specificRule) {
+                        specificRule = MASTERY_RULES.find(r => 
+                          !r.isGlobalArea && 
+                          r.specialties.some(rs => {
+                            const rsName = rs.toLowerCase().trim();
+                            
+                            // Caso especial: "Física" vs "Cultura Física"
+                            if (rsName === "fisica" && sName.includes("cultura fisica")) return false;
+                            
+                            // Se a regra for curta, exige match mais preciso para evitar capturas erradas
+                            if (rsName.length <= 5) return sName === rsName;
+                            
+                            return sName.includes(rsName);
+                          })
+                        );
+                      }
+
+                      // 4. Se for uma Área Global e a sigla bater, atribui
+                      if (!specificRule && s.sigla) {
+                        const globalRule = MASTERY_RULES.find(r => 
+                          r.isGlobalArea && r.siglas?.includes(s.sigla!)
+                        );
+                        if (globalRule) return { ...s, area: globalRule.category };
+                      }
 
                       if (specificRule) {
                         return { ...s, area: specificRule.category };
@@ -839,14 +879,36 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                                    s.area?.toLowerCase().includes(rule.category.toLowerCase());
                           }
 
-                          // Se a regra tiver uma lista específica (ex: Zoologia, Botânica), usa APENAS a lista
+                          // SISTEMA DE TRÊS CAMADAS PARA GRUPOS
+                          // 1. Se a sigla bater E estiver na lista deste mestrado
+                          const hasSiglaMatch = s.sigla && rule.siglas?.includes(s.sigla) && 
+                                               rule.specialties.some(rs => rs.toLowerCase().trim() === sName || sName.includes(rs.toLowerCase().trim()));
+                          if (hasSiglaMatch) return true;
+
+                          // 2. Se o nome for idêntico a algum item da lista deste mestrado
+                          const hasExactMatch = rule.specialties.some(rs => rs.toLowerCase().trim() === sName);
+                          if (hasExactMatch) return true;
+
+                          // 3. Senão, tenta inclusão mas verifica se outro mestrado não tem esse nome EXATAMENTE ou SIGLA específica
+                          const otherMasteryHasExactMatch = MASTERY_RULES.some(r => 
+                            !r.isGlobalArea && 
+                            r.name !== rule.name && 
+                            r.specialties.some(rs => rs.toLowerCase().trim() === sName)
+                          );
+                          if (otherMasteryHasExactMatch) return false;
+
+                          // Verificação adicional por sigla para evitar que EN (Zoologia) capture HM (Artes) por engano se o nome incluir algo
+                          if (s.sigla && !rule.siglas?.includes(s.sigla)) {
+                            // Se a especialidade tem uma sigla e ela não pertence a este mestrado, 
+                            // e este mestrado NÃO é Vida Campestre (que é exceção), ignoramos
+                            if (rule.name !== "Mestrado em Vida Campestre") return false;
+                          }
+
                           return rule.specialties.some(rs => {
                             const rsName = rs.toLowerCase().trim();
-                            
-                            // Caso especial: "Física" vs "Cultura Física"
                             if (rsName === "fisica" && sName.includes("cultura fisica")) return false;
-                            
-                            return sName === rsName || sName.includes(rsName);
+                            if (rsName.length <= 5) return sName === rsName;
+                            return sName.includes(rsName);
                           });
                         });
                       }

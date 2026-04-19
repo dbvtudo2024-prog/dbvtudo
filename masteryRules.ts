@@ -5,6 +5,7 @@ export interface MasteryRule {
   requirementsCount: number;
   specialties: string[]; // Nomes ou parte dos nomes das especialidades
   isGlobalArea?: boolean; // Se true, qualquer uma da área serve
+  siglas?: string[]; // Siglas correspondentes no banco de dados (ex: 'HM', 'EN')
 }
 
 export const MASTERY_RULES: MasteryRule[] = [
@@ -13,21 +14,24 @@ export const MASTERY_RULES: MasteryRule[] = [
     category: "ADRA",
     requirementsCount: 7,
     specialties: [],
-    isGlobalArea: true
+    isGlobalArea: true,
+    siglas: ['AD']
   },
   {
     name: "Mestrado em Artes e Habilidades Manuais",
     category: "Artes e Habilidades Manuais",
     requirementsCount: 7,
     specialties: [],
-    isGlobalArea: true
+    isGlobalArea: true,
+    siglas: ['HM']
   },
   {
     name: "Mestrado em Atividades Agrícolas",
     category: "Atividades Agrícolas",
     requirementsCount: 7,
     specialties: [],
-    isGlobalArea: true
+    isGlobalArea: true,
+    siglas: ['AG']
   },
   {
     name: "Mestrado em Testificação",
@@ -44,7 +48,8 @@ export const MASTERY_RULES: MasteryRule[] = [
       "Mordomia", "Pacificador", "Parábolas de Jesus", "Pioneiros adventistas", 
       "Pregador evangelista", "Relacionamentos saudáveis", "Santuário", "Sonoplastia", 
       "Temperança", "Testemunho juvenil", "Vida familiar"
-    ]
+    ],
+    siglas: ['AM', 'MA']
   },
   {
     name: "Mestrado em Atividades Profissionais",
@@ -60,7 +65,8 @@ export const MASTERY_RULES: MasteryRule[] = [
       "Economia", "Alfaiate", "Impressoras", "Pintura", "Produção de vídeo", "Radioamadorismo", 
       "Restauro", "Secretariado", "Incêndios", "Silvicultura", "Soldagem", "Taquigrafia", 
       "Tipografia", "Vendas", "Web designer"
-    ]
+    ],
+    siglas: ['AP']
   },
   {
     name: "Mestrado em Ciência e Tecnologia",
@@ -70,7 +76,8 @@ export const MASTERY_RULES: MasteryRule[] = [
       "Computação", "Software", "Eletrônica", "Experimentos científicos", "Física", 
       "Matemática", "Informática", "Internet", "Metodologia de estudo", "Óptica", 
       "Química", "Redes sociais", "Web designer"
-    ]
+    ],
+    siglas: ['CT']
   },
   {
     name: "Mestrado em Aquática",
@@ -79,7 +86,8 @@ export const MASTERY_RULES: MasteryRule[] = [
     specialties: [
       "Caiaque", "Canoagem", "Esqui aquático", "Mergulho", "Natação", "Navegação", 
       "Rafting", "Remo", "Saltos ornamentais", "Salvamento", "Segurança básica na água", "Vela"
-    ]
+    ],
+    siglas: ['AA']
   },
   {
     name: "Mestrado em Esportes",
@@ -90,7 +98,8 @@ export const MASTERY_RULES: MasteryRule[] = [
       "Escalada", "Esportes adaptados", "Esqui aquático", "Exploração de cavernas", 
       "Futebol", "Futsal", "Ginástica acrobática", "Handebol", "Mountain biking", 
       "Rapel", "Softbol", "Tênis de mesa", "Triathlon", "Vôlei"
-    ]
+    ],
+    siglas: ['AR']
   },
   {
     name: "Mestrado em Vida Campestre",
@@ -107,7 +116,8 @@ export const MASTERY_RULES: MasteryRule[] = [
       "Liderança na selva", "Liderança na selva - avançado", "Mapa e bússola", "Nós e amarras", 
       "Nós e amarras - avançado", "Orientação com GPS", "Pioneiras", "Pioneiras - avançado", 
       "Pioneirismo", "Plantas silvestres comestíveis", "Trilha de sinais", "Vida silvestre"
-    ]
+    ],
+    siglas: ['VC', 'AR'] // Algumas vezes vem como AR no banco, mas a lista protege
   },
   {
     name: "Mestrado em Atividades Recreativas",
@@ -119,7 +129,8 @@ export const MASTERY_RULES: MasteryRule[] = [
       "Geocaching", "Nós e amarras", "Numismática", "Patins", "Pião", "Pipas", 
       "Segurança básica na água", "Skate", "Slackline", "Troca de pins", 
       "Viagem e turismo"
-    ]
+    ],
+    siglas: ['AR']
   },
   {
     name: "Mestrado em Saúde",
@@ -133,7 +144,8 @@ export const MASTERY_RULES: MasteryRule[] = [
       "Reanimação", "Remédios da natureza", "Resgate", "Sangue", "Saúde e cura", 
       "Saúde mental", "Sexualidade humana", "Sistema nervoso", "Sistema respiratório", 
       "Vacinas", "Vírus", "Zoonoses"
-    ]
+    ],
+    siglas: ['CS', 'SC']
   },
   {
     name: "Mestrado em Zoologia",
@@ -147,7 +159,8 @@ export const MASTERY_RULES: MasteryRule[] = [
       "Mariposas", "Borboletas", "Marsupiais", "Mimetismo", "Moluscos", "Morcegos", 
       "Odonata", "Peixes", "Pequenos mamíferos", "Poríferos", "Primatas", "Quelônios", 
       "Rastreio", "Rebanhos", "Répteis", "Tubarões", "Vermes", "Zoonoses"
-    ]
+    ],
+    siglas: ['EN']
   },
   {
     name: "Mestrado em Ecologia",
@@ -157,7 +170,8 @@ export const MASTERY_RULES: MasteryRule[] = [
       "Animais ameaçados", "Araras", "Papagaios", "Periquitos", "Compostagem", 
       "Conservação ambiental", "Ecologia", "Energias renováveis", "Estuário", 
       "Recursos hídricos", "Quedas d'água", "Quelônios", "Reciclagem"
-    ]
+    ],
+    siglas: ['EN']
   },
   {
     name: "Mestrado em Botânica",
@@ -168,20 +182,23 @@ export const MASTERY_RULES: MasteryRule[] = [
       "Eucaliptos", "Fisiologia vegetal", "Flores", "Gramíneas", "Liquens", 
       "Orquídeas", "Palmeiras", "Plantas carnívoras", "Plantas caseiras", 
       "Samambaias", "Sementes"
-    ]
+    ],
+    siglas: ['EN']
   },
   {
     name: "Mestrado em Habilidades Domésticas",
     category: "Habilidades Domésticas",
     requirementsCount: 7,
     specialties: [],
-    isGlobalArea: true
+    isGlobalArea: true,
+    siglas: ['HD']
   },
   {
     name: "Mestrado em Ensinos Bíblicos",
     category: "Atividades Missionárias",
     requirementsCount: 14,
     specialties: [],
-    isGlobalArea: true
+    isGlobalArea: true,
+    siglas: ['AM', 'MA']
   }
 ];
