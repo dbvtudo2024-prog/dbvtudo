@@ -331,10 +331,10 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     try {
       localStorage.setItem(storageKey, JSON.stringify(userData));
       
-      // Salvar no Supabase se tiver userId
-      if (userId) {
+      // Salvar no Supabase se tiver userId ou email
+      if (userData.email && userData.email !== "email@exemplo.com") {
+        // 1. Salvar Perfil Básico
         const profile: Partial<UserProfile> = {
-          user_id: userId,
           nome: userData.name,
           email: userData.email,
           telefone: userData.telefone,
@@ -346,14 +346,27 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
           estado: userData.estado,
           ADM: userData.isAdmin
         };
+
+        if (userId) {
+          profile.user_id = userId;
+        }
+
         await updateUserProfile(profile);
+
+        // 2. Salvar Especialidades (likedIds)
+        await updateUserSpecialties(userData.email, likedIds);
+
+        // 3. Salvar Conquistas
+        await updateUserAchievements(userData.email, userAchievements);
       }
       
       setIsEditing(false);
       // Disparar evento de storage para outros componentes (como o dashboard) saberem que mudou
       window.dispatchEvent(new Event('storage'));
+      alert("Perfil e dados salvos com sucesso na nuvem!");
     } catch (error) {
       console.error("Erro ao salvar perfil:", error);
+      alert("Erro ao sincronizar com a nuvem. Verifique sua conexão.");
     } finally {
       setIsLoading(false);
     }
