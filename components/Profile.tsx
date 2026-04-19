@@ -857,6 +857,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                            .replace('mestrado em ', '')
                            .replace('mestrado de ', '')
                            .replace('campreste', 'campestre')
+                           .replace('tecinologia', 'tecnologia')
                            .trim();
 
                       const mName = normalize(mastery.nome);

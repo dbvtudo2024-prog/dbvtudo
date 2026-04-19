@@ -66,6 +66,7 @@ export const MASTERY_RULES: MasteryRule[] = [
       "Restauro", "Secretariado", "Incêndios", "Silvicultura", "Soldagem", "Taquigrafia", 
       "Tipografia", "Vendas", "Web designer"
     ],
+    isGlobalArea: true,
     siglas: ['AP']
   },
   {
@@ -77,7 +78,7 @@ export const MASTERY_RULES: MasteryRule[] = [
       "Matemática", "Informática", "Internet", "Metodologia de estudo", "Óptica", 
       "Química", "Redes sociais", "Web designer"
     ],
-    siglas: ['CT']
+    siglas: ['AP']
   },
   {
     name: "Mestrado em Aquática",
@@ -145,6 +146,7 @@ export const MASTERY_RULES: MasteryRule[] = [
       "Saúde mental", "Sexualidade humana", "Sistema nervoso", "Sistema respiratório", 
       "Vacinas", "Vírus", "Zoonoses"
     ],
+    isGlobalArea: true,
     siglas: ['CS', 'SC']
   },
   {
