@@ -1834,7 +1834,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           pdf.setFont('helvetica', 'bold');
           pdf.setFontSize(11);
           pdf.setTextColor(51, 65, 85); // slate-700
-          const contentLines = pdf.splitTextToSize(`${idx + 1}. ${req.trim()}`, innerWidth);
+          const contentLines = pdf.splitTextToSize(req.trim(), innerWidth);
           checkPageBreak(contentLines.length * 6 + 10);
           pdf.text(contentLines, margin, currentY);
           currentY += (contentLines.length * 6) + 6;
