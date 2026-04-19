@@ -1395,10 +1395,18 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   useEffect(() => {
     if (activeSubView === 'SPECIALTIES_LIST' && selectedCategory) {
       setIsLoading(true);
-      // Filtra pelo nome (Mestrado) que é o que aparece no botão
-      fetchEspecialidades(club, selectedCategory.nome).then(setSpecialties).finally(() => setIsLoading(false));
+      if (selectedCategory.id === -100) {
+        // Para favoritas, buscamos todas e filtramos pelas curtidas
+        fetchEspecialidades(club).then(all => {
+          const liked = all.filter(s => completedSpecialties.includes(s.id.toString()));
+          setSpecialties(liked);
+        }).finally(() => setIsLoading(false));
+      } else {
+        // Filtra pelo nome (Mestrado) que é o que aparece no botão
+        fetchEspecialidades(club, selectedCategory.nome).then(setSpecialties).finally(() => setIsLoading(false));
+      }
     }
-  }, [activeSubView, club, selectedCategory]);
+  }, [activeSubView, club, selectedCategory, completedSpecialties]);
 
   useEffect(() => {
     if (activeSubView === 'CLASS_DETAILS' && selectedClass) {
@@ -1650,6 +1658,29 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         </div>
       ) : (
         <div className="space-y-3">
+          {/* Categoria Virtual de Curtidas */}
+          <button 
+            onClick={() => {
+              setSelectedCategory({ id: -100, nome: 'Favoritas', imagem: '', cor: '#ef4444', sigla: 'FAV' } as Category);
+              setActiveSubView('SPECIALTIES_LIST');
+            }}
+            className="w-full bg-white border border-slate-100 rounded-[20px] p-5 flex items-center relative shadow-sm active:scale-[0.98] transition-all overflow-hidden group mb-6"
+          >
+            <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-red-500"></div>
+            <div className="flex items-center flex-grow">
+              <div className="mr-4">
+                <Heart size={24} className="text-red-500" fill="currentColor" strokeWidth={2.5} />
+              </div>
+              <div className="flex flex-col text-left">
+                <span className="text-[15px] font-black text-slate-800 uppercase tracking-tight">Especialidades Curtidas</span>
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{completedSpecialties.length} Guardadas</span>
+              </div>
+            </div>
+            <ChevronRight size={18} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
+          </button>
+
+          <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] ml-2 mb-2">Mestrados</p>
+
           {categories.map((cat) => (
             <button 
               key={cat.id} 
