@@ -97,10 +97,15 @@ export const MASTERY_RULES: MasteryRule[] = [
     category: "Atividades Recreativas",
     requirementsCount: 7,
     specialties: [
-      "Acampamento", "Arte de acampar", "Artes mateiras", "Comida mateira", 
-      "Construções rústicas", "Cozinha com forno holandês", "Escalada em árvores", 
-      "Excursionismo", "Fogueiras", "Liderança campestre", "Liderança na selva", 
-      "Mapa e bússola", "Nós e amarras", "Orientação com GPS", "Pioneiras", 
+      "Acampamento consciente", "Acampamento em baixas temperaturas", "Acampamento I", "Acampamento II", 
+      "Acampamento III", "Acampamento IV", "Acampamento seguro", "Acampamento seguro - avançado", 
+      "Arte de acampar", "Artes mateiras", "Comida mateira", "Construções rústicas de grande porte", 
+      "Cozinha com forno holandês", "Escalada em árvores", "Excursionismo pedestre", 
+      "Excursionismo pedestre - avançado", "Excursionismo pedestre com mochila", 
+      "Excursionismo pedestre com mochila - avançado", "Excursionismo pedestre na neve", 
+      "Fogueiras e cozinha ao ar livre", "Liderança campestre", "Liderança campestre - avançado", 
+      "Liderança na selva", "Liderança na selva - avançado", "Mapa e bússola", "Nós e amarras", 
+      "Nós e amarras - avançado", "Orientação com GPS", "Pioneiras", "Pioneiras - avançado", 
       "Pioneirismo", "Plantas silvestres comestíveis", "Trilha de sinais", "Vida silvestre"
     ]
   },

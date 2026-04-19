@@ -814,10 +814,10 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                         acc[area].push(esp);
                         return acc;
                       }, {} as Record<string, Especialidade[]>)
-                    ).map(([area, items]) => ({
+                    ).map(([area, items]): { id: string; area: string; items: Especialidade[]; } => ({
                       id: area,
                       area,
-                      items
+                      items: items as Especialidade[]
                     }));
 
                     return (
