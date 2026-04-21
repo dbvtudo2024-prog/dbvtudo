@@ -15,13 +15,13 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
 
   React.useEffect(() => {
     const loadProfile = () => {
-      const saved = localStorage.getItem(PROFILE_KEY);
-      if (saved) {
-        try {
+      try {
+        const saved = localStorage.getItem(PROFILE_KEY);
+        if (saved) {
           const parsed = JSON.parse(saved);
           setUserAvatar(parsed.avatar || null);
-        } catch { }
-      }
+        }
+      } catch { }
     };
 
     loadProfile();
@@ -34,12 +34,12 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
       {/* Top Actions - Minimalistas */}
       <div className="pt-7 px-8 flex justify-between items-center z-10">
         <div className="flex items-center space-x-3">
-          <button onClick={onOpenSettings} className="p-2.5 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-2xl shadow-sm border border-white dark:border-slate-700 text-slate-400 active:scale-90 transition-all">
+          <button onClick={onOpenSettings} className="p-2.5 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-2xl shadow-sm border border-white dark:border-slate-700 text-slate-400 dark:text-slate-300 active:scale-90 transition-all">
             <Settings size={18} />
           </button>
         </div>
         
-        <button onClick={onOpenProfile} className="w-11 h-11 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-white dark:border-slate-700 flex items-center justify-center text-slate-300 overflow-hidden active:scale-90 transition-all">
+        <button onClick={onOpenProfile} className="w-11 h-11 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-white dark:border-slate-700 flex items-center justify-center text-slate-400 dark:text-slate-300 overflow-hidden active:scale-90 transition-all">
           {userAvatar ? <img src={userAvatar} className="w-full h-full object-cover" /> : <User size={20} />}
         </button>
       </div>
@@ -47,11 +47,10 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
       {/* Hero Branding */}
       <div className="pt-4 pb-6 flex flex-col items-center justify-center">
         <div className="relative animate-float">
-          <div className="absolute inset-0 bg-red-500/5 blur-[40px] rounded-full scale-150"></div>
           <div className="relative w-28 h-28 flex items-center justify-center transform hover:scale-105 transition-transform duration-700">
             <img 
               src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/logo%20app.PNG" 
-              className="w-full h-full object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.08)]" 
+              className="w-full h-full object-contain" 
               alt="DBV Tudo Logo"
             />
           </div>
@@ -61,15 +60,21 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
           <h1 className="text-xl font-black text-slate-800 dark:text-white tracking-tighter leading-none mb-1">DBV Tudo</h1>
           <div className="flex items-center justify-center space-x-2">
             <span className="h-[1px] w-3 bg-slate-200 dark:bg-slate-700"></span>
-            <p className="text-[7px] font-bold text-slate-400 uppercase tracking-[0.4em]">Gestão Digital</p>
+            <p className="text-[7px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-[0.4em]">Gestão Digital</p>
             <span className="h-[1px] w-3 bg-slate-200 dark:bg-slate-700"></span>
+          </div>
+          
+          <div className="mt-4">
+            <span className="inline-flex items-center px-3.5 py-1 rounded-full bg-amber-500/10 dark:bg-amber-400/15 border border-amber-500/25 dark:border-amber-400/30 text-amber-700 dark:text-amber-300 font-bold text-[11px] tracking-wide shadow-xs">
+              Esse não é um app oficial da IASD
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Título de Instrução com maior espaçamento superior */}
-      <div className="mt-12 mb-4 text-center">
-        <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Escolha um ministério</h2>
+      {/* Título de Instrução com espaçamento reduzido */}
+      <div className="mt-1 mb-2.5 text-center">
+        <h2 className="text-[10px] font-bold text-slate-400 dark:text-slate-300 uppercase tracking-[0.2em]">Escolha um ministério</h2>
       </div>
 
       {/* Seletor de Ministérios */}
@@ -95,8 +100,8 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
             </div>
             <div className="text-left">
               <h4 className="text-xl font-black text-slate-800 dark:text-white leading-tight tracking-tight">Desbravadores</h4>
-              <div className="bg-[#dc371b]/5 dark:bg-[#dc371b]/10 px-3 py-1 rounded-full border border-[#dc371b]/10 mt-1 inline-block">
-                <span className="text-[#dc371b] font-black text-[8px] uppercase tracking-wider">de 10 a 15 Anos</span>
+              <div className="bg-[#dc371b]/5 dark:bg-[#dc371b]/20 px-3 py-1 rounded-full border border-[#dc371b]/10 dark:border-[#dc371b]/30 mt-1 inline-block">
+                <span className="text-[#dc371b] dark:text-orange-400 font-black text-[8px] uppercase tracking-wider">de 10 a 15 Anos</span>
               </div>
             </div>
           </div>
@@ -122,8 +127,8 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
             </div>
             <div className="text-left">
               <h4 className="text-xl font-black text-slate-800 dark:text-white leading-tight tracking-tight">Aventureiros</h4>
-              <div className="bg-[#800000]/5 dark:bg-[#800000]/10 px-3 py-1 rounded-full border border-[#800000]/10 mt-1 inline-block">
-                <span className="text-[#800000] font-black text-[8px] uppercase tracking-wider">de 6 a 9 Anos</span>
+              <div className="bg-[#800000]/5 dark:bg-red-950/40 px-3 py-1 rounded-full border border-[#800000]/10 dark:border-red-500/30 mt-1 inline-block">
+                <span className="text-[#800000] dark:text-rose-400 font-black text-[8px] uppercase tracking-wider">de 6 a 9 Anos</span>
               </div>
             </div>
           </div>

@@ -901,19 +901,26 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
   );
 };
 
+export type SubViewType = 
+  | 'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' 
+  | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' 
+  | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' 
+  | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS' | 'PDF_VIEWER' | 'LIBRARY_BOOKS_MENU' 
+  | 'VIDEOS' | 'VIDEO_ADMIN' | 'FORM_ADMIN' | 'VIDEO_PLAYER' | 'LINKS_ADMIN' | 'ACHIEVEMENTS_ADMIN' | 'WEB_VIEWER';
+
 interface ClubManagementProps {
   club: ClubType;
   onBack: () => void;
   onSwitchClub: (club: ClubType) => void;
   onOpenProfile?: () => void;
   isGuest?: boolean;
-  initialSubView?: 'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS' | 'PDF_VIEWER' | 'LIBRARY_BOOKS_MENU' | 'VIDEOS' | 'VIDEO_ADMIN' | 'FORM_ADMIN' | 'VIDEO_PLAYER' | 'LINKS_ADMIN' | 'ACHIEVEMENTS_ADMIN' | 'WEB_VIEWER';
+  initialSubView?: SubViewType;
   onSubViewChange?: (view: any) => void;
   onClearSubView?: () => void;
 }
 
 const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchClub, onOpenProfile, isGuest, initialSubView, onSubViewChange, onClearSubView }) => {
-  const [activeSubView, setActiveSubView] = useState<'MAIN' | 'CULTURE' | 'LIBRARY' | 'CLASSES' | 'SPECIALTIES' | 'CLASS_DETAILS' | 'SPECIALTIES_LIST' | 'SPECIALTY_DETAILS' | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS' | 'PDF_VIEWER' | 'LIBRARY_BOOKS_MENU' | 'VIDEOS' | 'VIDEO_ADMIN' | 'FORM_ADMIN' | 'VIDEO_PLAYER' | 'LINKS_ADMIN' | 'WEB_VIEWER'>(initialSubView || 'MAIN');
+  const [activeSubView, setActiveSubView] = useState<SubViewType>(initialSubView || 'MAIN');
   const [classes, setClasses] = useState<ClubClass[]>([]);
   const [selectedClass, setSelectedClass] = useState<ClubClass | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -956,7 +963,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   const [manuaisDBV, setManuaisDBV] = useState<ManualDBV[]>([]);
   const [campingDBV, setCampingDBV] = useState<CampingDBV[]>([]);
   const [formularios, setFormularios] = useState<Formulario[]>([]);
-  const [selectedLibraryCategory, setSelectedLibraryCategory] = useState<'CLASSES' | 'ANO' | 'OUTROS' | 'MANUAIS' | null>(null);
+  const [selectedLibraryCategory, setSelectedLibraryCategory] = useState<'CLASSES' | 'ANO' | 'OUTROS' | 'MANUAIS' | 'BOOKS_AVT' | 'MANUAIS_AVT' | 'MATERIALS' | null>(null);
   const [selectedPdfUrl, setSelectedPdfUrl] = useState<string | null>(null);
   const [pdfTitle, setPdfTitle] = useState<string>('');
 
@@ -1824,7 +1831,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         pdf.setTextColor(100, 116, 139); // slate-500
         pdf.text(`ÁREA: ${selectedSpecialty.area.toUpperCase()}`, margin, currentY);
         currentY += 6;
-        pdf.text(`CÓDIGO: ${selectedSpecialty.codigo} | NÍVEL: ${selectedSpecialty.nivel} | ANO: ${selectedSpecialty.ano_origem}`, margin, currentY);
+        pdf.text(`CÓDIGO: ${selectedSpecialty.codigo} | NÍVEL: ${selectedSpecialty.nivel} | ANO: ${selectedSpecialty.ano || selectedSpecialty.origem || 'N/A'}`, margin, currentY);
         currentY += 12;
 
         pdf.setDrawColor(226, 232, 240); // slate-200
@@ -2982,7 +2989,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               <ChevronLeft size={24} strokeWidth={3} />
             </button>
             <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight truncate max-w-[200px]">
-              {selectedDesbravaPlusItem.titulo}
+              {selectedDesbravaPlusItem.Nome}
             </h3>
             <a 
               href={pdfUrl} 
@@ -2996,7 +3003,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           <iframe 
             src={formattedUrl} 
             className="w-full h-full border-none flex-grow"
-            title={selectedDesbravaPlusItem.titulo}
+            title={selectedDesbravaPlusItem.Nome}
             allow="autoplay"
           />
         </div>
@@ -4978,14 +4985,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-full py-4 px-6 flex items-center justify-between shadow-sm active:scale-[0.98] transition-all group"
         >
           <div className="flex items-center space-x-4">
-            <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center text-indigo-500">
+            <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center text-indigo-500 dark:text-indigo-400">
               <Book size={20} strokeWidth={2.5} />
             </div>
-            <span className="text-[13px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-tight">Bíblia Sagrada</span>
+            <span className="text-[13px] font-black text-slate-800 dark:text-white uppercase tracking-tight">Bíblia Sagrada</span>
           </div>
           <div className="flex items-center space-x-2">
-            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Acessar</span>
-            <ChevronRight size={16} className="text-slate-300 dark:text-slate-600 group-hover:translate-x-1 transition-transform" />
+            <span className="text-[10px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest">Acessar</span>
+            <ChevronRight size={16} className="text-slate-400 dark:text-slate-400 group-hover:translate-x-1 transition-transform" />
           </div>
         </button>
       </div>
@@ -5017,11 +5024,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               <Award size={28} strokeWidth={2.5} style={{ color: themeColor }} />
             </div>
             <div className="text-left">
-              <h3 className="font-black text-lg text-slate-800 dark:text-slate-200 uppercase tracking-tight">Especialidades</h3>
-              <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Manual e Instruções</p>
+              <h3 className="font-black text-lg text-slate-800 dark:text-white uppercase tracking-tight">Especialidades</h3>
+              <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 uppercase tracking-widest">Manual e Instruções</p>
             </div>
           </div>
-          <ChevronRight size={18} className="text-slate-200 dark:text-slate-700" />
+          <ChevronRight size={18} className="text-slate-300 dark:text-slate-400" />
         </button>
         {/* Botão Gestão (Apenas se for admin) */}
         {isUserAdmin && (
@@ -5034,11 +5041,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 <Settings size={28} strokeWidth={2.5} />
               </div>
               <div className="text-left">
-                <h3 className="font-black text-lg text-slate-800 dark:text-slate-200 uppercase tracking-tight">Painel Administrativo</h3>
-                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Administração do Clube</p>
+                <h3 className="font-black text-lg text-slate-800 dark:text-white uppercase tracking-tight">Painel Administrativo</h3>
+                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 uppercase tracking-widest">Administração do Clube</p>
               </div>
             </div>
-            <ChevronRight size={18} className="text-slate-200 dark:text-slate-700" />
+            <ChevronRight size={18} className="text-slate-300 dark:text-slate-400" />
           </button>
         )}
       </div>
@@ -5054,7 +5061,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               <button onClick={() => setActiveSubView(item.view as any)} className={`w-full aspect-square ${item.bg} rounded-[30px] flex items-center justify-center text-white shadow-lg active:scale-90 transition-all`}>
                 {item.icon}
               </button>
-              <span className="text-[10px] font-black text-slate-700 dark:text-slate-400 uppercase tracking-tight">{item.label}</span>
+              <span className="text-[10px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-tight">{item.label}</span>
             </div>
           ))}
         </div>
@@ -5166,30 +5173,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                     setActiveSubView('MATERIALS');
                   } else if (activeSubView === 'FORMULARIOS') {
                     setActiveSubView('MATERIALS');
-                  } else if (activeSubView === 'BIBLE_BOOKS') {
-                    setActiveSubView('BIBLE');
-                  } else if (activeSubView === 'BIBLE_CHAPTERS') {
-                    setActiveSubView('BIBLE_BOOKS');
-                  } else if (activeSubView === 'BIBLE_VERSES') {
-                    setActiveSubView('BIBLE_CHAPTERS');
-                  } else if (activeSubView === 'BIBLE_MORE') {
-                    setActiveSubView('BIBLE');
-                  } else if (activeSubView === 'BIBLE_MARKED_VERSES') {
-                    setActiveSubView('BIBLE_MORE');
-                  } else if (activeSubView === 'BIBLE_DICTIONARY') {
-                    setActiveSubView('BIBLE_MORE');
-                  } else if (activeSubView === 'BIBLE_NOTES') {
-                    setActiveSubView('BIBLE_MORE');
-                  } else if (activeSubView === 'BIBLE_SETTINGS') {
-                    setActiveSubView('BIBLE_MORE');
                   } else if (activeSubView === 'BIBLE_ADMIN') {
                     setActiveSubView('MAIN');
                   } else if (activeSubView === 'BIBLE_ADMIN_ADD') {
                     setActiveSubView('BIBLE_ADMIN');
                   } else if (activeSubView === 'BIBLE_DEVOTIONAL_LIST') {
                     setActiveSubView('BIBLE_ADMIN');
-                  } else if (activeSubView === 'BIBLE_DEVOTIONAL_VIEW') {
-                    setActiveSubView((isAdmin && selectedDevocional) ? 'BIBLE_DEVOTIONAL_LIST' : 'BIBLE');
                   } else if (activeSubView === 'VIDEO_ADMIN' || activeSubView === 'FORM_ADMIN' || activeSubView === 'LINKS_ADMIN' || activeSubView === 'ACHIEVEMENTS_ADMIN') {
                     setActiveSubView('BIBLE_ADMIN');
                   } else if (activeSubView === 'VIDEOS') {
@@ -5207,10 +5196,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             )}
           </div>
           <div className="text-center">
-            <h2 className="font-black text-slate-800 text-lg tracking-tight uppercase leading-none">
+            <h2 className="font-black text-slate-800 dark:text-white text-lg tracking-tight uppercase leading-none">
               {isPathfinder ? 'Desbravadores' : 'Aventureiros'}
             </h2>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-2">
+            <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em] mt-2">
               {activeSubView === 'MAIN' ? 'Área de Gestão' : 
                activeSubView === 'CLASSES' ? 'Classes Progressivas' :
                activeSubView === 'CLASS_DETAILS' ? selectedClass?.titulo :
@@ -5249,20 +5238,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                activeSubView === 'DESBRAVA_PLUS' ? 'Desbrava +' :
                activeSubView === 'DESBRAVA_PLUS_DETAILS' ? selectedDesbravaPlusItem?.Nome :
                activeSubView === 'DESBRAVA_PLUS_PDF' ? selectedDesbravaPlusItem?.Nome :
-               activeSubView === 'BIBLE' ? 'Bíblia Sagrada' :
-               activeSubView === 'BIBLE_BOOKS' ? 'Livros da Bíblia' :
-               activeSubView === 'BIBLE_CHAPTERS' ? `Capítulos - ${selectedBibleBook?.book_name}` :
-               activeSubView === 'BIBLE_VERSES' ? `${selectedBibleBook?.book_name} ${selectedBibleChapter}` :
-               activeSubView === 'BIBLE_MORE' ? 'Mais Opções' :
-               activeSubView === 'BIBLE_MARKED_VERSES' ? 'Versículos Marcados' :
-               activeSubView === 'BIBLE_DICTIONARY' ? 'Dicionário Bíblico' :
-               activeSubView === 'BIBLE_NOTES' ? 'Anotações' :
-               activeSubView === 'BIBLE_SETTINGS' ? 'Configurações' :
                activeSubView === 'BIBLE_ADMIN' ? 'Painel Administrativo' :
                activeSubView === 'ACHIEVEMENTS_ADMIN' ? 'Gestão de Conquistas' :
                activeSubView === 'BIBLE_ADMIN_ADD' ? 'Novo Devocional' :
                activeSubView === 'BIBLE_DEVOTIONAL_LIST' ? 'Agendados' :
-               activeSubView === 'BIBLE_DEVOTIONAL_VIEW' ? 'Devocional' :
                activeSubView === 'VIDEOS' ? 'Vídeos' :
                activeSubView === 'VIDEO_PLAYER' ? 'Assistir Vídeo' :
                activeSubView === 'VIDEO_ADMIN' ? 'Gestão de Vídeos' :
@@ -5388,16 +5367,16 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md h-16 w-full max-w-[320px] rounded-full shadow-2xl flex p-2 items-center border border-white dark:border-slate-700 space-x-2 pointer-events-auto">
             <button 
               onClick={() => onSwitchClub(ClubType.PATHFINDER)} 
-              className={`flex-1 h-full rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${isPathfinder ? 'bg-[#dc371b] text-white shadow-lg' : 'text-slate-300 dark:text-slate-600'}`}
+              className={`flex-1 h-full rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${isPathfinder ? 'bg-[#dc371b] text-white shadow-lg' : 'text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'}`}
             >
               DBV
             </button>
-            <button onClick={onBack} className="w-12 h-12 flex-shrink-0 rounded-full bg-slate-50 dark:bg-slate-700 flex items-center justify-center text-slate-400 dark:text-slate-500">
+            <button onClick={onBack} className="w-12 h-12 flex-shrink-0 rounded-full bg-slate-50 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300">
               <HomeIcon size={20} />
             </button>
             <button 
               onClick={() => onSwitchClub(ClubType.ADVENTURER)} 
-              className={`flex-1 h-full rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${!isPathfinder ? 'bg-[#800000] text-white shadow-lg' : 'text-slate-300 dark:text-slate-600'}`}
+              className={`flex-1 h-full rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${!isPathfinder ? 'bg-[#800000] text-white shadow-lg' : 'text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'}`}
             >
               AVT
             </button>

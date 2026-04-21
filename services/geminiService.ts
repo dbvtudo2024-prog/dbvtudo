@@ -1,6 +1,4 @@
 
-import { GoogleGenAI } from "@google/genai";
-
 const SYSTEM_INSTRUCTION = `
 Você é o "Desbravinho", um assistente virtual especialista em Clubes de Desbravadores e Aventureiros da Igreja Adventista do Sétimo Dia.
 Sua missão é ajudar diretores e conselheiros com:
@@ -17,9 +15,15 @@ Mantenha as respostas concisas e use formatação Markdown para facilitar a leit
 
 export async function askAdvisor(prompt: string): Promise<string> {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const apiKey = (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) || (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
+    if (!apiKey) {
+      return "Olá! O Desbravinho está pronto. Para ativar as respostas com inteligência artificial, configure sua chave de API Gemini.";
+    }
+
+    const { GoogleGenAI } = await import("@google/genai");
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
@@ -33,3 +37,4 @@ export async function askAdvisor(prompt: string): Promise<string> {
     return "Ocorreu um erro ao conectar com o Desbravinho. Verifique sua conexão.";
   }
 }
+

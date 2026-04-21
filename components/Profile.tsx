@@ -82,8 +82,12 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   const [allSpecialties, setAllSpecialties] = useState<Especialidade[]>([]);
   const [allConquistas, setAllConquistas] = useState<Conquista[]>([]);
   const [userAchievements, setUserAchievements] = useState<number[]>(() => {
-    const saved = localStorage.getItem('dbv_tudo_user_achievements');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('dbv_tudo_user_achievements');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -93,13 +97,13 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   
   // Função para ler o estado inicial síncronamente do localStorage
   const getInitialData = () => {
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      try {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
         return JSON.parse(saved);
-      } catch (e) {
-        console.error(e);
       }
+    } catch (e) {
+      console.error(e);
     }
     return {
       name: "Seu Nome Aqui",
@@ -121,52 +125,59 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   const userClubType = userData.tipo === "Desbravador" ? ClubType.PATHFINDER : ClubType.ADVENTURER;
   const likedKey = `dbv_tudo_liked_specialties_${userClubType}`;
 
-  // State para especialidades curtidas - Inicializa do localStorage para evitar sobrescrever no mount
+  const [likedIds, setLikedIds] = useState<string[]>(() => {
+    try {
+      const initialData = getInitialData();
+      const initialClubType = initialData.tipo === "Desbravador" ? ClubType.PATHFINDER : ClubType.ADVENTURER;
+      const initialKey = `dbv_tudo_liked_specialties_${initialClubType}`;
+      const saved = localStorage.getItem(initialKey);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
   // Carregar dados do Supabase se houver usuário logado
   useEffect(() => {
     const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-        let profile = await fetchUserProfile(user.id);
-        
-        // Fallback para buscar por email se não encontrar por ID (usuários antigos)
-        if (!profile && user.email) {
-          profile = await fetchUserProfileByEmail(user.email);
-          // Se encontrou por email, atualiza o user_id para futuras buscas rápidas
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setUserId(user.id);
+          let profile = await fetchUserProfile(user.id);
+          
+          if (!profile && user.email) {
+            profile = await fetchUserProfileByEmail(user.email);
+            if (profile) {
+              await updateUserProfile({ user_id: user.id, email: user.email });
+            }
+          }
+
           if (profile) {
-            await updateUserProfile({ user_id: user.id, email: user.email });
+            const mappedData = {
+              name: profile.nome || userData.name,
+              email: profile.email || (profile as any)['e - mail'] || user.email || userData.email,
+              tipo: profile.clubes === "Aventureiro" ? "Aventureiro" : "Desbravador",
+              clube: profile.clube || profile.clube_de || (profile as any)['clube de'] || userData.clube,
+              cargo: profile.funçao || userData.cargo,
+              telefone: profile.telefone || userData.telefone,
+              avatar: profile.foto || userData.avatar,
+              cidade: profile.cidade || "",
+              estado: profile.estado || "",
+              isAdmin: profile.ADM || false
+            };
+            setUserData(mappedData);
+            try {
+              localStorage.setItem(storageKey, JSON.stringify(mappedData));
+            } catch (e) {}
           }
         }
-
-        if (profile) {
-          const mappedData = {
-            name: profile.nome || userData.name,
-            email: profile.email || (profile as any)['e - mail'] || user.email || userData.email,
-            tipo: profile.clubes === "Aventureiro" ? "Aventureiro" : "Desbravador",
-            clube: profile.clube || profile.clube_de || (profile as any)['clube de'] || userData.clube,
-            cargo: profile.funçao || userData.cargo,
-            telefone: profile.telefone || userData.telefone,
-            avatar: profile.foto || userData.avatar,
-            cidade: profile.cidade || "",
-            estado: profile.estado || "",
-            isAdmin: profile.ADM || false
-          };
-          setUserData(mappedData);
-          localStorage.setItem(storageKey, JSON.stringify(mappedData));
-        }
+      } catch (err) {
+        console.error("Erro ao verificar usuário:", err);
       }
     };
     checkUser();
   }, []);
-
-  const [likedIds, setLikedIds] = useState<string[]>(() => {
-    const initialData = getInitialData();
-    const initialClubType = initialData.tipo === "Desbravador" ? ClubType.PATHFINDER : ClubType.ADVENTURER;
-    const initialKey = `dbv_tudo_liked_specialties_${initialClubType}`;
-    const saved = localStorage.getItem(initialKey);
-    return saved ? JSON.parse(saved) : [];
-  });
 
   // Carregar curtidas quando o tipo de clube mudar (ex: edição de perfil)
   useEffect(() => {
@@ -404,7 +415,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
             
             <div className="p-6 pb-2">
               <div className="relative">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400">
                   <Search size={18} />
                 </div>
                 <input 
@@ -412,7 +423,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                   placeholder="Buscar especialidade..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-3.5 pl-12 pr-4 text-sm font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 transition-all shadow-inner placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-3.5 pl-12 pr-4 text-sm font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 transition-all shadow-inner placeholder:text-slate-400 dark:placeholder:text-slate-400"
                 />
               </div>
             </div>
@@ -429,7 +440,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                       {esp.logo ? (
                         <img src={esp.logo} className="w-10 h-10 object-contain" alt={esp.nome} />
                       ) : (
-                        <Award size={24} className="text-slate-200 dark:text-slate-600" />
+                        <Award size={24} className="text-slate-300 dark:text-slate-400" />
                       )}
                     </div>
                     <div className="flex-grow text-left">
@@ -454,7 +465,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                 ))
               ) : (
                 <div className="text-center py-20">
-                  <p className="text-slate-400 dark:text-slate-600 font-bold text-sm">Nenhuma especialidade encontrada.</p>
+                  <p className="text-slate-500 dark:text-slate-400 font-bold text-sm">Nenhuma especialidade encontrada.</p>
                 </div>
               )}
             </div>
@@ -626,7 +637,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
             { label: 'Estado', value: userData.estado || '-' }
           ].map((item, i) => (
             <div key={i} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-3 shadow-sm flex flex-col items-center text-center group hover:border-slate-200 dark:hover:border-slate-600 transition-all">
-              <p className="text-[7px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-[0.2em] mb-0.5">{item.label}</p>
+              <p className="text-[7px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-[0.2em] mb-0.5">{item.label}</p>
               <p className="text-[11px] font-black text-slate-700 dark:text-slate-200 leading-tight line-clamp-1">{item.value}</p>
             </div>
           ))}
@@ -666,7 +677,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
       <div className="mt-10 px-8 pb-10 animate-slide-up">
         <div className="flex items-center justify-between mb-6">
           <div className="h-[1px] flex-grow bg-slate-100 dark:bg-slate-800"></div>
-          <h3 className="px-6 font-black uppercase text-[10px] text-slate-400 dark:text-slate-600 tracking-[0.3em]">Conquistas</h3>
+          <h3 className="px-6 font-black uppercase text-[10px] text-slate-500 dark:text-slate-400 tracking-[0.3em]">Conquistas</h3>
           <div className="h-[1px] flex-grow bg-slate-100 dark:bg-slate-800"></div>
         </div>
         
@@ -772,13 +783,13 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
           {/* Especialidades Curtidas (Minha Faixa) */}
           {likedIds.length > 0 && (
             <div className="w-full pt-6 border-t border-slate-50 dark:border-slate-700">
-              <p className="text-center text-[9px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-[0.2em] mb-4">
+              <p className="text-center text-[9px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-[0.2em] mb-4">
                 Especialidades na Faixa ({likedIds.length})
               </p>
               
               <div className="space-y-12">
                 {isLoading ? (
-                  <div className="py-4 text-center text-[10px] text-slate-300 dark:text-slate-600 font-bold uppercase tracking-widest">
+                  <div className="py-4 text-center text-[10px] text-slate-400 dark:text-slate-400 font-bold uppercase tracking-widest">
                     Carregando...
                   </div>
                 ) : (
@@ -959,7 +970,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                               </span>
                               <div className="flex items-center space-x-3 w-full px-2">
                                 <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800" />
-                                <span className="text-[10px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-widest">({group.items.length} Especialidades)</span>
+                                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest">({group.items.length} Especialidades)</span>
                                 <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800" />
                               </div>
                             </div>

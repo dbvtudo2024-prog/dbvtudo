@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { ViewState, ClubType } from './types';
 import Home from './components/Home';
-import ClubManagement from './components/ClubManagement';
+import ClubManagement, { SubViewType } from './components/ClubManagement';
 import Auth from './components/Auth';
 import Profile from './components/Profile';
 import { Settings, X, ChevronLeft } from 'lucide-react';
@@ -43,12 +43,52 @@ const styles = `
 `;
 
 const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<ViewState>('LOGIN');
-  const [activeSubView, setActiveSubView] = useState<string | undefined>(undefined);
-  const [selectedClub, setSelectedClub] = useState<ClubType | null>(null);
-  const [isGuest, setIsGuest] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [darkMode, setDarkMode] = useState(() => {
+  const [currentView, setCurrentView] = useState<ViewState>(() => {
+    try {
+      const saved = localStorage.getItem('dbv_tudo_app_state');
+      if (saved) {
+        const { view } = JSON.parse(saved);
+        if (view && ['LOGIN', 'SIGNUP', 'HOME', 'CLUB_LIST', 'PROFILE', 'SETTINGS'].includes(view)) {
+          return view;
+        }
+      }
+    } catch (e) {
+      console.error("Erro ao carregar view inicial:", e);
+    }
+    return 'LOGIN';
+  });
+
+  const [activeSubView, setActiveSubView] = useState<SubViewType | undefined>(undefined);
+  
+  const [selectedClub, setSelectedClub] = useState<ClubType | null>(() => {
+    try {
+      const saved = localStorage.getItem('dbv_tudo_app_state');
+      if (saved) {
+        const { club } = JSON.parse(saved);
+        if (club === ClubType.PATHFINDER || club === ClubType.ADVENTURER) {
+          return club;
+        }
+      }
+    } catch (e) {
+      console.error("Erro ao carregar clube inicial:", e);
+    }
+    return null;
+  });
+
+  const [isGuest, setIsGuest] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('dbv_tudo_app_state');
+      if (saved) {
+        const { guest } = JSON.parse(saved);
+        if (guest !== undefined) return Boolean(guest);
+      }
+    } catch (e) {
+      console.error("Erro ao carregar guest inicial:", e);
+    }
+    return false;
+  });
+
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('dbv_tudo_app_state');
       if (saved) {
@@ -60,8 +100,9 @@ const App: React.FC = () => {
     }
     return false;
   });
+
   const [pendingPrompt, setPendingPrompt] = useState<string | undefined>(undefined);
-  const [pendingSubView, setPendingSubView] = useState<string | undefined>(undefined);
+  const [pendingSubView, setPendingSubView] = useState<SubViewType | undefined>(undefined);
 
   // Sincronizar classe dark para Tailwind
   useEffect(() => {
@@ -72,27 +113,9 @@ const App: React.FC = () => {
     }
   }, [darkMode]);
 
-  // Carregar estado inicial apenas uma vez na montagem
+  // Salvar estado quando houver alterações
   useEffect(() => {
-    const savedState = localStorage.getItem('dbv_tudo_app_state');
-    if (savedState) {
-      try {
-        const { view, club, guest, darkMode: savedDarkMode } = JSON.parse(savedState);
-        if (view) setCurrentView(view);
-        if (club) setSelectedClub(club);
-        if (guest !== undefined) setIsGuest(guest);
-        if (savedDarkMode !== undefined) setDarkMode(savedDarkMode);
-      } catch (e) {
-        console.error("Erro ao restaurar estado:", e);
-      }
-    }
-    // Marcar como inicializado após a tentativa de carregamento
-    setIsInitialized(true);
-  }, []);
-
-  // Salvar estado apenas se já foi inicializado
-  useEffect(() => {
-    if (isInitialized) {
+    try {
       const stateToSave = {
         view: currentView,
         club: selectedClub,
@@ -100,8 +123,10 @@ const App: React.FC = () => {
         darkMode
       };
       localStorage.setItem('dbv_tudo_app_state', JSON.stringify(stateToSave));
+    } catch (e) {
+      console.error("Erro ao salvar estado no localStorage:", e);
     }
-  }, [currentView, selectedClub, isGuest, isInitialized, darkMode]);
+  }, [currentView, selectedClub, isGuest, darkMode]);
 
   // Gerenciar histórico para o botão voltar do Android
   useEffect(() => {
@@ -126,22 +151,24 @@ const App: React.FC = () => {
     window.addEventListener('popstate', handlePopState);
     
     // Inicializar o estado inicial do histórico
-    if (!window.history.state) {
-      window.history.replaceState({ view: currentView, subView: activeSubView, club: selectedClub }, '', '');
-    }
+    try {
+      if (!window.history.state) {
+        window.history.replaceState({ view: currentView, subView: activeSubView, club: selectedClub }, '', '');
+      }
+    } catch (e) {}
 
     return () => window.removeEventListener('popstate', handlePopState);
   }, [currentView, activeSubView, selectedClub]);
 
   // Sincronizar histórico quando a view ou subView muda
   useEffect(() => {
-    if (isInitialized) {
+    try {
       const state = window.history.state;
       if (state?.view !== currentView || state?.subView !== activeSubView || state?.club !== selectedClub) {
         window.history.pushState({ view: currentView, subView: activeSubView, club: selectedClub }, '', '');
       }
-    }
-  }, [currentView, activeSubView, selectedClub, isInitialized]);
+    } catch (e) {}
+  }, [currentView, activeSubView, selectedClub]);
 
   const navigateToClub = (club: ClubType) => {
     setSelectedClub(club);
@@ -151,7 +178,9 @@ const App: React.FC = () => {
   const handleLoginSuccess = (asGuest: boolean = false) => {
     setIsGuest(asGuest);
     // Use replaceState ao fazer login para que o botão voltar não retorne à tela de login
-    window.history.replaceState({ view: 'HOME', subView: undefined, club: selectedClub, guest: asGuest }, '', '');
+    try {
+      window.history.replaceState({ view: 'HOME', subView: undefined, club: selectedClub, guest: asGuest }, '', '');
+    } catch (e) {}
     setCurrentView('HOME');
   };
 
@@ -160,14 +189,14 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('dbv_tudo_app_state');
+    try {
+      localStorage.removeItem('dbv_tudo_app_state');
+    } catch (e) {}
     // Não removemos o perfil global para o usuário não ter que digitar tudo de novo se voltar
     setIsGuest(false);
     setSelectedClub(null);
     setCurrentView('LOGIN');
   };
-
-  if (!isInitialized) return null;
 
   const renderContent = () => {
     switch (currentView) {

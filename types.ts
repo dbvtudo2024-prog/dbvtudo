@@ -110,6 +110,7 @@ export interface CulturaItem {
   blocks?: ContentBlock[];
   club?: ClubType;
   subitems?: CulturaItem[];
+  parentId?: string;
 }
 
 export interface Cultura {

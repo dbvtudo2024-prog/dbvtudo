@@ -26,5 +26,13 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "debug_*.ts",
+    "depth_*.ts",
+    "sync_*.ts",
+    "check_*.ts"
+  ]
 }

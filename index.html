@@ -8,13 +8,89 @@
     <meta name="theme-color" content="#1e40af">
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/logo%20app.PNG">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        darkMode: 'class'
-      }
-    </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/index.css">
+    <script>
+      // 1. Process and global polyfills
+      window.global = window.global || window;
+      window.process = window.process || { env: { NODE_ENV: 'production' } };
+
+      // 2. Safe Storage Polyfill for Opera, Brave, Safari iframe restrictions
+      (function() {
+        var isStorageWorking = false;
+        try {
+          var test = '__dbv_test_storage__';
+          window.localStorage.setItem(test, test);
+          window.localStorage.removeItem(test);
+          isStorageWorking = true;
+        } catch (e) {
+          isStorageWorking = false;
+        }
+
+        if (!isStorageWorking) {
+          console.warn('[DBV Tudo] LocalStorage is restricted in this browser environment. Using safe in-memory storage.');
+          var mem = {};
+          var safeMock = {
+            getItem: function(k) { return mem.hasOwnProperty(k) ? mem[k] : null; },
+            setItem: function(k, v) { mem[k] = String(v); },
+            removeItem: function(k) { delete mem[k]; },
+            clear: function() { mem = {}; },
+            get length() { return Object.keys(mem).length; },
+            key: function(i) { return Object.keys(mem)[i] || null; }
+          };
+          try {
+            Object.defineProperty(window, 'localStorage', { value: safeMock, configurable: true, writable: true });
+          } catch(err) {
+            window.localStorage = safeMock;
+          }
+          try {
+            Object.defineProperty(window, 'sessionStorage', { value: safeMock, configurable: true, writable: true });
+          } catch(err) {
+            window.sessionStorage = safeMock;
+          }
+        }
+      })();
+
+      // 3. Safe History API Polyfill for Opera sandboxed iframes
+      (function() {
+        try {
+          var originalPushState = window.history.pushState;
+          var originalReplaceState = window.history.replaceState;
+          window.history.pushState = function(state, title, url) {
+            try {
+              return originalPushState.apply(window.history, arguments);
+            } catch (e) {
+              console.warn('[DBV Tudo] history.pushState suppressed:', e);
+            }
+          };
+          window.history.replaceState = function(state, title, url) {
+            try {
+              return originalReplaceState.apply(window.history, arguments);
+            } catch (e) {
+              console.warn('[DBV Tudo] history.replaceState suppressed:', e);
+            }
+          };
+        } catch(e) {}
+      })();
+
+      // 4. Safe Service Worker and Cache cleanup
+      try {
+        if ('serviceWorker' in navigator && navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+          navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            for (var i = 0; i < registrations.length; i++) {
+              registrations[i].unregister().catch(function(){});
+            }
+          }).catch(function(){});
+        }
+        if ('caches' in window && window.caches && window.caches.keys) {
+          window.caches.keys().then(function(names) {
+            for (var j = 0; j < names.length; j++) {
+              window.caches.delete(names[j]).catch(function(){});
+            }
+          }).catch(function(){});
+        }
+      } catch(e) {}
+    </script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -43,20 +119,6 @@
         }
         .animate-bounce-in { animation: bounceIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
     </style>
-<script type="importmap">
-{
-  "imports": {
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "react": "https://esm.sh/react@^19.2.4",
-    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
-    "jspdf": "https://esm.sh/jspdf@^2.5.1",
-    "@google/genai": "https://esm.sh/@google/genai@^1.41.0",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.95.3"
-  }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
 </head>
 <body>
     <div id="root"></div>
