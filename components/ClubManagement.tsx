@@ -23,6 +23,13 @@ import {
 } from 'lucide-react';
 
 
+const getImageUrl = (url: string | undefined) => {
+  if (!url) return '';
+  if (url.startsWith('//')) return `https:${url}`;
+  if (url.startsWith('/')) return `https://mda.wiki.br${url}`;
+  return url;
+};
+
 interface CultureAdminProps {
   culturaData: Cultura | null;
   club: ClubType;
@@ -1034,6 +1041,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   const [newLink, setNewLink] = useState({ name: '', url: '' });
   const [selectedWebUrl, setSelectedWebUrl] = useState<string | null>(null);
   const [webTitle, setWebTitle] = useState('');
+  const [selectedCultureDetail, setSelectedCultureDetail] = useState<CulturaItem | null>(null);
 
   const isPathfinder = club === ClubType.PATHFINDER;
   const themeColor = isPathfinder ? '#dc371b' : '#800000';
@@ -2205,7 +2213,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
   const renderCulturaItem = (item: CulturaItem, depth = 0, index = 0) => {
     const isExpanded = activeAccordions.includes(item.id);
-    
+
     const toggleAccordion = (id: string) => {
       setActiveAccordions(prev => 
         prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
@@ -2214,52 +2222,52 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
     // Se for um sub-item (profundidade > 0), renderizamos como um bloco de conteúdo com wrap
     if (depth > 0) {
-      const isImageLeft = index % 2 === 0;
-      
       return (
-        <div key={item.id} className="py-10 first:pt-4 last:pb-4 border-b border-slate-50 last:border-0 overflow-hidden">
-          <h5 className="text-base font-black text-slate-800 uppercase tracking-tight mb-6 text-center">
+        <div key={item.id} className="py-8 first:pt-2 last:pb-2 border-b border-slate-50 last:border-0 overflow-hidden">
+          <h5 className="text-sm font-black text-slate-800 uppercase tracking-tight mb-4 text-left">
             {item.titulo}
           </h5>
           
           <div className="relative">
             {item.blocks && item.blocks.length > 0 ? (
-              <div className="space-y-4">
-                {item.blocks.map((block) => (
-                  <div key={block.id}>
-                    {block.type === 'text' ? (
-                      <div className="text-slate-600 text-sm leading-relaxed font-medium whitespace-pre-wrap">
-                        {block.content}
-                      </div>
-                    ) : (
-                      <div className="w-full max-w-sm mx-auto my-4 overflow-hidden border border-slate-100 shadow-sm bg-slate-50 rounded-2xl">
-                        <img 
-                          src={block.content} 
-                          alt="" 
-                          className="w-full h-auto object-contain"
-                          referrerPolicy="no-referrer"
-                        />
-                      </div>
-                    )}
+              <div className="flex flex-col items-start space-y-4">
+                {/* Primeiro renderizamos todas as imagens centradas abaixo do título */}
+                {item.blocks.filter(b => b.type === 'image').map((block) => (
+                  <div key={block.id} className="group relative w-full aspect-video sm:aspect-square overflow-hidden border border-slate-100 shadow-sm bg-slate-50 rounded-xl">
+                    <img 
+                      src={getImageUrl(block.content)} 
+                      alt="" 
+                      className="w-full h-full object-contain p-1"
+                      referrerPolicy="no-referrer"
+                    />
                   </div>
                 ))}
+                
+                {/* Depois renderizamos todo o texto informativo */}
+                <div className="w-full space-y-3">
+                  {item.blocks.filter(b => b.type === 'text').map((block) => (
+                    <div key={block.id} className="text-slate-600 text-[13px] leading-relaxed font-medium whitespace-pre-wrap text-left px-1">
+                      {block.content}
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : (
-              <>
+              <div className="flex flex-col items-start">
                 {item.imagem && (
-                  <div className={`w-32 sm:w-40 mb-4 overflow-hidden border border-slate-100 shadow-sm bg-slate-50 ${isImageLeft ? 'float-left mr-6' : 'float-right ml-6'}`}>
+                  <div className="w-full h-40 mb-4 overflow-hidden border border-slate-100 shadow-sm bg-slate-50 rounded-xl">
                     <img 
-                      src={item.imagem} 
+                      src={getImageUrl(item.imagem)} 
                       alt={item.titulo} 
-                      className="w-full h-auto object-contain"
+                      className="w-full h-full object-contain p-1"
                       referrerPolicy="no-referrer"
                     />
                   </div>
                 )}
                 
-                <div className="text-slate-600 text-sm leading-relaxed font-medium">
+                <div className="text-slate-600 text-[13px] leading-relaxed font-medium text-left px-1">
                   {item.subtitulo && (
-                    <span className="inline-block text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-2 block">
+                    <span className="inline-block text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1 block">
                       {item.subtitulo}
                     </span>
                   )}
@@ -2267,13 +2275,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                     {item.descricao}
                   </div>
                 </div>
-              </>
+              </div>
             )}
-            <div className="clear-both" />
           </div>
 
           {item.subitems && item.subitems.length > 0 && (
-            <div className="mt-8 pl-6 border-l-2 border-slate-100 space-y-6">
+            <div className="mt-6 pl-4 border-l-2 border-slate-100 space-y-6">
               {item.subitems.map((sub, i) => renderCulturaItem(sub, depth + 1, i))}
             </div>
           )}
@@ -2309,7 +2316,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         </button>
         
         {isExpanded && (
-          <div className="px-8 pb-8 bg-white border-t border-slate-50 animate-slide-down">
+          <div className="px-4 pb-6 bg-white border-t border-slate-50 animate-slide-down">
             <div className="space-y-6">
               {/* Título interno (ex: Emblema D1) em destaque */}
               {item.subtitulo && (
@@ -2321,50 +2328,51 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 </div>
               )}
 
-              {/* Conteúdo Principal do Card (Imagem pequena e Texto contornando) */}
-              <div className="relative mt-6">
+              {/* Conteúdo Principal do Card (Imagem Centralizada abaixo do Título) */}
+              <div className="relative mt-8 flex flex-col items-center">
                 {item.blocks && item.blocks.length > 0 ? (
-                  <div className="space-y-4">
-                    {item.blocks.map((block) => (
-                      <div key={block.id}>
-                        {block.type === 'text' ? (
-                          <div className="text-slate-600 text-sm leading-relaxed font-medium whitespace-pre-wrap">
-                            {block.content}
-                          </div>
-                        ) : (
-                          <div className="w-full max-w-sm mx-auto my-4 overflow-hidden border border-slate-100 shadow-sm bg-slate-50 rounded-2xl">
-                            <img 
-                              src={block.content} 
-                              alt="" 
-                              className="w-full h-auto object-contain"
-                              referrerPolicy="no-referrer"
-                            />
-                          </div>
-                        )}
+                  <div className="flex flex-col items-center w-full space-y-6">
+                    {/* Imagens Primeiro */}
+                    {item.blocks.filter(b => b.type === 'image').map((block) => (
+                      <div key={block.id} className="group relative w-32 h-32 sm:w-40 sm:h-40 overflow-hidden border border-slate-100 shadow-sm bg-slate-50 rounded-3xl p-3">
+                        <img 
+                          src={getImageUrl(block.content)} 
+                          alt="" 
+                          className="w-full h-full object-contain"
+                          referrerPolicy="no-referrer"
+                        />
                       </div>
                     ))}
+                    
+                    {/* Texto Depois */}
+                    <div className="w-full space-y-4">
+                      {item.blocks.filter(b => b.type === 'text').map((block) => (
+                        <div key={block.id} className="text-slate-600 text-sm leading-relaxed font-medium whitespace-pre-wrap text-left">
+                          {block.content}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ) : (
-                  <>
+                  <div className="flex flex-col items-center w-full">
                     {item.imagem && (
-                      <div className="w-32 sm:w-40 mb-4 overflow-hidden border border-slate-100 shadow-sm bg-slate-50 float-left mr-6">
+                      <div className="w-32 h-32 sm:w-40 sm:h-40 mb-6 overflow-hidden border border-slate-100 shadow-sm bg-slate-50 rounded-3xl p-3">
                         <img 
-                          src={item.imagem} 
+                          src={getImageUrl(item.imagem)} 
                           alt={item.titulo} 
-                          className="w-full h-auto object-contain"
+                          className="w-full h-full object-contain"
                           referrerPolicy="no-referrer"
                         />
                       </div>
                     )}
                     
                     {item.descricao && (
-                      <div className="text-slate-600 text-sm leading-relaxed font-medium whitespace-pre-wrap">
+                      <div className="text-slate-600 text-sm leading-relaxed font-medium whitespace-pre-wrap text-center">
                         {item.descricao}
                       </div>
                     )}
-                  </>
+                  </div>
                 )}
-                <div className="clear-both" />
               </div>
               
               {item.subitems && item.subitems.length > 0 && (
@@ -5393,6 +5401,123 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             >
               AVT
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Detalhes da Cultura */}
+      {selectedCultureDetail && (
+        <div 
+          className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-fade-in pointer-events-auto"
+          onClick={() => setSelectedCultureDetail(null)}
+        >
+          <div 
+            className="bg-white rounded-[40px] w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col shadow-2xl animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-slate-50 flex items-center justify-between">
+              <div className="flex-1 min-w-0 pr-4">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Detalhes do Item</h4>
+                <h3 className="text-base font-black text-slate-800 uppercase tracking-tight truncate">
+                  {selectedCultureDetail.titulo}
+                </h3>
+              </div>
+              <button 
+                onClick={() => setSelectedCultureDetail(null)}
+                className="w-10 h-10 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 active:scale-90 flex-shrink-0"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-8 overflow-y-auto scrollbar-hide flex-grow">
+              <div className="space-y-8">
+                {/* Blocos do item principal */}
+                {selectedCultureDetail.blocks && selectedCultureDetail.blocks.length > 0 ? (
+                  <div className="flex flex-col items-center space-y-8">
+                    {/* Imagens Centradas no Topo */}
+                    {selectedCultureDetail.blocks.filter(b => b.type === 'image').map((block) => (
+                      <div key={block.id} className="relative group w-32 h-32 sm:w-48 sm:h-48 overflow-hidden border border-slate-100 shadow-sm bg-slate-50 rounded-[40px] p-4">
+                        <img 
+                          src={getImageUrl(block.content)} 
+                          alt="" 
+                          className="w-full h-full object-contain"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    ))}
+                    
+                    {/* Textos Informativos */}
+                    <div className="w-full space-y-6">
+                      {selectedCultureDetail.blocks.filter(b => b.type === 'text').map((block) => (
+                        <div key={block.id} className="text-slate-600 font-medium text-sm leading-relaxed whitespace-pre-wrap">
+                          {block.content}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center space-y-6">
+                    {selectedCultureDetail.imagem && (
+                      <div className="w-32 h-32 sm:w-40 sm:h-40 bg-slate-50 rounded-[40px] p-6 border border-slate-100 shadow-sm">
+                        <img 
+                          src={getImageUrl(selectedCultureDetail.imagem)} 
+                          className="w-full h-full object-contain" 
+                          alt="" 
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    )}
+                    
+                    <div className="text-slate-600 font-medium text-sm leading-relaxed whitespace-pre-wrap w-full">
+                      {selectedCultureDetail.descricao}
+                    </div>
+                  </div>
+                )}
+
+                {/* Subitens no Modal: Renderização Completa com Títulos e Blocos */}
+                {selectedCultureDetail.subitems && selectedCultureDetail.subitems.length > 0 && (
+                  <div className="mt-10 pt-10 border-t border-slate-100 space-y-12">
+                    {selectedCultureDetail.subitems.map((sub: any) => (
+                      <div key={sub.id} className="space-y-5">
+                        <h5 className="text-[11px] font-black text-indigo-600 uppercase tracking-widest flex items-center">
+                          <span className="w-2 h-0.5 bg-indigo-600 rounded-full mr-3" />
+                          {sub.titulo}
+                        </h5>
+                        
+                        {sub.blocks && sub.blocks.length > 0 ? (
+                          <div className="space-y-6 pl-5 border-l-2 border-indigo-50/50">
+                            {/* Imagens do Subitem Primeiro */}
+                            {sub.blocks.filter((b: any) => b.type === 'image').map((block: any) => (
+                              <div key={block.id} className="relative group w-24 h-24 sm:w-32 sm:h-32 my-6 overflow-hidden border border-slate-100 shadow-sm bg-slate-50 rounded-[24px] p-3">
+                                <img 
+                                  src={getImageUrl(block.content)} 
+                                  alt="" 
+                                  className="w-full h-full object-contain"
+                                  referrerPolicy="no-referrer"
+                                />
+                              </div>
+                            ))}
+                            
+                            {/* Texto do Subitem Depois */}
+                            <div className="space-y-4">
+                              {sub.blocks.filter((b: any) => b.type === 'text').map((block: any) => (
+                                <div key={block.id} className="text-slate-500 text-sm leading-relaxed whitespace-pre-wrap font-medium">
+                                  {block.content}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-slate-500 text-center text-sm leading-relaxed px-4 italic border-l-2 border-indigo-50/50">
+                            {sub.descricao || 'Sem conteúdo adicional.'}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
