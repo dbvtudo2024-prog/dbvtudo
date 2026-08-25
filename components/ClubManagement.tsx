@@ -23,11 +23,18 @@ import {
 } from 'lucide-react';
 
 
-const getImageUrl = (url: string | undefined) => {
-  if (!url) return '';
-  if (url.startsWith('//')) return `https:${url}`;
-  if (url.startsWith('/')) return `https://mda.wiki.br${url}`;
-  return url;
+const getImageUrl = (url: string | undefined | null) => {
+  if (!url || typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  if (trimmed.startsWith('//')) return `https:${trimmed}`;
+  if (trimmed.startsWith('/')) return `https://mda.wiki.br${trimmed}`;
+  if (trimmed.includes('drive.google.com')) {
+    const match = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || trimmed.match(/id=([a-zA-Z0-9_-]+)/);
+    if (match && match[1]) {
+      return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+    }
+  }
+  return trimmed;
 };
 
 interface CultureAdminProps {
@@ -38,6 +45,18 @@ interface CultureAdminProps {
   setActiveSubView: (view: any) => void;
   initialTab?: 'IDEALS' | 'ANTHEM' | 'HISTORY' | 'UNIFORMS' | 'EMBLEMS';
 }
+
+const normalizeCulturaList = (val: any): CulturaItem[] => {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string') {
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {}
+  }
+  return [];
+};
 
 const CultureAdmin: React.FC<CultureAdminProps> = ({ 
   culturaData, 
@@ -75,8 +94,8 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
     historia_equador: culturaData?.historia_equador || '',
     historia_peru: culturaData?.historia_peru || '',
     historia_uruguai: culturaData?.historia_uruguai || '',
-    uniformes_list: culturaData?.uniformes_list || [] as CulturaItem[],
-    emblemas_list: culturaData?.emblemas_list || [] as CulturaItem[]
+    uniformes_list: normalizeCulturaList(culturaData?.uniformes_list),
+    emblemas_list: normalizeCulturaList(culturaData?.emblemas_list)
   });
   const [isSaving, setIsSaving] = useState(false);
   const [newItem, setNewItem] = useState<Partial<CulturaItem>>({
@@ -117,8 +136,8 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
       historia_equador: culturaData?.historia_equador || '',
       historia_peru: culturaData?.historia_peru || '',
       historia_uruguai: culturaData?.historia_uruguai || '',
-      uniformes_list: culturaData?.uniformes_list || [] as CulturaItem[],
-      emblemas_list: culturaData?.emblemas_list || [] as CulturaItem[]
+      uniformes_list: normalizeCulturaList(culturaData?.uniformes_list),
+      emblemas_list: normalizeCulturaList(culturaData?.emblemas_list)
     });
   }, [culturaData]);
 
@@ -131,10 +150,12 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
     reader.readAsDataURL(file);
   };
 
-  const findItemTitle = (items: CulturaItem[], id: string): string | null => {
+  const findItemTitle = (items: CulturaItem[] | undefined | null, id: string | undefined): string | null => {
+    if (!Array.isArray(items) || !id) return null;
     for (const item of items) {
-      if (item.id === id) return item.titulo;
-      if (item.subitems && item.subitems.length > 0) {
+      if (!item) continue;
+      if (item.id === id) return item.titulo || 'Item sem título';
+      if (Array.isArray(item.subitems) && item.subitems.length > 0) {
         const found = findItemTitle(item.subitems, id);
         if (found) return found;
       }
@@ -142,34 +163,35 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
     return null;
   };
 
-  const renderAdminItemList = (items: CulturaItem[], type: 'UNIFORMS' | 'EMBLEMS', depth = 0) => {
-    return items.map((item) => (
-      <div key={item.id} className="space-y-2">
-        <div className={`flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl shadow-sm transition-all hover:border-indigo-200 ${depth > 0 ? 'ml-8' : ''}`}>
+  const renderAdminItemList = (items: CulturaItem[] | undefined | null, type: 'UNIFORMS' | 'EMBLEMS', depth = 0) => {
+    if (!Array.isArray(items)) return null;
+    return items.filter(Boolean).map((item) => (
+      <div key={item.id || Math.random().toString()} className="space-y-2">
+        <div className={`flex items-center justify-between p-4 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl shadow-sm transition-all hover:border-indigo-200 ${depth > 0 ? 'ml-8' : ''}`}>
           <div className="flex items-center space-x-4">
             <div className="relative">
               {item.imagem ? (
-                <img src={item.imagem} alt={item.titulo} className="w-12 h-12 rounded-xl object-cover border border-slate-100" referrerPolicy="no-referrer" />
+                <img src={item.imagem} alt={item.titulo || 'Item'} className="w-12 h-12 rounded-xl object-cover border border-slate-100 dark:border-slate-700" referrerPolicy="no-referrer" />
               ) : (
-                <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-slate-300 border border-slate-100">
+                <div className="w-12 h-12 bg-slate-50 dark:bg-slate-700 rounded-xl flex items-center justify-center text-slate-300 dark:text-slate-500 border border-slate-100 dark:border-slate-700">
                   <ImageIcon size={20} />
                 </div>
               )}
-              <div className="absolute -top-1 -right-1 w-5 h-5 bg-indigo-600 rounded-full flex items-center justify-center text-[10px] text-white font-bold border-2 border-white">
+              <div className="absolute -top-1 -right-1 w-5 h-5 bg-indigo-600 rounded-full flex items-center justify-center text-[10px] text-white font-bold border-2 border-white dark:border-slate-800">
                 {depth + 1}
               </div>
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-2">
-                <p className="text-sm font-black text-slate-800 uppercase tracking-tight truncate">{item.titulo}</p>
+                <p className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight truncate">{item.titulo || 'Sem título'}</p>
                 {item.club && (
-                  <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-tighter ${item.club === ClubType.PATHFINDER ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                  <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-tighter ${item.club === ClubType.PATHFINDER ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300'}`}>
                     {item.club === ClubType.PATHFINDER ? 'DBV' : 'AVT'}
                   </span>
                 )}
               </div>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight truncate">
-                {item.subitems?.length || 0} sub-itens • {item.descricao.substring(0, 30)}...
+              <p className="text-[10px] text-slate-400 dark:text-slate-400 font-bold uppercase tracking-tight truncate">
+                {item.subitems?.length || 0} sub-itens • {((item.descricao || '').length > 30 ? (item.descricao || '').substring(0, 30) + '...' : (item.descricao || 'Sem descrição'))}
               </p>
             </div>
           </div>
@@ -179,20 +201,20 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                 setNewItem({ ...newItem, parentId: item.id });
                 document.getElementById('admin-item-form')?.scrollIntoView({ behavior: 'smooth' });
               }}
-              className="p-2.5 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all active:scale-90"
+              className="p-2.5 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-slate-700 rounded-xl transition-all active:scale-90"
               title="Adicionar Sub-item"
             >
               <Plus size={20} />
             </button>
             <button 
               onClick={() => removeItem(type, item.id)}
-              className="p-2.5 text-red-500 hover:bg-red-50 rounded-xl transition-all active:scale-90"
+              className="p-2.5 text-red-500 hover:bg-red-50 dark:hover:bg-slate-700 rounded-xl transition-all active:scale-90"
             >
               <Trash2 size={20} />
             </button>
           </div>
         </div>
-        {item.subitems && item.subitems.length > 0 && (
+        {Array.isArray(item.subitems) && item.subitems.length > 0 && (
           <div className="space-y-2">
             {renderAdminItemList(item.subitems, type, depth + 1)}
           </div>
@@ -411,8 +433,8 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
             onClick={() => setActiveTab(tab.id as any)}
             className={`flex items-center space-x-2 px-5 py-3 rounded-2xl whitespace-nowrap font-black text-xs uppercase tracking-widest transition-all ${
               activeTab === tab.id 
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
-                : 'bg-white text-slate-400 border border-slate-100'
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' 
+                : 'bg-white dark:bg-slate-800 text-slate-400 dark:text-slate-300 border border-slate-100 dark:border-slate-700'
             }`}
           >
             {tab.icon}
@@ -421,7 +443,7 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
         ))}
       </div>
 
-      <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 space-y-6">
+      <div className="bg-white dark:bg-slate-800 rounded-[32px] p-6 shadow-sm border border-slate-100 dark:border-slate-700 space-y-6">
         <div className="grid grid-cols-1 gap-6">
           {activeTab === 'IDEALS' && (
             <div className="space-y-6">
@@ -434,12 +456,12 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                 { id: 'voto_biblia', label: 'Voto à Bíblia' }
               ].map((field) => (
                 <div key={field.id} className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{field.label}</label>
+                  <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1">{field.label}</label>
                   <textarea 
-                    value={(localCultura as any)[field.id]}
+                    value={(localCultura as any)[field.id] || ''}
                     onChange={(e) => setLocalCultura({...localCultura, [field.id]: e.target.value})}
                     placeholder={`Digite o ${field.label.toLowerCase()}...`}
-                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[100px]"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 text-sm text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 min-h-[100px]"
                   />
                 </div>
               ))}
@@ -449,22 +471,22 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
           {activeTab === 'ANTHEM' && (
             <div className="space-y-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Letra do Hino</label>
+                <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1">Letra do Hino</label>
                 <textarea 
-                  value={localCultura.hino_letra}
+                  value={localCultura.hino_letra || ''}
                   onChange={(e) => setLocalCultura({...localCultura, hino_letra: e.target.value})}
                   placeholder="Digite a letra do hino..."
-                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[200px]"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 text-sm text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 min-h-[200px]"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Link do Vídeo (YouTube ou Supabase)</label>
+                <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1">Link do Vídeo (YouTube ou Supabase)</label>
                 <input 
-                  type="text"
-                  value={localCultura.hino_video}
+                  type="text" 
+                  value={localCultura.hino_video || ''}
                   onChange={(e) => setLocalCultura({...localCultura, hino_video: e.target.value})}
                   placeholder="Link do YouTube ou Supabase Storage"
-                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 text-sm text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>
             </div>
@@ -484,18 +506,18 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                 { id: 'historia_peru', label: 'História Peru' },
                 { id: 'historia_uruguai', label: 'História Uruguai' }
               ].map((field) => (
-                <div key={field.id} className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-4">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{field.label}</label>
+                <div key={field.id} className="bg-slate-50 dark:bg-slate-900/60 p-6 rounded-3xl border border-slate-100 dark:border-slate-700/60 space-y-4">
+                  <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1">{field.label}</label>
                   
                   <textarea 
-                    value={(localCultura as any)[field.id]}
+                    value={(localCultura as any)[field.id] || ''}
                     onChange={(e) => setLocalCultura({...localCultura, [field.id]: e.target.value})}
                     placeholder={`Digite a ${field.label.toLowerCase()}...`}
-                    className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-h-[150px] shadow-sm"
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 min-h-[150px] shadow-sm"
                   />
 
-                  <div className="flex items-center space-x-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                    <div className="relative w-24 h-24 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl overflow-hidden flex items-center justify-center group cursor-pointer shrink-0">
+                  <div className="flex items-center space-x-4 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                    <div className="relative w-24 h-24 bg-slate-50 dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden flex items-center justify-center group cursor-pointer shrink-0">
                       {(localCultura as any)[`${field.id}_img`] ? (
                         <>
                           <img 
@@ -510,8 +532,8 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                         </>
                       ) : (
                         <div className="text-center p-2">
-                          <Plus className="text-slate-300 group-hover:text-indigo-500 transition-colors mx-auto mb-1" size={24} />
-                          <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Adicionar<br/>Imagem</p>
+                          <Plus className="text-slate-300 dark:text-slate-500 group-hover:text-indigo-500 transition-colors mx-auto mb-1" size={24} />
+                          <p className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter">Adicionar<br/>Imagem</p>
                         </div>
                       )}
                       <input 
@@ -525,12 +547,12 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                       />
                     </div>
                     <div className="flex-1">
-                      <p className="text-[10px] font-black text-slate-700 uppercase tracking-tight">Imagem da {field.label}</p>
-                      <p className="text-[9px] text-slate-400 font-medium leading-tight">Escolha uma imagem representativa para ser exibida nos detalhes da história.</p>
+                      <p className="text-[10px] font-black text-slate-700 dark:text-white uppercase tracking-tight">Imagem da {field.label}</p>
+                      <p className="text-[9px] text-slate-400 dark:text-slate-400 font-medium leading-tight">Escolha uma imagem representativa para ser exibida nos detalhes da história.</p>
                       {(localCultura as any)[`${field.id}_img`] && (
                         <button 
                           onClick={() => setLocalCultura(prev => ({ ...prev, [`${field.id}_img`]: '' }))}
-                          className="text-[9px] text-red-500 font-black uppercase mt-2 active:scale-95 transition-all"
+                          className="text-[9px] text-red-500 hover:text-red-600 font-black uppercase mt-2 active:scale-95 transition-all"
                         >
                           Remover Imagem
                         </button>
@@ -545,9 +567,9 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
           {activeTab === 'UNIFORMS' && (
             <div className="space-y-8">
               {/* Templates Suggestions */}
-              <div className="bg-amber-50 rounded-3xl p-6 border border-amber-100 space-y-4">
+              <div className="bg-amber-50 dark:bg-amber-950/30 rounded-3xl p-6 border border-amber-100 dark:border-amber-900/50 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-[10px] font-black text-amber-700 uppercase tracking-widest flex items-center space-x-2">
+                  <h4 className="text-[10px] font-black text-amber-700 dark:text-amber-300 uppercase tracking-widest flex items-center space-x-2">
                     <Zap size={14} />
                     <span>Sugestões de Uniformes</span>
                   </h4>
@@ -557,7 +579,7 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                     <button 
                       key={template}
                       onClick={() => addTemplateItem('UNIFORMS', template)}
-                      className="bg-white border border-amber-200 px-3 py-2 rounded-xl text-[10px] font-bold text-amber-700 hover:bg-amber-100 transition-colors shadow-sm"
+                      className="bg-white dark:bg-slate-800 border border-amber-200 dark:border-amber-800/80 px-3 py-2 rounded-xl text-[10px] font-bold text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors shadow-sm"
                     >
                       + {template}
                     </button>
@@ -566,18 +588,18 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
               </div>
 
               {/* Form to add new item */}
-              <div id="admin-item-form" className="bg-slate-50 rounded-3xl p-6 border border-slate-100 space-y-4">
-                <h4 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center space-x-2">
-                  <Plus size={16} className="text-indigo-600" />
+              <div id="admin-item-form" className="bg-slate-50 dark:bg-slate-900/60 rounded-3xl p-6 border border-slate-100 dark:border-slate-700/60 space-y-4">
+                <h4 className="text-xs font-black text-slate-700 dark:text-white uppercase tracking-widest flex items-center space-x-2">
+                  <Plus size={16} className="text-indigo-600 dark:text-indigo-400" />
                   <span>{newItem.parentId ? 'Adicionar Sub-item de Uniforme' : 'Adicionar Novo Item de Uniforme'}</span>
                 </h4>
 
                 {newItem.parentId && (
-                  <div className="bg-indigo-50 p-3 rounded-xl flex items-center justify-between">
-                    <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">
-                      Pai: {findItemTitle(localCultura.uniformes_list, newItem.parentId)}
+                  <div className="bg-indigo-50 dark:bg-indigo-950/50 p-3 rounded-xl flex items-center justify-between">
+                    <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-300 uppercase tracking-widest">
+                      Pai: {findItemTitle(localCultura.uniformes_list, newItem.parentId) || 'Item selecionado'}
                     </span>
-                    <button onClick={() => setNewItem({ ...newItem, parentId: undefined })} className="text-indigo-400 hover:text-indigo-600">
+                    <button onClick={() => setNewItem({ ...newItem, parentId: undefined })} className="text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-200">
                       <X size={14} />
                     </button>
                   </div>
@@ -585,19 +607,19 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                 
                 <div className="grid grid-cols-1 gap-5">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Destino do Conteúdo</label>
-                    <div className="flex p-1 bg-slate-100 rounded-2xl">
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1">Destino do Conteúdo</label>
+                    <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl">
                       <button 
                         disabled={!!newItem.parentId}
                         onClick={() => setNewItem({...newItem, club: ClubType.PATHFINDER})}
-                        className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all ${newItem.club === ClubType.PATHFINDER ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'} ${newItem.parentId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all ${newItem.club === ClubType.PATHFINDER ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm' : 'text-slate-400 dark:text-slate-400'} ${newItem.parentId ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
                         Desbravadores
                       </button>
                       <button 
                         disabled={!!newItem.parentId}
                         onClick={() => setNewItem({...newItem, club: ClubType.ADVENTURER})}
-                        className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all ${newItem.club === ClubType.ADVENTURER ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'} ${newItem.parentId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all ${newItem.club === ClubType.ADVENTURER ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm' : 'text-slate-400 dark:text-slate-400'} ${newItem.parentId ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
                         Aventureiros
                       </button>
@@ -606,33 +628,33 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Título do Item</label>
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1">Título do Item</label>
                     <input 
                       type="text"
-                      value={newItem.titulo}
+                      value={newItem.titulo || ''}
                       onChange={(e) => setNewItem({...newItem, titulo: e.target.value})}
                       placeholder="Ex: Uniforme de Gala"
-                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
+                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Subtítulo ou Contexto (Opcional)</label>
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1">Subtítulo ou Contexto (Opcional)</label>
                     <input 
                       type="text"
-                      value={newItem.subtitulo}
+                      value={newItem.subtitulo || ''}
                       onChange={(e) => setNewItem({...newItem, subtitulo: e.target.value})}
                       placeholder="Ex: Admissão em Lenço"
-                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
+                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                     />
                   </div>
-                  <div className="space-y-4 border-2 border-indigo-50 p-4 rounded-3xl bg-indigo-50/30">
+                  <div className="space-y-4 border-2 border-indigo-50 dark:border-indigo-950/60 p-4 rounded-3xl bg-indigo-50/30 dark:bg-indigo-950/20">
                     <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Construtor de Conteúdo (Texto e Imagem)</label>
                     
                     {/* Lista de Blocos Atuais */}
                     <div className="space-y-3">
                       {newItem.blocks && newItem.blocks.length > 0 ? (
                         newItem.blocks.map((block, idx) => (
-                          <div key={block.id} className="relative group bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+                          <div key={block.id} className="relative group bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
                             <button 
                               onClick={() => removeBlock(block.id)}
                               className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
@@ -640,13 +662,13 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                               <X size={12} />
                             </button>
                             <div className="flex items-center space-x-3">
-                              <div className="w-6 h-6 bg-slate-100 rounded-lg flex items-center justify-center text-[10px] font-black text-slate-400 shrink-0">
+                              <div className="w-6 h-6 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center text-[10px] font-black text-slate-400 dark:text-slate-300 shrink-0">
                                 {idx + 1}
                               </div>
                               {block.type === 'text' ? (
-                                <p className="text-xs text-slate-600 line-clamp-2">{block.content}</p>
+                                <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2">{block.content}</p>
                               ) : (
-                                <img src={block.content} alt="" className="w-12 h-12 rounded-lg object-cover" />
+                                <img src={block.content} alt="" className="w-12 h-12 rounded-lg object-cover" referrerPolicy="no-referrer" />
                               )}
                             </div>
                           </div>
@@ -657,17 +679,17 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                     </div>
 
                     {/* Controles para Adicionar */}
-                    <div className="space-y-3 pt-4 border-t border-indigo-100">
+                    <div className="space-y-3 pt-4 border-t border-indigo-100 dark:border-indigo-900/50">
                       <div className="flex space-x-2">
                         <textarea 
                           value={currentBlockContent}
                           onChange={(e) => setCurrentBlockContent(e.target.value)}
                           placeholder="Digite um bloco de texto..."
-                          className="flex-1 bg-white border border-slate-200 rounded-2xl p-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm min-h-[60px]"
+                          className="flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 text-xs text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm min-h-[60px]"
                         />
                         <button 
                           onClick={() => addBlock('text', currentBlockContent)}
-                          className="px-4 bg-indigo-100 text-indigo-600 rounded-2xl font-black text-[10px] uppercase tracking-tighter hover:bg-indigo-200 transition-all shrink-0"
+                          className="px-4 bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300 rounded-2xl font-black text-[10px] uppercase tracking-tighter hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-all shrink-0"
                         >
                           + Texto
                         </button>
@@ -683,7 +705,7 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                           }}
                           className="absolute inset-0 opacity-0 cursor-pointer z-10"
                         />
-                        <div className="w-full py-3 bg-white border-2 border-dashed border-indigo-200 rounded-2xl flex items-center justify-center space-x-2 text-indigo-400 group-hover:border-indigo-400 transition-all">
+                        <div className="w-full py-3 bg-white dark:bg-slate-800 border-2 border-dashed border-indigo-200 dark:border-indigo-800 rounded-2xl flex items-center justify-center space-x-2 text-indigo-400 group-hover:border-indigo-400 transition-all">
                           <ImageIcon size={16} />
                           <span className="text-[10px] font-black uppercase tracking-widest">Adicionar Imagem</span>
                         </div>
@@ -704,8 +726,8 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
               {/* List of added items */}
               <div className="space-y-4">
                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Itens Adicionados</h4>
-                {localCultura.uniformes_list.length === 0 ? (
-                  <p className="text-center py-8 text-slate-300 italic text-xs">Nenhum item adicionado ainda.</p>
+                {(!Array.isArray(localCultura.uniformes_list) || localCultura.uniformes_list.length === 0) ? (
+                  <p className="text-center py-8 text-slate-300 dark:text-slate-600 italic text-xs">Nenhum item adicionado ainda.</p>
                 ) : (
                   <div className="space-y-3">
                     {renderAdminItemList(localCultura.uniformes_list, 'UNIFORMS')}
@@ -718,9 +740,9 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
           {activeTab === 'EMBLEMS' && (
             <div className="space-y-8">
               {/* Templates Suggestions */}
-              <div className="bg-red-50 rounded-3xl p-6 border border-red-100 space-y-4">
+              <div className="bg-red-50 dark:bg-red-950/30 rounded-3xl p-6 border border-red-100 dark:border-red-900/50 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-[10px] font-black text-red-700 uppercase tracking-widest flex items-center space-x-2">
+                  <h4 className="text-[10px] font-black text-red-700 dark:text-red-300 uppercase tracking-widest flex items-center space-x-2">
                     <Zap size={14} />
                     <span>Sugestões de Emblemas</span>
                   </h4>
@@ -730,7 +752,7 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                     <button 
                       key={template}
                       onClick={() => addTemplateItem('EMBLEMS', template)}
-                      className="bg-white border border-red-200 px-3 py-2 rounded-xl text-[10px] font-bold text-red-700 hover:bg-red-100 transition-colors shadow-sm"
+                      className="bg-white dark:bg-slate-800 border border-red-200 dark:border-red-800/80 px-3 py-2 rounded-xl text-[10px] font-bold text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors shadow-sm"
                     >
                       + {template}
                     </button>
@@ -739,18 +761,18 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
               </div>
 
               {/* Form to add new item */}
-              <div id="admin-item-form" className="bg-slate-50 rounded-3xl p-6 border border-slate-100 space-y-4">
-                <h4 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center space-x-2">
-                  <Plus size={16} className="text-indigo-600" />
-                  <span>{newItem.parentId ? 'Adicionar Sub-emblema' : 'Adicionar Novo Emblema'}</span>
+              <div id="admin-item-form" className="bg-slate-50 dark:bg-slate-900/60 rounded-3xl p-6 border border-slate-100 dark:border-slate-700/60 space-y-4">
+                <h4 className="text-xs font-black text-slate-700 dark:text-white uppercase tracking-widest flex items-center space-x-2">
+                  <Plus size={16} className="text-indigo-600 dark:text-indigo-400" />
+                  <span>{newItem.parentId ? 'Adicionar Sub-item de Emblema' : 'Adicionar Novo Item de Emblema'}</span>
                 </h4>
 
                 {newItem.parentId && (
-                  <div className="bg-indigo-50 p-3 rounded-xl flex items-center justify-between">
-                    <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">
-                      Pai: {findItemTitle(localCultura.emblemas_list, newItem.parentId) || findItemTitle(localCultura.uniformes_list, newItem.parentId)}
+                  <div className="bg-indigo-50 dark:bg-indigo-950/50 p-3 rounded-xl flex items-center justify-between">
+                    <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-300 uppercase tracking-widest">
+                      Pai: {findItemTitle(localCultura.emblemas_list, newItem.parentId) || findItemTitle(localCultura.uniformes_list, newItem.parentId) || 'Item selecionado'}
                     </span>
-                    <button onClick={() => setNewItem({ ...newItem, parentId: undefined })} className="text-indigo-400 hover:text-indigo-600">
+                    <button onClick={() => setNewItem({ ...newItem, parentId: undefined })} className="text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-200">
                       <X size={14} />
                     </button>
                   </div>
@@ -758,19 +780,19 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                 
                 <div className="grid grid-cols-1 gap-5">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Destino do Conteúdo</label>
-                    <div className="flex p-1 bg-slate-100 rounded-2xl">
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1">Destino do Conteúdo</label>
+                    <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl">
                       <button 
                         disabled={!!newItem.parentId}
                         onClick={() => setNewItem({...newItem, club: ClubType.PATHFINDER})}
-                        className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all ${newItem.club === ClubType.PATHFINDER ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'} ${newItem.parentId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all ${newItem.club === ClubType.PATHFINDER ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm' : 'text-slate-400 dark:text-slate-400'} ${newItem.parentId ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
                         Desbravadores
                       </button>
                       <button 
                         disabled={!!newItem.parentId}
                         onClick={() => setNewItem({...newItem, club: ClubType.ADVENTURER})}
-                        className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all ${newItem.club === ClubType.ADVENTURER ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'} ${newItem.parentId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all ${newItem.club === ClubType.ADVENTURER ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm' : 'text-slate-400 dark:text-slate-400'} ${newItem.parentId ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
                         Aventureiros
                       </button>
@@ -779,33 +801,33 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Título do Emblema</label>
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1">Título do Emblema</label>
                     <input 
                       type="text"
-                      value={newItem.titulo}
+                      value={newItem.titulo || ''}
                       onChange={(e) => setNewItem({...newItem, titulo: e.target.value})}
                       placeholder="Ex: Emblema D1"
-                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
+                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Subtítulo ou Significado (Opcional)</label>
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1">Subtítulo ou Significado (Opcional)</label>
                     <input 
                       type="text"
-                      value={newItem.subtitulo}
+                      value={newItem.subtitulo || ''}
                       onChange={(e) => setNewItem({...newItem, subtitulo: e.target.value})}
                       placeholder="Ex: Representa o triângulo invertido"
-                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
+                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                     />
                   </div>
-                  <div className="space-y-4 border-2 border-indigo-50 p-4 rounded-3xl bg-indigo-50/30">
+                  <div className="space-y-4 border-2 border-indigo-50 dark:border-indigo-950/60 p-4 rounded-3xl bg-indigo-50/30 dark:bg-indigo-950/20">
                     <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Construtor de Conteúdo (Texto e Imagem)</label>
                     
                     {/* Lista de Blocos Atuais */}
                     <div className="space-y-3">
                       {newItem.blocks && newItem.blocks.length > 0 ? (
                         newItem.blocks.map((block, idx) => (
-                          <div key={block.id} className="relative group bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+                          <div key={block.id} className="relative group bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
                             <button 
                               onClick={() => removeBlock(block.id)}
                               className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
@@ -813,13 +835,13 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                               <X size={12} />
                             </button>
                             <div className="flex items-center space-x-3">
-                              <div className="w-6 h-6 bg-slate-100 rounded-lg flex items-center justify-center text-[10px] font-black text-slate-400 shrink-0">
+                              <div className="w-6 h-6 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center text-[10px] font-black text-slate-400 dark:text-slate-300 shrink-0">
                                 {idx + 1}
                               </div>
                               {block.type === 'text' ? (
-                                <p className="text-xs text-slate-600 line-clamp-2">{block.content}</p>
+                                <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2">{block.content}</p>
                               ) : (
-                                <img src={block.content} alt="" className="w-12 h-12 rounded-lg object-cover" />
+                                <img src={block.content} alt="" className="w-12 h-12 rounded-lg object-cover" referrerPolicy="no-referrer" />
                               )}
                             </div>
                           </div>
@@ -830,17 +852,17 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                     </div>
 
                     {/* Controles para Adicionar */}
-                    <div className="space-y-3 pt-4 border-t border-indigo-100">
+                    <div className="space-y-3 pt-4 border-t border-indigo-100 dark:border-indigo-900/50">
                       <div className="flex space-x-2">
                         <textarea 
                           value={currentBlockContent}
                           onChange={(e) => setCurrentBlockContent(e.target.value)}
                           placeholder="Digite o significado ou texto..."
-                          className="flex-1 bg-white border border-slate-200 rounded-2xl p-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm min-h-[60px]"
+                          className="flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 text-xs text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm min-h-[60px]"
                         />
                         <button 
                           onClick={() => addBlock('text', currentBlockContent)}
-                          className="px-4 bg-indigo-100 text-indigo-600 rounded-2xl font-black text-[10px] uppercase tracking-tighter hover:bg-indigo-200 transition-all shrink-0"
+                          className="px-4 bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300 rounded-2xl font-black text-[10px] uppercase tracking-tighter hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-all shrink-0"
                         >
                           + Texto
                         </button>
@@ -856,7 +878,7 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                           }}
                           className="absolute inset-0 opacity-0 cursor-pointer z-10"
                         />
-                        <div className="w-full py-3 bg-white border-2 border-dashed border-indigo-200 rounded-2xl flex items-center justify-center space-x-2 text-indigo-400 group-hover:border-indigo-400 transition-all">
+                        <div className="w-full py-3 bg-white dark:bg-slate-800 border-2 border-dashed border-indigo-200 dark:border-indigo-800 rounded-2xl flex items-center justify-center space-x-2 text-indigo-400 group-hover:border-indigo-400 transition-all">
                           <ImageIcon size={16} />
                           <span className="text-[10px] font-black uppercase tracking-widest">Adicionar Imagem</span>
                         </div>
@@ -876,8 +898,8 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
               {/* List of added items */}
               <div className="space-y-4">
                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Emblemas Adicionados</h4>
-                {localCultura.emblemas_list.length === 0 ? (
-                  <p className="text-center py-8 text-slate-300 italic text-xs">Nenhum emblema adicionado ainda.</p>
+                {(!Array.isArray(localCultura.emblemas_list) || localCultura.emblemas_list.length === 0) ? (
+                  <p className="text-center py-8 text-slate-300 dark:text-slate-600 italic text-xs">Nenhum emblema adicionado ainda.</p>
                 ) : (
                   <div className="space-y-3">
                     {renderAdminItemList(localCultura.emblemas_list, 'EMBLEMS')}
@@ -1596,13 +1618,23 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     };
 
     return (
-      <div className="animate-slide-in space-y-6 pt-2 pb-28">
+      <div className="animate-slide-in space-y-6 pt-4 pb-28">
         <div id="class-details-content" className="space-y-6">
           {/* Header da Classe */}
           <div id="class-header" className="relative overflow-hidden rounded-[40px] p-8 shadow-xl" style={{ backgroundColor: classColor }}>
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
             <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full -ml-12 -mb-12 blur-xl"></div>
             
+            {/* Botão de Voltar */}
+            <button 
+              onClick={() => setActiveSubView('CLASSES')}
+              className="absolute top-6 left-6 w-12 h-12 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-2xl flex items-center justify-center text-white active:scale-90 transition-all z-20 shadow-sm"
+              title="Voltar"
+              aria-label="Voltar para Classes"
+            >
+              <ChevronLeft size={24} strokeWidth={3} />
+            </button>
+
             <div className="relative z-10 flex flex-col items-center text-center">
               <div className="w-24 h-24 bg-white rounded-3xl shadow-lg flex items-center justify-center mb-6 p-4">
                 {selectedClass.imagem ? (
@@ -1626,20 +1658,20 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           <div className="space-y-4">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-12">
-                <div className="w-6 h-6 border-2 border-slate-100 border-t-slate-300 rounded-full animate-spin"></div>
+                <div className="w-6 h-6 border-2 border-slate-100 dark:border-slate-800 border-t-slate-300 rounded-full animate-spin"></div>
               </div>
             ) : (
               <div className="space-y-3">
                 {classRequirements.map((req, idx) => {
                   const [title, ...rest] = req.split(':');
                   return (
-                    <div key={idx} className="class-requirement-card bg-white border border-slate-100 rounded-[24px] p-5 shadow-sm flex items-start space-x-4 group transition-colors">
-                      <div className="w-1.5 h-1.5 rounded-full bg-slate-200 mt-2.5 flex-shrink-0"></div>
+                    <div key={idx} className="class-requirement-card bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-5 shadow-sm flex items-start space-x-4 group transition-colors">
+                      <div className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 mt-2.5 flex-shrink-0"></div>
                       <div className="flex-grow">
-                        <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">
+                        <p className="text-[11px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider mb-1">
                           {title}
                         </p>
-                        <p className="text-[14px] font-bold text-slate-700 leading-snug">
+                        <p className="text-[14px] font-bold text-slate-700 dark:text-slate-200 leading-snug">
                           {rest.join(':').trim()}
                         </p>
                       </div>
@@ -1654,7 +1686,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         <button 
           onClick={generateClassPDF}
           disabled={isGeneratingPDF}
-          className="w-full py-4 bg-slate-800 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2"
+          className="w-full py-4 bg-slate-800 dark:bg-slate-700 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2"
         >
           <Download size={18} />
           <span>{isGeneratingPDF ? 'Gerando...' : 'Gerar PDF da Classe'}</span>
@@ -1679,7 +1711,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               setSelectedCategory({ id: -100, nome: 'Favoritas', imagem: '', cor: '#ef4444', sigla: 'FAV' } as Category);
               setActiveSubView('SPECIALTIES_LIST');
             }}
-            className="w-full bg-white border border-slate-100 rounded-[20px] p-5 flex items-center relative shadow-sm active:scale-[0.98] transition-all overflow-hidden group mb-6"
+            className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[20px] p-5 flex items-center relative shadow-sm active:scale-[0.98] transition-all overflow-hidden group mb-6"
           >
             <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-red-500"></div>
             <div className="flex items-center flex-grow">
@@ -1687,14 +1719,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 <Heart size={24} className="text-red-500" fill="currentColor" strokeWidth={2.5} />
               </div>
               <div className="flex flex-col text-left">
-                <span className="text-[15px] font-black text-slate-800 uppercase tracking-tight">Especialidades Curtidas</span>
+                <span className="text-[15px] font-black text-slate-800 dark:text-white uppercase tracking-tight">Especialidades Curtidas</span>
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{completedSpecialties.length} Guardadas</span>
               </div>
             </div>
-            <ChevronRight size={18} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
+            <ChevronRight size={18} className="text-slate-300 dark:text-slate-500 group-hover:translate-x-1 transition-transform" />
           </button>
 
-          <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] ml-2 mb-2">Mestrados</p>
+          <p className="text-[10px] font-black text-slate-300 dark:text-slate-500 uppercase tracking-[0.2em] ml-2 mb-2">Mestrados</p>
 
           {categories.map((cat) => (
             <button 
@@ -1703,7 +1735,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 setSelectedCategory(cat);
                 setActiveSubView('SPECIALTIES_LIST');
               }}
-              className="w-full bg-white border border-slate-100 rounded-[20px] p-5 flex items-center relative shadow-sm active:scale-[0.98] transition-all overflow-hidden group"
+              className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[20px] p-5 flex items-center relative shadow-sm active:scale-[0.98] transition-all overflow-hidden group"
             >
               <div 
                 className="absolute left-0 top-0 bottom-0 w-1.5" 
@@ -1718,12 +1750,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                     strokeWidth={2.5}
                   />
                 </div>
-                <span className="text-[15px] font-black text-slate-800 uppercase tracking-tight text-left">
+                <span className="text-[15px] font-black text-slate-800 dark:text-white uppercase tracking-tight text-left">
                   {cat.nome}
                 </span>
               </div>
               
-              <ChevronRight size={18} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
+              <ChevronRight size={18} className="text-slate-300 dark:text-slate-500 group-hover:translate-x-1 transition-transform" />
             </button>
           ))}
         </div>
@@ -1734,7 +1766,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   const renderSpecialtiesList = () => (
     <div className="animate-slide-in space-y-5 pt-4 pb-28">
       <div className="px-2 flex items-center justify-end">
-        <span className="text-[10px] font-black text-slate-300 uppercase">{specialties.length} Itens</span>
+        <span className="text-[10px] font-black text-slate-300 dark:text-slate-500 uppercase">{specialties.length} Itens</span>
       </div>
 
       {isLoading ? (
@@ -1748,7 +1780,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             return (
               <div 
                 key={esp.id} 
-                className="w-full bg-white border border-slate-100 rounded-[24px] p-4 flex items-center space-x-4 shadow-sm group relative"
+                className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-4 flex items-center space-x-4 shadow-sm group relative"
               >
                 <button 
                   onClick={() => {
@@ -1757,15 +1789,15 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                   }}
                   className="flex items-center space-x-4 flex-grow text-left active:scale-[0.98] transition-all"
                 >
-                  <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0 border border-slate-50">
+                  <div className="w-16 h-16 bg-transparent rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0">
                     {esp.logo ? (
-                      <img src={esp.logo} className="w-12 h-12 object-contain" alt={esp.nome} />
+                      <img src={esp.logo} className="w-14 h-14 object-contain" alt={esp.nome} />
                     ) : (
-                      <Award size={24} className="text-slate-200" />
+                      <Award size={24} className="text-slate-200 dark:text-slate-600" />
                     )}
                   </div>
                   <div className="flex-grow">
-                    <h4 className="font-black text-slate-700 text-[13px] uppercase tracking-tight leading-tight">
+                    <h4 className="font-black text-slate-700 dark:text-white text-[13px] uppercase tracking-tight leading-tight">
                       {esp.nome}
                     </h4>
                     <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
@@ -1784,7 +1816,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                     e.stopPropagation();
                     toggleSpecialty(esp.id.toString());
                   }}
-                  className={`p-3 rounded-xl transition-all active:scale-90 ${isCompleted ? 'text-red-500 bg-red-50' : 'text-slate-200 hover:text-red-200'}`}
+                  className={`p-3 rounded-xl transition-all active:scale-90 ${isCompleted ? 'text-red-500 bg-red-50 dark:bg-red-950/40' : 'text-slate-200 dark:text-slate-600 hover:text-red-200'}`}
                 >
                   <Heart size={20} fill={isCompleted ? "currentColor" : "none"} />
                 </button>
@@ -1864,53 +1896,63 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     };
 
     return (
-      <div className="animate-slide-in space-y-6 pt-2 pb-28">
+      <div className="animate-slide-in space-y-6 pt-4 pb-28">
         <div id="specialty-details-content" className="space-y-6">
-          <div id="specialty-header" className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100 flex flex-col items-center text-center relative">
+          <div id="specialty-header" className="bg-white dark:bg-slate-800 rounded-[40px] p-8 shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center text-center relative">
+            {/* Botão de Voltar */}
+            <button 
+              onClick={() => setActiveSubView('SPECIALTIES_LIST')}
+              className="absolute top-6 left-6 w-12 h-12 rounded-2xl transition-all active:scale-90 text-slate-400 dark:text-slate-300 bg-slate-50 dark:bg-slate-700/80 border border-slate-100 dark:border-slate-700 shadow-sm flex items-center justify-center"
+              title="Voltar"
+              aria-label="Voltar para Lista de Especialidades"
+            >
+              <ChevronLeft size={24} strokeWidth={3} />
+            </button>
+
             <button 
               onClick={() => toggleSpecialty(selectedSpecialty.id.toString())}
-              className={`absolute top-6 right-6 p-4 rounded-2xl transition-all active:scale-90 ${isCompleted ? 'text-red-500 bg-red-50 shadow-sm' : 'text-slate-200 bg-slate-50'}`}
+              className={`absolute top-6 right-6 w-12 h-12 rounded-2xl transition-all active:scale-90 flex items-center justify-center ${isCompleted ? 'text-red-500 bg-red-50 dark:bg-red-950/40 shadow-sm' : 'text-slate-200 dark:text-slate-600 bg-slate-50 dark:bg-slate-700'}`}
             >
               <Heart size={24} fill={isCompleted ? "currentColor" : "none"} />
             </button>
-            <div className="w-32 h-32 bg-slate-50 rounded-[32px] flex items-center justify-center mb-6 shadow-inner border border-slate-50">
+            <div className="w-36 h-36 bg-transparent rounded-[32px] flex items-center justify-center mb-6">
               {selectedSpecialty.logo ? (
-                <img src={selectedSpecialty.logo} className="w-24 h-24 object-contain" alt={selectedSpecialty.nome} referrerPolicy="no-referrer" />
+                <img src={selectedSpecialty.logo} className="w-32 h-32 object-contain filter drop-shadow-sm" alt={selectedSpecialty.nome} referrerPolicy="no-referrer" />
               ) : (
-                <Award size={48} className="text-slate-200" />
+                <Award size={48} className="text-slate-200 dark:text-slate-600" />
               )}
             </div>
-            <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight leading-tight mb-2">
+            <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight leading-tight mb-2">
               {selectedSpecialty.nome}
             </h3>
             <div className="flex flex-wrap justify-center gap-2">
-              <div className="px-3 py-1 bg-slate-100 rounded-full">
-                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
+              <div className="px-3 py-1 bg-slate-100 dark:bg-slate-700 rounded-full">
+                <span className="text-[9px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-widest">
                   {selectedSpecialty.area}
                 </span>
               </div>
-              <div className="px-3 py-1 bg-indigo-50 rounded-full">
-                <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">
+              <div className="px-3 py-1 bg-indigo-50 dark:bg-indigo-950/50 rounded-full">
+                <span className="text-[9px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest">
                   {selectedSpecialty.codigo || `${selectedSpecialty.sigla}${String(selectedSpecialty.id).padStart(3, '0')}`}
                 </span>
               </div>
               {selectedSpecialty.nivel && (
-                <div className="px-3 py-1 bg-slate-50 rounded-full border border-slate-100">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                <div className="px-3 py-1 bg-slate-50 dark:bg-slate-700/50 rounded-full border border-slate-100 dark:border-slate-600">
+                  <span className="text-[9px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest">
                     Nível {selectedSpecialty.nivel.toUpperCase().replace('NÍVEL', '').replace('NIVEL', '').trim()}
                   </span>
                 </div>
               )}
               {selectedSpecialty.ano && (
-                <div className="px-3 py-1 bg-slate-50 rounded-full border border-slate-100">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                <div className="px-3 py-1 bg-slate-50 dark:bg-slate-700/50 rounded-full border border-slate-100 dark:border-slate-600">
+                  <span className="text-[9px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest">
                     {selectedSpecialty.ano}
                   </span>
                 </div>
               )}
               {selectedSpecialty.origem && (
-                <div className="px-3 py-1 bg-slate-50 rounded-full border border-slate-100">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                <div className="px-3 py-1 bg-slate-50 dark:bg-slate-700/50 rounded-full border border-slate-100 dark:border-slate-600">
+                  <span className="text-[9px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest">
                     {selectedSpecialty.origem}
                   </span>
                 </div>
@@ -1926,15 +1968,15 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             <div className="space-y-3">
               {selectedSpecialty.requisitos.length > 0 ? (
                 selectedSpecialty.requisitos.map((req, idx) => (
-                  <div key={idx} className="specialty-requirement-card bg-white border border-slate-100 rounded-[24px] p-5 shadow-sm flex items-start space-x-4">
+                  <div key={idx} className="specialty-requirement-card bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-5 shadow-sm flex items-start space-x-4">
                     <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2.5 flex-shrink-0"></div>
-                    <p className="text-[14px] font-bold text-slate-700 leading-snug">
+                    <p className="text-[14px] font-bold text-slate-700 dark:text-slate-200 leading-snug">
                       {req.trim()}
                     </p>
                   </div>
                 ))
               ) : (
-                <div className="bg-white border border-slate-100 rounded-[24px] p-8 text-center">
+                <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-8 text-center">
                   <p className="text-slate-400 font-bold text-sm">Nenhum requisito listado no momento.</p>
                 </div>
               )}
@@ -1966,16 +2008,16 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         <button 
           key={i}
           onClick={item.action}
-          className="w-full bg-white border border-slate-100 rounded-[28px] p-5 flex items-center space-x-5 shadow-sm active:scale-[0.98] transition-all group"
+          className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-5 flex items-center space-x-5 shadow-sm active:scale-[0.98] transition-all group"
         >
           <div className={`w-14 h-14 ${item.color} rounded-2xl flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform`}>
             {item.icon}
           </div>
           <div className="flex-grow text-left">
-            <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight">{item.label}</h4>
+            <h4 className="font-black text-slate-800 dark:text-white text-lg uppercase tracking-tight">{item.label}</h4>
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Explorar Conteúdo</p>
           </div>
-          <ChevronRight size={20} className="text-slate-200" />
+          <ChevronRight size={20} className="text-slate-200 dark:text-slate-600" />
         </button>
       ))}
     </div>
@@ -1986,26 +2028,26 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       <div className="grid grid-cols-1 gap-4">
         <button 
           onClick={() => setActiveSubView('IDEALS')}
-          className="w-full bg-white border border-slate-100 rounded-[32px] p-8 flex flex-col items-center justify-center space-y-4 shadow-sm active:scale-[0.98] transition-all group"
+          className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[32px] p-8 flex flex-col items-center justify-center space-y-4 shadow-sm active:scale-[0.98] transition-all group"
         >
-          <div className="w-20 h-20 bg-blue-50 rounded-3xl flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
+          <div className="w-20 h-20 bg-blue-50 dark:bg-blue-950/50 rounded-3xl flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
             <Sparkles size={40} />
           </div>
           <div className="text-center">
-            <h4 className="font-black text-slate-800 text-xl uppercase tracking-tight">Ideais</h4>
+            <h4 className="font-black text-slate-800 dark:text-white text-xl uppercase tracking-tight">Ideais</h4>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Voto, Lei, Alvo e mais</p>
           </div>
         </button>
 
         <button 
           onClick={() => setActiveSubView('ANTHEM')}
-          className="w-full bg-white border border-slate-100 rounded-[32px] p-8 flex flex-col items-center justify-center space-y-4 shadow-sm active:scale-[0.98] transition-all group"
+          className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[32px] p-8 flex flex-col items-center justify-center space-y-4 shadow-sm active:scale-[0.98] transition-all group"
         >
-          <div className="w-20 h-20 bg-emerald-50 rounded-3xl flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
+          <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-950/50 rounded-3xl flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform">
             <Music size={40} />
           </div>
           <div className="text-center">
-            <h4 className="font-black text-slate-800 text-xl uppercase tracking-tight">Hino</h4>
+            <h4 className="font-black text-slate-800 dark:text-white text-xl uppercase tracking-tight">Hino</h4>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Letra e Áudio</p>
           </div>
         </button>
@@ -2018,7 +2060,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
     return (
       <div className="animate-slide-in space-y-6 pt-4 pb-28">
-        <div className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100">
+        <div className="bg-white dark:bg-slate-800 rounded-[40px] p-8 shadow-sm border border-slate-100 dark:border-slate-700">
           
           {hasSeparateIdeals ? (
             <div className="space-y-8">
@@ -2032,11 +2074,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               ].filter(item => item.content).map((item, idx) => (
                 <div key={idx} className="space-y-3">
                   <div className="flex items-center space-x-3">
-                    <div className="h-px bg-slate-100 flex-grow"></div>
+                    <div className="h-px bg-slate-100 dark:bg-slate-700 flex-grow"></div>
                     <span className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] whitespace-nowrap">{item.label}</span>
-                    <div className="h-px bg-slate-100 flex-grow"></div>
+                    <div className="h-px bg-slate-100 dark:bg-slate-700 flex-grow"></div>
                   </div>
-                  <p className="text-slate-600 font-bold text-base leading-relaxed text-center whitespace-pre-wrap px-4">
+                  <p className="text-slate-600 dark:text-slate-200 font-bold text-base leading-relaxed text-center whitespace-pre-wrap px-4">
                     {item.content}
                   </p>
                 </div>
@@ -2044,8 +2086,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             </div>
           ) : culturaData?.ideais ? (
             <div className="text-left space-y-6">
-              <div className="prose prose-slate max-w-none">
-                <div className="whitespace-pre-wrap text-slate-600 font-medium leading-relaxed">
+              <div className="prose prose-slate dark:prose-invert max-w-none">
+                <div className="whitespace-pre-wrap text-slate-600 dark:text-slate-200 font-medium leading-relaxed">
                   {culturaData.ideais}
                 </div>
               </div>
@@ -2065,14 +2107,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
     return (
       <div className="animate-slide-in space-y-6 pt-4 pb-28">
-        <div className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100 text-center">
+        <div className="bg-white dark:bg-slate-800 rounded-[40px] p-8 shadow-sm border border-slate-100 dark:border-slate-700 text-center">
           
           {culturaData?.hino_letra ? (
             <div className="text-left mb-8">
-              <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight mb-4 text-center">
+              <h3 className="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight mb-4 text-center">
                 {club === ClubType.PATHFINDER ? 'Hino dos Desbravadores' : 'Hino dos Aventureiros'}
               </h3>
-              <div className="whitespace-pre-wrap text-slate-600 font-medium leading-relaxed text-center italic">
+              <div className="whitespace-pre-wrap text-slate-600 dark:text-slate-200 font-medium leading-relaxed text-center italic">
                 {culturaData.hino_letra}
               </div>
             </div>
@@ -2126,8 +2168,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     return (
       <div className="animate-slide-in space-y-4 pt-4 pb-28">
         {availableHistories.length === 0 ? (
-          <div className="bg-white rounded-[32px] p-12 text-center border border-slate-100 shadow-sm">
-            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
+          <div className="bg-white dark:bg-slate-800 rounded-[32px] p-12 text-center border border-slate-100 dark:border-slate-700 shadow-sm">
+            <div className="w-20 h-20 bg-slate-50 dark:bg-slate-900 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300 dark:text-slate-600">
               <Globe size={40} />
             </div>
             <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Nenhuma história disponível no momento.</p>
@@ -2140,10 +2182,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 setSelectedHistory(item.id);
                 setActiveSubView('HISTORY_DETAIL');
               }}
-              className="w-full bg-white border border-slate-100 rounded-[24px] p-5 flex items-center justify-between shadow-sm active:scale-[0.98] transition-all group"
+              className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-5 flex items-center justify-between shadow-sm active:scale-[0.98] transition-all group"
             >
               <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center overflow-hidden border border-slate-100 shadow-inner shrink-0">
+                <div className="w-12 h-12 bg-slate-50 dark:bg-slate-900 rounded-xl flex items-center justify-center overflow-hidden border border-slate-100 dark:border-slate-700 shadow-inner shrink-0">
                   {(culturaData as any)?.[`${item.id}_img`] ? (
                     <img 
                       src={(culturaData as any)?.[`${item.id}_img`]} 
@@ -2155,9 +2197,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                     <Globe size={22} className="text-amber-500" />
                   )}
                 </div>
-                <span className="font-black text-slate-700 uppercase tracking-tight">{item.label}</span>
+                <span className="font-black text-slate-700 dark:text-white uppercase tracking-tight">{item.label}</span>
               </div>
-              <ChevronRight size={20} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
+              <ChevronRight size={20} className="text-slate-300 dark:text-slate-500 group-hover:translate-x-1 transition-transform" />
             </button>
           ))
         )}
@@ -2185,16 +2227,16 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
     return (
       <div className="animate-slide-in space-y-6 pt-4 pb-28">
-        <div className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100">
+        <div className="bg-white dark:bg-slate-800 rounded-[40px] p-8 shadow-sm border border-slate-100 dark:border-slate-700">
           <div className="mb-6">
             <div className="flex items-center space-x-4">
               {historyImage && (
-                <div className="w-12 h-12 rounded-xl overflow-hidden border border-slate-100 shadow-sm shrink-0">
+                <div className="w-12 h-12 rounded-xl overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm shrink-0">
                   <img src={historyImage} alt={title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 </div>
               )}
               <div>
-                <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">
+                <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">
                   {title}
                 </h3>
                 <div className="w-12 h-1 bg-indigo-500 rounded-full mt-1"></div>
@@ -2203,8 +2245,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           </div>
 
           {content ? (
-            <div className="prose prose-slate max-w-none">
-              <div className="whitespace-pre-wrap text-slate-600 font-medium leading-relaxed">
+            <div className="prose prose-slate dark:prose-invert max-w-none">
+              <div className="whitespace-pre-wrap text-slate-600 dark:text-slate-200 font-medium leading-relaxed">
                 {content}
               </div>
             </div>
@@ -2230,8 +2272,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     // Se for um sub-item (profundidade > 0), renderizamos como um bloco de conteúdo com wrap
     if (depth > 0) {
       return (
-        <div key={item.id} className="py-8 first:pt-2 last:pb-2 border-b border-slate-50 last:border-0 overflow-hidden">
-          <h5 className="text-sm font-black text-slate-800 uppercase tracking-tight mb-4 text-left">
+        <div key={item.id} className="py-8 first:pt-2 last:pb-2 border-b border-slate-50 dark:border-slate-700/50 last:border-0 overflow-hidden">
+          <h5 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight mb-4 text-left">
             {item.titulo}
           </h5>
           
@@ -2240,7 +2282,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               <div className="flex flex-col items-start space-y-4">
                 {/* Primeiro renderizamos todas as imagens centradas abaixo do título */}
                 {item.blocks.filter(b => b.type === 'image').map((block) => (
-                  <div key={block.id} className="group relative w-full aspect-video sm:aspect-square overflow-hidden border border-slate-100 shadow-sm bg-slate-50 rounded-xl">
+                  <div key={block.id} className="group relative w-full aspect-video sm:aspect-square overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-xl">
                     <img 
                       src={getImageUrl(block.content)} 
                       alt="" 
@@ -2253,7 +2295,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 {/* Depois renderizamos todo o texto informativo */}
                 <div className="w-full space-y-3">
                   {item.blocks.filter(b => b.type === 'text').map((block) => (
-                    <div key={block.id} className="text-slate-600 text-[13px] leading-relaxed font-medium whitespace-pre-wrap text-left px-1">
+                    <div key={block.id} className="text-slate-600 dark:text-slate-200 text-[13px] leading-relaxed font-medium whitespace-pre-wrap text-left px-1">
                       {block.content}
                     </div>
                   ))}
@@ -2262,7 +2304,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             ) : (
               <div className="flex flex-col items-start">
                 {item.imagem && (
-                  <div className="w-full h-40 mb-4 overflow-hidden border border-slate-100 shadow-sm bg-slate-50 rounded-xl">
+                  <div className="w-full h-40 mb-4 overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-xl">
                     <img 
                       src={getImageUrl(item.imagem)} 
                       alt={item.titulo} 
@@ -2272,9 +2314,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                   </div>
                 )}
                 
-                <div className="text-slate-600 text-[13px] leading-relaxed font-medium text-left px-1">
+                <div className="text-slate-600 dark:text-slate-200 text-[13px] leading-relaxed font-medium text-left px-1">
                   {item.subtitulo && (
-                    <span className="inline-block text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1 block">
+                    <span className="inline-block text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-1 block">
                       {item.subtitulo}
                     </span>
                   )}
@@ -2287,7 +2329,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           </div>
 
           {item.subitems && item.subitems.length > 0 && (
-            <div className="mt-6 pl-4 border-l-2 border-slate-100 space-y-6">
+            <div className="mt-6 pl-4 border-l-2 border-slate-100 dark:border-slate-700 space-y-6">
               {item.subitems.map((sub, i) => renderCulturaItem(sub, depth + 1, i))}
             </div>
           )}
@@ -2304,31 +2346,31 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     };
 
     return (
-      <div key={item.id} className="bg-white border border-slate-100 rounded-[32px] shadow-sm overflow-hidden mb-4">
+      <div key={item.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[32px] shadow-sm overflow-hidden mb-4">
         <button 
           onClick={() => toggleAccordion(item.id)}
-          className={`w-full p-6 flex items-center justify-between transition-all text-left ${isExpanded ? 'bg-slate-50/30' : 'bg-white'}`}
+          className={`w-full p-6 flex items-center justify-between transition-all text-left ${isExpanded ? 'bg-slate-50/30 dark:bg-slate-700/30' : 'bg-white dark:bg-slate-800'}`}
         >
           <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-slate-100 text-slate-500 rounded-2xl flex items-center justify-center shadow-sm">
+            <div className="w-12 h-12 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 rounded-2xl flex items-center justify-center shadow-sm">
               {getHeaderIcon(item.titulo)}
             </div>
             <div className="flex-1">
-              <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight leading-tight">{item.titulo || 'Sem Título'}</h4>
+              <h4 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight leading-tight">{item.titulo || 'Sem Título'}</h4>
             </div>
           </div>
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isExpanded ? 'bg-indigo-600 text-white rotate-180 shadow-md shadow-indigo-100' : 'bg-slate-50 text-slate-400'}`}>
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isExpanded ? 'bg-indigo-600 text-white rotate-180 shadow-md dark:shadow-none' : 'bg-slate-50 dark:bg-slate-700 text-slate-400 dark:text-slate-200'}`}>
             <ChevronDown size={18} />
           </div>
         </button>
         
         {isExpanded && (
-          <div className="px-4 pb-6 bg-white border-t border-slate-50 animate-slide-down">
+          <div className="px-4 pb-6 bg-white dark:bg-slate-800 border-t border-slate-50 dark:border-slate-700/50 animate-slide-down">
             <div className="space-y-6">
               {/* Título interno (ex: Emblema D1) em destaque */}
               {item.subtitulo && (
                 <div className="mt-8 text-center">
-                  <h5 className="text-base font-black text-slate-800 uppercase tracking-tight">
+                  <h5 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-tight">
                     {item.subtitulo}
                   </h5>
                   <div className="w-8 h-1 bg-indigo-500 mx-auto mt-2 rounded-full opacity-20" />
@@ -2341,7 +2383,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                   <div className="flex flex-col items-center w-full space-y-6">
                     {/* Imagens Primeiro */}
                     {item.blocks.filter(b => b.type === 'image').map((block) => (
-                      <div key={block.id} className="group relative w-32 h-32 sm:w-40 sm:h-40 overflow-hidden border border-slate-100 shadow-sm bg-slate-50 rounded-3xl p-3">
+                      <div key={block.id} className="group relative w-32 h-32 sm:w-40 sm:h-40 overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-3xl p-3">
                         <img 
                           src={getImageUrl(block.content)} 
                           alt="" 
@@ -2354,7 +2396,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                     {/* Texto Depois */}
                     <div className="w-full space-y-4">
                       {item.blocks.filter(b => b.type === 'text').map((block) => (
-                        <div key={block.id} className="text-slate-600 text-sm leading-relaxed font-medium whitespace-pre-wrap text-left">
+                        <div key={block.id} className="text-slate-600 dark:text-slate-200 text-sm leading-relaxed font-medium whitespace-pre-wrap text-left">
                           {block.content}
                         </div>
                       ))}
@@ -2363,7 +2405,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 ) : (
                   <div className="flex flex-col items-center w-full">
                     {item.imagem && (
-                      <div className="w-32 h-32 sm:w-40 sm:h-40 mb-6 overflow-hidden border border-slate-100 shadow-sm bg-slate-50 rounded-3xl p-3">
+                      <div className="w-32 h-32 sm:w-40 sm:h-40 mb-6 overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-3xl p-3">
                         <img 
                           src={getImageUrl(item.imagem)} 
                           alt={item.titulo} 
@@ -2374,7 +2416,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                     )}
                     
                     {item.descricao && (
-                      <div className="text-slate-600 text-sm leading-relaxed font-medium whitespace-pre-wrap text-center">
+                      <div className="text-slate-600 dark:text-slate-200 text-sm leading-relaxed font-medium whitespace-pre-wrap text-center">
                         {item.descricao}
                       </div>
                     )}
@@ -2383,13 +2425,13 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               </div>
               
               {item.subitems && item.subitems.length > 0 && (
-                <div className="mt-10 divide-y divide-slate-50 border-t border-slate-50">
+                <div className="mt-10 divide-y divide-slate-50 dark:divide-slate-700/50 border-t border-slate-50 dark:border-slate-700/50">
                   {item.subitems.map((sub, i) => renderCulturaItem(sub, depth + 1, i))}
                 </div>
               )}
 
               {!item.imagem && !item.descricao && (!item.subitems || item.subitems.length === 0) && (
-                <p className="text-center py-10 text-slate-300 italic text-xs">Nenhum conteúdo cadastrado para este item.</p>
+                <p className="text-center py-10 text-slate-300 dark:text-slate-600 italic text-xs">Nenhum conteúdo cadastrado para este item.</p>
               )}
             </div>
           </div>
@@ -2399,17 +2441,18 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   };
 
   const renderUniforms = () => {
-    const uniforms = (culturaData?.uniformes_list || []).filter(item => !item.club || item.club === club);
+    const rawList = normalizeCulturaList(culturaData?.uniformes_list);
+    const uniforms = rawList.filter(item => !item.club || item.club === club);
     
     return (
       <div className="animate-slide-in space-y-6 pt-4 pb-28">
-        <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 min-h-[60vh]">
+        <div className="bg-white dark:bg-slate-800 rounded-[32px] p-6 shadow-sm border border-slate-100 dark:border-slate-700 min-h-[60vh]">
           {uniforms.length === 0 ? (
             <div className="py-20 text-center">
-              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-200">
+              <div className="w-20 h-20 bg-slate-50 dark:bg-slate-900 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-200 dark:text-slate-700">
                 <Shirt size={40} />
               </div>
-              <p className="text-slate-400 font-black text-[10px] uppercase tracking-widest">Nenhum uniforme cadastrado</p>
+              <p className="text-slate-400 dark:text-slate-500 font-black text-[10px] uppercase tracking-widest">Nenhum uniforme cadastrado</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -2422,17 +2465,18 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   };
 
   const renderEmblems = () => {
-    const emblems = (culturaData?.emblemas_list || []).filter(item => !item.club || item.club === club);
+    const rawList = normalizeCulturaList(culturaData?.emblemas_list);
+    const emblems = rawList.filter(item => !item.club || item.club === club);
     
     return (
       <div className="animate-slide-in space-y-6 pt-4 pb-28">
-        <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 min-h-[60vh]">
+        <div className="bg-white dark:bg-slate-800 rounded-[32px] p-6 shadow-sm border border-slate-100 dark:border-slate-700 min-h-[60vh]">
           {emblems.length === 0 ? (
             <div className="py-20 text-center">
-              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-200">
+              <div className="w-20 h-20 bg-slate-50 dark:bg-slate-900 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-200 dark:text-slate-700">
                 <Shield size={40} />
               </div>
-              <p className="text-slate-400 font-black text-[10px] uppercase tracking-widest">Nenhum emblema cadastrado</p>
+              <p className="text-slate-400 dark:text-slate-500 font-black text-[10px] uppercase tracking-widest">Nenhum emblema cadastrado</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -2511,7 +2555,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
       return (
         <div className="animate-slide-in space-y-4 pt-2 pb-28">
-          <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-4">
+          <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight mb-4">
             {selectedLibraryCategory === 'CLASSES' ? 'Livro das Classes' : 
              selectedLibraryCategory === 'ANO' ? 'Livros do Ano' : 
              selectedLibraryCategory === 'OUTROS' ? 'Outros Livros' : 
@@ -2520,7 +2564,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           </h3>
 
           {currentData.length === 0 ? (
-            <div className="bg-white rounded-[32px] p-12 text-center border border-slate-100 shadow-sm">
+            <div className="bg-white dark:bg-slate-800 rounded-[32px] p-12 text-center border border-slate-100 dark:border-slate-700 shadow-sm">
               <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Nenhum item disponível.</p>
             </div>
           ) : (
@@ -2536,7 +2580,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                       setActiveSubView('PDF_VIEWER');
                     }
                   }}
-                  className="w-full bg-white border border-slate-100 rounded-[28px] p-4 flex items-center space-x-4 shadow-sm active:scale-[0.98] transition-all group relative overflow-hidden"
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-4 flex items-center space-x-4 shadow-sm active:scale-[0.98] transition-all group relative overflow-hidden"
                 >
                   {selectedLibraryCategory === 'CLASSES' && item.ClasseIMG && (
                     <img 
@@ -2545,20 +2589,20 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                       alt=""
                     />
                   )}
-                  <div className="w-16 h-20 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-inner">
+                  <div className="w-16 h-20 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-inner">
                     {item.Capa || item.capa ? (
                       <img src={item.Capa || item.capa} className="w-full h-full object-cover" alt={item.Nome} referrerPolicy="no-referrer" />
                     ) : (
-                      <Book size={24} className="text-slate-200" />
+                      <Book size={24} className="text-slate-200 dark:text-slate-600" />
                     )}
                   </div>
                   <div className="flex-grow text-left">
-                    <h4 className="font-black text-slate-800 text-sm uppercase tracking-tight line-clamp-1">{item.Nome}</h4>
+                    <h4 className="font-black text-slate-800 dark:text-white text-sm uppercase tracking-tight line-clamp-1">{item.Nome}</h4>
                     <p className="text-[10px] text-slate-400 font-bold mt-1 line-clamp-2">{item.Resumo || item.Descricao || 'Sem descrição'}</p>
-                    {item.Ano && <span className="inline-block mt-2 px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black rounded-full uppercase">{item.Ano}</span>}
-                    {item.Classe && <span className="inline-block mt-2 px-2 py-0.5 bg-amber-50 text-amber-600 text-[8px] font-black rounded-full uppercase">{item.Classe}</span>}
+                    {item.Ano && <span className="inline-block mt-2 px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 text-[8px] font-black rounded-full uppercase">{item.Ano}</span>}
+                    {item.Classe && <span className="inline-block mt-2 px-2 py-0.5 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 text-[8px] font-black rounded-full uppercase">{item.Classe}</span>}
                   </div>
-                  <ChevronRight size={18} className="text-slate-200" />
+                  <ChevronRight size={18} className="text-slate-200 dark:text-slate-600" />
                 </button>
               ))}
             </div>
@@ -2581,16 +2625,16 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 setSelectedLibraryCategory(item.id as any);
               }
             }}
-            className="w-full bg-white border border-slate-100 rounded-[28px] p-5 flex items-center space-x-5 shadow-sm active:scale-[0.98] transition-all group"
+            className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-5 flex items-center space-x-5 shadow-sm active:scale-[0.98] transition-all group"
           >
             <div className={`w-14 h-14 ${item.color} rounded-2xl flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform`}>
               {item.icon}
             </div>
             <div className="flex-grow text-left">
-              <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight">{item.label}</h4>
+              <h4 className="font-black text-slate-800 dark:text-white text-lg uppercase tracking-tight">{item.label}</h4>
               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Acessar Arquivos</p>
             </div>
-            <ChevronRight size={20} className="text-slate-200" />
+            <ChevronRight size={20} className="text-slate-200 dark:text-slate-600" />
           </button>
         ))}
       </div>
@@ -2610,33 +2654,33 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             setSelectedLibraryCategory(item.id as any);
             setActiveSubView('LIBRARY');
           }}
-          className="w-full bg-white border border-slate-100 rounded-[28px] p-5 flex items-center space-x-5 shadow-sm active:scale-[0.98] transition-all group"
+          className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-5 flex items-center space-x-5 shadow-sm active:scale-[0.98] transition-all group"
         >
           <div className={`w-14 h-14 ${item.color} rounded-2xl flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform`}>
             {item.icon}
           </div>
           <div className="flex-grow text-left">
-            <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight">{item.label}</h4>
+            <h4 className="font-black text-slate-800 dark:text-white text-lg uppercase tracking-tight">{item.label}</h4>
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Acessar Livros</p>
           </div>
-          <ChevronRight size={20} className="text-slate-200" />
+          <ChevronRight size={20} className="text-slate-200 dark:text-slate-600" />
         </button>
       ))}
     </div>
   );
 
   const renderPdfViewer = () => (
-    <div className="animate-slide-in h-full flex flex-col fixed inset-0 z-[100] bg-slate-200">
+    <div className="animate-slide-in h-full flex flex-col fixed inset-0 z-[100] bg-slate-200 dark:bg-slate-950">
       <div className="flex-grow relative flex flex-col">
-        <div className="p-3 bg-white/90 backdrop-blur-md border-b border-slate-100 flex items-center justify-between shadow-sm">
+        <div className="p-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shadow-sm">
           <button 
             onClick={() => setActiveSubView('LIBRARY')}
-            className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-600 transition-all active:scale-90"
+            className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 transition-all active:scale-90"
           >
             <ChevronLeft size={24} strokeWidth={3} />
           </button>
           
-          <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight truncate max-w-[200px]">
+          <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight truncate max-w-[200px]">
             {pdfTitle}
           </h3>
 
@@ -2644,7 +2688,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             href={selectedPdfUrl || '#'} 
             target="_blank" 
             rel="noopener noreferrer"
-            className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 transition-all active:scale-90"
+            className="w-10 h-10 bg-blue-50 dark:bg-blue-950/50 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400 transition-all active:scale-90"
           >
             <ExternalLink size={20} />
           </a>
@@ -2657,7 +2701,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             allow="autoplay"
           />
         ) : (
-          <div className="flex items-center justify-center h-full text-slate-400">
+          <div className="flex items-center justify-center h-full text-slate-400 dark:text-slate-500">
             PDF não disponível
           </div>
         )}
@@ -2674,16 +2718,16 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         <button 
           key={item.id}
           onClick={() => setActiveSubView(item.id as any)}
-          className="w-full bg-white border border-slate-100 rounded-[28px] p-5 flex items-center space-x-5 shadow-sm active:scale-[0.98] transition-all group"
+          className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-5 flex items-center space-x-5 shadow-sm active:scale-[0.98] transition-all group"
         >
           <div className={`w-14 h-14 ${item.color} rounded-2xl flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform`}>
             {item.icon}
           </div>
           <div className="flex-grow text-left">
-            <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight">{item.label}</h4>
+            <h4 className="font-black text-slate-800 dark:text-white text-lg uppercase tracking-tight">{item.label}</h4>
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Acessar Materiais</p>
           </div>
-          <ChevronRight size={20} className="text-slate-200" />
+          <ChevronRight size={20} className="text-slate-200 dark:text-slate-600" />
         </button>
       ))}
     </div>
@@ -2691,10 +2735,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
   const renderCamping = () => (
     <div className="animate-slide-in space-y-4 pt-2 pb-28">
-      <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-4">Camping</h3>
+      <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight mb-4">Camping</h3>
 
       {campingDBV.length === 0 ? (
-        <div className="bg-white rounded-[32px] p-12 text-center border border-slate-100 shadow-sm">
+        <div className="bg-white dark:bg-slate-800 rounded-[32px] p-12 text-center border border-slate-100 dark:border-slate-700 shadow-sm">
           <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Nenhum material de camping disponível.</p>
         </div>
       ) : (
@@ -2710,20 +2754,20 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                   setActiveSubView('PDF_VIEWER');
                 }
               }}
-              className="w-full bg-white border border-slate-100 rounded-[28px] p-4 flex items-center space-x-4 shadow-sm active:scale-[0.98] transition-all group"
+              className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-4 flex items-center space-x-4 shadow-sm active:scale-[0.98] transition-all group"
             >
-              <div className="w-20 h-20 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-inner">
+              <div className="w-20 h-20 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-inner">
                 {item.Capa ? (
                   <img src={item.Capa} className="w-full h-full object-cover" alt={item.Nome} referrerPolicy="no-referrer" />
                 ) : (
-                  <MapPin size={32} className="text-slate-200" />
+                  <MapPin size={32} className="text-slate-200 dark:text-slate-600" />
                 )}
               </div>
               <div className="flex-grow text-left">
-                <h4 className="font-black text-slate-800 text-sm uppercase tracking-tight">{item.Nome}</h4>
+                <h4 className="font-black text-slate-800 dark:text-white text-sm uppercase tracking-tight">{item.Nome}</h4>
                 <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-widest">Clique para abrir</p>
               </div>
-              <ChevronRight size={18} className="text-slate-200" />
+              <ChevronRight size={18} className="text-slate-200 dark:text-slate-600" />
             </button>
           ))}
         </div>
@@ -2747,19 +2791,19 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center text-white shadow-sm">
                 {cat.icon}
               </div>
-              <h3 className="font-black text-slate-800 uppercase tracking-tight text-sm">{cat.label}</h3>
+              <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-tight text-sm">{cat.label}</h3>
             </div>
             
-            <div className="bg-slate-50 rounded-[24px] p-3 border-l-4 border-red-500 space-y-3 shadow-sm">
+            <div className="bg-slate-50 dark:bg-slate-900 rounded-[24px] p-3 border-l-4 border-red-500 space-y-3 shadow-sm">
               {formularios.filter(f => f.categoria === cat.id).length === 0 ? (
-                <div className="bg-white rounded-[18px] p-4 flex items-center justify-between shadow-sm border border-slate-100">
+                <div className="bg-white dark:bg-slate-800 rounded-[18px] p-4 flex items-center justify-between shadow-sm border border-slate-100 dark:border-slate-700">
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center text-red-400">
+                    <div className="w-10 h-10 bg-red-50 dark:bg-red-950/40 rounded-xl flex items-center justify-center text-red-400">
                       <Calendar size={20} />
                     </div>
                     <span className="text-xs font-black text-slate-400 uppercase tracking-tight">Em Breve Atualizações</span>
                   </div>
-                  <div className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
+                  <div className="w-8 h-8 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-300 dark:text-slate-400">
                     <Search size={16} />
                   </div>
                 </div>
@@ -2776,14 +2820,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                         window.open(form.link, '_blank');
                       }
                     }}
-                    className="w-full bg-white rounded-[18px] p-4 flex items-center justify-between shadow-sm border border-slate-100 active:scale-[0.98] transition-all group"
+                    className="w-full bg-white dark:bg-slate-800 rounded-[18px] p-4 flex items-center justify-between shadow-sm border border-slate-100 dark:border-slate-700 active:scale-[0.98] transition-all group"
                   >
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform">
+                      <div className="w-10 h-10 bg-red-50 dark:bg-red-950/40 rounded-xl flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform">
                         <FileText size={20} />
                       </div>
                       <div className="text-left">
-                        <span className="text-xs font-black text-slate-700 uppercase tracking-tight block">{form.titulo}</span>
+                        <span className="text-xs font-black text-slate-700 dark:text-white uppercase tracking-tight block">{form.titulo}</span>
                         {form.descricao && <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{form.descricao}</span>}
                       </div>
                     </div>
@@ -2793,12 +2837,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                           e.stopPropagation();
                           window.open(form.link, '_blank');
                         }}
-                        className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                        className="w-8 h-8 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-300 hover:bg-red-50 hover:text-red-500 transition-colors"
                         title="Download / Abrir Original"
                       >
                         <Download size={16} />
                       </button>
-                      <div className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 group-hover:bg-red-50 group-hover:text-red-500 transition-colors">
+                      <div className="w-8 h-8 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-300 group-hover:bg-red-50 group-hover:text-red-500 transition-colors">
                         <Search size={16} />
                       </div>
                     </div>
@@ -2810,8 +2854,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         ))}
 
         {isUserAdmin && (
-          <div className="mt-8 p-6 bg-white rounded-[32px] border border-slate-100 shadow-sm space-y-4">
-            <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center space-x-2">
+          <div className="mt-8 p-6 bg-white dark:bg-slate-800 rounded-[32px] border border-slate-100 dark:border-slate-700 shadow-sm space-y-4">
+            <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest flex items-center space-x-2">
               <Settings size={16} className="text-red-500" />
               <span>Painel Admin: Formulários</span>
             </h4>
@@ -2834,7 +2878,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     <div className="animate-slide-in space-y-5 pt-4 pb-28">
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-20">
-          <div className="w-8 h-8 border-3 border-slate-100 border-t-slate-300 rounded-full animate-spin"></div>
+          <div className="w-8 h-8 border-3 border-slate-100 dark:border-slate-700 border-t-slate-300 dark:border-t-slate-500 rounded-full animate-spin"></div>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4">
@@ -2853,19 +2897,19 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                   setActiveSubView('DESBRAVA_PLUS_DETAILS');
                 }
               }}
-              className="w-full bg-white border border-slate-100 rounded-[32px] flex flex-col p-5 relative shadow-sm active:scale-[0.98] transition-all overflow-hidden group"
+              className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[32px] flex flex-col p-5 relative shadow-sm active:scale-[0.98] transition-all overflow-hidden group"
             >
               <div className="flex items-center space-x-5">
-                <div className="w-20 h-20 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-inner group-hover:scale-105 transition-transform duration-500">
+                <div className="w-20 h-20 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-inner group-hover:scale-105 transition-transform duration-500">
                   {item.Capa ? (
-                    <img src={item.Capa} className="w-full h-full object-cover" alt={item.Nome} />
+                    <img src={item.Capa} className="w-full h-full object-cover" alt={item.Nome} referrerPolicy="no-referrer" />
                   ) : (
-                    <Sparkles size={32} className="text-slate-200" />
+                    <Sparkles size={32} className="text-slate-200 dark:text-slate-600" />
                   )}
                 </div>
 
                 <div className="flex-grow text-left">
-                  <h4 className="font-black text-[#1e293b] text-lg leading-tight tracking-tight uppercase">
+                  <h4 className="font-black text-[#1e293b] dark:text-white text-lg leading-tight tracking-tight uppercase">
                     {item.Nome}
                   </h4>
                   {item.descricao && (
@@ -2875,7 +2919,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                   )}
                 </div>
                 
-                <ChevronRight size={20} className="text-slate-200 flex-shrink-0" />
+                <ChevronRight size={20} className="text-slate-200 dark:text-slate-600 flex-shrink-0" />
               </div>
             </button>
           ))}
@@ -2889,10 +2933,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
     return (
       <div className="animate-slide-in space-y-6 pt-2 pb-28">
-        <div className="bg-white rounded-[40px] overflow-hidden shadow-sm border border-slate-100">
+        <div className="bg-white dark:bg-slate-800 rounded-[40px] overflow-hidden shadow-sm border border-slate-100 dark:border-slate-700">
           <div className="h-56 w-full relative">
             {selectedDesbravaPlusItem.Capa ? (
-              <img src={selectedDesbravaPlusItem.Capa} className="w-full h-full object-cover" alt={selectedDesbravaPlusItem.Nome} />
+              <img src={selectedDesbravaPlusItem.Capa} className="w-full h-full object-cover" alt={selectedDesbravaPlusItem.Nome} referrerPolicy="no-referrer" />
             ) : (
               <div className="w-full h-full bg-indigo-600 flex items-center justify-center">
                 <Sparkles size={64} className="text-white/20" />
@@ -2908,17 +2952,17 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           
           <div className="p-8 space-y-6">
             <div className="space-y-2">
-              <h4 className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.3em]">Descrição</h4>
-              <p className="text-slate-600 font-bold text-sm leading-relaxed">
+              <h4 className="text-[10px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-[0.3em]">Descrição</h4>
+              <p className="text-slate-600 dark:text-slate-300 font-bold text-sm leading-relaxed">
                 {selectedDesbravaPlusItem.descricao}
               </p>
             </div>
 
-            <div className="h-px bg-slate-100 w-full"></div>
+            <div className="h-px bg-slate-100 dark:bg-slate-700 w-full"></div>
 
             <div className="space-y-4">
               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Conteúdo</h4>
-              <div className="bg-slate-50 rounded-3xl p-6 text-slate-700 font-medium text-[15px] leading-relaxed whitespace-pre-wrap border border-slate-100">
+              <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-6 text-slate-700 dark:text-slate-300 font-medium text-[15px] leading-relaxed whitespace-pre-wrap border border-slate-100 dark:border-slate-700">
                 {selectedDesbravaPlusItem.Conteudo}
               </div>
             </div>
@@ -2962,8 +3006,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     if (!pdfUrl || !pdfUrl.startsWith('http')) {
       return (
         <div className="animate-slide-in p-8 text-center">
-          <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
-            <FileText size={40} className="text-slate-300" />
+          <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-3xl flex items-center justify-center mx-auto mb-6">
+            <FileText size={40} className="text-slate-300 dark:text-slate-600" />
           </div>
           <p className="text-slate-400 font-bold mb-6">Link inválido ou não encontrado para este item.</p>
           <button 
@@ -2979,23 +3023,23 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     const formattedUrl = formatDriveUrl(pdfUrl);
 
     return (
-      <div className="animate-slide-in h-full flex flex-col fixed inset-0 z-[100] bg-slate-200">
+      <div className="animate-slide-in h-full flex flex-col fixed inset-0 z-[100] bg-slate-200 dark:bg-slate-950">
         <div className="flex-grow flex flex-col relative">
-          <div className="p-3 bg-white/90 backdrop-blur-md border-b border-slate-100 flex items-center justify-between shadow-sm">
+          <div className="p-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shadow-sm">
             <button 
               onClick={() => setActiveSubView('DESBRAVA_PLUS')}
-              className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-600 transition-all active:scale-90"
+              className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 transition-all active:scale-90"
             >
               <ChevronLeft size={24} strokeWidth={3} />
             </button>
-            <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight truncate max-w-[200px]">
+            <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight truncate max-w-[200px]">
               {selectedDesbravaPlusItem.Nome}
             </h3>
             <a 
               href={pdfUrl} 
               target="_blank" 
               rel="noopener noreferrer"
-              className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 transition-all active:scale-90"
+              className="w-10 h-10 bg-blue-50 dark:bg-blue-950/50 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400 transition-all active:scale-90"
             >
               <ExternalLink size={20} />
             </a>
@@ -3055,17 +3099,17 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           <p className="text-indigo-300 text-[10px] font-black uppercase tracking-[0.2em] mb-8 relative z-10">Versão Almeida Revista e Corrigida</p>
           
           {/* Versículo do Dia */}
-          <div className="bg-white rounded-[32px] p-6 text-left shadow-inner relative z-10 border border-white/10">
+          <div className="bg-white dark:bg-slate-800 rounded-[32px] p-6 text-left shadow-inner relative z-10 border border-white/10 dark:border-slate-700">
             <div className="flex justify-between items-start mb-3">
               <h4 className="text-amber-500 text-[10px] font-black uppercase tracking-widest">Versículo do Dia</h4>
               <button 
                 onClick={handleShareVerse}
-                className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 active:scale-90 transition-all"
+                className="w-8 h-8 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-300 active:scale-90 transition-all"
               >
                 <Share2 size={14} />
               </button>
             </div>
-            <p className="text-slate-700 font-bold text-sm leading-relaxed mb-3 italic">
+            <p className="text-slate-700 dark:text-slate-200 font-bold text-sm leading-relaxed mb-3 italic">
               "Ó terra, terra, terra! Ouve a palavra do SENHOR!"
             </p>
             <p className="text-slate-400 text-[10px] font-black uppercase tracking-tight">Jeremias 22:29</p>
@@ -3075,18 +3119,24 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         {/* Menu de Ações da Bíblia */}
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: 'Bíblia', icon: <Book size={24} />, color: 'text-blue-500', border: 'border-blue-200', bg: 'bg-blue-50', action: () => setActiveSubView('BIBLE_BOOKS') },
-            { label: 'Devocional', icon: <Heart size={24} />, color: 'text-emerald-500', border: 'border-emerald-200', bg: 'bg-emerald-50', action: () => {
+            { label: 'Bíblia', icon: <Book size={26} />, color: 'text-blue-500 dark:text-blue-400', border: 'border-blue-200 dark:border-slate-700', action: () => setActiveSubView('BIBLE_BOOKS') },
+            { label: 'Devocional', icon: <Heart size={26} />, color: 'text-emerald-500 dark:text-emerald-400', border: 'border-emerald-200 dark:border-slate-700', action: () => {
               setSelectedDevocional(null);
               setActiveSubView('BIBLE_DEVOTIONAL_VIEW');
             } },
-            { label: 'Mais', icon: <Layers size={24} />, color: 'text-slate-400', border: 'border-slate-200', bg: 'bg-slate-50', action: () => setActiveSubView('BIBLE_MORE') }
+            { label: 'Mais', icon: <Layers size={26} />, color: 'text-slate-400 dark:text-slate-400', border: 'border-slate-200 dark:border-slate-700', action: () => setActiveSubView('BIBLE_MORE') }
           ].map((item, i) => (
-            <button key={i} onClick={item.action} className="flex flex-col items-center space-y-3">
-              <div className={`w-full aspect-square bg-white border-2 ${item.border} rounded-2xl flex items-center justify-center ${item.color} shadow-sm active:scale-90 transition-all`}>
+            <button 
+              key={i} 
+              onClick={item.action} 
+              className={`w-full aspect-square bg-white dark:bg-slate-800 border-2 ${item.border} rounded-[28px] flex flex-col items-center justify-center space-y-2.5 p-3 shadow-sm active:scale-95 transition-all group`}
+            >
+              <div className={`${item.color} group-hover:scale-110 transition-transform flex items-center justify-center`}>
                 {item.icon}
               </div>
-              <span className={`text-[9px] font-black uppercase tracking-tight text-center leading-tight ${item.color}`}>{item.label}</span>
+              <span className={`text-[10px] font-black uppercase tracking-wider text-center leading-tight ${item.color}`}>
+                {item.label}
+              </span>
             </button>
           ))}
         </div>
@@ -3104,27 +3154,27 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 setSelectedBibleChapter(lastRead.chapter);
                 setActiveSubView('BIBLE_VERSES');
               }}
-              className="w-full bg-white border border-slate-100 rounded-[32px] p-6 flex items-center justify-between shadow-sm active:scale-[0.98] transition-all group relative overflow-hidden"
+              className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[32px] p-6 flex items-center justify-between shadow-sm active:scale-[0.98] transition-all group relative overflow-hidden"
             >
               <div className="absolute left-0 top-0 bottom-0 w-2 bg-amber-500"></div>
               <div className="flex items-center space-x-5">
-                <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 shadow-inner">
+                <div className="w-14 h-14 bg-amber-50 dark:bg-amber-950/40 rounded-2xl flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-inner">
                   <BookOpen size={28} />
                 </div>
                 <div className="text-left">
-                  <h5 className="text-lg font-black text-slate-800 leading-tight">
+                  <h5 className="text-lg font-black text-slate-800 dark:text-white leading-tight">
                     {lastRead.book.book_name} {lastRead.chapter}
                   </h5>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Continuar lendo</p>
                 </div>
               </div>
-              <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-amber-500 group-hover:text-white transition-all">
+              <div className="w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-700 flex items-center justify-center text-slate-300 dark:text-slate-400 group-hover:bg-amber-500 group-hover:text-white transition-all">
                 <ChevronRight size={20} />
               </div>
             </button>
           ) : (
-            <div className="bg-slate-50 rounded-[32px] border border-dashed border-slate-200 p-10 flex flex-col items-center justify-center text-center">
-              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-slate-200 mb-4 shadow-sm">
+            <div className="bg-slate-50 dark:bg-slate-800/60 rounded-[32px] border border-dashed border-slate-200 dark:border-slate-700 p-10 flex flex-col items-center justify-center text-center">
+              <div className="w-16 h-16 bg-white dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-200 dark:text-slate-500 mb-4 shadow-sm">
                 <BookOpen size={32} />
               </div>
               <p className="text-slate-400 font-bold text-xs">Comece sua jornada espiritual hoje</p>
@@ -3176,15 +3226,15 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         {/* Barra de Busca e Filtros */}
         <div className="space-y-4">
           <div className="relative">
-            <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300">
+            <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-500">
               <Search size={18} />
             </div>
             <input 
-              type="text"
+              type="text" 
               placeholder="Buscar livro..."
               value={bibleSearch}
               onChange={(e) => setBibleSearch(e.target.value)}
-              className="w-full bg-white border border-slate-100 rounded-2xl py-4 pl-14 pr-24 text-sm font-bold text-slate-700 focus:outline-none shadow-sm placeholder:text-slate-300"
+              className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-4 pl-14 pr-24 text-sm font-bold text-slate-700 dark:text-white focus:outline-none shadow-sm placeholder:text-slate-300 dark:placeholder:text-slate-500"
             />
             <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-blue-500 text-white px-5 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest active:scale-95 transition-all">
               Buscar
@@ -3194,14 +3244,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           <div className="flex space-x-2">
             <button 
               onClick={() => setSelectedTestament(selectedTestament === 'ANTIGO' ? 'TODOS' : 'ANTIGO')}
-              className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center justify-center space-x-2 ${selectedTestament === 'ANTIGO' ? 'bg-blue-500 border-blue-500 text-white shadow-md' : 'bg-blue-50 border-blue-100 text-blue-500'}`}
+              className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center justify-center space-x-2 ${selectedTestament === 'ANTIGO' ? 'bg-blue-500 border-blue-500 text-white shadow-md' : 'bg-blue-50 dark:bg-slate-800 border-blue-100 dark:border-slate-700 text-blue-500 dark:text-blue-400'}`}
             >
               <Zap size={14} className="rotate-180" />
               <span>Antigo Testamento</span>
             </button>
             <button 
               onClick={() => setSelectedTestament(selectedTestament === 'NOVO' ? 'TODOS' : 'NOVO')}
-              className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center justify-center space-x-2 ${selectedTestament === 'NOVO' ? 'bg-blue-500 border-blue-500 text-white shadow-md' : 'bg-blue-50 border-blue-100 text-blue-500'}`}
+              className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center justify-center space-x-2 ${selectedTestament === 'NOVO' ? 'bg-blue-500 border-blue-500 text-white shadow-md' : 'bg-blue-50 dark:bg-slate-800 border-blue-100 dark:border-slate-700 text-blue-500 dark:text-blue-400'}`}
             >
               <ChevronRight size={14} />
               <span>Novo Testamento</span>
@@ -3212,14 +3262,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         {/* Lista de Livros */}
         <div className="space-y-3">
           <div className="flex items-center justify-between px-2">
-            <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-tight">
+            <h4 className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-tight">
               {selectedTestament === 'ANTIGO' ? '39 livros' : selectedTestament === 'NOVO' ? '27 livros' : `${filteredBooks.length} livros`}
             </h4>
           </div>
 
           {isLoading ? (
             <div className="flex justify-center py-10">
-              <div className="w-8 h-8 border-3 border-slate-100 border-t-blue-500 rounded-full animate-spin"></div>
+              <div className="w-8 h-8 border-3 border-slate-100 dark:border-slate-700 border-t-blue-500 rounded-full animate-spin"></div>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3">
@@ -3230,19 +3280,19 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                     setSelectedBibleBook(book);
                     setActiveSubView('BIBLE_CHAPTERS');
                   }}
-                  className="bg-white border border-slate-100 rounded-[24px] p-4 flex items-center justify-between shadow-sm active:scale-[0.98] transition-all group relative overflow-hidden"
+                  className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-4 flex items-center justify-between shadow-sm active:scale-[0.98] transition-all group relative overflow-hidden"
                 >
                   <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-500"></div>
                   <div className="flex items-center space-x-4">
-                    <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 font-black text-sm">
+                    <div className="w-12 h-12 bg-blue-50 dark:bg-blue-950/40 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400 font-black text-sm">
                       {book.book_abbrev}
                     </div>
                     <div className="text-left">
-                      <h5 className="font-black text-slate-800 uppercase tracking-tight">{book.book_name}</h5>
+                      <h5 className="font-black text-slate-800 dark:text-white uppercase tracking-tight">{book.book_name}</h5>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{book.total_chapters} capítulos</p>
                     </div>
                   </div>
-                  <ChevronRight size={18} className="text-slate-200 group-hover:translate-x-1 transition-transform" />
+                  <ChevronRight size={18} className="text-slate-200 dark:text-slate-600 group-hover:translate-x-1 transition-transform" />
                 </button>
               ))}
             </div>
@@ -3286,10 +3336,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 setSelectedBibleChapter(chapter);
                 setActiveSubView('BIBLE_VERSES');
               }}
-              className="bg-white border border-slate-100 rounded-2xl aspect-square flex items-center justify-center shadow-sm active:scale-90 transition-all group relative overflow-hidden"
+              className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl aspect-square flex items-center justify-center shadow-sm active:scale-90 transition-all group relative overflow-hidden"
             >
               <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500"></div>
-              <span className="font-black text-slate-700 text-lg">{chapter}</span>
+              <span className="font-black text-slate-700 dark:text-white text-lg">{chapter}</span>
             </button>
           ))}
         </div>
@@ -3325,7 +3375,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         <div className={`space-y-4 p-4 rounded-[32px] transition-all ${bibleSettings.darkMode ? 'bg-slate-900 text-white' : ''}`}>
           {isLoading ? (
             <div className="flex justify-center py-10">
-              <div className="w-8 h-8 border-3 border-slate-100 border-t-blue-500 rounded-full animate-spin"></div>
+              <div className="w-8 h-8 border-3 border-slate-100 dark:border-slate-700 border-t-blue-500 rounded-full animate-spin"></div>
             </div>
           ) : (
             <div className="space-y-4">
@@ -3337,13 +3387,13 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                     onClick={() => toggleMarkVerse(verse)}
                     className={`flex space-x-4 p-4 rounded-[24px] transition-all cursor-pointer border-l-4 ${
                       isMarked 
-                        ? 'bg-amber-50/80 border-amber-400 shadow-sm' 
-                        : 'bg-white border-transparent hover:bg-slate-50'
+                        ? 'bg-amber-50/80 dark:bg-amber-950/30 border-amber-400 dark:border-amber-500 shadow-sm' 
+                        : 'bg-white dark:bg-slate-800 border-transparent hover:bg-slate-50 dark:hover:bg-slate-700/50'
                     }`}
                   >
                     <span className={`${bibleSettings.darkMode ? 'text-blue-400' : 'text-blue-500'} font-black text-[10px] pt-1 min-w-[20px]`}>{verse.verse_number}</span>
                     <p 
-                      className={`${bibleSettings.darkMode ? 'text-slate-200' : 'text-slate-700'} font-bold leading-relaxed text-justify`}
+                      className={`${bibleSettings.darkMode ? 'text-slate-200' : 'text-slate-700 dark:text-slate-200'} font-bold leading-relaxed text-justify`}
                       style={{ fontSize: `${bibleSettings.fontSize}px` }}
                     >
                       {verse.text}
@@ -3382,8 +3432,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         {/* Lista de Versículos Marcados */}
         <div className={`space-y-4 p-4 rounded-[32px] transition-all ${bibleSettings.darkMode ? 'bg-slate-900 text-white' : ''}`}>
           {markedVerses.length === 0 ? (
-            <div className="bg-white rounded-[32px] p-12 text-center border border-slate-100 shadow-sm">
-              <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mx-auto mb-4">
+            <div className="bg-white dark:bg-slate-800 rounded-[32px] p-12 text-center border border-slate-100 dark:border-slate-700 shadow-sm">
+              <div className="w-16 h-16 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-300 dark:text-slate-500 mx-auto mb-4">
                 <Heart size={32} />
               </div>
               <p className="text-slate-400 font-bold text-sm">Nenhum versículo marcado ainda.</p>
@@ -3393,7 +3443,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               {markedVerses.map((verse) => (
                 <div 
                   key={verse.id} 
-                  className="bg-amber-50/80 border-l-4 border-amber-400 rounded-[24px] p-6 shadow-sm relative group"
+                  className="bg-amber-50/80 dark:bg-amber-950/30 border-l-4 border-amber-400 dark:border-amber-500 rounded-[24px] p-6 shadow-sm relative group"
                 >
                   <button 
                     onClick={() => toggleMarkVerse(verse)}
@@ -3402,12 +3452,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                     <Heart size={18} fill="currentColor" />
                   </button>
                   <div className="mb-3">
-                    <span className={`${bibleSettings.darkMode ? 'text-blue-400' : 'text-blue-600'} font-black text-[10px] uppercase tracking-widest`}>
+                    <span className={`${bibleSettings.darkMode ? 'text-blue-400' : 'text-blue-600 dark:text-blue-400'} font-black text-[10px] uppercase tracking-widest`}>
                       {verse.book_name} {verse.chapter}:{verse.verse_number}
                     </span>
                   </div>
                   <p 
-                    className={`${bibleSettings.darkMode ? 'text-slate-200' : 'text-slate-700'} font-bold leading-relaxed text-justify`}
+                    className={`${bibleSettings.darkMode ? 'text-slate-200' : 'text-slate-700 dark:text-slate-200'} font-bold leading-relaxed text-justify`}
                     style={{ fontSize: `${bibleSettings.fontSize}px` }}
                   >
                     {verse.text}
@@ -3449,20 +3499,20 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             placeholder="Pesquisar termo..." 
             value={dictionarySearch}
             onChange={(e) => setDictionarySearch(e.target.value)}
-            className="w-full bg-white border border-slate-100 rounded-[24px] py-4 pl-12 pr-6 text-sm font-bold text-slate-700 placeholder:text-slate-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+            className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] py-4 pl-12 pr-6 text-sm font-bold text-slate-700 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
           />
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-500" size={20} />
         </div>
 
         {/* Lista de Termos */}
         <div className="space-y-4">
           {isLoading ? (
             <div className="flex justify-center py-10">
-              <div className="w-8 h-8 border-3 border-slate-100 border-t-blue-500 rounded-full animate-spin"></div>
+              <div className="w-8 h-8 border-3 border-slate-100 dark:border-slate-700 border-t-blue-500 rounded-full animate-spin"></div>
             </div>
           ) : bibleDictionary.length === 0 ? (
-            <div className="bg-white rounded-[32px] p-12 text-center border border-slate-100 shadow-sm">
-              <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mx-auto mb-4">
+            <div className="bg-white dark:bg-slate-800 rounded-[32px] p-12 text-center border border-slate-100 dark:border-slate-700 shadow-sm">
+              <div className="w-16 h-16 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-300 dark:text-slate-500 mx-auto mb-4">
                 <Search size={32} />
               </div>
               <p className="text-slate-400 font-bold text-sm">Nenhum termo encontrado.</p>
@@ -3472,21 +3522,21 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               {bibleDictionary.map((entry) => (
                 <div 
                   key={entry.id} 
-                  className="bg-white border border-slate-100 rounded-[28px] p-6 shadow-sm group"
+                  className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-6 shadow-sm group"
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-blue-600 font-black text-lg uppercase tracking-tight">{entry.nome}</h4>
+                    <h4 className="text-blue-600 dark:text-blue-400 font-black text-lg uppercase tracking-tight">{entry.nome}</h4>
                     {entry.categoria && (
-                      <span className="bg-blue-50 text-blue-500 text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest">
+                      <span className="bg-blue-50 dark:bg-blue-950/40 text-blue-500 dark:text-blue-400 text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest">
                         {entry.categoria}
                       </span>
                     )}
                   </div>
-                  <p className="text-slate-600 font-bold text-sm leading-relaxed text-justify mb-4">
+                  <p className="text-slate-600 dark:text-slate-300 font-bold text-sm leading-relaxed text-justify mb-4">
                     {entry.texto}
                   </p>
                   {entry.referencia && (
-                    <div className="flex items-center space-x-2 text-slate-400">
+                    <div className="flex items-center space-x-2 text-slate-400 dark:text-slate-500">
                       <Book size={14} />
                       <span className="text-[10px] font-black uppercase tracking-widest">{entry.referencia}</span>
                     </div>
@@ -3526,23 +3576,23 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         {/* Lista de Opções */}
         <div className="grid grid-cols-1 gap-4">
           {[
-            { label: 'Versículos Marcados', icon: <Heart size={24} />, color: 'text-amber-500', bg: 'bg-amber-50', action: () => setActiveSubView('BIBLE_MARKED_VERSES') },
-            { label: 'Dicionário Bíblico', icon: <BookOpen size={24} />, color: 'text-blue-500', bg: 'bg-blue-50', action: () => setActiveSubView('BIBLE_DICTIONARY') },
-            { label: 'Anotações', icon: <FileText size={24} />, color: 'text-emerald-500', bg: 'bg-emerald-50', action: () => setActiveSubView('BIBLE_NOTES') },
-            { label: 'Configurações', icon: <Settings size={24} />, color: 'text-slate-400', bg: 'bg-slate-50', action: () => setActiveSubView('BIBLE_SETTINGS') }
+            { label: 'Versículos Marcados', icon: <Heart size={24} />, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-950/40', action: () => setActiveSubView('BIBLE_MARKED_VERSES') },
+            { label: 'Dicionário Bíblico', icon: <BookOpen size={24} />, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-950/40', action: () => setActiveSubView('BIBLE_DICTIONARY') },
+            { label: 'Anotações', icon: <FileText size={24} />, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-950/40', action: () => setActiveSubView('BIBLE_NOTES') },
+            { label: 'Configurações', icon: <Settings size={24} />, color: 'text-slate-400', bg: 'bg-slate-50 dark:bg-slate-700', action: () => setActiveSubView('BIBLE_SETTINGS') }
           ].map((item, i) => (
             <button 
               key={i} 
               onClick={item.action}
-              className="bg-white border border-slate-100 rounded-[28px] p-5 flex items-center justify-between shadow-sm active:scale-[0.98] transition-all group"
+              className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-5 flex items-center justify-between shadow-sm active:scale-[0.98] transition-all group"
             >
               <div className="flex items-center space-x-4">
                 <div className={`w-12 h-12 ${item.bg} rounded-2xl flex items-center justify-center ${item.color}`}>
                   {item.icon}
                 </div>
-                <span className="text-[13px] font-black text-slate-700 uppercase tracking-tight">{item.label}</span>
+                <span className="text-[13px] font-black text-slate-700 dark:text-white uppercase tracking-tight">{item.label}</span>
               </div>
-              <ChevronRight size={18} className="text-slate-200 group-hover:translate-x-1 transition-transform" />
+              <ChevronRight size={18} className="text-slate-200 dark:text-slate-600 group-hover:translate-x-1 transition-transform" />
             </button>
           ))}
         </div>
@@ -3566,15 +3616,16 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               setCultureAdminTab(item.id as any);
               setActiveSubView('CULTURE_ADMIN');
             }}
-            className="bg-white border border-slate-100 p-6 rounded-[32px] flex items-center space-x-5 shadow-sm active:scale-95 transition-all group"
+            className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-6 rounded-[32px] flex items-center space-x-5 shadow-sm active:scale-95 transition-all group"
           >
             <div className={`w-16 h-16 ${item.color} rounded-2xl flex items-center justify-center text-white group-hover:opacity-90 transition-opacity shadow-lg shadow-${item.color.split('-')[1]}-500/20`}>
               {item.icon}
             </div>
-            <div className="text-left">
-              <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight">{item.label}</h4>
-              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Gerenciar conteúdo</p>
+            <div className="text-left flex-1">
+              <h4 className="font-black text-slate-800 dark:text-white text-lg uppercase tracking-tight">{item.label}</h4>
+              <p className="text-slate-400 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest">Gerenciar conteúdo</p>
             </div>
+            <ChevronRight size={20} className="text-slate-200 dark:text-slate-600 group-hover:translate-x-1 transition-transform" />
           </button>
         ))}
       </div>
@@ -3753,84 +3804,84 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     return (
       <div className="animate-slide-in space-y-6 pt-2 pb-28">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Painel Admin</h3>
+          <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Painel Admin</h3>
         </div>
 
         <div className="grid grid-cols-1 gap-4">
           <button 
             onClick={() => setActiveSubView('BIBLE_ADMIN_ADD')}
-            className="bg-white border border-slate-100 p-6 rounded-[32px] flex items-center space-x-4 shadow-sm active:scale-95 transition-all group"
+            className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-6 rounded-[32px] flex items-center space-x-4 shadow-sm active:scale-95 transition-all group"
           >
-            <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+            <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-950/40 rounded-2xl flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
               <Plus size={28} />
             </div>
             <div className="text-left">
-              <h4 className="font-black text-slate-800 uppercase tracking-tight">Adicionar Devocional</h4>
+              <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-tight">Adicionar Devocional</h4>
               <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Criar novo conteúdo diário</p>
             </div>
           </button>
 
           <button 
             onClick={() => setActiveSubView('CULTURE_ADMIN_MENU')}
-            className="bg-white border border-slate-100 p-6 rounded-[32px] flex items-center space-x-4 shadow-sm active:scale-95 transition-all group"
+            className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-6 rounded-[32px] flex items-center space-x-4 shadow-sm active:scale-95 transition-all group"
           >
-            <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+            <div className="w-14 h-14 bg-indigo-50 dark:bg-indigo-950/40 rounded-2xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
               <Music size={28} />
             </div>
             <div className="text-left">
-              <h4 className="font-black text-slate-800 uppercase tracking-tight">Cultura e Tradição</h4>
+              <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-tight">Cultura e Tradição</h4>
               <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Editar Ideais e Hino</p>
             </div>
           </button>
 
           <button 
             onClick={() => setActiveSubView('VIDEO_ADMIN')}
-            className="bg-white border border-slate-100 p-6 rounded-[32px] flex items-center space-x-4 shadow-sm active:scale-95 transition-all group"
+            className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-6 rounded-[32px] flex items-center space-x-4 shadow-sm active:scale-95 transition-all group"
           >
-            <div className="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center text-red-600 group-hover:bg-red-600 group-hover:text-white transition-colors">
+            <div className="w-14 h-14 bg-red-50 dark:bg-red-950/40 rounded-2xl flex items-center justify-center text-red-600 dark:text-red-400 group-hover:bg-red-600 group-hover:text-white transition-colors">
               <Video size={28} />
             </div>
             <div className="text-left">
-              <h4 className="font-black text-slate-800 uppercase tracking-tight">Gestão de Vídeos</h4>
+              <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-tight">Gestão de Vídeos</h4>
               <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Adicionar e remover vídeos</p>
             </div>
           </button>
 
           <button 
             onClick={() => setActiveSubView('FORM_ADMIN')}
-            className="bg-white border border-slate-100 p-6 rounded-[32px] flex items-center space-x-4 shadow-sm active:scale-95 transition-all group"
+            className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-6 rounded-[32px] flex items-center space-x-4 shadow-sm active:scale-95 transition-all group"
           >
-            <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition-colors">
+            <div className="w-14 h-14 bg-amber-50 dark:bg-amber-950/40 rounded-2xl flex items-center justify-center text-amber-600 dark:text-amber-400 group-hover:bg-amber-600 group-hover:text-white transition-colors">
               <FileText size={28} />
             </div>
             <div className="text-left">
-              <h4 className="font-black text-slate-800 uppercase tracking-tight">Gestão de Formulários</h4>
+              <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-tight">Gestão de Formulários</h4>
               <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Links de formulários externos</p>
             </div>
           </button>
 
           <button 
             onClick={() => setActiveSubView('LINKS_ADMIN')}
-            className="bg-white border border-slate-100 p-6 rounded-[32px] flex items-center space-x-4 shadow-sm active:scale-95 transition-all group"
+            className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-6 rounded-[32px] flex items-center space-x-4 shadow-sm active:scale-95 transition-all group"
           >
             <div className="w-14 h-14 bg-indigo-500 rounded-2xl flex items-center justify-center text-white group-hover:opacity-90 transition-opacity shadow-lg">
               <ExternalLink size={28} />
             </div>
             <div className="text-left">
-              <h4 className="font-black text-slate-800 uppercase tracking-tight">Links Úteis</h4>
+              <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-tight">Links Úteis</h4>
               <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">SGC, Cartão, Clubes</p>
             </div>
           </button>
 
           <button 
             onClick={() => setActiveSubView('ACHIEVEMENTS_ADMIN')}
-            className="bg-white border border-slate-100 p-6 rounded-[32px] flex items-center space-x-4 shadow-sm active:scale-95 transition-all group"
+            className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-6 rounded-[32px] flex items-center space-x-4 shadow-sm active:scale-95 transition-all group"
           >
             <div className="w-14 h-14 bg-emerald-500 rounded-2xl flex items-center justify-center text-white group-hover:opacity-90 transition-opacity shadow-lg">
               <Award size={28} />
             </div>
             <div className="text-left">
-              <h4 className="font-black text-slate-800 uppercase tracking-tight">Gestão de Conquistas</h4>
+              <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-tight">Gestão de Conquistas</h4>
               <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Insignias, Classes e Liderança</p>
             </div>
           </button>
@@ -3842,25 +3893,25 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   const renderLinksAdmin = () => (
     <div className="animate-slide-in space-y-6 pt-2 pb-28">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Gerenciar Links</h3>
+        <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Gerenciar Links</h3>
       </div>
 
-      <div className="bg-white rounded-[32px] p-6 border border-slate-100 shadow-sm space-y-4">
+      <div className="bg-white dark:bg-slate-800 rounded-[32px] p-6 border border-slate-100 dark:border-slate-700 shadow-sm space-y-4">
         <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Adicionar Novo Link</h4>
         <div className="space-y-3">
           <input 
-            type="text"
+            type="text" 
             placeholder="Nome do Link (ex: SGC)"
             value={newLink.name}
             onChange={(e) => setNewLink({ ...newLink, name: e.target.value })}
-            className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all"
+            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 text-sm font-bold text-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all"
           />
           <input 
-            type="text"
+            type="text" 
             placeholder="URL do Link"
             value={newLink.url}
             onChange={(e) => setNewLink({ ...newLink, url: e.target.value })}
-            className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all"
+            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 text-sm font-bold text-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all"
           />
           <button 
             onClick={async () => {
@@ -3870,7 +3921,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               const links = await fetchAppLinks();
               setAppLinks(links);
             }}
-            className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg shadow-indigo-100 active:scale-95 transition-all"
+            className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg dark:shadow-none active:scale-95 transition-all"
           >
             Salvar Link
           </button>
@@ -3880,13 +3931,13 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       <div className="space-y-3">
         <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest px-2">Links Atuais</h4>
         {appLinks.map((link) => (
-          <div key={link.id} className="bg-white border border-slate-100 rounded-[28px] p-4 flex items-center justify-between shadow-sm">
+          <div key={link.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-4 flex items-center justify-between shadow-sm">
             <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500">
+              <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl flex items-center justify-center text-indigo-500">
                 <ExternalLink size={20} />
               </div>
               <div>
-                <h4 className="font-black text-slate-800 text-sm uppercase tracking-tight">{link.name}</h4>
+                <h4 className="font-black text-slate-800 dark:text-white text-sm uppercase tracking-tight">{link.name}</h4>
                 <p className="text-[10px] text-slate-400 font-bold truncate max-w-[150px]">{link.url}</p>
               </div>
             </div>
@@ -3897,15 +3948,15 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   );
 
   const renderWebViewer = () => (
-    <div className="fixed inset-0 z-[60] bg-white flex flex-col animate-slide-up">
-      <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-white/80 backdrop-blur-md sticky top-0 z-10">
+    <div className="fixed inset-0 z-[60] bg-white dark:bg-slate-900 flex flex-col animate-slide-up">
+      <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-10">
         <button 
           onClick={() => setActiveSubView('MAIN')}
-          className="p-2 hover:bg-slate-50 rounded-full transition-colors"
+          className="p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full transition-colors"
         >
-          <ArrowLeft size={24} className="text-slate-600" />
+          <ArrowLeft size={24} className="text-slate-600 dark:text-slate-200" />
         </button>
-        <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight truncate max-w-[200px]">
+        <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight truncate max-w-[200px]">
           {webTitle}
         </h3>
         <div className="w-10"></div>
@@ -3966,7 +4017,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     return (
       <div className="animate-slide-in space-y-6 pt-2 pb-28">
         {/* Formulário */}
-        <div className="space-y-5 bg-white border border-slate-100 p-6 rounded-[32px] shadow-sm">
+        <div className="space-y-5 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-6 rounded-[32px] shadow-sm">
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">TÍTULO DO DEVOCIONAL</label>
             <input 
@@ -3974,7 +4025,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               value={newDevocional.titulo}
               onChange={(e) => setNewDevocional({...newDevocional, titulo: e.target.value})}
               placeholder="Devocional Diário"
-              className="w-full bg-slate-50 border border-slate-100 rounded-3xl py-5 px-6 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all"
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-3xl py-5 px-6 text-sm font-bold text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all"
             />
           </div>
 
@@ -3985,7 +4036,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               value={newDevocional.link}
               onChange={(e) => setNewDevocional({...newDevocional, link: e.target.value})}
               placeholder="Link do YouTube ou site"
-              className="w-full bg-slate-50 border border-slate-100 rounded-3xl py-5 px-6 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all"
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-3xl py-5 px-6 text-sm font-bold text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all"
             />
           </div>
 
@@ -3996,7 +4047,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               onChange={(e) => setNewDevocional({...newDevocional, texto: e.target.value})}
               placeholder="Escreva a mensagem do dia..."
               rows={6}
-              className="w-full bg-slate-50 border border-slate-100 rounded-3xl py-5 px-6 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all resize-none"
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-3xl py-5 px-6 text-sm font-bold text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all resize-none"
             />
           </div>
 
@@ -4007,14 +4058,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 type="datetime-local" 
                 value={newDevocional.agendado_para}
                 onChange={(e) => setNewDevocional({...newDevocional, agendado_para: e.target.value})}
-                className="w-full bg-slate-50 border border-slate-100 rounded-3xl py-5 px-6 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all"
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-3xl py-5 px-6 text-sm font-bold text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all"
               />
             </div>
           </div>
 
           <button 
             onClick={handleSaveDevocional}
-            className="w-full py-4 bg-[#dc371b] text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg shadow-red-100 active:scale-95 transition-all mt-4"
+            className="w-full py-4 bg-[#dc371b] text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg dark:shadow-none active:scale-95 transition-all mt-4"
           >
             SALVAR
           </button>
@@ -4028,15 +4079,15 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       <div className="animate-slide-in space-y-6 pt-2 pb-28">
         <div className="space-y-4">
           {devocionais.length === 0 ? (
-            <div className="bg-white rounded-[32px] p-12 text-center border border-slate-100 shadow-sm">
+            <div className="bg-white dark:bg-slate-800 rounded-[32px] p-12 text-center border border-slate-100 dark:border-slate-700 shadow-sm">
               <p className="text-slate-400 font-bold text-sm">Nenhum devocional agendado.</p>
             </div>
           ) : (
             devocionais.map((dev) => (
-              <div key={dev.id} className="bg-white border border-slate-100 rounded-[28px] p-6 shadow-sm relative overflow-hidden">
+              <div key={dev.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-6 shadow-sm relative overflow-hidden">
                 <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-500"></div>
                 <div className="flex justify-between items-start mb-2">
-                  <h5 className="font-black text-slate-800 text-base">{dev.titulo}</h5>
+                  <h5 className="font-black text-slate-800 dark:text-white text-base">{dev.titulo}</h5>
                   <button 
                     onClick={async () => {
                       if (window.confirm("Deseja realmente excluir este devocional?")) {
@@ -4048,7 +4099,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                         }
                       }
                     }}
-                    className="text-slate-300 hover:text-red-500 transition-colors"
+                    className="text-slate-300 dark:text-slate-600 hover:text-red-500 transition-colors"
                   >
                     <Trash2 size={18} />
                   </button>
@@ -4056,7 +4107,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-3">
                   {new Date(dev.agendado_para).toLocaleString('pt-BR')}
                 </p>
-                <p className="text-slate-600 text-sm font-bold line-clamp-2 mb-4">{dev.texto}</p>
+                <p className="text-slate-600 dark:text-slate-300 text-sm font-bold line-clamp-2 mb-4">{dev.texto}</p>
                 <button 
                   onClick={() => {
                     setSelectedDevocional(dev);
@@ -4105,12 +4156,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 setActiveSubView('BIBLE');
               }
             }}
-            className="p-3 bg-white rounded-2xl shadow-sm border border-slate-100 text-slate-400 active:scale-95 transition-all"
+            className="p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 text-slate-400 active:scale-95 transition-all"
           >
             <ChevronLeft size={20} />
           </button>
           <div className="text-center">
-            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Meditação</h3>
+            <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Meditação</h3>
             <p className="text-[9px] font-black text-blue-500 uppercase tracking-[0.2em]">Devocional</p>
           </div>
           <div className="w-11"></div> {/* Espaçador para centralizar */}
@@ -4119,22 +4170,22 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         <div className="space-y-6 overflow-y-auto scrollbar-hide px-1 pb-10">
           {/* Devocional do Dia ou Estado Vazio */}
           {currentDev ? (
-            <div className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100 space-y-6">
+            <div className="bg-white dark:bg-slate-800 rounded-[40px] p-8 shadow-sm border border-slate-100 dark:border-slate-700 space-y-6">
               <div className="text-center space-y-2">
-                <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">{currentDev.titulo}</h2>
+                <h2 className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight">{currentDev.titulo}</h2>
                 <div className="flex items-center justify-center space-x-2">
-                  <div className="h-px bg-blue-100 w-8"></div>
+                  <div className="h-px bg-blue-100 dark:bg-blue-900 w-8"></div>
                   <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em]">
                     {new Date(currentDev.agendado_para).toLocaleDateString('pt-BR')}
                   </p>
-                  <div className="h-px bg-blue-100 w-8"></div>
+                  <div className="h-px bg-blue-100 dark:bg-blue-900 w-8"></div>
                 </div>
               </div>
 
-              <div className="h-px bg-slate-100 w-full opacity-50"></div>
+              <div className="h-px bg-slate-100 dark:bg-slate-700 w-full opacity-50"></div>
 
               <div className="prose prose-slate max-w-none">
-                <p className="text-slate-600 font-bold text-[17px] leading-[1.8] text-justify whitespace-pre-wrap selection:bg-blue-100 selection:text-blue-900">
+                <p className="text-slate-600 dark:text-slate-300 font-bold text-[17px] leading-[1.8] text-justify whitespace-pre-wrap selection:bg-blue-100 selection:text-blue-900">
                   {currentDev.texto}
                 </p>
               </div>
@@ -4144,7 +4195,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                   href={currentDev.link} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="w-full py-5 bg-blue-600 text-white rounded-[24px] font-black uppercase tracking-widest text-[11px] flex items-center justify-center space-x-3 shadow-xl shadow-blue-100 active:scale-[0.98] transition-all group"
+                  className="w-full py-5 bg-blue-600 text-white rounded-[24px] font-black uppercase tracking-widest text-[11px] flex items-center justify-center space-x-3 shadow-xl dark:shadow-none active:scale-[0.98] transition-all group"
                 >
                   <Video size={18} className="group-hover:scale-110 transition-transform" />
                   <span>Assistir Conteúdo em Vídeo</span>
@@ -4152,12 +4203,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               )}
             </div>
           ) : (
-            <div className="bg-white rounded-[40px] p-12 text-center border border-slate-100 shadow-sm">
-              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mx-auto mb-6">
+            <div className="bg-white dark:bg-slate-800 rounded-[40px] p-12 text-center border border-slate-100 dark:border-slate-700 shadow-sm">
+              <div className="w-20 h-20 bg-slate-50 dark:bg-slate-700/50 rounded-full flex items-center justify-center text-slate-300 dark:text-slate-500 mx-auto mb-6">
                 <Heart size={40} className="animate-pulse" />
               </div>
               <p className="text-slate-400 font-black uppercase text-xs tracking-widest mb-2">Momento de Reflexão</p>
-              <p className="text-slate-300 font-bold text-sm">Nenhum devocional disponível no momento.</p>
+              <p className="text-slate-300 dark:text-slate-500 font-bold text-sm">Nenhum devocional disponível no momento.</p>
             </div>
           )}
 
@@ -4173,18 +4224,18 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                     setSelectedDevocional(dev);
                     scrollToTop();
                   }}
-                  className="bg-white border border-slate-100 rounded-[28px] p-5 flex items-center space-x-4 shadow-sm active:scale-[0.98] transition-all group text-left"
+                  className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-5 flex items-center space-x-4 shadow-sm active:scale-[0.98] transition-all group text-left"
                 >
-                  <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
+                  <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-950/40 rounded-2xl flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
                     <Heart size={20} />
                   </div>
                   <div className="flex-grow">
-                    <h5 className="font-black text-slate-800 text-sm uppercase tracking-tight line-clamp-1">{dev.titulo}</h5>
+                    <h5 className="font-black text-slate-800 dark:text-white text-sm uppercase tracking-tight line-clamp-1">{dev.titulo}</h5>
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
                       {new Date(dev.agendado_para).toLocaleDateString('pt-BR')}
                     </p>
                   </div>
-                  <ChevronRight size={16} className="text-slate-200" />
+                  <ChevronRight size={16} className="text-slate-200 dark:text-slate-600" />
                 </button>
               ))}
             </div>
@@ -4230,28 +4281,28 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         </div>
 
         {/* Aparência */}
-        <div className="bg-white border border-slate-100 rounded-[32px] p-6 shadow-sm space-y-4">
+        <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[32px] p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="font-black text-slate-800 text-sm uppercase tracking-tight">Aparência</h4>
+              <h4 className="font-black text-slate-800 dark:text-white text-sm uppercase tracking-tight">Aparência</h4>
               <p className="text-slate-400 text-[10px] font-bold">Modo Escuro</p>
-              <p className="text-slate-300 text-[9px]">Alterna entre tema claro e escuro</p>
+              <p className="text-slate-300 dark:text-slate-500 text-[9px]">Alterna entre tema claro e escuro</p>
             </div>
             <div className="flex items-center space-x-2">
               <input 
                 type="checkbox" 
                 checked={bibleSettings.darkMode}
                 onChange={(e) => setBibleSettings({...bibleSettings, darkMode: e.target.checked})}
-                className="w-4 h-4 rounded border-slate-200 text-blue-600 focus:ring-blue-500"
+                className="w-4 h-4 rounded border-slate-200 dark:border-slate-600 text-blue-600 focus:ring-blue-500"
               />
-              <span className="text-[10px] font-bold text-slate-500">{bibleSettings.darkMode ? 'Ligado' : 'Desligado'}</span>
+              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">{bibleSettings.darkMode ? 'Ligado' : 'Desligado'}</span>
             </div>
           </div>
 
           <div className="space-y-2 pt-2">
             <div className="flex justify-between items-center">
               <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Tamanho da Fonte</p>
-              <span className="text-[10px] font-black text-blue-600">{bibleSettings.fontSize}px</span>
+              <span className="text-[10px] font-black text-blue-600 dark:text-blue-400">{bibleSettings.fontSize}px</span>
             </div>
             <input 
               type="range" 
@@ -4259,39 +4310,39 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               max="32" 
               value={bibleSettings.fontSize}
               onChange={(e) => setBibleSettings({...bibleSettings, fontSize: parseInt(e.target.value)})}
-              className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600"
+              className="w-full h-1.5 bg-slate-100 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
             />
-            <p className="text-slate-300 text-[9px]">Ajuste a leitura da Bíblia</p>
+            <p className="text-slate-300 dark:text-slate-500 text-[9px]">Ajuste a leitura da Bíblia</p>
           </div>
         </div>
 
         {/* Notificações */}
-        <div className="bg-white border border-slate-100 rounded-[32px] p-6 shadow-sm space-y-4">
+        <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[32px] p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="font-black text-slate-800 text-sm uppercase tracking-tight">Notificações</h4>
+              <h4 className="font-black text-slate-800 dark:text-white text-sm uppercase tracking-tight">Notificações</h4>
               <p className="text-slate-400 text-[10px] font-bold">Lembrete Diário</p>
-              <p className="text-slate-300 text-[9px]">Receba o versículo do dia</p>
+              <p className="text-slate-300 dark:text-slate-500 text-[9px]">Receba o versículo do dia</p>
             </div>
             <div className="flex items-center space-x-2">
               <input 
                 type="checkbox" 
                 checked={bibleSettings.dailyReminder}
                 onChange={(e) => setBibleSettings({...bibleSettings, dailyReminder: e.target.checked})}
-                className="w-4 h-4 rounded border-slate-200 text-blue-600 focus:ring-blue-500"
+                className="w-4 h-4 rounded border-slate-200 dark:border-slate-600 text-blue-600 focus:ring-blue-500"
               />
-              <span className="text-[10px] font-bold text-slate-500">{bibleSettings.dailyReminder ? 'Ligado' : 'Desligado'}</span>
+              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">{bibleSettings.dailyReminder ? 'Ligado' : 'Desligado'}</span>
             </div>
           </div>
         </div>
 
         {/* Estilo de Capítulos */}
-        <div className="bg-white border border-slate-100 rounded-[32px] p-6 shadow-sm space-y-3">
-          <h4 className="font-black text-slate-800 text-sm uppercase tracking-tight">Estilo de Capítulos</h4>
+        <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[32px] p-6 shadow-sm space-y-3">
+          <h4 className="font-black text-slate-800 dark:text-white text-sm uppercase tracking-tight">Estilo de Capítulos</h4>
           <select 
             value={bibleSettings.chapterStyle}
             onChange={(e) => setBibleSettings({...bibleSettings, chapterStyle: e.target.value})}
-            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-3 px-4 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl py-3 px-4 text-sm font-bold text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
           >
             <option value="Capítulo N">Exibir "Capítulo N"</option>
             <option value="Apenas N">Exibir apenas o número</option>
@@ -4299,24 +4350,24 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         </div>
 
         {/* Dados */}
-        <div className="bg-white border border-slate-100 rounded-[32px] p-6 shadow-sm space-y-3">
-          <h4 className="font-black text-slate-800 text-sm uppercase tracking-tight">Dados</h4>
+        <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[32px] p-6 shadow-sm space-y-3">
+          <h4 className="font-black text-slate-800 dark:text-white text-sm uppercase tracking-tight">Dados</h4>
           <button 
             onClick={handleClearData}
-            className="px-6 py-3 bg-red-500 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-red-100 active:scale-95 transition-all"
+            className="px-6 py-3 bg-red-500 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg dark:shadow-none active:scale-95 transition-all"
           >
             Limpar Todos os Dados
           </button>
-          <p className="text-slate-300 text-[9px]">Remove anotações, favoritos e progresso</p>
+          <p className="text-slate-300 dark:text-slate-500 text-[9px]">Remove anotações, favoritos e progresso</p>
         </div>
 
         {/* Versão da Bíblia */}
-        <div className="bg-white border border-slate-100 rounded-[32px] p-6 shadow-sm space-y-3">
-          <h4 className="font-black text-slate-800 text-sm uppercase tracking-tight">Versão da Bíblia</h4>
+        <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[32px] p-6 shadow-sm space-y-3">
+          <h4 className="font-black text-slate-800 dark:text-white text-sm uppercase tracking-tight">Versão da Bíblia</h4>
           <select 
             value={bibleSettings.bibleVersion}
             onChange={(e) => setBibleSettings({...bibleSettings, bibleVersion: e.target.value})}
-            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-3 px-4 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl py-3 px-4 text-sm font-bold text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
           >
             <option value="Almeida Revista e Corrigida">Almeida Revista e Corrigida</option>
             <option value="Nova Versão Internacional">Nova Versão Internacional (NVI)</option>
@@ -4363,7 +4414,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         </div>
 
         {/* Formulário de Nova Anotação */}
-        <div className="bg-white border border-slate-100 rounded-[32px] p-6 shadow-sm space-y-4">
+        <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[32px] p-6 shadow-sm space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Título</label>
@@ -4372,7 +4423,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 placeholder="Título" 
                 value={newNote.title}
                 onChange={(e) => setNewNote({...newNote, title: e.target.value})}
-                className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-3 px-4 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl py-3 px-4 text-sm font-bold text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
               />
             </div>
             <div className="space-y-1">
@@ -4382,7 +4433,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 placeholder="Ex: Hebreus 11:1" 
                 value={newNote.reference}
                 onChange={(e) => setNewNote({...newNote, reference: e.target.value})}
-                className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-3 px-4 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl py-3 px-4 text-sm font-bold text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
               />
             </div>
           </div>
@@ -4394,13 +4445,13 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               value={newNote.content}
               onChange={(e) => setNewNote({...newNote, content: e.target.value})}
               rows={3}
-              className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-3 px-4 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all resize-none"
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl py-3 px-4 text-sm font-bold text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all resize-none"
             />
           </div>
 
           <button 
             onClick={handleSaveNote}
-            className="w-full py-4 bg-[#dc371b] text-white rounded-[20px] font-black uppercase tracking-widest text-xs flex items-center justify-center space-x-2 shadow-lg shadow-red-100 active:scale-95 transition-all"
+            className="w-full py-4 bg-[#dc371b] text-white rounded-[20px] font-black uppercase tracking-widest text-xs flex items-center justify-center space-x-2 shadow-lg dark:shadow-none active:scale-95 transition-all"
           >
             <Save size={18} />
             <span>Salvar Anotação</span>
@@ -4414,9 +4465,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             placeholder="Buscar anotações..." 
             value={noteSearch}
             onChange={(e) => setNoteSearch(e.target.value)}
-            className="w-full bg-white border border-slate-100 rounded-[24px] py-4 pl-12 pr-24 text-sm font-bold text-slate-700 placeholder:text-slate-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+            className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] py-4 pl-12 pr-24 text-sm font-bold text-slate-700 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
           />
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-500" size={20} />
           <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-blue-500 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all">
             Buscar
           </button>
@@ -4425,8 +4476,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         {/* Lista de Anotações */}
         <div className="space-y-4">
           {filteredNotes.length === 0 ? (
-            <div className="bg-white rounded-[32px] p-12 text-center border border-slate-100 shadow-sm">
-              <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mx-auto mb-4">
+            <div className="bg-white dark:bg-slate-800 rounded-[32px] p-12 text-center border border-slate-100 dark:border-slate-700 shadow-sm">
+              <div className="w-16 h-16 bg-slate-50 dark:bg-slate-700/50 rounded-full flex items-center justify-center text-slate-300 dark:text-slate-500 mx-auto mb-4">
                 <FileText size={32} />
               </div>
               <p className="text-slate-400 font-bold text-sm">Nenhuma anotação encontrada.</p>
@@ -4435,28 +4486,28 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             filteredNotes.map((note) => (
               <div 
                 key={note.id} 
-                className="bg-white border border-slate-100 rounded-[28px] p-6 shadow-sm relative overflow-hidden group"
+                className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-6 shadow-sm relative overflow-hidden group"
               >
                 <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-emerald-500"></div>
                 <div className="flex justify-between items-start mb-3">
                   <div>
-                    <h5 className="font-black text-slate-800 text-base leading-tight">{note.title}</h5>
-                    <p className="text-emerald-600 font-black text-[10px] uppercase tracking-widest mt-1">{note.reference}</p>
+                    <h5 className="font-black text-slate-800 dark:text-white text-base leading-tight">{note.title}</h5>
+                    <p className="text-emerald-600 dark:text-emerald-400 font-black text-[10px] uppercase tracking-widest mt-1">{note.reference}</p>
                   </div>
                   <button 
                     onClick={() => handleDeleteNote(note.id)}
-                    className="p-2 text-slate-300 hover:text-red-500 transition-colors"
+                    className="p-2 text-slate-300 dark:text-slate-600 hover:text-red-500 transition-colors"
                   >
                     <Trash2 size={18} />
                   </button>
                 </div>
-                <p className="text-slate-600 font-bold text-sm leading-relaxed mb-4">
+                <p className="text-slate-600 dark:text-slate-300 font-bold text-sm leading-relaxed mb-4">
                   {note.content}
                 </p>
-                <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-                  <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{note.date}</span>
+                <div className="flex items-center justify-between pt-4 border-t border-slate-50 dark:border-slate-700">
+                  <span className="text-[10px] font-black text-slate-300 dark:text-slate-500 uppercase tracking-widest">{note.date}</span>
                   <div className="flex space-x-2">
-                    <div className="w-6 h-6 bg-slate-50 rounded-lg flex items-center justify-center text-slate-300">
+                    <div className="w-6 h-6 bg-slate-50 dark:bg-slate-700/50 rounded-lg flex items-center justify-center text-slate-300 dark:text-slate-500">
                       <Plus size={12} />
                     </div>
                   </div>
@@ -4481,7 +4532,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
     return (
       <div className="animate-slide-in space-y-6 pt-4 pb-28">
-        <div className="bg-white rounded-[32px] overflow-hidden shadow-lg border border-slate-100">
+        <div className="bg-white dark:bg-slate-800 rounded-[32px] overflow-hidden shadow-lg border border-slate-100 dark:border-slate-700">
           <div className="aspect-video bg-black">
             {videoId ? (
               <iframe 
@@ -4508,30 +4559,30 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           </div>
           <div className="p-6 space-y-4">
             <div>
-              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight leading-tight">{selectedVideo.titulo}</h3>
-              <p className="text-red-600 text-xs font-black uppercase tracking-widest mt-1">{selectedVideo.canal}</p>
+              <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight leading-tight">{selectedVideo.titulo}</h3>
+              <p className="text-red-600 dark:text-red-400 text-xs font-black uppercase tracking-widest mt-1">{selectedVideo.canal}</p>
             </div>
-            <div className="flex items-center space-x-6 pt-2 border-t border-slate-50">
+            <div className="flex items-center space-x-6 pt-2 border-t border-slate-50 dark:border-slate-700">
               <div className="flex flex-col">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Duração</span>
-                <span className="text-sm font-black text-slate-700 uppercase">{selectedVideo.duracao}</span>
+                <span className="text-sm font-black text-slate-700 dark:text-slate-200 uppercase">{selectedVideo.duracao}</span>
               </div>
               <div className="flex flex-col">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Visualizações</span>
-                <span className="text-sm font-black text-slate-700 uppercase">{selectedVideo.visualizacoes}</span>
+                <span className="text-sm font-black text-slate-700 dark:text-slate-200 uppercase">{selectedVideo.visualizacoes}</span>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-red-50 rounded-[28px] p-6 border border-red-100/50">
+        <div className="bg-red-50 dark:bg-slate-800 rounded-[28px] p-6 border border-red-100/50 dark:border-slate-700">
           <div className="flex items-start space-x-4">
-            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-red-500 shadow-sm flex-shrink-0">
+            <div className="w-10 h-10 bg-white dark:bg-slate-700 rounded-xl flex items-center justify-center text-red-500 shadow-sm flex-shrink-0">
               <Sparkles size={20} />
             </div>
             <div>
-              <h4 className="text-sm font-black text-red-900 uppercase tracking-tight">Dica de Estudo</h4>
-              <p className="text-red-700/70 text-xs font-medium leading-relaxed mt-1">
+              <h4 className="text-sm font-black text-red-900 dark:text-white uppercase tracking-tight">Dica de Estudo</h4>
+              <p className="text-red-700/70 dark:text-slate-300 text-xs font-medium leading-relaxed mt-1">
                 Assista ao vídeo com atenção e faça anotações. Se for um requisito de classe, lembre-se de preencher seu relatório após assistir.
               </p>
             </div>
@@ -4564,11 +4615,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       <div className="animate-slide-in space-y-8 pt-4 pb-28">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-8 h-8 border-3 border-slate-100 border-t-red-500 rounded-full animate-spin"></div>
+            <div className="w-8 h-8 border-3 border-slate-100 dark:border-slate-700 border-t-red-500 rounded-full animate-spin"></div>
           </div>
         ) : categories.length === 0 ? (
-          <div className="bg-white rounded-[32px] p-12 text-center border border-slate-100 shadow-sm">
-            <Video size={48} className="text-slate-100 mx-auto mb-4" />
+          <div className="bg-white dark:bg-slate-800 rounded-[32px] p-12 text-center border border-slate-100 dark:border-slate-700 shadow-sm">
+            <Video size={48} className="text-slate-100 dark:text-slate-700 mx-auto mb-4" />
             <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Nenhum vídeo disponível no momento.</p>
           </div>
         ) : (
@@ -4580,13 +4631,13 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               return (
                 <div key={category.id} className="space-y-4">
                   <div className="flex items-center space-x-3 px-2">
-                    <div className="w-10 h-10 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center shadow-sm">
+                    <div className="w-10 h-10 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 rounded-2xl flex items-center justify-center shadow-sm">
                       <Folder size={20} strokeWidth={2.5} />
                     </div>
-                    <h4 className="text-lg font-black text-slate-800 uppercase tracking-tight">{category.nome}</h4>
+                    <h4 className="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight">{category.nome}</h4>
                   </div>
 
-                  <div className="bg-white rounded-[32px] p-4 shadow-sm border border-slate-100 space-y-3">
+                  <div className="bg-white dark:bg-slate-800 rounded-[32px] p-4 shadow-sm border border-slate-100 dark:border-slate-700 space-y-3">
                     {categoryVideos.map(video => (
                       <button 
                         key={video.id}
@@ -4594,13 +4645,13 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                           setSelectedVideo(video);
                           setActiveSubView('VIDEO_PLAYER');
                         }}
-                        className="w-full flex items-center space-x-4 p-3 rounded-2xl hover:bg-slate-50 transition-all active:scale-[0.98] group"
+                        className="w-full flex items-center space-x-4 p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all active:scale-[0.98] group"
                       >
                         <div className="w-16 h-12 bg-red-600 rounded-xl flex items-center justify-center text-white shadow-md flex-shrink-0 group-hover:scale-105 transition-transform">
                           <Video size={24} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h5 className="text-sm font-black text-slate-800 uppercase tracking-tight whitespace-normal break-words">{video.titulo}</h5>
+                          <h5 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight whitespace-normal break-words">{video.titulo}</h5>
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{video.canal}</p>
                           <div className="flex items-center space-x-3 mt-1">
                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">{video.duracao}</span>
@@ -4611,7 +4662,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                             </span>
                           </div>
                         </div>
-                        <ChevronRight size={18} className="text-slate-200 group-hover:translate-x-1 transition-transform" />
+                        <ChevronRight size={18} className="text-slate-200 dark:text-slate-600 group-hover:translate-x-1 transition-transform" />
                       </button>
                     ))}
                   </div>
@@ -4632,12 +4683,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             <div className="w-8 h-8 border-3 border-slate-100 border-t-indigo-500 rounded-full animate-spin"></div>
           </div>
         ) : completedSpecialties.length === 0 ? (
-          <div className="bg-white rounded-[32px] p-12 text-center border border-slate-100 shadow-sm">
-            <Award size={48} className="text-slate-100 mx-auto mb-4" />
-            <p className="text-slate-400 font-bold text-sm">Você ainda não tem especialidades na sua faixa.</p>
+          <div className="bg-white dark:bg-slate-800 rounded-[32px] p-12 text-center border border-slate-100 dark:border-slate-700 shadow-sm">
+            <Award size={48} className="text-slate-100 dark:text-slate-700 mx-auto mb-4" />
+            <p className="text-slate-400 dark:text-slate-400 font-bold text-sm">Você ainda não tem especialidades na sua faixa.</p>
             <button 
               onClick={() => setActiveSubView('SPECIALTIES')}
-              className="mt-6 text-indigo-600 font-black uppercase text-[10px] tracking-widest underline underline-offset-4"
+              className="mt-6 text-indigo-600 dark:text-indigo-400 font-black uppercase text-[10px] tracking-widest underline underline-offset-4"
             >
               Explorar Especialidades
             </button>
@@ -4742,8 +4793,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     return (
       <div className="animate-slide-in space-y-8 pt-4 pb-28">
         {/* Nova Categoria */}
-        <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 space-y-4">
-          <h4 className="font-black text-slate-800 uppercase tracking-tight flex items-center space-x-2">
+        <div className="bg-white dark:bg-slate-800 rounded-[32px] p-6 shadow-sm border border-slate-100 dark:border-slate-700 space-y-4">
+          <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-tight flex items-center space-x-2">
             <Folder size={20} className="text-red-600" />
             <span>Nova Categoria</span>
           </h4>
@@ -4753,7 +4804,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               placeholder="Nome da Categoria"
               value={newVideoCategory.nome}
               onChange={e => setNewVideoCategory({...newVideoCategory, nome: e.target.value})}
-              className="flex-1 bg-slate-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-red-500 transition-all"
+              className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 dark:text-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-red-500 transition-all placeholder:text-slate-400"
             />
             <button 
               onClick={handleCreateVideoCategory}
@@ -4766,8 +4817,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         </div>
 
         {/* Novo Vídeo */}
-        <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 space-y-4">
-          <h4 className="font-black text-slate-800 uppercase tracking-tight flex items-center space-x-2">
+        <div className="bg-white dark:bg-slate-800 rounded-[32px] p-6 shadow-sm border border-slate-100 dark:border-slate-700 space-y-4">
+          <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-tight flex items-center space-x-2">
             <Video size={20} className="text-red-600" />
             <span>Novo Vídeo</span>
           </h4>
@@ -4777,14 +4828,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               placeholder="Título do Vídeo"
               value={newVideo.titulo}
               onChange={e => setNewVideo({...newVideo, titulo: e.target.value})}
-              className="w-full bg-slate-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-red-500 transition-all"
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 dark:text-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-red-500 transition-all placeholder:text-slate-400"
             />
             <input 
               type="text" 
               placeholder="Canal"
               value={newVideo.canal}
               onChange={e => setNewVideo({...newVideo, canal: e.target.value})}
-              className="w-full bg-slate-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-red-500 transition-all"
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 dark:text-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-red-500 transition-all placeholder:text-slate-400"
             />
             <div className="grid grid-cols-2 gap-3">
               <input 
@@ -4792,12 +4843,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 placeholder="Duração (ex: 10:00)"
                 value={newVideo.duracao}
                 onChange={e => setNewVideo({...newVideo, duracao: e.target.value})}
-                className="bg-slate-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-red-500 transition-all"
+                className="bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 dark:text-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-red-500 transition-all placeholder:text-slate-400"
               />
               <select 
                 value={newVideo.categoria_id}
                 onChange={e => setNewVideo({...newVideo, categoria_id: Number(e.target.value)})}
-                className="bg-slate-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-red-500 transition-all"
+                className="bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 dark:text-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-red-500 transition-all"
               >
                 <option value={0}>Selecionar Categoria</option>
                 {clubCategories.filter(c => c.id > 0).map(c => (
@@ -4810,7 +4861,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               placeholder="Link do YouTube"
               value={newVideo.link}
               onChange={e => setNewVideo({...newVideo, link: e.target.value})}
-              className="w-full bg-slate-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-red-500 transition-all"
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 dark:text-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-red-500 transition-all placeholder:text-slate-400"
             />
             <button 
               onClick={handleCreateVideo}
@@ -4828,7 +4879,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           return (
             <div key={category.id} className="space-y-4">
               <div className="flex items-center justify-between px-2">
-                <h4 className="font-black text-slate-800 uppercase tracking-tight">{category.nome}</h4>
+                <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-tight">{category.nome}</h4>
                 {category.id > 0 && (
                   <button 
                     onClick={() => handleDeleteVideoCategory(category.id)}
@@ -4838,25 +4889,25 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                   </button>
                 )}
               </div>
-              <div className="bg-white rounded-[32px] p-4 shadow-sm border border-slate-100 space-y-2">
+              <div className="bg-white dark:bg-slate-800 rounded-[32px] p-4 shadow-sm border border-slate-100 dark:border-slate-700 space-y-2">
                 {categoryVideos.length === 0 ? (
                   <p className="text-center py-4 text-slate-400 text-xs font-bold uppercase">Nenhum vídeo</p>
                 ) : (
                   categoryVideos.map(video => (
-                    <div key={video.id} className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 transition-all">
+                    <div key={video.id} className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all">
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-8 bg-red-600 rounded-lg flex items-center justify-center text-white">
                           <Video size={16} />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-black text-slate-800 uppercase whitespace-normal break-words">{video.titulo}</p>
+                          <p className="text-xs font-black text-slate-800 dark:text-white uppercase whitespace-normal break-words">{video.titulo}</p>
                           <p className="text-[9px] font-bold text-slate-400 uppercase">{video.canal}</p>
                         </div>
                       </div>
                       {video.categoria_id > 0 && (
                         <button 
                           onClick={() => handleDeleteVideo(video.id)}
-                          className="text-slate-300 hover:text-red-500 p-2 transition-colors"
+                          className="text-slate-300 dark:text-slate-600 hover:text-red-500 p-2 transition-colors"
                         >
                           <Trash2 size={18} />
                         </button>
@@ -4876,8 +4927,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     return (
       <div className="animate-slide-in space-y-8 pt-4 pb-28">
         {/* Novo Formulário */}
-        <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 space-y-4">
-          <h4 className="font-black text-slate-800 uppercase tracking-tight flex items-center space-x-2">
+        <div className="bg-white dark:bg-slate-800 rounded-[32px] p-6 shadow-sm border border-slate-100 dark:border-slate-700 space-y-4">
+          <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-tight flex items-center space-x-2">
             <FileText size={20} className="text-amber-600" />
             <span>Novo Formulário</span>
           </h4>
@@ -4887,27 +4938,27 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               placeholder="Título do Formulário"
               value={newForm.titulo}
               onChange={e => setNewForm({...newForm, titulo: e.target.value})}
-              className="w-full bg-slate-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500 transition-all"
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 dark:text-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500 transition-all placeholder:text-slate-400"
             />
             <input 
               type="text" 
               placeholder="Categoria (ex: Inscrição, Saúde)"
               value={newForm.categoria}
               onChange={e => setNewForm({...newForm, categoria: e.target.value})}
-              className="w-full bg-slate-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500 transition-all"
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 dark:text-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500 transition-all placeholder:text-slate-400"
             />
             <input 
               type="text" 
               placeholder="Link do Google Forms / PDF"
               value={newForm.link}
               onChange={e => setNewForm({...newForm, link: e.target.value})}
-              className="w-full bg-slate-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500 transition-all"
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 dark:text-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500 transition-all placeholder:text-slate-400"
             />
             <textarea 
               placeholder="Descrição curta"
               value={newForm.descricao}
               onChange={e => setNewForm({...newForm, descricao: e.target.value})}
-              className="w-full bg-slate-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500 transition-all h-24 resize-none"
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 dark:text-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500 transition-all h-24 resize-none placeholder:text-slate-400"
             />
             <button 
               onClick={handleCreateForm}
@@ -4921,25 +4972,25 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
         {/* Lista de Formulários */}
         <div className="space-y-4">
-          <h4 className="font-black text-slate-800 uppercase tracking-tight px-2">Formulários Ativos</h4>
-          <div className="bg-white rounded-[32px] p-4 shadow-sm border border-slate-100 space-y-2">
+          <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-tight px-2">Formulários Ativos</h4>
+          <div className="bg-white dark:bg-slate-800 rounded-[32px] p-4 shadow-sm border border-slate-100 dark:border-slate-700 space-y-2">
             {formularios.length === 0 ? (
               <p className="text-center py-8 text-slate-400 text-xs font-bold uppercase tracking-widest">Nenhum formulário cadastrado</p>
             ) : (
               formularios.map(form => (
-                <div key={form.id} className="flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 transition-all border border-slate-50">
+                <div key={form.id} className="flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all border border-slate-50 dark:border-slate-700">
                   <div className="flex items-center space-x-4">
-                    <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
+                    <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 rounded-xl flex items-center justify-center">
                       <FileText size={24} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-black text-slate-800 uppercase tracking-tight whitespace-normal break-words">{form.titulo}</p>
+                      <p className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight whitespace-normal break-words">{form.titulo}</p>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{form.categoria}</p>
                     </div>
                   </div>
                   <button 
                     onClick={() => handleDeleteForm(form.id)}
-                    className="text-slate-300 hover:text-red-500 p-2 transition-colors"
+                    className="text-slate-300 dark:text-slate-600 hover:text-red-500 p-2 transition-colors"
                   >
                     <Trash2 size={20} />
                   </button>
@@ -5071,7 +5122,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           {isPathfinder && (
             <button 
               onClick={() => setActiveSubView('DESBRAVA_PLUS')}
-              className="flex-1 max-w-[160px] bg-indigo-600 h-11 rounded-full shadow-lg shadow-indigo-100 flex items-center justify-center text-white active:scale-[0.98] transition-all px-4"
+              className="flex-1 max-w-[160px] bg-indigo-600 h-11 rounded-full flex items-center justify-center text-white active:scale-[0.98] transition-all px-4 shadow-none"
             >
               <div className="flex items-center space-x-2">
                 <Sparkles size={14} strokeWidth={2.5} />
@@ -5081,7 +5132,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           )}
           <button 
             onClick={() => setActiveSubView('VIDEOS')}
-            className="flex-1 max-w-[160px] bg-red-600 h-11 rounded-full shadow-lg shadow-red-100 flex items-center justify-center text-white active:scale-[0.98] transition-all px-4"
+            className="flex-1 max-w-[160px] bg-red-600 h-11 rounded-full flex items-center justify-center text-white active:scale-[0.98] transition-all px-4 shadow-none"
           >
             <div className="flex items-center space-x-2">
               <Video size={14} strokeWidth={2.5} />
@@ -5115,7 +5166,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
   return (
     <div className="flex flex-col h-full bg-[#F8FAFC] dark:bg-slate-900 animate-slide-in overflow-hidden relative transition-colors duration-500">
-      {activeSubView !== 'BIBLE' && activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && (
+      {activeSubView !== 'BIBLE' && activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && activeSubView !== 'CLASS_DETAILS' && activeSubView !== 'SPECIALTY_DETAILS' && (
         <div className="px-8 pt-12 pb-6 flex items-center justify-between z-10 bg-[#F8FAFC] dark:bg-slate-900 transition-colors duration-500">
           <div className="w-14 h-14 flex items-center justify-center">
             {activeSubView === 'MAIN' ? (
@@ -5123,11 +5174,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             ) : (
               <button 
                 onClick={() => {
-                  if (activeSubView === 'CLASS_DETAILS') {
-                    setActiveSubView('CLASSES');
-                  } else if (activeSubView === 'SPECIALTY_DETAILS') {
-                    setActiveSubView('SPECIALTIES_LIST');
-                  } else if (activeSubView === 'SPECIALTIES_LIST') {
+                  if (activeSubView === 'SPECIALTIES_LIST') {
                     setActiveSubView('SPECIALTIES');
                   } else if (activeSubView === 'DESBRAVA_PLUS_DETAILS') {
                     setActiveSubView('DESBRAVA_PLUS');
@@ -5189,7 +5236,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                     setActiveSubView('MAIN');
                   }
                 }} 
-                className="w-12 h-12 bg-white rounded-2xl shadow-sm text-slate-400 active:scale-90 transition-all border border-slate-100 flex items-center justify-center"
+                className="w-12 h-12 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-400 dark:text-slate-300 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center"
               >
                 <ChevronLeft size={24} strokeWidth={3} />
               </button>
@@ -5202,10 +5249,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em] mt-2">
               {activeSubView === 'MAIN' ? 'Área de Gestão' : 
                activeSubView === 'CLASSES' ? 'Classes Progressivas' :
-               activeSubView === 'CLASS_DETAILS' ? selectedClass?.titulo :
                activeSubView === 'SPECIALTIES' ? 'Especialidades' :
                activeSubView === 'SPECIALTIES_LIST' ? selectedCategory?.nome :
-               activeSubView === 'SPECIALTY_DETAILS' ? selectedSpecialty?.nome :
                activeSubView === 'CULTURE' ? 'Cultura e Tradição' :
                activeSubView === 'IDEALS_ANTHEM' ? 'Ideais e Hino' :
                activeSubView === 'IDEALS' ? 'Ideais' :
@@ -5251,7 +5296,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           </div>
           <div className="w-14 h-14 flex items-center justify-center">
             {activeSubView === 'MAIN' && (
-              <button onClick={onOpenProfile} className="w-14 h-14 bg-white rounded-full shadow-sm border border-slate-100 flex items-center justify-center text-slate-300 overflow-hidden active:scale-90 transition-all">
+              <button onClick={onOpenProfile} className="w-14 h-14 bg-white dark:bg-slate-800 rounded-full shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-300 overflow-hidden active:scale-90 transition-all">
                 {userAvatar ? <img src={userAvatar} className="w-full h-full object-cover" /> : <User size={24} />}
               </button>
             )}
@@ -5262,7 +5307,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       <div 
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className={`flex-grow overflow-y-auto scrollbar-hide ${activeSubView === 'DESBRAVA_PLUS_PDF' ? 'p-2' : activeSubView === 'BIBLE' ? 'p-4' : 'px-5 py-2'}`}
+        className={`flex-grow overflow-y-auto scrollbar-hide ${activeSubView === 'DESBRAVA_PLUS_PDF' ? 'p-2' : activeSubView === 'BIBLE' ? 'p-4' : (activeSubView === 'CLASS_DETAILS' || activeSubView === 'SPECIALTY_DETAILS') ? 'px-5 pt-8 pb-4' : 'px-5 py-2'}`}
       >
         {activeSubView === 'MAIN' && renderDashboard()}
         {activeSubView === 'CLASSES' && renderClassesMenu()}
@@ -5326,7 +5371,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       {showScrollTop && (
         <button 
           onClick={scrollToTop}
-          className="fixed bottom-28 right-6 w-12 h-12 bg-white rounded-full shadow-2xl border border-slate-100 flex items-center justify-center text-slate-400 active:scale-90 transition-all z-[60] animate-bounce-in"
+          className="fixed bottom-28 right-6 w-12 h-12 bg-white dark:bg-slate-800 rounded-full shadow-2xl border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-400 dark:text-slate-300 active:scale-90 transition-all z-[60] animate-bounce-in"
         >
           <ArrowUp size={24} strokeWidth={3} />
         </button>
@@ -5334,14 +5379,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
       {/* Barra de Navegação Fixa da Bíblia */}
       {activeSubView === 'BIBLE_VERSES' && !isLoading && (
-        <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[32px] p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] z-50 animate-slide-up">
+        <div className="absolute bottom-0 left-0 right-0 bg-white dark:bg-slate-800 rounded-t-[32px] p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] z-50 animate-slide-up border-t border-slate-100 dark:border-slate-700">
           <div className="flex items-center space-x-4">
             <button 
               onClick={goToPreviousChapter}
               className={`flex-1 py-4 rounded-[20px] font-black uppercase tracking-widest text-xs flex items-center justify-center space-x-2 active:scale-95 transition-all ${
                 selectedBibleBook && selectedBibleChapter === 1 && bibleBooks.findIndex(b => b.book_name === selectedBibleBook.book_name) === 0
-                  ? 'bg-slate-50 text-slate-300'
-                  : 'bg-slate-100 text-slate-600'
+                  ? 'bg-slate-50 dark:bg-slate-900 text-slate-300 dark:text-slate-600'
+                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200'
               }`}
             >
               <ChevronLeft size={18} />
@@ -5351,8 +5396,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               onClick={goToNextChapter}
               className={`flex-1 py-4 rounded-[20px] font-black uppercase tracking-widest text-xs flex items-center justify-center space-x-2 shadow-lg active:scale-95 transition-all ${
                 selectedBibleBook && selectedBibleChapter === selectedBibleBook.total_chapters && bibleBooks.findIndex(b => b.book_name === selectedBibleBook.book_name) === bibleBooks.length - 1
-                  ? 'bg-slate-50 text-slate-300 shadow-none'
-                  : 'bg-blue-600 text-white shadow-blue-200'
+                  ? 'bg-slate-50 dark:bg-slate-900 text-slate-300 dark:text-slate-600 shadow-none'
+                  : 'bg-blue-600 text-white shadow-blue-200 dark:shadow-none'
               }`}
             >
               <span>Próximo</span>
@@ -5363,7 +5408,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       )}
 
       {activeSubView !== 'DESBRAVA_PLUS_PDF' && activeSubView !== 'PDF_VIEWER' && activeSubView !== 'BIBLE' && activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && (
-        <div className="absolute bottom-10 left-0 right-0 px-8 flex justify-center z-50 pointer-events-none">
+        <div className="absolute bottom-2 sm:bottom-3 left-0 right-0 px-8 flex justify-center z-50 pointer-events-none">
           <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md h-16 w-full max-w-[320px] rounded-full shadow-2xl flex p-2 items-center border border-white dark:border-slate-700 space-x-2 pointer-events-auto">
             <button 
               onClick={() => onSwitchClub(ClubType.PATHFINDER)} 
@@ -5391,19 +5436,19 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           onClick={() => setSelectedCultureDetail(null)}
         >
           <div 
-            className="bg-white rounded-[40px] w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col shadow-2xl animate-scale-up"
+            className="bg-white dark:bg-slate-800 rounded-[40px] w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col shadow-2xl animate-scale-up border border-transparent dark:border-slate-700"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-6 border-b border-slate-50 flex items-center justify-between">
+            <div className="p-6 border-b border-slate-50 dark:border-slate-700 flex items-center justify-between">
               <div className="flex-1 min-w-0 pr-4">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Detalhes do Item</h4>
-                <h3 className="text-base font-black text-slate-800 uppercase tracking-tight truncate">
+                <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-0.5">Detalhes do Item</h4>
+                <h3 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-tight truncate">
                   {selectedCultureDetail.titulo}
                 </h3>
               </div>
               <button 
                 onClick={() => setSelectedCultureDetail(null)}
-                className="w-10 h-10 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 active:scale-90 flex-shrink-0"
+                className="w-10 h-10 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-300 active:scale-90 flex-shrink-0"
               >
                 <X size={20} />
               </button>
@@ -5415,7 +5460,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                   <div className="flex flex-col items-center space-y-8">
                     {/* Imagens Centradas no Topo */}
                     {selectedCultureDetail.blocks.filter(b => b.type === 'image').map((block) => (
-                      <div key={block.id} className="relative group w-32 h-32 sm:w-48 sm:h-48 overflow-hidden border border-slate-100 shadow-sm bg-slate-50 rounded-[40px] p-4">
+                      <div key={block.id} className="relative group w-32 h-32 sm:w-48 sm:h-48 overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-[40px] p-4">
                         <img 
                           src={getImageUrl(block.content)} 
                           alt="" 
@@ -5428,7 +5473,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                     {/* Textos Informativos */}
                     <div className="w-full space-y-6">
                       {selectedCultureDetail.blocks.filter(b => b.type === 'text').map((block) => (
-                        <div key={block.id} className="text-slate-600 font-medium text-sm leading-relaxed whitespace-pre-wrap">
+                        <div key={block.id} className="text-slate-600 dark:text-slate-300 font-medium text-sm leading-relaxed whitespace-pre-wrap">
                           {block.content}
                         </div>
                       ))}
@@ -5437,7 +5482,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 ) : (
                   <div className="flex flex-col items-center space-y-6">
                     {selectedCultureDetail.imagem && (
-                      <div className="w-32 h-32 sm:w-40 sm:h-40 bg-slate-50 rounded-[40px] p-6 border border-slate-100 shadow-sm">
+                      <div className="w-32 h-32 sm:w-40 sm:h-40 bg-slate-50 dark:bg-slate-900 rounded-[40px] p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
                         <img 
                           src={getImageUrl(selectedCultureDetail.imagem)} 
                           className="w-full h-full object-contain" 
@@ -5447,7 +5492,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                       </div>
                     )}
                     
-                    <div className="text-slate-600 font-medium text-sm leading-relaxed whitespace-pre-wrap w-full">
+                    <div className="text-slate-600 dark:text-slate-300 font-medium text-sm leading-relaxed whitespace-pre-wrap w-full">
                       {selectedCultureDetail.descricao}
                     </div>
                   </div>
@@ -5455,19 +5500,19 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
                 {/* Subitens no Modal: Renderização Completa com Títulos e Blocos */}
                 {selectedCultureDetail.subitems && selectedCultureDetail.subitems.length > 0 && (
-                  <div className="mt-10 pt-10 border-t border-slate-100 space-y-12">
+                  <div className="mt-10 pt-10 border-t border-slate-100 dark:border-slate-700 space-y-12">
                     {selectedCultureDetail.subitems.map((sub: any) => (
                       <div key={sub.id} className="space-y-5">
-                        <h5 className="text-[11px] font-black text-indigo-600 uppercase tracking-widest flex items-center">
-                          <span className="w-2 h-0.5 bg-indigo-600 rounded-full mr-3" />
+                        <h5 className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest flex items-center">
+                          <span className="w-2 h-0.5 bg-indigo-600 dark:bg-indigo-400 rounded-full mr-3" />
                           {sub.titulo}
                         </h5>
                         
                         {sub.blocks && sub.blocks.length > 0 ? (
-                          <div className="space-y-6 pl-5 border-l-2 border-indigo-50/50">
+                          <div className="space-y-6 pl-5 border-l-2 border-indigo-50/50 dark:border-indigo-900/40">
                             {/* Imagens do Subitem Primeiro */}
                             {sub.blocks.filter((b: any) => b.type === 'image').map((block: any) => (
-                              <div key={block.id} className="relative group w-24 h-24 sm:w-32 sm:h-32 my-6 overflow-hidden border border-slate-100 shadow-sm bg-slate-50 rounded-[24px] p-3">
+                              <div key={block.id} className="relative group w-24 h-24 sm:w-32 sm:h-32 my-6 overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-[24px] p-3">
                                 <img 
                                   src={getImageUrl(block.content)} 
                                   alt="" 
@@ -5480,14 +5525,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                             {/* Texto do Subitem Depois */}
                             <div className="space-y-4">
                               {sub.blocks.filter((b: any) => b.type === 'text').map((block: any) => (
-                                <div key={block.id} className="text-slate-500 text-sm leading-relaxed whitespace-pre-wrap font-medium">
+                                <div key={block.id} className="text-slate-500 dark:text-slate-300 text-sm leading-relaxed whitespace-pre-wrap font-medium">
                                   {block.content}
                                 </div>
                               ))}
                             </div>
                           </div>
                         ) : (
-                          <div className="text-slate-500 text-center text-sm leading-relaxed px-4 italic border-l-2 border-indigo-50/50">
+                          <div className="text-slate-500 dark:text-slate-400 text-center text-sm leading-relaxed px-4 italic border-l-2 border-indigo-50/50 dark:border-indigo-900/40">
                             {sub.descricao || 'Sem conteúdo adicional.'}
                           </div>
                         )}

@@ -298,6 +298,13 @@ const App: React.FC = () => {
         <main className={`flex-1 w-full overflow-hidden flex flex-col transition-colors duration-500 ${darkMode ? 'bg-slate-900' : 'bg-mesh'}`}>
           {renderContent()}
         </main>
+
+        {/* Rodapé Global */}
+        <footer className="py-2.5 px-4 text-center select-none shrink-0 pointer-events-none z-20 transition-colors duration-500">
+          <p className="text-[10px] sm:text-[11px] font-black text-blue-500 dark:text-blue-400 uppercase tracking-[0.25em]">
+            DBV TUDO 2024 - 2026
+          </p>
+        </footer>
       </div>
     </div>
   );

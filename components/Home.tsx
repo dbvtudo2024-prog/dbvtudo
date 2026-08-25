@@ -134,13 +134,6 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
           </div>
         </button>
       </div>
-
-      {/* Footer Info */}
-      <div className="pb-8 text-center px-12">
-        <p className="text-[7px] font-bold text-slate-300 uppercase tracking-[0.4em] leading-relaxed">
-          DBV Tudo 2024 - 2026
-        </p>
-      </div>
     </div>
   );
 };
