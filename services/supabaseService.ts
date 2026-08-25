@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, UserProfile, Devocional, Cultura, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario, Video, VideoCategory, LivroAVT, ManualAVT, AppLink, Conquista } from '../types';
+import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, UserProfile, Devocional, Cultura, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario, Video, VideoCategory, LivroAVT, ManualAVT, AppLink, Conquista, Trunfo } from '../types';
 
 const DEFAULT_URL = 'https://qfpyjavbncijowjvznkg.supabase.co';
 const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmcHlqYXZibmNpam93anZ6bmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NDcxMDUsImV4cCI6MjA3NDQyMzEwNX0.adxRCkobV-m_XUHp1KBXmg67VXkR-HL4QKFVtgQOmYc';
@@ -141,6 +141,15 @@ export async function createVideo(video: Omit<Video, 'id' | 'created_at'>) {
   }
 }
 
+export async function updateVideo(video: Partial<Video> & { id: number }) {
+  try {
+    const { data, error } = await supabase.from('Videos').update(video).eq('id', video.id).select().single();
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
 export async function deleteVideo(id: number) {
   try {
     const { error } = await supabase.from('Videos').delete().eq('id', id);
@@ -153,6 +162,15 @@ export async function deleteVideo(id: number) {
 export async function createVideoCategory(category: Omit<VideoCategory, 'id'>) {
   try {
     const { data, error } = await supabase.from('VideoCategories').insert([category]).select().single();
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+export async function updateVideoCategory(category: Partial<VideoCategory> & { id: number }) {
+  try {
+    const { data, error } = await supabase.from('VideoCategories').update(category).eq('id', category.id).select().single();
     return { data, error };
   } catch (err: any) {
     return { data: null, error: err };
@@ -231,6 +249,15 @@ export async function fetchFormularios(): Promise<Formulario[]> {
 export async function createFormulario(formulario: Omit<Formulario, 'id' | 'created_at'>) {
   try {
     const { data, error } = await supabase.from('Formularios').insert([formulario]).select().single();
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+export async function updateFormulario(formulario: Partial<Formulario> & { id: number }) {
+  try {
+    const { data, error } = await supabase.from('Formularios').update(formulario).eq('id', formulario.id).select().single();
     return { data, error };
   } catch (err: any) {
     return { data: null, error: err };
@@ -456,6 +483,21 @@ export async function createDevocional(devocional: Omit<Devocional, 'id' | 'crea
     const { data, error } = await supabase
       .from('devocionais')
       .insert([devocional])
+      .select()
+      .single();
+    
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+export async function updateDevocional(devocional: Partial<Devocional> & { id: string }) {
+  try {
+    const { data, error } = await supabase
+      .from('devocionais')
+      .update(devocional)
+      .eq('id', devocional.id)
       .select()
       .single();
     
@@ -1165,6 +1207,15 @@ export async function updateAppLink(link: Partial<AppLink>) {
   }
 }
 
+export async function deleteAppLink(id: number) {
+  try {
+    const { error } = await supabase.from('AppLinks').delete().eq('id', id);
+    return { error };
+  } catch (err: any) {
+    return { error: err };
+  }
+}
+
 export async function fetchConquistas(): Promise<Conquista[]> {
   try {
     const { data, error } = await supabase.from('Conquistas').select('*').order('ordem', { ascending: true });
@@ -1228,3 +1279,119 @@ export async function updateUserAchievements(email: string, achievementIds: numb
     return { error: err };
   }
 }
+
+const DEFAULT_TRUNFOS: Trunfo[] = [
+  {
+    id: 1,
+    titulo: 'V Campori Sul-Americano de Desbravadores',
+    ano: '2019',
+    imagem: 'https://images.unsplash.com/photo-1511556532299-8f662fc26c06?w=600&auto=format&fit=crop&q=80',
+    historia: 'Realizado no Parque do Peão em Barretos/SP sob o tema "A Melhor Aventura", reuniu mais de 100 mil desbravadores divididos em duas edições históricas (Alpha e Ômega). Foi um marco espiritual inesquecível de celebração, união e compromisso missionário.',
+    club: 'PATHFINDER'
+  },
+  {
+    id: 2,
+    titulo: 'IV Campori Sul-Americano de Desbravadores',
+    ano: '2014',
+    imagem: 'https://images.unsplash.com/photo-1533227268428-f9ed0900fb3b?w=600&auto=format&fit=crop&q=80',
+    historia: 'Sob o tema "Encontro Marcado na Eternidade", também realizado em Barretos/SP, reuniu milhares de juvenis de 8 países da América do Sul com foco em pioneirismo e grandes decisões para Cristo.',
+    club: 'PATHFINDER'
+  },
+  {
+    id: 3,
+    titulo: 'Aventuri da Divisão Sul-Americana',
+    ano: '2022',
+    imagem: 'https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?w=600&auto=format&fit=crop&q=80',
+    historia: 'Encontro emocionante comemorativo para a Rede de Aventureiros, fortalecendo a integração das famílias, o aprendizado da natureza e o amor a Jesus em cada Clube.',
+    club: 'ADVENTURER'
+  }
+];
+
+export async function fetchTrunfos(club?: string): Promise<Trunfo[]> {
+  try {
+    const localData = localStorage.getItem('dbv_tudo_trunfos');
+    let localList: Trunfo[] = localData ? JSON.parse(localData) : DEFAULT_TRUNFOS;
+
+    const query = supabase.from('Trunfos').select('*').order('id', { ascending: false });
+    const { data, error } = await query;
+
+    if (!error && data && data.length > 0) {
+      localStorage.setItem('dbv_tudo_trunfos', JSON.stringify(data));
+      localList = data;
+    }
+
+    if (club) {
+      return localList.filter(t => !t.club || t.club === club || t.club === 'ALL');
+    }
+    return localList;
+  } catch {
+    const localData = localStorage.getItem('dbv_tudo_trunfos');
+    const localList: Trunfo[] = localData ? JSON.parse(localData) : DEFAULT_TRUNFOS;
+    if (club) {
+      return localList.filter(t => !t.club || t.club === club || t.club === 'ALL');
+    }
+    return localList;
+  }
+}
+
+export async function updateTrunfo(trunfo: Partial<Trunfo>) {
+  try {
+    const localData = localStorage.getItem('dbv_tudo_trunfos');
+    let currentList: Trunfo[] = localData ? JSON.parse(localData) : [...DEFAULT_TRUNFOS];
+
+    let savedItem: Trunfo;
+    if (trunfo.id && trunfo.id > 0) {
+      currentList = currentList.map(item => item.id === trunfo.id ? { ...item, ...trunfo } as Trunfo : item);
+      savedItem = currentList.find(item => item.id === trunfo.id)!;
+    } else {
+      const newId = Date.now();
+      savedItem = {
+        id: newId,
+        titulo: trunfo.titulo || 'Novo Trunfo',
+        ano: trunfo.ano || '',
+        imagem: trunfo.imagem || '',
+        historia: trunfo.historia || '',
+        club: trunfo.club || 'PATHFINDER',
+        created_at: new Date().toISOString()
+      };
+      currentList.unshift(savedItem);
+    }
+    localStorage.setItem('dbv_tudo_trunfos', JSON.stringify(currentList));
+
+    try {
+      const payload: any = { ...trunfo };
+      if (!payload.id || payload.id <= 0) {
+        delete payload.id;
+      }
+      const { data, error } = await supabase.from('Trunfos').upsert(payload).select().single();
+      if (!error && data) {
+        return { data, error: null };
+      }
+    } catch {}
+
+    return { data: savedItem, error: null };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+export async function deleteTrunfo(id: number) {
+  try {
+    const localData = localStorage.getItem('dbv_tudo_trunfos');
+    if (localData) {
+      const currentList: Trunfo[] = JSON.parse(localData);
+      const filtered = currentList.filter(item => item.id !== id);
+      localStorage.setItem('dbv_tudo_trunfos', JSON.stringify(filtered));
+    }
+
+    try {
+      const { error } = await supabase.from('Trunfos').delete().eq('id', id);
+      return { error };
+    } catch {}
+
+    return { error: null };
+  } catch (err: any) {
+    return { error: err };
+  }
+}
+

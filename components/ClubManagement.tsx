@@ -1,25 +1,27 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { jsPDF } from 'jspdf';
-import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, BibleNote, Devocional, Cultura, UserProfile, CulturaItem, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario, Video as VideoType, VideoCategory, LivroAVT, ManualAVT, AppLink, Conquista } from '../types';
+import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, BibleNote, Devocional, Cultura, UserProfile, CulturaItem, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario, Video as VideoType, VideoCategory, LivroAVT, ManualAVT, AppLink, Conquista, Trunfo } from '../types';
 import { 
   fetchCategories, fetchEspecialidades, fetchClasses, fetchDesbravaMais, 
   fetchBibleBooks, fetchBibleVerses, fetchBibleDictionary, fetchDevocionais, 
-  createDevocional, deleteDevocional, fetchUserSpecialties, updateUserSpecialties, 
+  createDevocional, updateDevocional, deleteDevocional, fetchUserSpecialties, updateUserSpecialties, 
   fetchCultura, updateCultura, fetchUserProfile, supabase,
   fetchLivrosClasses, fetchLivrosAno, fetchOutrosLivros, fetchManuaisDBV,
-  fetchCampingDBV, fetchFormularios, createFormulario, deleteFormulario,
+  fetchCampingDBV, fetchFormularios, createFormulario, updateFormulario, deleteFormulario,
   fetchVideos, fetchVideoCategories,
   fetchAtividadesJogosDBV, fetchCerimoniasDBV, fetchVideosDBV,
-  createVideo, deleteVideo, createVideoCategory, deleteVideoCategory,
-  fetchLivrosAVT, fetchManuaisAVT, fetchAppLinks, updateAppLink,
-  fetchConquistas, updateConquista, deleteConquista
+  createVideo, updateVideo, deleteVideo, createVideoCategory, updateVideoCategory, deleteVideoCategory,
+  fetchLivrosAVT, fetchManuaisAVT, fetchAppLinks, updateAppLink, deleteAppLink,
+  fetchConquistas, updateConquista, deleteConquista,
+  fetchTrunfos, updateTrunfo, deleteTrunfo
 } from '../services/supabaseService';
 import { PROFILE_KEY } from '../constants';
 import { 
   Shield, Award, User, Layers, Sparkles, Home as HomeIcon, Search,
   ChevronRight, ChevronLeft, ChevronDown, Info, Book, Settings, Zap, Music, Flag, Shirt, Globe, Key, FileText, Library, CreditCard, MapPin, Video, Folder, BookOpen, Heart, ArrowUp,
-  Trash2, Plus, Save, Share2, Calendar, X, Image as ImageIcon, Download, ArrowLeft, ExternalLink, Filter
+  Trash2, Plus, Save, Share2, Calendar, X, Image as ImageIcon, Download, ArrowLeft, ExternalLink, Filter, Edit2, Edit3, Check,
+  AlignLeft, AlignCenter, AlignRight, ZoomIn, ZoomOut, Minus, Trophy
 } from 'lucide-react';
 
 
@@ -56,6 +58,38 @@ const normalizeCulturaList = (val: any): CulturaItem[] => {
     } catch {}
   }
   return [];
+};
+
+const getItemImageSizeClass = (size?: string, isSubitem = false) => {
+  if (isSubitem) {
+    switch (size) {
+      case 'sm':
+        return 'w-24 h-24 sm:w-28 sm:h-28';
+      case 'md':
+      default:
+        return 'w-36 h-36 sm:w-44 sm:h-44';
+      case 'lg':
+        return 'w-48 h-48 sm:w-60 sm:h-60';
+      case 'xl':
+        return 'w-64 h-64 sm:w-72 sm:h-72';
+      case 'full':
+        return 'w-full max-w-sm aspect-square sm:aspect-auto';
+    }
+  } else {
+    switch (size) {
+      case 'sm':
+        return 'w-28 h-28 sm:w-36 sm:h-36';
+      case 'md':
+      default:
+        return 'w-40 h-40 sm:w-52 sm:h-52';
+      case 'lg':
+        return 'w-56 h-56 sm:w-72 sm:h-72';
+      case 'xl':
+        return 'w-72 h-72 sm:w-96 sm:h-96';
+      case 'full':
+        return 'w-full max-w-xl aspect-auto max-h-[480px]';
+    }
+  }
 };
 
 const CultureAdmin: React.FC<CultureAdminProps> = ({ 
@@ -98,11 +132,14 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
     emblemas_list: normalizeCulturaList(culturaData?.emblemas_list)
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [newItem, setNewItem] = useState<Partial<CulturaItem>>({
     titulo: '',
     subtitulo: '',
     descricao: '',
     imagem: '',
+    imageAlign: 'center',
+    imageSize: 'md',
     blocks: [],
     club: club,
     parentId: undefined
@@ -111,6 +148,7 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
   const [currentBlockType, setCurrentBlockType] = useState<'text' | 'image'>('text');
 
   useEffect(() => {
+    setEditingItemId(null);
     setNewItem(prev => ({ ...prev, parentId: undefined, blocks: [] }));
   }, [activeTab]);
 
@@ -163,11 +201,45 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
     return null;
   };
 
+  const handleStartEdit = (item: CulturaItem) => {
+    setEditingItemId(item.id);
+    setNewItem({
+      id: item.id,
+      titulo: item.titulo || '',
+      subtitulo: item.subtitulo || '',
+      descricao: item.descricao || '',
+      imagem: item.imagem || '',
+      imageAlign: item.imageAlign || 'center',
+      imageSize: item.imageSize || 'md',
+      blocks: Array.isArray(item.blocks) ? [...item.blocks] : [],
+      club: item.club || club,
+      parentId: item.parentId
+    });
+    setTimeout(() => {
+      document.getElementById('admin-item-form')?.scrollIntoView({ behavior: 'smooth' });
+    }, 50);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingItemId(null);
+    setNewItem({
+      titulo: '',
+      subtitulo: '',
+      descricao: '',
+      imagem: '',
+      imageAlign: 'center',
+      imageSize: 'md',
+      blocks: [],
+      club: club,
+      parentId: undefined
+    });
+  };
+
   const renderAdminItemList = (items: CulturaItem[] | undefined | null, type: 'UNIFORMS' | 'EMBLEMS', depth = 0) => {
     if (!Array.isArray(items)) return null;
     return items.filter(Boolean).map((item) => (
       <div key={item.id || Math.random().toString()} className="space-y-2">
-        <div className={`flex items-center justify-between p-4 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl shadow-sm transition-all hover:border-indigo-200 ${depth > 0 ? 'ml-8' : ''}`}>
+        <div className={`flex items-center justify-between p-4 bg-white dark:bg-slate-800 border ${editingItemId === item.id ? 'border-amber-500 ring-2 ring-amber-500/20' : 'border-slate-100 dark:border-slate-700'} rounded-2xl shadow-sm transition-all hover:border-indigo-200 ${depth > 0 ? 'ml-8' : ''}`}>
           <div className="flex items-center space-x-4">
             <div className="relative">
               {item.imagem ? (
@@ -189,6 +261,11 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                     {item.club === ClubType.PATHFINDER ? 'DBV' : 'AVT'}
                   </span>
                 )}
+                {editingItemId === item.id && (
+                  <span className="text-[8px] font-black px-2 py-0.5 rounded-md bg-amber-500 text-white uppercase tracking-wider animate-pulse">
+                    Editando
+                  </span>
+                )}
               </div>
               <p className="text-[10px] text-slate-400 dark:text-slate-400 font-bold uppercase tracking-tight truncate">
                 {item.subitems?.length || 0} sub-itens • {((item.descricao || '').length > 30 ? (item.descricao || '').substring(0, 30) + '...' : (item.descricao || 'Sem descrição'))}
@@ -197,7 +274,15 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
           </div>
           <div className="flex items-center space-x-1">
             <button 
+              onClick={() => handleStartEdit(item)}
+              className="p-2.5 text-amber-500 hover:bg-amber-50 dark:hover:bg-slate-700 rounded-xl transition-all active:scale-90"
+              title="Editar Item"
+            >
+              <Edit2 size={18} />
+            </button>
+            <button 
               onClick={() => {
+                setEditingItemId(null);
                 setNewItem({ ...newItem, parentId: item.id });
                 document.getElementById('admin-item-form')?.scrollIntoView({ behavior: 'smooth' });
               }}
@@ -209,6 +294,7 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
             <button 
               onClick={() => removeItem(type, item.id)}
               className="p-2.5 text-red-500 hover:bg-red-50 dark:hover:bg-slate-700 rounded-xl transition-all active:scale-90"
+              title="Excluir Item"
             >
               <Trash2 size={20} />
             </button>
@@ -320,6 +406,8 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
       subtitulo: newItem.subtitulo,
       descricao: newItem.descricao || '',
       imagem: newItem.imagem,
+      imageAlign: newItem.imageAlign || 'center',
+      imageSize: newItem.imageSize || 'md',
       blocks: newItem.blocks || [],
       club: newItem.club || club,
       subitems: []
@@ -352,6 +440,48 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
       }));
     }
 
+    setNewItem({ titulo: '', subtitulo: '', descricao: '', imagem: '', blocks: [], club: club, parentId: undefined });
+  };
+
+  const saveItemEdit = (type: 'UNIFORMS' | 'EMBLEMS') => {
+    if (!newItem.titulo) {
+      alert("O título é obrigatório.");
+      return;
+    }
+
+    const listKey = type === 'UNIFORMS' ? 'uniformes_list' : 'emblemas_list';
+
+    const updateItemRecursive = (items: CulturaItem[]): CulturaItem[] => {
+      return items.map(item => {
+        if (item.id === editingItemId) {
+          return {
+            ...item,
+            titulo: newItem.titulo!,
+            subtitulo: newItem.subtitulo,
+            descricao: newItem.descricao || '',
+            imagem: newItem.imagem,
+            imageAlign: newItem.imageAlign || 'center',
+            imageSize: newItem.imageSize || 'md',
+            blocks: newItem.blocks || [],
+            club: newItem.club || club
+          };
+        }
+        if (item.subitems && item.subitems.length > 0) {
+          return {
+            ...item,
+            subitems: updateItemRecursive(item.subitems)
+          };
+        }
+        return item;
+      });
+    };
+
+    setLocalCultura(prev => ({
+      ...prev,
+      [listKey]: updateItemRecursive((prev as any)[listKey] || [])
+    }));
+
+    setEditingItemId(null);
     setNewItem({ titulo: '', subtitulo: '', descricao: '', imagem: '', blocks: [], club: club, parentId: undefined });
   };
 
@@ -587,14 +717,28 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                 </div>
               </div>
 
-              {/* Form to add new item */}
-              <div id="admin-item-form" className="bg-slate-50 dark:bg-slate-900/60 rounded-3xl p-6 border border-slate-100 dark:border-slate-700/60 space-y-4">
-                <h4 className="text-xs font-black text-slate-700 dark:text-white uppercase tracking-widest flex items-center space-x-2">
-                  <Plus size={16} className="text-indigo-600 dark:text-indigo-400" />
-                  <span>{newItem.parentId ? 'Adicionar Sub-item de Uniforme' : 'Adicionar Novo Item de Uniforme'}</span>
-                </h4>
+              {/* Form to add/edit item */}
+              <div id="admin-item-form" className={`bg-slate-50 dark:bg-slate-900/60 rounded-3xl p-6 border ${editingItemId ? 'border-amber-400 dark:border-amber-600/60 ring-2 ring-amber-400/20' : 'border-slate-100 dark:border-slate-700/60'} space-y-4`}>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-black text-slate-700 dark:text-white uppercase tracking-widest flex items-center space-x-2">
+                    {editingItemId ? (
+                      <Edit2 size={16} className="text-amber-500" />
+                    ) : (
+                      <Plus size={16} className="text-indigo-600 dark:text-indigo-400" />
+                    )}
+                    <span>{editingItemId ? 'Editar Item de Uniforme' : (newItem.parentId ? 'Adicionar Sub-item de Uniforme' : 'Adicionar Novo Item de Uniforme')}</span>
+                  </h4>
+                  {editingItemId && (
+                    <button 
+                      onClick={handleCancelEdit}
+                      className="px-3 py-1 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-slate-300 transition-all"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                </div>
 
-                {newItem.parentId && (
+                {newItem.parentId && !editingItemId && (
                   <div className="bg-indigo-50 dark:bg-indigo-950/50 p-3 rounded-xl flex items-center justify-between">
                     <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-300 uppercase tracking-widest">
                       Pai: {findItemTitle(localCultura.uniformes_list, newItem.parentId) || 'Item selecionado'}
@@ -637,6 +781,7 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                       className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                     />
                   </div>
+
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1">Subtítulo ou Contexto (Opcional)</label>
                     <input 
@@ -647,8 +792,188 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                       className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                     />
                   </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1">Texto Principal / Descrição</label>
+                    <textarea 
+                      value={newItem.descricao || ''}
+                      onChange={(e) => setNewItem({...newItem, descricao: e.target.value})}
+                      placeholder="Digite o texto principal explicativo deste uniforme..."
+                      rows={4}
+                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm resize-y"
+                    />
+                  </div>
+
+                  {/* Imagem Principal & Alinhamento */}
+                  <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200/80 dark:border-slate-700">
+                    <label className="text-[10px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-widest ml-1 block">Imagem Principal</label>
+                    
+                    {newItem.imagem ? (
+                      <div className="flex items-center space-x-4 p-3 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
+                        <img src={getImageUrl(newItem.imagem)} alt="Preview" className="w-16 h-16 rounded-xl object-contain bg-slate-50 dark:bg-slate-900 p-1 border border-slate-100 dark:border-slate-700" referrerPolicy="no-referrer" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">Imagem Carregada</p>
+                          <p className="text-[10px] text-slate-400">Pronta para exibição</p>
+                        </div>
+                        <button 
+                          type="button"
+                          onClick={() => setNewItem({ ...newItem, imagem: '' })}
+                          className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-all"
+                          title="Remover imagem"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="relative">
+                          <input 
+                            type="file" 
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleItemImageUpload(file);
+                            }}
+                            className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                          />
+                          <div className="w-full py-4 bg-white dark:bg-slate-800 border-2 border-dashed border-indigo-200 dark:border-indigo-800 rounded-2xl flex items-center justify-center space-x-2 text-indigo-500 hover:border-indigo-400 transition-all cursor-pointer">
+                            <ImageIcon size={18} />
+                            <span className="text-xs font-bold uppercase tracking-wider">Carregar Imagem do Dispositivo</span>
+                          </div>
+                        </div>
+                        <input 
+                          type="text"
+                          value={newItem.imagem || ''}
+                          onChange={(e) => setNewItem({ ...newItem, imagem: e.target.value })}
+                          placeholder="Ou cole a URL da imagem (https://...)"
+                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-xs text-slate-700 dark:text-white placeholder:text-slate-400"
+                        />
+                      </div>
+                    )}
+
+                    {/* Alinhamento da Imagem */}
+                    <div className="pt-2 space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1 block">
+                        Alinhamento da Imagem
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setNewItem({ ...newItem, imageAlign: 'left' })}
+                          className={`flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-tight transition-all border ${
+                            (newItem.imageAlign || 'center') === 'left'
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                          }`}
+                        >
+                          <AlignLeft size={16} />
+                          <span>Esquerda</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewItem({ ...newItem, imageAlign: 'center' })}
+                          className={`flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-tight transition-all border ${
+                            (newItem.imageAlign || 'center') === 'center'
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                          }`}
+                        >
+                          <AlignCenter size={16} />
+                          <span>Centro</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewItem({ ...newItem, imageAlign: 'right' })}
+                          className={`flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-tight transition-all border ${
+                            (newItem.imageAlign || 'center') === 'right'
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                          }`}
+                        >
+                          <AlignRight size={16} />
+                          <span>Direita</span>
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold px-1">
+                        {(newItem.imageAlign || 'center') === 'right' && '➔ Imagem à direita • Texto principal à esquerda'}
+                        {(newItem.imageAlign || 'center') === 'left' && '➔ Imagem à esquerda • Texto principal à direita'}
+                        {(newItem.imageAlign || 'center') === 'center' && '➔ Imagem centralizada • Texto abaixo'}
+                      </p>
+                    </div>
+
+                    {/* Tamanho da Imagem (Aumentar / Diminuir) */}
+                    <div className="pt-3 border-t border-slate-200/60 dark:border-slate-800 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-widest ml-1 block">
+                          Tamanho da Imagem
+                        </label>
+                        <div className="flex items-center space-x-2 bg-white dark:bg-slate-800 px-2 py-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const sizes: Array<'sm' | 'md' | 'lg' | 'xl' | 'full'> = ['sm', 'md', 'lg', 'xl', 'full'];
+                              const cur = newItem.imageSize || 'md';
+                              const idx = sizes.indexOf(cur as any);
+                              if (idx > 0) setNewItem({ ...newItem, imageSize: sizes[idx - 1] });
+                            }}
+                            disabled={(newItem.imageSize || 'md') === 'sm'}
+                            className="p-1 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg disabled:opacity-30 transition-all flex items-center justify-center"
+                            title="Diminuir Imagem (-)"
+                          >
+                            <Minus size={14} />
+                          </button>
+                          <span className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 min-w-[72px] text-center uppercase tracking-tight">
+                            {(newItem.imageSize || 'md') === 'sm' && 'Pequena'}
+                            {(newItem.imageSize || 'md') === 'md' && 'Média'}
+                            {(newItem.imageSize || 'md') === 'lg' && 'Grande'}
+                            {(newItem.imageSize || 'md') === 'xl' && 'Extra G'}
+                            {(newItem.imageSize || 'md') === 'full' && '100% (Max)'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const sizes: Array<'sm' | 'md' | 'lg' | 'xl' | 'full'> = ['sm', 'md', 'lg', 'xl', 'full'];
+                              const cur = newItem.imageSize || 'md';
+                              const idx = sizes.indexOf(cur as any);
+                              if (idx < sizes.length - 1) setNewItem({ ...newItem, imageSize: sizes[idx + 1] });
+                            }}
+                            disabled={(newItem.imageSize || 'md') === 'full'}
+                            className="p-1 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg disabled:opacity-30 transition-all flex items-center justify-center"
+                            title="Aumentar Imagem (+)"
+                          >
+                            <Plus size={14} />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {[
+                          { id: 'sm', label: 'Pequena', sub: 'P' },
+                          { id: 'md', label: 'Média', sub: 'M' },
+                          { id: 'lg', label: 'Grande', sub: 'G' },
+                          { id: 'xl', label: 'Extra G', sub: 'GG' },
+                          { id: 'full', label: '100%', sub: 'Max' }
+                        ].map((s) => (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => setNewItem({ ...newItem, imageSize: s.id as any })}
+                            className={`py-2 px-1 rounded-xl text-center transition-all border ${
+                              (newItem.imageSize || 'md') === s.id
+                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm ring-2 ring-indigo-500/20'
+                                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                            }`}
+                          >
+                            <span className="block text-xs font-black leading-tight">{s.sub}</span>
+                            <span className="block text-[8px] font-medium opacity-80 mt-0.5">{s.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="space-y-4 border-2 border-indigo-50 dark:border-indigo-950/60 p-4 rounded-3xl bg-indigo-50/30 dark:bg-indigo-950/20">
-                    <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Construtor de Conteúdo (Texto e Imagem)</label>
+                    <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Construtor de Blocos Extras (Opcional)</label>
                     
                     {/* Lista de Blocos Atuais */}
                     <div className="space-y-3">
@@ -674,7 +999,7 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                           </div>
                         ))
                       ) : (
-                        <p className="text-[10px] text-slate-400 italic text-center py-4">Nenhum bloco de conteúdo adicionado ainda.</p>
+                        <p className="text-[10px] text-slate-400 italic text-center py-4">Nenhum bloco adicional adicionado.</p>
                       )}
                     </div>
 
@@ -684,7 +1009,7 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                         <textarea 
                           value={currentBlockContent}
                           onChange={(e) => setCurrentBlockContent(e.target.value)}
-                          placeholder="Digite um bloco de texto..."
+                          placeholder="Digite um bloco extra de texto..."
                           className="flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 text-xs text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm min-h-[60px]"
                         />
                         <button 
@@ -707,20 +1032,38 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                         />
                         <div className="w-full py-3 bg-white dark:bg-slate-800 border-2 border-dashed border-indigo-200 dark:border-indigo-800 rounded-2xl flex items-center justify-center space-x-2 text-indigo-400 group-hover:border-indigo-400 transition-all">
                           <ImageIcon size={16} />
-                          <span className="text-[10px] font-black uppercase tracking-widest">Adicionar Imagem</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest">Adicionar Imagem Extra</span>
                         </div>
                       </div>
                     </div>
-                    <p className="text-[9px] text-indigo-400 font-medium italic">* Adicione os itens na ordem que deseja exibir (texto, imagem, texto...)</p>
+                    <p className="text-[9px] text-indigo-400 font-medium italic">* Adicione blocos complementares caso precise de mais imagens ou parágrafos.</p>
                   </div>
                 </div>
 
-                <button 
-                  onClick={() => addItem('UNIFORMS')}
-                  className="w-full py-3 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-md active:scale-95 transition-all"
-                >
-                  Adicionar à Lista
-                </button>
+                {editingItemId ? (
+                  <div className="flex items-center space-x-2">
+                    <button 
+                      onClick={() => saveItemEdit('UNIFORMS')}
+                      className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-md active:scale-95 transition-all flex items-center justify-center space-x-2"
+                    >
+                      <Check size={16} />
+                      <span>Salvar Alterações no Item</span>
+                    </button>
+                    <button 
+                      onClick={handleCancelEdit}
+                      className="px-5 py-3 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-2xl font-black uppercase tracking-widest text-[10px] active:scale-95 transition-all"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => addItem('UNIFORMS')}
+                    className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-md active:scale-95 transition-all"
+                  >
+                    Adicionar à Lista
+                  </button>
+                )}
               </div>
 
               {/* List of added items */}
@@ -760,14 +1103,28 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                 </div>
               </div>
 
-              {/* Form to add new item */}
-              <div id="admin-item-form" className="bg-slate-50 dark:bg-slate-900/60 rounded-3xl p-6 border border-slate-100 dark:border-slate-700/60 space-y-4">
-                <h4 className="text-xs font-black text-slate-700 dark:text-white uppercase tracking-widest flex items-center space-x-2">
-                  <Plus size={16} className="text-indigo-600 dark:text-indigo-400" />
-                  <span>{newItem.parentId ? 'Adicionar Sub-item de Emblema' : 'Adicionar Novo Item de Emblema'}</span>
-                </h4>
+              {/* Form to add/edit item */}
+              <div id="admin-item-form" className={`bg-slate-50 dark:bg-slate-900/60 rounded-3xl p-6 border ${editingItemId ? 'border-amber-400 dark:border-amber-600/60 ring-2 ring-amber-400/20' : 'border-slate-100 dark:border-slate-700/60'} space-y-4`}>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-black text-slate-700 dark:text-white uppercase tracking-widest flex items-center space-x-2">
+                    {editingItemId ? (
+                      <Edit2 size={16} className="text-amber-500" />
+                    ) : (
+                      <Plus size={16} className="text-indigo-600 dark:text-indigo-400" />
+                    )}
+                    <span>{editingItemId ? 'Editar Item de Emblema' : (newItem.parentId ? 'Adicionar Sub-item de Emblema' : 'Adicionar Novo Item de Emblema')}</span>
+                  </h4>
+                  {editingItemId && (
+                    <button 
+                      onClick={handleCancelEdit}
+                      className="px-3 py-1 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-slate-300 transition-all"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                </div>
 
-                {newItem.parentId && (
+                {newItem.parentId && !editingItemId && (
                   <div className="bg-indigo-50 dark:bg-indigo-950/50 p-3 rounded-xl flex items-center justify-between">
                     <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-300 uppercase tracking-widest">
                       Pai: {findItemTitle(localCultura.emblemas_list, newItem.parentId) || findItemTitle(localCultura.uniformes_list, newItem.parentId) || 'Item selecionado'}
@@ -810,8 +1167,9 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                       className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                     />
                   </div>
+
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1">Subtítulo ou Significado (Opcional)</label>
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1">Subtítulo ou Significado Curto (Opcional)</label>
                     <input 
                       type="text"
                       value={newItem.subtitulo || ''}
@@ -820,8 +1178,188 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                       className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                     />
                   </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1">Texto Principal / Significado Completo</label>
+                    <textarea 
+                      value={newItem.descricao || ''}
+                      onChange={(e) => setNewItem({...newItem, descricao: e.target.value})}
+                      placeholder="Digite o significado ou descrição detalhada do emblema..."
+                      rows={4}
+                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm resize-y"
+                    />
+                  </div>
+
+                  {/* Imagem Principal & Alinhamento */}
+                  <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200/80 dark:border-slate-700">
+                    <label className="text-[10px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-widest ml-1 block">Imagem do Emblema</label>
+                    
+                    {newItem.imagem ? (
+                      <div className="flex items-center space-x-4 p-3 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
+                        <img src={getImageUrl(newItem.imagem)} alt="Preview" className="w-16 h-16 rounded-xl object-contain bg-slate-50 dark:bg-slate-900 p-1 border border-slate-100 dark:border-slate-700" referrerPolicy="no-referrer" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">Imagem Carregada</p>
+                          <p className="text-[10px] text-slate-400">Pronta para exibição</p>
+                        </div>
+                        <button 
+                          type="button"
+                          onClick={() => setNewItem({ ...newItem, imagem: '' })}
+                          className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-all"
+                          title="Remover imagem"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="relative">
+                          <input 
+                            type="file" 
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleItemImageUpload(file);
+                            }}
+                            className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                          />
+                          <div className="w-full py-4 bg-white dark:bg-slate-800 border-2 border-dashed border-indigo-200 dark:border-indigo-800 rounded-2xl flex items-center justify-center space-x-2 text-indigo-500 hover:border-indigo-400 transition-all cursor-pointer">
+                            <ImageIcon size={18} />
+                            <span className="text-xs font-bold uppercase tracking-wider">Carregar Imagem do Dispositivo</span>
+                          </div>
+                        </div>
+                        <input 
+                          type="text"
+                          value={newItem.imagem || ''}
+                          onChange={(e) => setNewItem({ ...newItem, imagem: e.target.value })}
+                          placeholder="Ou cole a URL da imagem (https://...)"
+                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-xs text-slate-700 dark:text-white placeholder:text-slate-400"
+                        />
+                      </div>
+                    )}
+
+                    {/* Alinhamento da Imagem */}
+                    <div className="pt-2 space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1 block">
+                        Alinhamento da Imagem
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setNewItem({ ...newItem, imageAlign: 'left' })}
+                          className={`flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-tight transition-all border ${
+                            (newItem.imageAlign || 'center') === 'left'
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                          }`}
+                        >
+                          <AlignLeft size={16} />
+                          <span>Esquerda</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewItem({ ...newItem, imageAlign: 'center' })}
+                          className={`flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-tight transition-all border ${
+                            (newItem.imageAlign || 'center') === 'center'
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                          }`}
+                        >
+                          <AlignCenter size={16} />
+                          <span>Centro</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewItem({ ...newItem, imageAlign: 'right' })}
+                          className={`flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-tight transition-all border ${
+                            (newItem.imageAlign || 'center') === 'right'
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                          }`}
+                        >
+                          <AlignRight size={16} />
+                          <span>Direita</span>
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold px-1">
+                        {(newItem.imageAlign || 'center') === 'right' && '➔ Imagem à direita • Texto principal à esquerda'}
+                        {(newItem.imageAlign || 'center') === 'left' && '➔ Imagem à esquerda • Texto principal à direita'}
+                        {(newItem.imageAlign || 'center') === 'center' && '➔ Imagem centralizada • Texto abaixo'}
+                      </p>
+                    </div>
+
+                    {/* Tamanho da Imagem (Aumentar / Diminuir) */}
+                    <div className="pt-3 border-t border-slate-200/60 dark:border-slate-800 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-widest ml-1 block">
+                          Tamanho da Imagem
+                        </label>
+                        <div className="flex items-center space-x-2 bg-white dark:bg-slate-800 px-2 py-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const sizes: Array<'sm' | 'md' | 'lg' | 'xl' | 'full'> = ['sm', 'md', 'lg', 'xl', 'full'];
+                              const cur = newItem.imageSize || 'md';
+                              const idx = sizes.indexOf(cur as any);
+                              if (idx > 0) setNewItem({ ...newItem, imageSize: sizes[idx - 1] });
+                            }}
+                            disabled={(newItem.imageSize || 'md') === 'sm'}
+                            className="p-1 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg disabled:opacity-30 transition-all flex items-center justify-center"
+                            title="Diminuir Imagem (-)"
+                          >
+                            <Minus size={14} />
+                          </button>
+                          <span className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 min-w-[72px] text-center uppercase tracking-tight">
+                            {(newItem.imageSize || 'md') === 'sm' && 'Pequena'}
+                            {(newItem.imageSize || 'md') === 'md' && 'Média'}
+                            {(newItem.imageSize || 'md') === 'lg' && 'Grande'}
+                            {(newItem.imageSize || 'md') === 'xl' && 'Extra G'}
+                            {(newItem.imageSize || 'md') === 'full' && '100% (Max)'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const sizes: Array<'sm' | 'md' | 'lg' | 'xl' | 'full'> = ['sm', 'md', 'lg', 'xl', 'full'];
+                              const cur = newItem.imageSize || 'md';
+                              const idx = sizes.indexOf(cur as any);
+                              if (idx < sizes.length - 1) setNewItem({ ...newItem, imageSize: sizes[idx + 1] });
+                            }}
+                            disabled={(newItem.imageSize || 'md') === 'full'}
+                            className="p-1 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg disabled:opacity-30 transition-all flex items-center justify-center"
+                            title="Aumentar Imagem (+)"
+                          >
+                            <Plus size={14} />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {[
+                          { id: 'sm', label: 'Pequena', sub: 'P' },
+                          { id: 'md', label: 'Média', sub: 'M' },
+                          { id: 'lg', label: 'Grande', sub: 'G' },
+                          { id: 'xl', label: 'Extra G', sub: 'GG' },
+                          { id: 'full', label: '100%', sub: 'Max' }
+                        ].map((s) => (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => setNewItem({ ...newItem, imageSize: s.id as any })}
+                            className={`py-2 px-1 rounded-xl text-center transition-all border ${
+                              (newItem.imageSize || 'md') === s.id
+                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm ring-2 ring-indigo-500/20'
+                                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                            }`}
+                          >
+                            <span className="block text-xs font-black leading-tight">{s.sub}</span>
+                            <span className="block text-[8px] font-medium opacity-80 mt-0.5">{s.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="space-y-4 border-2 border-indigo-50 dark:border-indigo-950/60 p-4 rounded-3xl bg-indigo-50/30 dark:bg-indigo-950/20">
-                    <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Construtor de Conteúdo (Texto e Imagem)</label>
+                    <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Construtor de Blocos Extras (Opcional)</label>
                     
                     {/* Lista de Blocos Atuais */}
                     <div className="space-y-3">
@@ -847,7 +1385,7 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                           </div>
                         ))
                       ) : (
-                        <p className="text-[10px] text-slate-400 italic text-center py-4">Nenhum bloco de conteúdo adicionado ainda.</p>
+                        <p className="text-[10px] text-slate-400 italic text-center py-4">Nenhum bloco adicional adicionado.</p>
                       )}
                     </div>
 
@@ -880,19 +1418,37 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                         />
                         <div className="w-full py-3 bg-white dark:bg-slate-800 border-2 border-dashed border-indigo-200 dark:border-indigo-800 rounded-2xl flex items-center justify-center space-x-2 text-indigo-400 group-hover:border-indigo-400 transition-all">
                           <ImageIcon size={16} />
-                          <span className="text-[10px] font-black uppercase tracking-widest">Adicionar Imagem</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest">Adicionar Imagem Extra</span>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <button 
-                  onClick={() => addItem('EMBLEMS')}
-                  className="w-full py-3 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-md active:scale-95 transition-all"
-                >
-                  Adicionar à Lista
-                </button>
+                {editingItemId ? (
+                  <div className="flex items-center space-x-2">
+                    <button 
+                      onClick={() => saveItemEdit('EMBLEMS')}
+                      className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-md active:scale-95 transition-all flex items-center justify-center space-x-2"
+                    >
+                      <Check size={16} />
+                      <span>Salvar Alterações no Item</span>
+                    </button>
+                    <button 
+                      onClick={handleCancelEdit}
+                      className="px-5 py-3 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-2xl font-black uppercase tracking-widest text-[10px] active:scale-95 transition-all"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => addItem('EMBLEMS')}
+                    className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-md active:scale-95 transition-all"
+                  >
+                    Adicionar à Lista
+                  </button>
+                )}
               </div>
 
               {/* List of added items */}
@@ -928,7 +1484,7 @@ export type SubViewType =
   | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' 
   | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' 
   | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS' | 'PDF_VIEWER' | 'LIBRARY_BOOKS_MENU' 
-  | 'VIDEOS' | 'VIDEO_ADMIN' | 'FORM_ADMIN' | 'VIDEO_PLAYER' | 'LINKS_ADMIN' | 'ACHIEVEMENTS_ADMIN' | 'WEB_VIEWER';
+  | 'VIDEOS' | 'VIDEO_ADMIN' | 'FORM_ADMIN' | 'VIDEO_PLAYER' | 'LINKS_ADMIN' | 'ACHIEVEMENTS_ADMIN' | 'TRUNFOS' | 'TRUNFOS_ADMIN' | 'WEB_VIEWER';
 
 interface ClubManagementProps {
   club: ClubType;
@@ -1068,9 +1624,26 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   const [conquistaEditId, setConquistaEditId] = useState<number | null>(null);
   const [isDeletingConquista, setIsDeletingConquista] = useState(false);
   const [newLink, setNewLink] = useState({ name: '', url: '' });
+  const [editingVideoId, setEditingVideoId] = useState<number | null>(null);
+  const [editingFormId, setEditingFormId] = useState<number | null>(null);
+  const [editingLinkId, setEditingLinkId] = useState<number | null>(null);
   const [selectedWebUrl, setSelectedWebUrl] = useState<string | null>(null);
   const [webTitle, setWebTitle] = useState('');
   const [selectedCultureDetail, setSelectedCultureDetail] = useState<CulturaItem | null>(null);
+
+  const [trunfos, setTrunfos] = useState<Trunfo[]>([]);
+  const [selectedTrunfoModal, setSelectedTrunfoModal] = useState<Trunfo | null>(null);
+  const [isTrunfoImageZoomed, setIsTrunfoImageZoomed] = useState(false);
+  const [editingTrunfoId, setEditingTrunfoId] = useState<number | null>(null);
+  const [newTrunfo, setNewTrunfo] = useState<Partial<Trunfo>>({
+    titulo: '',
+    ano: '',
+    imagem: '',
+    historia: '',
+    club: club
+  });
+  const [isSavingTrunfo, setIsSavingTrunfo] = useState(false);
+  const [trunfoSearchQuery, setTrunfoSearchQuery] = useState('');
 
   const isPathfinder = club === ClubType.PATHFINDER;
   const themeColor = isPathfinder ? '#dc371b' : '#800000';
@@ -1079,6 +1652,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   useEffect(() => {
     setNewVideo(prev => ({ ...prev, club: club }));
     setNewVideoCategory(prev => ({ ...prev, club: club }));
+    setNewTrunfo(prev => ({ ...prev, club: club }));
   }, [club]);
 
   useEffect(() => {
@@ -1409,6 +1983,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           setVideoCategories(c);
         }).finally(() => setIsLoading(false));
       }
+    } else if (activeSubView === 'TRUNFOS' || activeSubView === 'TRUNFOS_ADMIN') {
+      setIsLoading(true);
+      const clubType = club === ClubType.PATHFINDER ? 'PATHFINDER' : 'ADVENTURER';
+      fetchTrunfos(clubType).then(setTrunfos).finally(() => setIsLoading(false));
     } else if (activeSubView === 'FORMULARIOS' || activeSubView === 'FORM_ADMIN') {
       setIsLoading(true);
       fetchFormularios().then(setFormularios).finally(() => setIsLoading(false));
@@ -2269,8 +2847,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       );
     };
 
-    // Se for um sub-item (profundidade > 0), renderizamos como um bloco de conteúdo com wrap
+    // Se for um sub-item (profundidade > 0), renderizamos com suporte a alinhamento
     if (depth > 0) {
+      const align = item.imageAlign || 'center';
       return (
         <div key={item.id} className="py-8 first:pt-2 last:pb-2 border-b border-slate-50 dark:border-slate-700/50 last:border-0 overflow-hidden">
           <h5 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight mb-4 text-left">
@@ -2278,52 +2857,110 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           </h5>
           
           <div className="relative">
-            {item.blocks && item.blocks.length > 0 ? (
-              <div className="flex flex-col items-start space-y-4">
-                {/* Primeiro renderizamos todas as imagens centradas abaixo do título */}
-                {item.blocks.filter(b => b.type === 'image').map((block) => (
-                  <div key={block.id} className="group relative w-full aspect-video sm:aspect-square overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-xl">
-                    <img 
-                      src={getImageUrl(block.content)} 
-                      alt="" 
-                      className="w-full h-full object-contain p-1"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                ))}
-                
-                {/* Depois renderizamos todo o texto informativo */}
-                <div className="w-full space-y-3">
-                  {item.blocks.filter(b => b.type === 'text').map((block) => (
+            {item.imagem || item.descricao ? (
+              <div className={`w-full flex ${
+                align === 'right' 
+                  ? 'flex-col-reverse sm:flex-row items-center sm:items-start justify-between gap-6' 
+                  : align === 'left'
+                  ? 'flex-col sm:flex-row items-center sm:items-start justify-between gap-6'
+                  : 'flex-col items-center gap-4 text-center'
+              }`}>
+                {align === 'right' ? (
+                  <>
+                    <div className="flex-1 min-w-0 text-slate-600 dark:text-slate-200 text-[13px] leading-relaxed font-medium text-left px-1">
+                      {item.subtitulo && (
+                        <span className="inline-block text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-2 block">
+                          {item.subtitulo}
+                        </span>
+                      )}
+                      {item.descricao && (
+                        <div className="whitespace-pre-wrap">
+                          {item.descricao}
+                        </div>
+                      )}
+                    </div>
+                    {item.imagem && (
+                      <div className={`${getItemImageSizeClass(item.imageSize, true)} shrink-0 overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-2xl p-2 flex items-center justify-center`}>
+                        <img 
+                          src={getImageUrl(item.imagem)} 
+                          alt={item.titulo} 
+                          className="w-full h-full object-contain"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    )}
+                  </>
+                ) : align === 'left' ? (
+                  <>
+                    {item.imagem && (
+                      <div className={`${getItemImageSizeClass(item.imageSize, true)} shrink-0 overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-2xl p-2 flex items-center justify-center`}>
+                        <img 
+                          src={getImageUrl(item.imagem)} 
+                          alt={item.titulo} 
+                          className="w-full h-full object-contain"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0 text-slate-600 dark:text-slate-200 text-[13px] leading-relaxed font-medium text-left px-1">
+                      {item.subtitulo && (
+                        <span className="inline-block text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-2 block">
+                          {item.subtitulo}
+                        </span>
+                      )}
+                      {item.descricao && (
+                        <div className="whitespace-pre-wrap">
+                          {item.descricao}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {item.subtitulo && (
+                      <span className="inline-block text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider block">
+                        {item.subtitulo}
+                      </span>
+                    )}
+                    {item.imagem && (
+                      <div className={`${getItemImageSizeClass(item.imageSize, true)} overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-2xl p-2 flex items-center justify-center mx-auto`}>
+                        <img 
+                          src={getImageUrl(item.imagem)} 
+                          alt={item.titulo} 
+                          className="w-full h-full object-contain"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    )}
+                    {item.descricao && (
+                      <div className="text-slate-600 dark:text-slate-200 text-[13px] leading-relaxed font-medium whitespace-pre-wrap px-1">
+                        {item.descricao}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            ) : null}
+
+            {/* Blocos extras caso existam */}
+            {item.blocks && item.blocks.length > 0 && (
+              <div className="mt-4 space-y-4">
+                {item.blocks.map((block) => (
+                  block.type === 'image' ? (
+                    <div key={block.id} className="w-full max-w-sm mx-auto aspect-video sm:aspect-square overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-xl p-2 flex items-center justify-center">
+                      <img 
+                        src={getImageUrl(block.content)} 
+                        alt="" 
+                        className="w-full h-full object-contain"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  ) : (
                     <div key={block.id} className="text-slate-600 dark:text-slate-200 text-[13px] leading-relaxed font-medium whitespace-pre-wrap text-left px-1">
                       {block.content}
                     </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-start">
-                {item.imagem && (
-                  <div className="w-full h-40 mb-4 overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-xl">
-                    <img 
-                      src={getImageUrl(item.imagem)} 
-                      alt={item.titulo} 
-                      className="w-full h-full object-contain p-1"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                )}
-                
-                <div className="text-slate-600 dark:text-slate-200 text-[13px] leading-relaxed font-medium text-left px-1">
-                  {item.subtitulo && (
-                    <span className="inline-block text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-1 block">
-                      {item.subtitulo}
-                    </span>
-                  )}
-                  <div className="whitespace-pre-wrap">
-                    {item.descricao}
-                  </div>
-                </div>
+                  )
+                ))}
               </div>
             )}
           </div>
@@ -2344,6 +2981,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       if (t.includes('uniforme')) return <Shirt size={22} />;
       return <FileText size={22} />;
     };
+
+    const align = item.imageAlign || 'center';
 
     return (
       <div key={item.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[32px] shadow-sm overflow-hidden mb-4">
@@ -2367,23 +3006,97 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         {isExpanded && (
           <div className="px-4 pb-6 bg-white dark:bg-slate-800 border-t border-slate-50 dark:border-slate-700/50 animate-slide-down">
             <div className="space-y-6">
-              {/* Título interno (ex: Emblema D1) em destaque */}
-              {item.subtitulo && (
-                <div className="mt-8 text-center">
-                  <h5 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-tight">
-                    {item.subtitulo}
-                  </h5>
-                  <div className="w-8 h-1 bg-indigo-500 mx-auto mt-2 rounded-full opacity-20" />
+              {/* Layout com suporte a Alinhamento (Direita, Esquerda, Centro) */}
+              {align === 'right' ? (
+                <div className="mt-6 flex flex-col-reverse md:flex-row items-center md:items-start justify-between gap-6">
+                  <div className="flex-1 min-w-0 text-left">
+                    {item.subtitulo && (
+                      <div className="mb-3">
+                        <h5 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-tight">
+                          {item.subtitulo}
+                        </h5>
+                        <div className="w-8 h-1 bg-indigo-500 mt-2 rounded-full opacity-30" />
+                      </div>
+                    )}
+                    {item.descricao && (
+                      <div className="text-slate-600 dark:text-slate-200 text-sm leading-relaxed font-medium whitespace-pre-wrap">
+                        {item.descricao}
+                      </div>
+                    )}
+                  </div>
+                  {item.imagem && (
+                    <div className={`${getItemImageSizeClass(item.imageSize, false)} shrink-0 overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-3xl p-3 flex items-center justify-center`}>
+                      <img 
+                        src={getImageUrl(item.imagem)} 
+                        alt={item.titulo} 
+                        className="w-full h-full object-contain"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  )}
+                </div>
+              ) : align === 'left' ? (
+                <div className="mt-6 flex flex-col md:flex-row items-center md:items-start justify-between gap-6">
+                  {item.imagem && (
+                    <div className={`${getItemImageSizeClass(item.imageSize, false)} shrink-0 overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-3xl p-3 flex items-center justify-center`}>
+                      <img 
+                        src={getImageUrl(item.imagem)} 
+                        alt={item.titulo} 
+                        className="w-full h-full object-contain"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0 text-left">
+                    {item.subtitulo && (
+                      <div className="mb-3">
+                        <h5 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-tight">
+                          {item.subtitulo}
+                        </h5>
+                        <div className="w-8 h-1 bg-indigo-500 mt-2 rounded-full opacity-30" />
+                      </div>
+                    )}
+                    {item.descricao && (
+                      <div className="text-slate-600 dark:text-slate-200 text-sm leading-relaxed font-medium whitespace-pre-wrap">
+                        {item.descricao}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-6 flex flex-col items-center text-center">
+                  {item.subtitulo && (
+                    <div className="mb-6 text-center">
+                      <h5 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-tight">
+                        {item.subtitulo}
+                      </h5>
+                      <div className="w-8 h-1 bg-indigo-500 mx-auto mt-2 rounded-full opacity-30" />
+                    </div>
+                  )}
+                  {item.imagem && (
+                    <div className={`${getItemImageSizeClass(item.imageSize, false)} mb-6 overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-3xl p-3 flex items-center justify-center`}>
+                      <img 
+                        src={getImageUrl(item.imagem)} 
+                        alt={item.titulo} 
+                        className="w-full h-full object-contain"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  )}
+                  {item.descricao && (
+                    <div className="text-slate-600 dark:text-slate-200 text-sm leading-relaxed font-medium whitespace-pre-wrap max-w-2xl">
+                      {item.descricao}
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Conteúdo Principal do Card (Imagem Centralizada abaixo do Título) */}
-              <div className="relative mt-8 flex flex-col items-center">
-                {item.blocks && item.blocks.length > 0 ? (
-                  <div className="flex flex-col items-center w-full space-y-6">
-                    {/* Imagens Primeiro */}
-                    {item.blocks.filter(b => b.type === 'image').map((block) => (
-                      <div key={block.id} className="group relative w-32 h-32 sm:w-40 sm:h-40 overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-3xl p-3">
+              {/* Blocos extras caso existam */}
+              {item.blocks && item.blocks.length > 0 && (
+                <div className="pt-4 space-y-4 border-t border-slate-100 dark:border-slate-700/50">
+                  {item.blocks.map((block) => (
+                    block.type === 'image' ? (
+                      <div key={block.id} className="w-40 h-40 sm:w-48 sm:h-48 mx-auto overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-2xl p-2 flex items-center justify-center">
                         <img 
                           src={getImageUrl(block.content)} 
                           alt="" 
@@ -2391,38 +3104,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                           referrerPolicy="no-referrer"
                         />
                       </div>
-                    ))}
-                    
-                    {/* Texto Depois */}
-                    <div className="w-full space-y-4">
-                      {item.blocks.filter(b => b.type === 'text').map((block) => (
-                        <div key={block.id} className="text-slate-600 dark:text-slate-200 text-sm leading-relaxed font-medium whitespace-pre-wrap text-left">
-                          {block.content}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center w-full">
-                    {item.imagem && (
-                      <div className="w-32 h-32 sm:w-40 sm:h-40 mb-6 overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-3xl p-3">
-                        <img 
-                          src={getImageUrl(item.imagem)} 
-                          alt={item.titulo} 
-                          className="w-full h-full object-contain"
-                          referrerPolicy="no-referrer"
-                        />
+                    ) : (
+                      <div key={block.id} className="text-slate-600 dark:text-slate-200 text-sm leading-relaxed font-medium whitespace-pre-wrap text-left">
+                        {block.content}
                       </div>
-                    )}
-                    
-                    {item.descricao && (
-                      <div className="text-slate-600 dark:text-slate-200 text-sm leading-relaxed font-medium whitespace-pre-wrap text-center">
-                        {item.descricao}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+                    )
+                  ))}
+                </div>
+              )}
               
               {item.subitems && item.subitems.length > 0 && (
                 <div className="mt-10 divide-y divide-slate-50 dark:divide-slate-700/50 border-t border-slate-50 dark:border-slate-700/50">
@@ -2430,7 +3119,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 </div>
               )}
 
-              {!item.imagem && !item.descricao && (!item.subitems || item.subitems.length === 0) && (
+              {!item.imagem && !item.descricao && (!item.blocks || item.blocks.length === 0) && (!item.subitems || item.subitems.length === 0) && (
                 <p className="text-center py-10 text-slate-300 dark:text-slate-600 italic text-xs">Nenhum conteúdo cadastrado para este item.</p>
               )}
             </div>
@@ -2455,7 +3144,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               <p className="text-slate-400 dark:text-slate-500 font-black text-[10px] uppercase tracking-widest">Nenhum uniforme cadastrado</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="flex flex-col space-y-4">
               {uniforms.map((item, i) => renderCulturaItem(item, 0, i))}
             </div>
           )}
@@ -2479,7 +3168,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               <p className="text-slate-400 dark:text-slate-500 font-black text-[10px] uppercase tracking-widest">Nenhum emblema cadastrado</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="flex flex-col space-y-4">
               {emblems.map((item, i) => renderCulturaItem(item, 0, i))}
             </div>
           )}
@@ -3885,6 +4574,19 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Insignias, Classes e Liderança</p>
             </div>
           </button>
+
+          <button 
+            onClick={() => setActiveSubView('TRUNFOS_ADMIN')}
+            className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-6 rounded-[32px] flex items-center space-x-4 shadow-sm active:scale-95 transition-all group"
+          >
+            <div className="w-14 h-14 bg-teal-50 dark:bg-teal-950/40 rounded-2xl flex items-center justify-center text-teal-600 dark:text-teal-400 group-hover:bg-teal-600 group-hover:text-white transition-colors">
+              <Trophy size={28} />
+            </div>
+            <div className="text-left">
+              <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-tight">Gestão de Trunfos</h4>
+              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Trunfos, Eventos e Histórias</p>
+            </div>
+          </button>
         </div>
       </div>
     );
@@ -3896,8 +4598,24 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Gerenciar Links</h3>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-[32px] p-6 border border-slate-100 dark:border-slate-700 shadow-sm space-y-4">
-        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Adicionar Novo Link</h4>
+      <div className={`bg-white dark:bg-slate-800 rounded-[32px] p-6 border ${editingLinkId ? 'border-amber-400 dark:border-amber-600 ring-2 ring-amber-400/20' : 'border-slate-100 dark:border-slate-700'} shadow-sm space-y-4`}>
+        <div className="flex items-center justify-between">
+          <h4 className="text-xs font-black text-slate-700 dark:text-white uppercase tracking-widest flex items-center space-x-2">
+            {editingLinkId ? <Edit2 size={16} className="text-amber-500" /> : <Plus size={16} className="text-indigo-600" />}
+            <span>{editingLinkId ? 'Editar Link' : 'Adicionar Novo Link'}</span>
+          </h4>
+          {editingLinkId && (
+            <button 
+              onClick={() => {
+                setEditingLinkId(null);
+                setNewLink({ name: '', url: '' });
+              }}
+              className="px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-slate-200 transition-all"
+            >
+              Cancelar
+            </button>
+          )}
+        </div>
         <div className="space-y-3">
           <input 
             type="text" 
@@ -3913,25 +4631,53 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             onChange={(e) => setNewLink({ ...newLink, url: e.target.value })}
             className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 text-sm font-bold text-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all"
           />
-          <button 
-            onClick={async () => {
-              if (!newLink.name || !newLink.url) return;
-              await updateAppLink({ name: newLink.name, url: newLink.url });
-              setNewLink({ name: '', url: '' });
-              const links = await fetchAppLinks();
-              setAppLinks(links);
-            }}
-            className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg dark:shadow-none active:scale-95 transition-all"
-          >
-            Salvar Link
-          </button>
+          {editingLinkId ? (
+            <div className="flex space-x-2">
+              <button 
+                onClick={async () => {
+                  if (!newLink.name || !newLink.url) return;
+                  await updateAppLink({ id: editingLinkId, name: newLink.name, url: newLink.url });
+                  setNewLink({ name: '', url: '' });
+                  setEditingLinkId(null);
+                  const links = await fetchAppLinks();
+                  setAppLinks(links);
+                }}
+                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-md active:scale-95 transition-all flex items-center justify-center space-x-2"
+              >
+                <Check size={16} />
+                <span>Salvar Alterações</span>
+              </button>
+              <button 
+                onClick={() => {
+                  setEditingLinkId(null);
+                  setNewLink({ name: '', url: '' });
+                }}
+                className="px-5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-2xl font-black uppercase tracking-widest text-xs active:scale-95 transition-all"
+              >
+                Cancelar
+              </button>
+            </div>
+          ) : (
+            <button 
+              onClick={async () => {
+                if (!newLink.name || !newLink.url) return;
+                await updateAppLink({ name: newLink.name, url: newLink.url });
+                setNewLink({ name: '', url: '' });
+                const links = await fetchAppLinks();
+                setAppLinks(links);
+              }}
+              className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg dark:shadow-none active:scale-95 transition-all"
+            >
+              Salvar Link
+            </button>
+          )}
         </div>
       </div>
 
       <div className="space-y-3">
         <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest px-2">Links Atuais</h4>
         {appLinks.map((link) => (
-          <div key={link.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-4 flex items-center justify-between shadow-sm">
+          <div key={link.id} className={`bg-white dark:bg-slate-800 border ${editingLinkId === link.id ? 'border-amber-400 dark:border-amber-500' : 'border-slate-100 dark:border-slate-700'} rounded-[28px] p-4 flex items-center justify-between shadow-sm`}>
             <div className="flex items-center space-x-4">
               <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl flex items-center justify-center text-indigo-500">
                 <ExternalLink size={20} />
@@ -3940,6 +4686,35 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 <h4 className="font-black text-slate-800 dark:text-white text-sm uppercase tracking-tight">{link.name}</h4>
                 <p className="text-[10px] text-slate-400 font-bold truncate max-w-[150px]">{link.url}</p>
               </div>
+            </div>
+            <div className="flex items-center space-x-1">
+              <button 
+                onClick={() => {
+                  setNewLink({ name: link.name, url: link.url });
+                  setEditingLinkId(link.id);
+                }}
+                className="p-2 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-xl transition-colors"
+                title="Editar Link"
+              >
+                <Edit2 size={18} />
+              </button>
+              <button 
+                onClick={async () => {
+                  if (confirm(`Excluir o link "${link.name}"?`)) {
+                    await deleteAppLink(link.id);
+                    const links = await fetchAppLinks();
+                    setAppLinks(links);
+                    if (editingLinkId === link.id) {
+                      setEditingLinkId(null);
+                      setNewLink({ name: '', url: '' });
+                    }
+                  }
+                }}
+                className="p-2 text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-colors"
+                title="Excluir Link"
+              >
+                <Trash2 size={18} />
+              </button>
             </div>
           </div>
         ))}
@@ -3977,6 +4752,369 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       </div>
     </div>
   );
+
+  const handleSaveTrunfo = async () => {
+    if (!newTrunfo.titulo || !newTrunfo.titulo.trim()) {
+      alert("Por favor, informe o título do evento.");
+      return;
+    }
+
+    setIsSavingTrunfo(true);
+    const payload: Partial<Trunfo> = {
+      ...newTrunfo,
+      id: editingTrunfoId || undefined,
+      club: newTrunfo.club || (club === ClubType.PATHFINDER ? 'PATHFINDER' : 'ADVENTURER')
+    };
+
+    const { error } = await updateTrunfo(payload);
+    if (!error) {
+      const clubType = club === ClubType.PATHFINDER ? 'PATHFINDER' : 'ADVENTURER';
+      const updatedList = await fetchTrunfos(clubType);
+      setTrunfos(updatedList);
+      setEditingTrunfoId(null);
+      setNewTrunfo({
+        titulo: '',
+        ano: '',
+        imagem: '',
+        historia: '',
+        club: club
+      });
+      alert(editingTrunfoId ? "Trunfo atualizado com sucesso!" : "Trunfo adicionado com sucesso!");
+    } else {
+      alert("Erro ao salvar trunfo.");
+    }
+    setIsSavingTrunfo(false);
+  };
+
+  const handleDeleteTrunfo = async (id: number) => {
+    if (confirm("Tem certeza que deseja excluir este trunfo?")) {
+      await deleteTrunfo(id);
+      const clubType = club === ClubType.PATHFINDER ? 'PATHFINDER' : 'ADVENTURER';
+      const updatedList = await fetchTrunfos(clubType);
+      setTrunfos(updatedList);
+      if (editingTrunfoId === id) {
+        setEditingTrunfoId(null);
+        setNewTrunfo({
+          titulo: '',
+          ano: '',
+          imagem: '',
+          historia: '',
+          club: club
+        });
+      }
+    }
+  };
+
+  const handleTrunfoImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setNewTrunfo(prev => ({ ...prev, imagem: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const renderTrunfos = () => {
+    const filteredTrunfos = trunfos.filter(t => 
+      t.titulo.toLowerCase().includes(trunfoSearchQuery.toLowerCase()) ||
+      (t.ano && t.ano.includes(trunfoSearchQuery)) ||
+      (t.historia && t.historia.toLowerCase().includes(trunfoSearchQuery.toLowerCase()))
+    );
+
+    return (
+      <div className="animate-slide-in space-y-6 pt-2 pb-28">
+        {/* Barra de Pesquisa */}
+        <div className="relative">
+          <input 
+            type="text"
+            placeholder="Pesquisar trunfo por evento ou ano..."
+            value={trunfoSearchQuery}
+            onChange={(e) => setTrunfoSearchQuery(e.target.value)}
+            className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-3.5 pl-12 pr-4 text-sm font-bold text-slate-700 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 shadow-sm"
+          />
+          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+          {trunfoSearchQuery && (
+            <button 
+              onClick={() => setTrunfoSearchQuery('')}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
+
+        {/* Grid de Trunfos (Apenas Miniatura e Título do Evento) */}
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="w-8 h-8 border-3 border-slate-100 dark:border-slate-700 border-t-teal-500 rounded-full animate-spin"></div>
+          </div>
+        ) : filteredTrunfos.length === 0 ? (
+          <div className="bg-white dark:bg-slate-800 rounded-[32px] p-12 text-center border border-slate-100 dark:border-slate-700 shadow-sm">
+            <Trophy size={48} className="text-slate-200 dark:text-slate-700 mx-auto mb-4" />
+            <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">
+              {trunfoSearchQuery ? 'Nenhum trunfo encontrado para sua busca.' : 'Nenhum trunfo cadastrado ainda.'}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {filteredTrunfos.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setSelectedTrunfoModal(item)}
+                className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-3.5 flex flex-col items-center text-center shadow-sm hover:shadow-md active:scale-95 transition-all group"
+              >
+                {/* Miniatura */}
+                <div className="w-24 h-24 sm:w-28 sm:h-28 bg-slate-50 dark:bg-slate-900 rounded-2xl flex items-center justify-center overflow-hidden p-2 mb-3 border border-slate-100 dark:border-slate-800/60 group-hover:scale-105 transition-transform">
+                  {item.imagem ? (
+                    <img 
+                      src={getImageUrl(item.imagem)} 
+                      alt={item.titulo}
+                      className="w-full h-full object-contain drop-shadow-sm"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <Trophy size={36} className="text-teal-500 opacity-60" />
+                  )}
+                </div>
+
+                {/* Título do Evento */}
+                <h4 className="font-black text-slate-800 dark:text-white text-xs sm:text-sm uppercase tracking-tight leading-tight line-clamp-2 w-full px-1">
+                  {item.titulo}
+                </h4>
+
+                {item.ano && (
+                  <span className="mt-1.5 px-2.5 py-0.5 bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 rounded-full text-[10px] font-black uppercase tracking-wider">
+                    {item.ano}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderTrunfosAdmin = () => {
+    return (
+      <div className="animate-slide-in space-y-6 pt-2 pb-28">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Gestão de Trunfos</h3>
+        </div>
+
+        {/* Formulário de Adicionar / Editar */}
+        <div className={`bg-white dark:bg-slate-800 rounded-[32px] p-6 border ${editingTrunfoId ? 'border-amber-400 dark:border-amber-600 ring-2 ring-amber-400/20' : 'border-slate-100 dark:border-slate-700'} shadow-sm space-y-4`}>
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-black text-slate-700 dark:text-white uppercase tracking-widest flex items-center space-x-2">
+              {editingTrunfoId ? <Edit2 size={16} className="text-amber-500" /> : <Plus size={16} className="text-teal-600" />}
+              <span>{editingTrunfoId ? 'Editar Trunfo' : 'Adicionar Novo Trunfo'}</span>
+            </h4>
+            {editingTrunfoId && (
+              <button 
+                onClick={() => {
+                  setEditingTrunfoId(null);
+                  setNewTrunfo({ titulo: '', ano: '', imagem: '', historia: '', club: club });
+                }}
+                className="px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-slate-200 transition-all"
+              >
+                Cancelar
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            {/* Título do Evento */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Título do Evento</label>
+              <input 
+                type="text" 
+                placeholder="Ex: V Campori Sul-Americano de Desbravadores"
+                value={newTrunfo.titulo}
+                onChange={(e) => setNewTrunfo({ ...newTrunfo, titulo: e.target.value })}
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 text-sm font-bold text-slate-700 dark:text-white focus:ring-2 focus:ring-teal-500 transition-all"
+              />
+            </div>
+
+            {/* Ano e Clube */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ano do Evento</label>
+                <input 
+                  type="text" 
+                  placeholder="Ex: 2019"
+                  value={newTrunfo.ano}
+                  onChange={(e) => setNewTrunfo({ ...newTrunfo, ano: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 text-sm font-bold text-slate-700 dark:text-white focus:ring-2 focus:ring-teal-500 transition-all"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Clube</label>
+                <select 
+                  value={newTrunfo.club || club}
+                  onChange={(e) => setNewTrunfo({ ...newTrunfo, club: e.target.value as any })}
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 text-sm font-bold text-slate-700 dark:text-white focus:ring-2 focus:ring-teal-500 transition-all"
+                >
+                  <option value="PATHFINDER">Desbravadores</option>
+                  <option value="ADVENTURER">Aventureiros</option>
+                  <option value="ALL">Ambos os Clubes</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Imagem */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Imagem do Trunfo (URL ou Upload)</label>
+              <div className="flex space-x-2">
+                <input 
+                  type="text" 
+                  placeholder="URL da imagem (ex: https://...)"
+                  value={newTrunfo.imagem}
+                  onChange={(e) => setNewTrunfo({ ...newTrunfo, imagem: e.target.value })}
+                  className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 text-sm font-bold text-slate-700 dark:text-white focus:ring-2 focus:ring-teal-500 transition-all"
+                />
+                <label className="cursor-pointer bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 px-4 rounded-2xl flex items-center justify-center text-slate-600 dark:text-slate-200 font-black text-xs uppercase tracking-wider transition-all">
+                  <ImageIcon size={18} className="mr-1" />
+                  <span>Upload</span>
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={handleTrunfoImageUpload}
+                    className="hidden" 
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Preview da Imagem */}
+            {newTrunfo.imagem && (
+              <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-2xl flex items-center space-x-3 border border-slate-100 dark:border-slate-700">
+                <div className="w-16 h-16 bg-white dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden">
+                  <img src={getImageUrl(newTrunfo.imagem)} alt="Preview" className="w-full h-full object-contain" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase">Pré-visualização da Imagem</p>
+                  <p className="text-[10px] text-slate-400 truncate max-w-xs">{newTrunfo.imagem.slice(0, 50)}...</p>
+                </div>
+                <button 
+                  onClick={() => setNewTrunfo({ ...newTrunfo, imagem: '' })}
+                  className="text-slate-400 hover:text-red-500 p-2"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+
+            {/* Texto Principal / História */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">História / Texto Principal</label>
+              <textarea 
+                placeholder="Escreva a história e detalhes deste evento/trunfo..."
+                value={newTrunfo.historia}
+                onChange={(e) => setNewTrunfo({ ...newTrunfo, historia: e.target.value })}
+                rows={5}
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 text-sm font-bold text-slate-700 dark:text-white focus:ring-2 focus:ring-teal-500 transition-all resize-none"
+              />
+            </div>
+
+            {/* Botões de Ação */}
+            {editingTrunfoId ? (
+              <div className="flex space-x-2">
+                <button 
+                  onClick={handleSaveTrunfo}
+                  disabled={isSavingTrunfo}
+                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-md active:scale-95 transition-all flex items-center justify-center space-x-2"
+                >
+                  {isSavingTrunfo ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : <Check size={16} />}
+                  <span>Salvar Alterações</span>
+                </button>
+                <button 
+                  onClick={() => {
+                    setEditingTrunfoId(null);
+                    setNewTrunfo({ titulo: '', ano: '', imagem: '', historia: '', club: club });
+                  }}
+                  className="px-5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-2xl font-black uppercase tracking-widest text-xs active:scale-95 transition-all"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={handleSaveTrunfo}
+                disabled={isSavingTrunfo}
+                className="w-full bg-teal-600 hover:bg-teal-700 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2"
+              >
+                {isSavingTrunfo ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : <Plus size={16} />}
+                <span>Adicionar Trunfo</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Lista de Trunfos Cadastrados */}
+        <div className="space-y-3">
+          <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest px-2">Trunfos Cadastrados ({trunfos.length})</h4>
+          {trunfos.length === 0 ? (
+            <p className="text-center py-8 text-slate-400 text-xs font-bold uppercase tracking-widest">Nenhum trunfo cadastrado</p>
+          ) : (
+            trunfos.map((t) => (
+              <div 
+                key={t.id} 
+                className={`bg-white dark:bg-slate-800 border ${editingTrunfoId === t.id ? 'border-amber-400 dark:border-amber-500 ring-2 ring-amber-400/20' : 'border-slate-100 dark:border-slate-700'} rounded-[28px] p-4 flex items-center justify-between shadow-sm`}
+              >
+                <div className="flex items-center space-x-4 min-w-0 flex-1">
+                  <div className="w-14 h-14 bg-slate-50 dark:bg-slate-900 rounded-2xl flex items-center justify-center p-1 border border-slate-100 dark:border-slate-800 flex-shrink-0 overflow-hidden">
+                    {t.imagem ? (
+                      <img src={getImageUrl(t.imagem)} alt="" className="w-full h-full object-contain" />
+                    ) : (
+                      <Trophy size={20} className="text-teal-500" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-black text-slate-800 dark:text-white text-sm uppercase tracking-tight truncate">{t.titulo}</h4>
+                    <div className="flex items-center space-x-2 mt-0.5">
+                      {t.ano && <span className="text-[10px] text-teal-600 dark:text-teal-400 font-bold uppercase">{t.ano}</span>}
+                      <span className="text-[10px] text-slate-400 uppercase">| {t.club === 'ADVENTURER' ? 'Aventureiros' : t.club === 'ALL' ? 'Ambos' : 'Desbravadores'}</span>
+                    </div>
+                    {t.historia && (
+                      <p className="text-[10px] text-slate-400 font-medium line-clamp-1 mt-0.5">{t.historia}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center space-x-1 ml-2">
+                  <button 
+                    onClick={() => {
+                      setNewTrunfo({
+                        titulo: t.titulo,
+                        ano: t.ano || '',
+                        imagem: t.imagem || '',
+                        historia: t.historia || '',
+                        club: t.club || club
+                      });
+                      setEditingTrunfoId(t.id);
+                      scrollToTop();
+                    }}
+                    className="p-2 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-xl transition-colors"
+                    title="Editar Trunfo"
+                  >
+                    <Edit2 size={18} />
+                  </button>
+                  <button 
+                    onClick={() => handleDeleteTrunfo(t.id)}
+                    className="p-2 text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-colors"
+                    title="Excluir Trunfo"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  };
 
   const renderBibleAdminAdd = () => {
     const handleSaveDevocional = async () => {
@@ -4713,20 +5851,39 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       return;
     }
     setIsLoading(true);
-    const { data, error } = await createVideo(newVideo as Omit<VideoType, 'id' | 'created_at'>);
-    if (!error) {
-      setVideos([...videos, data as VideoType]);
-      setNewVideo({
-        titulo: '',
-        canal: '',
-        duracao: '',
-        visualizacoes: '0',
-        link: '',
-        categoria_id: 0,
-        club: club
-      });
+    if (editingVideoId) {
+      const { data, error } = await updateVideo({ ...newVideo, id: editingVideoId });
+      if (!error) {
+        setVideos(videos.map(v => v.id === editingVideoId ? (data as VideoType) : v));
+        setEditingVideoId(null);
+        setNewVideo({
+          titulo: '',
+          canal: '',
+          duracao: '',
+          visualizacoes: '0',
+          link: '',
+          categoria_id: 0,
+          club: club
+        });
+      } else {
+        console.error("Erro ao atualizar vídeo:", error);
+      }
     } else {
-      console.error("Erro ao criar vídeo:", error);
+      const { data, error } = await createVideo(newVideo as Omit<VideoType, 'id' | 'created_at'>);
+      if (!error) {
+        setVideos([...videos, data as VideoType]);
+        setNewVideo({
+          titulo: '',
+          canal: '',
+          duracao: '',
+          visualizacoes: '0',
+          link: '',
+          categoria_id: 0,
+          club: club
+        });
+      } else {
+        console.error("Erro ao criar vídeo:", error);
+      }
     }
     setIsLoading(false);
   };
@@ -4736,6 +5893,18 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     const { error } = await deleteVideo(id);
     if (!error) {
       setVideos(videos.filter(v => v.id !== id));
+      if (editingVideoId === id) {
+        setEditingVideoId(null);
+        setNewVideo({
+          titulo: '',
+          canal: '',
+          duracao: '',
+          visualizacoes: '0',
+          link: '',
+          categoria_id: 0,
+          club: club
+        });
+      }
     }
     setIsLoading(false);
   };
@@ -4765,10 +5934,23 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   const handleCreateForm = async () => {
     if (!newForm.titulo || !newForm.link) return;
     setIsLoading(true);
-    const { data, error } = await createFormulario(newForm as Omit<Formulario, 'id' | 'created_at'>);
-    if (!error) {
-      setFormularios([...formularios, data as Formulario]);
-      setNewForm({ titulo: '', categoria: '', link: '', descricao: '', icone: 'FileText' });
+    if (editingFormId) {
+      const { data, error } = await updateFormulario({ ...(newForm as Partial<Formulario>), id: editingFormId });
+      if (!error) {
+        setFormularios(formularios.map(f => f.id === editingFormId ? (data as Formulario) : f));
+        setEditingFormId(null);
+        setNewForm({ titulo: '', categoria: '', link: '', descricao: '', icone: 'FileText' });
+      } else {
+        console.error("Erro ao atualizar formulário:", error);
+      }
+    } else {
+      const { data, error } = await createFormulario(newForm as Omit<Formulario, 'id' | 'created_at'>);
+      if (!error) {
+        setFormularios([...formularios, data as Formulario]);
+        setNewForm({ titulo: '', categoria: '', link: '', descricao: '', icone: 'FileText' });
+      } else {
+        console.error("Erro ao criar formulário:", error);
+      }
     }
     setIsLoading(false);
   };
@@ -4778,6 +5960,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     const { error } = await deleteFormulario(id);
     if (!error) {
       setFormularios(formularios.filter(f => f.id !== id));
+      if (editingFormId === id) {
+        setEditingFormId(null);
+        setNewForm({ titulo: '', categoria: '', link: '', descricao: '', icone: 'FileText' });
+      }
     }
     setIsLoading(false);
   };
@@ -4816,12 +6002,33 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           </div>
         </div>
 
-        {/* Novo Vídeo */}
-        <div className="bg-white dark:bg-slate-800 rounded-[32px] p-6 shadow-sm border border-slate-100 dark:border-slate-700 space-y-4">
-          <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-tight flex items-center space-x-2">
-            <Video size={20} className="text-red-600" />
-            <span>Novo Vídeo</span>
-          </h4>
+        {/* Novo Vídeo / Editar Vídeo */}
+        <div className={`bg-white dark:bg-slate-800 rounded-[32px] p-6 shadow-sm border ${editingVideoId ? 'border-amber-400 dark:border-amber-500 ring-2 ring-amber-400/20' : 'border-slate-100 dark:border-slate-700'} space-y-4`}>
+          <div className="flex items-center justify-between">
+            <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-tight flex items-center space-x-2">
+              {editingVideoId ? <Edit2 size={20} className="text-amber-500" /> : <Video size={20} className="text-red-600" />}
+              <span>{editingVideoId ? 'Editar Vídeo' : 'Novo Vídeo'}</span>
+            </h4>
+            {editingVideoId && (
+              <button 
+                onClick={() => {
+                  setEditingVideoId(null);
+                  setNewVideo({
+                    titulo: '',
+                    canal: '',
+                    duracao: '',
+                    visualizacoes: '0',
+                    link: '',
+                    categoria_id: 0,
+                    club: club
+                  });
+                }}
+                className="px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-slate-200 transition-all"
+              >
+                Cancelar
+              </button>
+            )}
+          </div>
           <div className="space-y-3">
             <input 
               type="text" 
@@ -4863,13 +6070,43 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               onChange={e => setNewVideo({...newVideo, link: e.target.value})}
               className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 dark:text-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-red-500 transition-all placeholder:text-slate-400"
             />
-            <button 
-              onClick={handleCreateVideo}
-              disabled={isLoading}
-              className="w-full bg-red-600 text-white py-4 rounded-2xl font-black uppercase text-xs active:scale-95 transition-all disabled:opacity-50"
-            >
-              Salvar Vídeo
-            </button>
+            {editingVideoId ? (
+              <div className="flex space-x-2">
+                <button 
+                  onClick={handleCreateVideo}
+                  disabled={isLoading}
+                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-4 rounded-2xl font-black uppercase text-xs active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center space-x-2 shadow-md"
+                >
+                  <Check size={16} />
+                  <span>Salvar Alterações</span>
+                </button>
+                <button 
+                  onClick={() => {
+                    setEditingVideoId(null);
+                    setNewVideo({
+                      titulo: '',
+                      canal: '',
+                      duracao: '',
+                      visualizacoes: '0',
+                      link: '',
+                      categoria_id: 0,
+                      club: club
+                    });
+                  }}
+                  className="px-5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-2xl font-black uppercase text-xs active:scale-95 transition-all"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={handleCreateVideo}
+                disabled={isLoading}
+                className="w-full bg-red-600 text-white py-4 rounded-2xl font-black uppercase text-xs active:scale-95 transition-all disabled:opacity-50"
+              >
+                Salvar Vídeo
+              </button>
+            )}
           </div>
         </div>
 
@@ -4894,7 +6131,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                   <p className="text-center py-4 text-slate-400 text-xs font-bold uppercase">Nenhum vídeo</p>
                 ) : (
                   categoryVideos.map(video => (
-                    <div key={video.id} className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all">
+                    <div key={video.id} className={`flex items-center justify-between p-3 rounded-2xl ${editingVideoId === video.id ? 'bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'} transition-all`}>
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-8 bg-red-600 rounded-lg flex items-center justify-center text-white">
                           <Video size={16} />
@@ -4904,14 +6141,37 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                           <p className="text-[9px] font-bold text-slate-400 uppercase">{video.canal}</p>
                         </div>
                       </div>
-                      {video.categoria_id > 0 && (
-                        <button 
-                          onClick={() => handleDeleteVideo(video.id)}
-                          className="text-slate-300 dark:text-slate-600 hover:text-red-500 p-2 transition-colors"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      )}
+                      <div className="flex items-center space-x-1">
+                        {video.categoria_id > 0 && (
+                          <button 
+                            onClick={() => {
+                              setNewVideo({
+                                titulo: video.titulo,
+                                canal: video.canal,
+                                duracao: video.duracao,
+                                visualizacoes: video.visualizacoes,
+                                link: video.link,
+                                categoria_id: video.categoria_id,
+                                club: video.club
+                              });
+                              setEditingVideoId(video.id);
+                            }}
+                            className="text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/40 p-2 rounded-xl transition-colors"
+                            title="Editar Vídeo"
+                          >
+                            <Edit2 size={18} />
+                          </button>
+                        )}
+                        {video.categoria_id > 0 && (
+                          <button 
+                            onClick={() => handleDeleteVideo(video.id)}
+                            className="text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 p-2 rounded-xl transition-colors"
+                            title="Excluir Vídeo"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))
                 )}
@@ -4926,12 +6186,25 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   const renderFormAdmin = () => {
     return (
       <div className="animate-slide-in space-y-8 pt-4 pb-28">
-        {/* Novo Formulário */}
-        <div className="bg-white dark:bg-slate-800 rounded-[32px] p-6 shadow-sm border border-slate-100 dark:border-slate-700 space-y-4">
-          <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-tight flex items-center space-x-2">
-            <FileText size={20} className="text-amber-600" />
-            <span>Novo Formulário</span>
-          </h4>
+        {/* Novo Formulário / Editar Formulário */}
+        <div className={`bg-white dark:bg-slate-800 rounded-[32px] p-6 shadow-sm border ${editingFormId ? 'border-amber-400 dark:border-amber-500 ring-2 ring-amber-400/20' : 'border-slate-100 dark:border-slate-700'} space-y-4`}>
+          <div className="flex items-center justify-between">
+            <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-tight flex items-center space-x-2">
+              {editingFormId ? <Edit2 size={20} className="text-amber-500" /> : <FileText size={20} className="text-amber-600" />}
+              <span>{editingFormId ? 'Editar Formulário' : 'Novo Formulário'}</span>
+            </h4>
+            {editingFormId && (
+              <button 
+                onClick={() => {
+                  setEditingFormId(null);
+                  setNewForm({ titulo: '', categoria: '', link: '', descricao: '', icone: 'FileText' });
+                }}
+                className="px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-slate-200 transition-all"
+              >
+                Cancelar
+              </button>
+            )}
+          </div>
           <div className="space-y-3">
             <input 
               type="text" 
@@ -4960,13 +6233,35 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               onChange={e => setNewForm({...newForm, descricao: e.target.value})}
               className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 dark:text-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500 transition-all h-24 resize-none placeholder:text-slate-400"
             />
-            <button 
-              onClick={handleCreateForm}
-              disabled={isLoading}
-              className="w-full bg-amber-600 text-white py-4 rounded-2xl font-black uppercase text-xs active:scale-95 transition-all disabled:opacity-50"
-            >
-              Salvar Formulário
-            </button>
+            {editingFormId ? (
+              <div className="flex space-x-2">
+                <button 
+                  onClick={handleCreateForm}
+                  disabled={isLoading}
+                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-4 rounded-2xl font-black uppercase text-xs active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center space-x-2 shadow-md"
+                >
+                  <Check size={16} />
+                  <span>Salvar Alterações</span>
+                </button>
+                <button 
+                  onClick={() => {
+                    setEditingFormId(null);
+                    setNewForm({ titulo: '', categoria: '', link: '', descricao: '', icone: 'FileText' });
+                  }}
+                  className="px-5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-2xl font-black uppercase text-xs active:scale-95 transition-all"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={handleCreateForm}
+                disabled={isLoading}
+                className="w-full bg-amber-600 text-white py-4 rounded-2xl font-black uppercase text-xs active:scale-95 transition-all disabled:opacity-50"
+              >
+                Salvar Formulário
+              </button>
+            )}
           </div>
         </div>
 
@@ -4978,7 +6273,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               <p className="text-center py-8 text-slate-400 text-xs font-bold uppercase tracking-widest">Nenhum formulário cadastrado</p>
             ) : (
               formularios.map(form => (
-                <div key={form.id} className="flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all border border-slate-50 dark:border-slate-700">
+                <div key={form.id} className={`flex items-center justify-between p-4 rounded-2xl ${editingFormId === form.id ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50 border-slate-50 dark:border-slate-700'} transition-all border`}>
                   <div className="flex items-center space-x-4">
                     <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 rounded-xl flex items-center justify-center">
                       <FileText size={24} />
@@ -4988,12 +6283,31 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{form.categoria}</p>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => handleDeleteForm(form.id)}
-                    className="text-slate-300 dark:text-slate-600 hover:text-red-500 p-2 transition-colors"
-                  >
-                    <Trash2 size={20} />
-                  </button>
+                  <div className="flex items-center space-x-1">
+                    <button 
+                      onClick={() => {
+                        setNewForm({
+                          titulo: form.titulo,
+                          categoria: form.categoria,
+                          link: form.link,
+                          descricao: form.descricao,
+                          icone: form.icone || 'FileText'
+                        });
+                        setEditingFormId(form.id);
+                      }}
+                      className="text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/40 p-2 rounded-xl transition-colors"
+                      title="Editar Formulário"
+                    >
+                      <Edit2 size={20} />
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteForm(form.id)}
+                      className="text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 p-2 rounded-xl transition-colors"
+                      title="Excluir Formulário"
+                    >
+                      <Trash2 size={20} />
+                    </button>
+                  </div>
                 </div>
               ))
             )}
@@ -5102,43 +6416,94 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       </div>
 
       <div className="pt-4">
-        <div className="grid grid-cols-3 gap-5 w-full px-2 mb-8">
-          {[
-            { label: 'Cultura', icon: <Info size={28} />, bg: 'bg-indigo-500', view: 'CULTURE' },
-            { label: 'Biblioteca', icon: <Book size={28} />, bg: 'bg-emerald-500', view: 'LIBRARY' },
-            { label: 'Gerenciar', icon: <Settings size={28} />, bg: 'bg-amber-500', view: 'MANAGEMENT' }
-          ].map((item, i) => (
-            <div key={i} className="flex flex-col items-center space-y-3">
-              <button onClick={() => setActiveSubView(item.view as any)} className={`w-full aspect-square ${item.bg} rounded-[30px] flex items-center justify-center text-white shadow-lg active:scale-90 transition-all`}>
-                {item.icon}
+        {/* Botões de Acesso Rápido com nomes dentro do container */}
+        <div className="w-full max-w-sm sm:max-w-2xl md:max-w-3xl lg:max-w-4xl mx-auto px-2 mb-8">
+          {/* Visualização para Tablet e PC: Todos na mesma linha */}
+          <div className="hidden sm:flex items-center justify-center gap-3.5 md:gap-4 lg:gap-5 flex-nowrap">
+            {[
+              { label: 'Cultura', icon: <Info size={28} strokeWidth={2.4} />, bg: 'bg-indigo-500', view: 'CULTURE', show: true },
+              { label: 'Biblioteca', icon: <Book size={28} strokeWidth={2.4} />, bg: 'bg-emerald-500', view: 'LIBRARY', show: true },
+              { label: 'Gerenciar', icon: <Settings size={28} strokeWidth={2.4} />, bg: 'bg-amber-500', view: 'MANAGEMENT', show: true },
+              { label: 'Trunfos', icon: <Trophy size={28} strokeWidth={2.4} />, bg: 'bg-teal-600', view: 'TRUNFOS', show: true },
+              { label: 'Desbrava +', icon: <Sparkles size={28} strokeWidth={2.4} />, bg: 'bg-purple-600', view: 'DESBRAVA_PLUS', show: isPathfinder },
+              { label: 'Vídeos', icon: <Video size={28} strokeWidth={2.4} />, bg: 'bg-red-600', view: 'VIDEOS', show: true }
+            ].filter(b => b.show).map((item, i) => (
+              <button 
+                key={i} 
+                onClick={() => setActiveSubView(item.view as any)} 
+                className={`w-24 h-24 md:w-28 md:h-28 lg:w-30 lg:h-30 ${item.bg} rounded-[26px] md:rounded-[30px] flex flex-col items-center justify-center text-white shadow-md hover:shadow-xl active:scale-90 hover:scale-105 transition-all p-2.5 text-center group`}
+              >
+                <div className="shrink-0 group-hover:scale-110 transition-transform mb-1.5">
+                  {item.icon}
+                </div>
+                <span className="text-[11px] md:text-xs font-black uppercase tracking-tight leading-tight w-full truncate px-1">
+                  {item.label}
+                </span>
               </button>
-              <span className="text-[10px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-tight">{item.label}</span>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
 
-        {/* Botões Desbrava + e Vídeos */}
-        <div className="flex justify-center mt-4 mb-8 space-x-4">
-          {isPathfinder && (
-            <button 
-              onClick={() => setActiveSubView('DESBRAVA_PLUS')}
-              className="flex-1 max-w-[160px] bg-indigo-600 h-11 rounded-full flex items-center justify-center text-white active:scale-[0.98] transition-all px-4 shadow-none"
-            >
-              <div className="flex items-center space-x-2">
-                <Sparkles size={14} strokeWidth={2.5} />
-                <span className="font-black text-[11px] uppercase tracking-[0.15em]">Desbrava +</span>
-              </div>
-            </button>
-          )}
-          <button 
-            onClick={() => setActiveSubView('VIDEOS')}
-            className="flex-1 max-w-[160px] bg-red-600 h-11 rounded-full flex items-center justify-center text-white active:scale-[0.98] transition-all px-4 shadow-none"
-          >
-            <div className="flex items-center space-x-2">
-              <Video size={14} strokeWidth={2.5} />
-              <span className="font-black text-[11px] uppercase tracking-[0.15em]">Vídeos</span>
+          {/* Visualização Mobile: 3 na primeira linha e os demais na segunda */}
+          <div className="flex sm:hidden flex-col items-center gap-3.5">
+            <div className="flex items-center justify-center gap-3 w-full">
+              {[
+                { label: 'Cultura', icon: <Info size={26} strokeWidth={2.4} />, bg: 'bg-indigo-500', view: 'CULTURE' },
+                { label: 'Biblioteca', icon: <Book size={26} strokeWidth={2.4} />, bg: 'bg-emerald-500', view: 'LIBRARY' },
+                { label: 'Gerenciar', icon: <Settings size={26} strokeWidth={2.4} />, bg: 'bg-amber-500', view: 'MANAGEMENT' }
+              ].map((item, i) => (
+                <button 
+                  key={i} 
+                  onClick={() => setActiveSubView(item.view as any)} 
+                  className={`w-24 h-24 ${item.bg} rounded-[26px] flex flex-col items-center justify-center text-white shadow-md active:scale-90 transition-all p-2 text-center`}
+                >
+                  <div className="shrink-0 mb-1.5">
+                    {item.icon}
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-tight leading-tight w-full truncate px-0.5">
+                    {item.label}
+                  </span>
+                </button>
+              ))}
             </div>
-          </button>
+
+            <div className="flex items-center justify-center gap-3 w-full">
+              <button 
+                onClick={() => setActiveSubView('TRUNFOS')}
+                className="w-24 h-24 bg-teal-600 rounded-[26px] flex flex-col items-center justify-center text-white shadow-md active:scale-90 transition-all p-2 text-center"
+              >
+                <div className="shrink-0 mb-1.5">
+                  <Trophy size={26} strokeWidth={2.4} />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-tight leading-tight w-full truncate px-0.5">
+                  Trunfos
+                </span>
+              </button>
+              {isPathfinder && (
+                <button 
+                  onClick={() => setActiveSubView('DESBRAVA_PLUS')}
+                  className="w-24 h-24 bg-purple-600 rounded-[26px] flex flex-col items-center justify-center text-white shadow-md active:scale-90 transition-all p-2 text-center"
+                >
+                  <div className="shrink-0 mb-1.5">
+                    <Sparkles size={26} strokeWidth={2.4} />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-tight leading-tight w-full truncate px-0.5">
+                    Desbrava +
+                  </span>
+                </button>
+              )}
+              <button 
+                onClick={() => setActiveSubView('VIDEOS')}
+                className="w-24 h-24 bg-red-600 rounded-[26px] flex flex-col items-center justify-center text-white shadow-md active:scale-90 transition-all p-2 text-center"
+              >
+                <div className="shrink-0 mb-1.5">
+                  <Video size={26} strokeWidth={2.4} />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-tight leading-tight w-full truncate px-0.5">
+                  Vídeos
+                </span>
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Links Dinâmicos */}
@@ -5166,7 +6531,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
   return (
     <div className="flex flex-col h-full bg-[#F8FAFC] dark:bg-slate-900 animate-slide-in overflow-hidden relative transition-colors duration-500">
-      {activeSubView !== 'BIBLE' && activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && activeSubView !== 'CLASS_DETAILS' && activeSubView !== 'SPECIALTY_DETAILS' && (
+      {activeSubView !== 'BIBLE' && activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && activeSubView !== 'CLASS_DETAILS' && activeSubView !== 'SPECIALTY_DETAILS' && !selectedTrunfoModal && (
         <div className="px-8 pt-12 pb-6 flex items-center justify-between z-10 bg-[#F8FAFC] dark:bg-slate-900 transition-colors duration-500">
           <div className="w-14 h-14 flex items-center justify-center">
             {activeSubView === 'MAIN' ? (
@@ -5226,12 +6591,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                     setActiveSubView('BIBLE_ADMIN');
                   } else if (activeSubView === 'BIBLE_DEVOTIONAL_LIST') {
                     setActiveSubView('BIBLE_ADMIN');
-                  } else if (activeSubView === 'VIDEO_ADMIN' || activeSubView === 'FORM_ADMIN' || activeSubView === 'LINKS_ADMIN' || activeSubView === 'ACHIEVEMENTS_ADMIN') {
+                  } else if (activeSubView === 'VIDEO_ADMIN' || activeSubView === 'FORM_ADMIN' || activeSubView === 'LINKS_ADMIN' || activeSubView === 'ACHIEVEMENTS_ADMIN' || activeSubView === 'TRUNFOS_ADMIN') {
                     setActiveSubView('BIBLE_ADMIN');
                   } else if (activeSubView === 'VIDEOS') {
                     setActiveSubView('MAIN');
                   } else if (activeSubView === 'VIDEO_PLAYER') {
                     setActiveSubView('VIDEOS');
+                  } else if (activeSubView === 'TRUNFOS') {
+                    setActiveSubView('MAIN');
                   } else {
                     setActiveSubView('MAIN');
                   }
@@ -5285,6 +6652,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                activeSubView === 'DESBRAVA_PLUS_PDF' ? selectedDesbravaPlusItem?.Nome :
                activeSubView === 'BIBLE_ADMIN' ? 'Painel Administrativo' :
                activeSubView === 'ACHIEVEMENTS_ADMIN' ? 'Gestão de Conquistas' :
+               activeSubView === 'TRUNFOS' ? 'Trunfos' :
+               activeSubView === 'TRUNFOS_ADMIN' ? 'Gestão de Trunfos' :
                activeSubView === 'BIBLE_ADMIN_ADD' ? 'Novo Devocional' :
                activeSubView === 'BIBLE_DEVOTIONAL_LIST' ? 'Agendados' :
                activeSubView === 'VIDEOS' ? 'Vídeos' :
@@ -5364,6 +6733,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         {activeSubView === 'BIBLE_DEVOTIONAL_VIEW' && renderBibleDevotionalView()}
         {activeSubView === 'LINKS_ADMIN' && renderLinksAdmin()}
         {activeSubView === 'ACHIEVEMENTS_ADMIN' && renderAchievementsAdmin()}
+        {activeSubView === 'TRUNFOS' && renderTrunfos()}
+        {activeSubView === 'TRUNFOS_ADMIN' && renderTrunfosAdmin()}
         {activeSubView === 'WEB_VIEWER' && renderWebViewer()}
       </div>
 
@@ -5407,7 +6778,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         </div>
       )}
 
-      {activeSubView !== 'DESBRAVA_PLUS_PDF' && activeSubView !== 'PDF_VIEWER' && activeSubView !== 'BIBLE' && activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && (
+      {activeSubView !== 'DESBRAVA_PLUS_PDF' && activeSubView !== 'PDF_VIEWER' && activeSubView !== 'BIBLE' && activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && !selectedTrunfoModal && (
         <div className="absolute bottom-2 sm:bottom-3 left-0 right-0 px-8 flex justify-center z-50 pointer-events-none">
           <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md h-16 w-full max-w-[320px] rounded-full shadow-2xl flex p-2 items-center border border-white dark:border-slate-700 space-x-2 pointer-events-auto">
             <button 
@@ -5542,6 +6913,124 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Visualização do Trunfo em Tela Cheia (Ocupa 100% da tela real, sem cabeçalho e sem menu) */}
+      {selectedTrunfoModal && (
+        <div className="fixed inset-0 z-[999] bg-[#F8FAFC] dark:bg-slate-900 flex flex-col h-full w-full overflow-hidden animate-fade-in">
+          {/* Barra Superior Fixa do Trunfo */}
+          <div className="flex-shrink-0 px-6 sm:px-8 pt-10 sm:pt-6 pb-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 flex items-center justify-between z-20 shadow-sm">
+            <div className="flex-1 min-w-0 pr-4">
+              <div className="flex items-center space-x-2 mb-0.5">
+                <span className="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest">
+                  {selectedTrunfoModal.ano ? `Trunfo • Ano ${selectedTrunfoModal.ano}` : 'Trunfo do Evento'}
+                </span>
+                <span className="text-[10px] text-slate-300 dark:text-slate-600 font-bold">•</span>
+                <span className="text-[10px] text-slate-400 dark:text-slate-400 font-bold uppercase tracking-wider">
+                  {selectedTrunfoModal.club === 'ADVENTURER' ? 'Aventureiros' : selectedTrunfoModal.club === 'ALL' ? 'Desbravadores & Aventureiros' : 'Desbravadores'}
+                </span>
+              </div>
+              <h3 className="text-base sm:text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight truncate">
+                {selectedTrunfoModal.titulo}
+              </h3>
+            </div>
+            <button 
+              onClick={() => {
+                setSelectedTrunfoModal(null);
+                setIsTrunfoImageZoomed(false);
+              }}
+              className="w-12 h-12 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-full flex items-center justify-center transition-all active:scale-90 flex-shrink-0 shadow-sm"
+              title="Fechar visualização"
+            >
+              <X size={22} />
+            </button>
+          </div>
+
+          {/* Área de Conteúdo que Rola por Toda a Tela */}
+          <div className="flex-1 overflow-y-auto w-full">
+            <div className="max-w-3xl mx-auto px-5 sm:px-8 py-6 sm:py-8 space-y-6 pb-28">
+              {/* Card com Imagem menor ao lado do Título, Clube e Ano */}
+              <div className="bg-white dark:bg-slate-800 rounded-[32px] p-6 sm:p-8 border border-slate-100 dark:border-slate-700/60 shadow-sm">
+                <div className="flex items-center space-x-4 sm:space-x-6">
+                  {selectedTrunfoModal.imagem && (
+                    <button 
+                      onClick={() => setIsTrunfoImageZoomed(true)}
+                      className="w-24 h-24 sm:w-32 sm:h-32 bg-slate-50 dark:bg-slate-900/80 rounded-2xl p-2 flex items-center justify-center border border-slate-100 dark:border-slate-700 flex-shrink-0 relative group hover:ring-2 hover:ring-teal-500 transition-all shadow-sm cursor-zoom-in overflow-hidden"
+                      title="Clique para ampliar a imagem"
+                    >
+                      <img 
+                        src={getImageUrl(selectedTrunfoModal.imagem)} 
+                        alt={selectedTrunfoModal.titulo} 
+                        className="w-full h-full object-contain drop-shadow-sm group-hover:scale-105 transition-transform duration-200"
+                      />
+                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white rounded-2xl">
+                        <ZoomIn size={22} className="drop-shadow" />
+                      </div>
+                    </button>
+                  )}
+
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <h2 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight leading-tight">
+                      {selectedTrunfoModal.titulo}
+                    </h2>
+                    <div className="flex items-center flex-wrap gap-2 pt-0.5">
+                      <span className="px-3.5 py-1.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-black uppercase tracking-widest">
+                        {selectedTrunfoModal.club === 'ADVENTURER' ? 'Clube de Aventureiros' : selectedTrunfoModal.club === 'ALL' ? 'Desbravadores e Aventureiros' : 'Clube de Desbravadores'}
+                      </span>
+                      {selectedTrunfoModal.ano && (
+                        <span className="px-3.5 py-1.5 bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 rounded-xl text-xs font-black uppercase tracking-widest border border-teal-500/20">
+                          Ano {selectedTrunfoModal.ano}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* História / Texto Principal */}
+              <div className="bg-white dark:bg-slate-800 rounded-[32px] p-6 sm:p-8 border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-4">
+                <div className="flex items-center space-x-2 text-xs font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest">
+                  <BookOpen size={18} className="text-teal-600 dark:text-teal-400" />
+                  <span>História do Evento</span>
+                </div>
+                <div className="pt-2">
+                  <p className="text-slate-700 dark:text-slate-200 text-sm sm:text-base leading-relaxed whitespace-pre-line font-medium">
+                    {selectedTrunfoModal.historia || 'Nenhuma história cadastrada para este trunfo.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Zoom da Imagem em Tela Cheia */}
+      {isTrunfoImageZoomed && selectedTrunfoModal?.imagem && (
+        <div 
+          className="fixed inset-0 z-[1000] bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-8 animate-fade-in cursor-zoom-out"
+          onClick={() => setIsTrunfoImageZoomed(false)}
+        >
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsTrunfoImageZoomed(false);
+            }}
+            className="absolute top-6 right-6 w-12 h-12 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition-all active:scale-90 z-20"
+            title="Fechar imagem ampliada"
+          >
+            <X size={24} />
+          </button>
+          <div 
+            className="max-w-5xl max-h-[88vh] flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img 
+              src={getImageUrl(selectedTrunfoModal.imagem)} 
+              alt={selectedTrunfoModal.titulo} 
+              className="max-h-[85vh] max-w-[90vw] object-contain drop-shadow-2xl rounded-2xl"
+            />
           </div>
         </div>
       )}

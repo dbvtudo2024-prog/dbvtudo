@@ -105,10 +105,12 @@ export interface CulturaItem {
   id: string;
   titulo: string;
   subtitulo?: string;
-  descricao: string;
+  descricao?: string;
   imagem?: string;
+  imageAlign?: 'left' | 'center' | 'right';
+  imageSize?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
   blocks?: ContentBlock[];
-  club?: ClubType;
+  club?: ClubType | string;
   subitems?: CulturaItem[];
   parentId?: string;
 }
@@ -309,6 +311,16 @@ export interface Conquista {
   imagem_cinza: string;
   ordem: number;
   shape: 'RECTANGLE' | 'CIRCLE' | 'OVAL' | 'FLAG';
+}
+
+export interface Trunfo {
+  id: number;
+  created_at?: string;
+  titulo: string;
+  ano?: string;
+  imagem?: string;
+  historia?: string;
+  club?: ClubType | string;
 }
 
 export type ViewState = 'LOGIN' | 'SIGNUP' | 'HOME' | 'CLUB_LIST' | 'SETTINGS' | 'PROFILE';
