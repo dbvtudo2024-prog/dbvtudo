@@ -4824,7 +4824,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     );
 
     return (
-      <div className="animate-slide-in space-y-6 pt-2 pb-28">
+      <div className="animate-slide-in space-y-4 pt-1 pb-24">
         {/* Barra de Pesquisa */}
         <div className="relative">
           <input 
@@ -6532,8 +6532,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   return (
     <div className="flex flex-col h-full bg-[#F8FAFC] dark:bg-slate-900 animate-slide-in overflow-hidden relative transition-colors duration-500">
       {activeSubView !== 'BIBLE' && activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && activeSubView !== 'CLASS_DETAILS' && activeSubView !== 'SPECIALTY_DETAILS' && !selectedTrunfoModal && (
-        <div className="px-8 pt-12 pb-6 flex items-center justify-between z-10 bg-[#F8FAFC] dark:bg-slate-900 transition-colors duration-500">
-          <div className="w-14 h-14 flex items-center justify-center">
+        <div className="px-3.5 sm:px-6 pt-3 sm:pt-4 pb-2 sm:pb-3 flex items-center justify-between z-10 bg-[#F8FAFC] dark:bg-slate-900 transition-colors duration-500">
+          <div className="w-11 h-11 flex items-center justify-center flex-shrink-0">
             {activeSubView === 'MAIN' ? (
               <img src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/logo%20app.PNG" className="w-full h-full object-contain" />
             ) : (
@@ -6603,17 +6603,17 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                     setActiveSubView('MAIN');
                   }
                 }} 
-                className="w-12 h-12 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-400 dark:text-slate-300 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center"
+                className="w-11 h-11 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-400 dark:text-slate-300 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center"
               >
-                <ChevronLeft size={24} strokeWidth={3} />
+                <ChevronLeft size={22} strokeWidth={3} />
               </button>
             )}
           </div>
           <div className="text-center">
-            <h2 className="font-black text-slate-800 dark:text-white text-lg tracking-tight uppercase leading-none">
+            <h2 className="font-black text-slate-800 dark:text-white text-base sm:text-lg tracking-tight uppercase leading-none">
               {isPathfinder ? 'Desbravadores' : 'Aventureiros'}
             </h2>
-            <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em] mt-2">
+            <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em] mt-1">
               {activeSubView === 'MAIN' ? 'Área de Gestão' : 
                activeSubView === 'CLASSES' ? 'Classes Progressivas' :
                activeSubView === 'SPECIALTIES' ? 'Especialidades' :
@@ -6663,10 +6663,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                activeSubView}
             </p>
           </div>
-          <div className="w-14 h-14 flex items-center justify-center">
+          <div className="w-11 h-11 flex items-center justify-center flex-shrink-0">
             {activeSubView === 'MAIN' && (
-              <button onClick={onOpenProfile} className="w-14 h-14 bg-white dark:bg-slate-800 rounded-full shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-300 overflow-hidden active:scale-90 transition-all">
-                {userAvatar ? <img src={userAvatar} className="w-full h-full object-cover" /> : <User size={24} />}
+              <button onClick={onOpenProfile} className="w-11 h-11 bg-white dark:bg-slate-800 rounded-full shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-300 overflow-hidden active:scale-90 transition-all">
+                {userAvatar ? <img src={userAvatar} className="w-full h-full object-cover" /> : <User size={22} />}
               </button>
             )}
           </div>
@@ -6676,7 +6676,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       <div 
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className={`flex-grow overflow-y-auto scrollbar-hide ${activeSubView === 'DESBRAVA_PLUS_PDF' ? 'p-2' : activeSubView === 'BIBLE' ? 'p-4' : (activeSubView === 'CLASS_DETAILS' || activeSubView === 'SPECIALTY_DETAILS') ? 'px-5 pt-8 pb-4' : 'px-5 py-2'}`}
+        className={`flex-grow overflow-y-auto scrollbar-hide ${activeSubView === 'DESBRAVA_PLUS_PDF' ? 'p-1.5' : activeSubView === 'BIBLE' ? 'p-3' : (activeSubView === 'CLASS_DETAILS' || activeSubView === 'SPECIALTY_DETAILS') ? 'px-3.5 pt-4 pb-4' : 'px-3.5 sm:px-5 py-1'}`}
       >
         {activeSubView === 'MAIN' && renderDashboard()}
         {activeSubView === 'CLASSES' && renderClassesMenu()}
@@ -6951,41 +6951,54 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           {/* Área de Conteúdo que Rola por Toda a Tela */}
           <div className="flex-1 overflow-y-auto w-full">
             <div className="max-w-3xl mx-auto px-5 sm:px-8 py-6 sm:py-8 space-y-6 pb-28">
-              {/* Card com Imagem menor ao lado do Título, Clube e Ano */}
-              <div className="bg-white dark:bg-slate-800 rounded-[32px] p-6 sm:p-8 border border-slate-100 dark:border-slate-700/60 shadow-sm">
-                <div className="flex items-center space-x-4 sm:space-x-6">
+              {/* Card com Imagem alinhada apenas ao Título, e abaixo Clube e Ano */}
+              <div className="bg-white dark:bg-slate-800 rounded-[32px] p-6 sm:p-8 border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-4">
+                {/* Linha do Título com a Imagem ao lado */}
+                <div className="flex items-center space-x-4 sm:space-x-5">
                   {selectedTrunfoModal.imagem && (
-                    <button 
-                      onClick={() => setIsTrunfoImageZoomed(true)}
-                      className="w-24 h-24 sm:w-32 sm:h-32 bg-slate-50 dark:bg-slate-900/80 rounded-2xl p-2 flex items-center justify-center border border-slate-100 dark:border-slate-700 flex-shrink-0 relative group hover:ring-2 hover:ring-teal-500 transition-all shadow-sm cursor-zoom-in overflow-hidden"
-                      title="Clique para ampliar a imagem"
-                    >
-                      <img 
-                        src={getImageUrl(selectedTrunfoModal.imagem)} 
-                        alt={selectedTrunfoModal.titulo} 
-                        className="w-full h-full object-contain drop-shadow-sm group-hover:scale-105 transition-transform duration-200"
-                      />
-                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white rounded-2xl">
-                        <ZoomIn size={22} className="drop-shadow" />
-                      </div>
-                    </button>
+                    <div className="flex flex-col items-center flex-shrink-0">
+                      <button 
+                        onClick={() => setIsTrunfoImageZoomed(true)}
+                        className="w-20 h-20 sm:w-24 sm:h-24 bg-slate-50 dark:bg-slate-900/90 rounded-2xl p-1.5 flex items-center justify-center border-2 border-teal-500/40 hover:border-teal-500 relative group hover:scale-[1.03] active:scale-95 transition-all shadow-md cursor-zoom-in overflow-hidden"
+                        title="Toque para ampliar a imagem"
+                      >
+                        <img 
+                          src={getImageUrl(selectedTrunfoModal.imagem)} 
+                          alt={selectedTrunfoModal.titulo} 
+                          className="w-full h-full object-contain drop-shadow-sm group-hover:scale-105 transition-transform duration-200"
+                        />
+                        {/* Ícone Indicador de Zoom */}
+                        <div className="absolute bottom-1 right-1 bg-teal-600 dark:bg-teal-500 text-white rounded-md p-1 shadow-md flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <ZoomIn size={12} className="stroke-[2.5]" />
+                        </div>
+                        {/* Overlay ao passar o mouse */}
+                        <div className="absolute inset-0 bg-teal-950/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white rounded-2xl">
+                          <span className="bg-black/70 backdrop-blur-xs text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded flex items-center gap-1">
+                            <ZoomIn size={10} /> Zoom
+                          </span>
+                        </div>
+                      </button>
+                      <span className="text-[8px] sm:text-[9px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest mt-1 flex items-center gap-0.5 select-none whitespace-nowrap">
+                        <ZoomIn size={9} className="stroke-[2.5]" /> Toque p/ ampliar
+                      </span>
+                    </div>
                   )}
 
-                  <div className="flex-1 min-w-0 space-y-2">
-                    <h2 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight leading-tight">
-                      {selectedTrunfoModal.titulo}
-                    </h2>
-                    <div className="flex items-center flex-wrap gap-2 pt-0.5">
-                      <span className="px-3.5 py-1.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-black uppercase tracking-widest">
-                        {selectedTrunfoModal.club === 'ADVENTURER' ? 'Clube de Aventureiros' : selectedTrunfoModal.club === 'ALL' ? 'Desbravadores e Aventureiros' : 'Clube de Desbravadores'}
-                      </span>
-                      {selectedTrunfoModal.ano && (
-                        <span className="px-3.5 py-1.5 bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 rounded-xl text-xs font-black uppercase tracking-widest border border-teal-500/20">
-                          Ano {selectedTrunfoModal.ano}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                  <h2 className="flex-1 min-w-0 text-lg sm:text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight leading-snug">
+                    {selectedTrunfoModal.titulo}
+                  </h2>
+                </div>
+
+                {/* Clube e Ano na sequência abaixo */}
+                <div className="flex items-center flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/50">
+                  <span className="px-3.5 py-1.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-black uppercase tracking-widest">
+                    {selectedTrunfoModal.club === 'ADVENTURER' ? 'Clube de Aventureiros' : selectedTrunfoModal.club === 'ALL' ? 'Desbravadores e Aventureiros' : 'Clube de Desbravadores'}
+                  </span>
+                  {selectedTrunfoModal.ano && (
+                    <span className="px-3.5 py-1.5 bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 rounded-xl text-xs font-black uppercase tracking-widest border border-teal-500/20">
+                      Ano {selectedTrunfoModal.ano}
+                    </span>
+                  )}
                 </div>
               </div>
 
