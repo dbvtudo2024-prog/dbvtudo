@@ -793,18 +793,7 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1">Texto Principal / Descrição</label>
-                    <textarea 
-                      value={newItem.descricao || ''}
-                      onChange={(e) => setNewItem({...newItem, descricao: e.target.value})}
-                      placeholder="Digite o texto principal explicativo deste uniforme..."
-                      rows={4}
-                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm resize-y"
-                    />
-                  </div>
-
-                  {/* Imagem Principal & Alinhamento */}
+                  {/* Imagem Principal & Alinhamento (Entre o Título e o Texto Principal) */}
                   <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200/80 dark:border-slate-700">
                     <label className="text-[10px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-widest ml-1 block">Imagem Principal</label>
                     
@@ -970,6 +959,17 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                         ))}
                       </div>
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1">Texto Principal / Descrição</label>
+                    <textarea 
+                      value={newItem.descricao || ''}
+                      onChange={(e) => setNewItem({...newItem, descricao: e.target.value})}
+                      placeholder="Digite o texto principal explicativo deste uniforme..."
+                      rows={4}
+                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm resize-y"
+                    />
                   </div>
 
                   <div className="space-y-4 border-2 border-indigo-50 dark:border-indigo-950/60 p-4 rounded-3xl bg-indigo-50/30 dark:bg-indigo-950/20">
@@ -1179,18 +1179,7 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1">Texto Principal / Significado Completo</label>
-                    <textarea 
-                      value={newItem.descricao || ''}
-                      onChange={(e) => setNewItem({...newItem, descricao: e.target.value})}
-                      placeholder="Digite o significado ou descrição detalhada do emblema..."
-                      rows={4}
-                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm resize-y"
-                    />
-                  </div>
-
-                  {/* Imagem Principal & Alinhamento */}
+                  {/* Imagem do Emblema & Alinhamento (Entre o Título e o Texto Principal) */}
                   <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200/80 dark:border-slate-700">
                     <label className="text-[10px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-widest ml-1 block">Imagem do Emblema</label>
                     
@@ -1356,6 +1345,17 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                         ))}
                       </div>
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1">Texto Principal / Significado Completo</label>
+                    <textarea 
+                      value={newItem.descricao || ''}
+                      onChange={(e) => setNewItem({...newItem, descricao: e.target.value})}
+                      placeholder="Digite o significado ou descrição detalhada do emblema..."
+                      rows={4}
+                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm resize-y"
+                    />
                   </div>
 
                   <div className="space-y-4 border-2 border-indigo-50 dark:border-indigo-950/60 p-4 rounded-3xl bg-indigo-50/30 dark:bg-indigo-950/20">
