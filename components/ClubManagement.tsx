@@ -1508,6 +1508,13 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   const [desbravaPlusItems, setDesbravaPlusItems] = useState<DesbravaMais[]>([]);
   const [selectedDesbravaPlusItem, setSelectedDesbravaPlusItem] = useState<DesbravaMais | null>(null);
 
+  // Specialty Search Modal State
+  const [isSpecialtySearchOpen, setIsSpecialtySearchOpen] = useState(false);
+  const [specialtySearchQuery, setSpecialtySearchQuery] = useState('');
+  const [allSpecialtiesList, setAllSpecialtiesList] = useState<Especialidade[]>([]);
+  const [isLoadingSearchSpecialties, setIsLoadingSearchSpecialties] = useState(false);
+  const [selectedSearchArea, setSelectedSearchArea] = useState<string>('TODAS');
+
   useEffect(() => {
     if (onSubViewChange) {
       onSubViewChange(activeSubView === 'MAIN' ? undefined : activeSubView);
@@ -1741,7 +1748,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
   useEffect(() => {
     if (userEmail) {
-      fetchUserSpecialties(userEmail).then(setCompletedSpecialties);
+      fetchUserSpecialties(userEmail)
+        .then(setCompletedSpecialties)
+        .catch(err => console.warn("Erro ao buscar especialidades do usuário:", err));
       
       // If isUserAdmin is not set yet, try to fetch from Supabase
       if (!isUserAdmin) {
@@ -1751,22 +1760,26 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             const { guest } = JSON.parse(savedState);
             if (!guest) {
               // Get current user session to get ID
-              supabase.auth.getUser().then(({ data }) => {
-                if (data.user) {
-                  fetchUserProfile(data.user.id).then(profile => {
-                    if (profile?.ADM) {
-                      setIsUserAdmin(true);
-                      // Update local storage for next time
-                      const savedProfile = localStorage.getItem(PROFILE_KEY);
-                      if (savedProfile) {
-                        const parsed = JSON.parse(savedProfile);
-                        parsed.isAdmin = true;
-                        localStorage.setItem(PROFILE_KEY, JSON.stringify(parsed));
-                      }
-                    }
-                  });
-                }
-              });
+              supabase.auth.getUser()
+                .then(({ data, error }) => {
+                  if (!error && data?.user) {
+                    fetchUserProfile(data.user.id)
+                      .then(profile => {
+                        if (profile?.ADM) {
+                          setIsUserAdmin(true);
+                          // Update local storage for next time
+                          const savedProfile = localStorage.getItem(PROFILE_KEY);
+                          if (savedProfile) {
+                            const parsed = JSON.parse(savedProfile);
+                            parsed.isAdmin = true;
+                            localStorage.setItem(PROFILE_KEY, JSON.stringify(parsed));
+                          }
+                        }
+                      })
+                      .catch(err => console.warn("Erro ao buscar perfil:", err));
+                  }
+                })
+                .catch(err => console.warn("Erro ao verificar sessão:", err));
             }
           } catch {}
         }
@@ -1775,15 +1788,18 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   }, [userEmail, isUserAdmin]);
 
   useEffect(() => {
-    fetchConquistas().then(setAllConquistas);
+    fetchConquistas()
+      .then(setAllConquistas)
+      .catch(err => console.warn("Erro ao buscar conquistas:", err));
   }, [activeSubView]);
 
   useEffect(() => {
     const clubType = club === ClubType.PATHFINDER ? 'PATHFINDER' : 'ADVENTURER';
-    fetchCultura(clubType).then(data => {
-      console.log("Cultura data fetched:", data);
-      setCulturaData(data);
-    });
+    fetchCultura(clubType)
+      .then(data => {
+        if (data) setCulturaData(data);
+      })
+      .catch(err => console.warn("Erro ao buscar dados de cultura:", err));
   }, [club]);
 
   const toggleSpecialty = async (specialtyId: string) => {
@@ -1812,6 +1828,29 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       }
     }
   };
+
+  const availableSearchAreas = React.useMemo(() => {
+    const areas = new Set<string>();
+    allSpecialtiesList.forEach(esp => {
+      if (esp.area) areas.add(esp.area);
+    });
+    return Array.from(areas).sort();
+  }, [allSpecialtiesList]);
+
+  const filteredSearchSpecialties = React.useMemo(() => {
+    return allSpecialtiesList.filter(esp => {
+      const q = specialtySearchQuery.toLowerCase().trim();
+      const matchesText = !q || 
+        (esp.nome && esp.nome.toLowerCase().includes(q)) ||
+        (esp.area && esp.area.toLowerCase().includes(q)) ||
+        (esp.codigo && esp.codigo.toLowerCase().includes(q)) ||
+        (esp.sigla && esp.sigla.toLowerCase().includes(q));
+
+      const matchesArea = selectedSearchArea === 'TODAS' || esp.area === selectedSearchArea;
+
+      return matchesText && matchesArea;
+    });
+  }, [allSpecialtiesList, specialtySearchQuery, selectedSearchArea]);
 
   const toggleMarkVerse = (verse: BibleVerse) => {
     setMarkedVerses(prev => {
@@ -1888,15 +1927,44 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   };
 
   useEffect(() => {
+    setAllSpecialtiesList([]);
+  }, [club]);
+
+  const openSpecialtySearch = () => {
+    setIsSpecialtySearchOpen(true);
+    if (allSpecialtiesList.length === 0) {
+      setIsLoadingSearchSpecialties(true);
+      fetchEspecialidades(club)
+        .then(setAllSpecialtiesList)
+        .catch(err => console.warn("Erro ao buscar especialidades:", err))
+        .finally(() => setIsLoadingSearchSpecialties(false));
+    }
+  };
+
+  useEffect(() => {
     if (activeSubView === 'CLASSES') {
       setIsLoading(true);
-      fetchClasses(club).then(setClasses).finally(() => setIsLoading(false));
+      fetchClasses(club)
+        .then(setClasses)
+        .catch(err => console.warn("Erro ao carregar classes:", err))
+        .finally(() => setIsLoading(false));
     } else if (activeSubView === 'SPECIALTIES') {
       setIsLoading(true);
-      fetchCategories(club).then(setCategories).finally(() => setIsLoading(false));
+      fetchCategories(club)
+        .then(setCategories)
+        .catch(err => console.warn("Erro ao carregar categorias:", err))
+        .finally(() => setIsLoading(false));
+      if (allSpecialtiesList.length === 0) {
+        fetchEspecialidades(club)
+          .then(setAllSpecialtiesList)
+          .catch(err => console.warn("Erro ao carregar especialidades:", err));
+      }
     } else if (activeSubView === 'DESBRAVA_PLUS') {
       setIsLoading(true);
-      fetchDesbravaMais().then(setDesbravaPlusItems).finally(() => setIsLoading(false));
+      fetchDesbravaMais()
+        .then(setDesbravaPlusItems)
+        .catch(err => console.warn("Erro ao carregar Desbrava+:", err))
+        .finally(() => setIsLoading(false));
     } else if (activeSubView === 'LIBRARY') {
       setIsLoading(true);
       if (isPathfinder) {
@@ -1915,6 +1983,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           }));
           setOutrosLivros(outros);
           setManuaisDBV(manuais);
+        }).catch(err => {
+          console.warn("Erro ao carregar biblioteca DBV:", err);
         }).finally(() => setIsLoading(false));
       } else {
         Promise.all([
@@ -1923,15 +1993,24 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         ]).then(([livros, manuais]) => {
           setLivrosAVT(livros);
           setManuaisAVT(manuais);
+        }).catch(err => {
+          console.warn("Erro ao carregar biblioteca AVT:", err);
         }).finally(() => setIsLoading(false));
       }
     } else if (activeSubView === 'MAIN') {
-      fetchAppLinks().then(setAppLinks);
+      fetchAppLinks()
+        .then(setAppLinks)
+        .catch(err => console.warn("Erro ao carregar links:", err));
     } else if (activeSubView === 'LINKS_ADMIN') {
-      fetchAppLinks().then(setAppLinks);
+      fetchAppLinks()
+        .then(setAppLinks)
+        .catch(err => console.warn("Erro ao carregar links admin:", err));
     } else if (activeSubView === 'CAMPING') {
       setIsLoading(true);
-      fetchCampingDBV().then(setCampingDBV).finally(() => setIsLoading(false));
+      fetchCampingDBV()
+        .then(setCampingDBV)
+        .catch(err => console.warn("Erro ao carregar camping:", err))
+        .finally(() => setIsLoading(false));
     } else if (activeSubView === 'VIDEOS' || activeSubView === 'VIDEO_ADMIN') {
       setIsLoading(true);
       const promises: [Promise<VideoType[]>, Promise<VideoCategory[]>] = [
@@ -1958,17 +2037,19 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           const videosWithMetadata = await Promise.all(allVideos.map(async (video) => {
             if (video.link && (!video.titulo || video.titulo === '' || video.canal === '')) {
               try {
-                const response = await fetch(`https://noembed.com/embed?url=${video.link}`);
-                const data = await response.json();
-                if (data && data.title) {
-                  return {
-                    ...video,
-                    titulo: data.title || video.titulo,
-                    canal: data.author_name || video.canal
-                  };
+                const response = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(video.link)}`);
+                if (response.ok) {
+                  const data = await response.json();
+                  if (data && data.title) {
+                    return {
+                      ...video,
+                      titulo: data.title || video.titulo,
+                      canal: data.author_name || video.canal
+                    };
+                  }
                 }
               } catch (e) {
-                console.error("Error fetching YT metadata", e);
+                // Silently ignore embed fetch failures
               }
             }
             return video;
@@ -1976,34 +2057,54 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
           setVideos(videosWithMetadata);
           setVideoCategories([...virtualCategories, ...c]);
+        }).catch(err => {
+          console.warn("Erro ao carregar vídeos:", err);
         }).finally(() => setIsLoading(false));
       } else {
         Promise.all(promises).then(([v, c]) => {
           setVideos(v);
           setVideoCategories(c);
+        }).catch(err => {
+          console.warn("Erro ao carregar vídeos:", err);
         }).finally(() => setIsLoading(false));
       }
     } else if (activeSubView === 'TRUNFOS' || activeSubView === 'TRUNFOS_ADMIN') {
       setIsLoading(true);
       const clubType = club === ClubType.PATHFINDER ? 'PATHFINDER' : 'ADVENTURER';
-      fetchTrunfos(clubType).then(setTrunfos).finally(() => setIsLoading(false));
+      fetchTrunfos(clubType)
+        .then(setTrunfos)
+        .catch(err => console.warn("Erro ao carregar trunfos:", err))
+        .finally(() => setIsLoading(false));
     } else if (activeSubView === 'FORMULARIOS' || activeSubView === 'FORM_ADMIN') {
       setIsLoading(true);
-      fetchFormularios().then(setFormularios).finally(() => setIsLoading(false));
+      fetchFormularios()
+        .then(setFormularios)
+        .catch(err => console.warn("Erro ao carregar formulários:", err))
+        .finally(() => setIsLoading(false));
     } else if (activeSubView === 'BIBLE_BOOKS') {
       setIsLoading(true);
-      fetchBibleBooks().then(setBibleBooks).finally(() => setIsLoading(false));
+      fetchBibleBooks()
+        .then(setBibleBooks)
+        .catch(err => console.warn("Erro ao carregar livros da Bíblia:", err))
+        .finally(() => setIsLoading(false));
     } else if (activeSubView === 'BIBLE_VERSES' && selectedBibleBook && selectedBibleChapter !== null) {
       setIsLoading(true);
       fetchBibleVerses(selectedBibleBook.book_name, selectedBibleChapter.toString())
         .then(setBibleVerses)
+        .catch(err => console.warn("Erro ao carregar versículos:", err))
         .finally(() => setIsLoading(false));
     } else if (activeSubView === 'BIBLE_DICTIONARY') {
       setIsLoading(true);
-      fetchBibleDictionary(dictionarySearch).then(setBibleDictionary).finally(() => setIsLoading(false));
+      fetchBibleDictionary(dictionarySearch)
+        .then(setBibleDictionary)
+        .catch(err => console.warn("Erro ao carregar dicionário bíblico:", err))
+        .finally(() => setIsLoading(false));
     } else if (activeSubView.startsWith('BIBLE')) {
       setIsLoading(true);
-      fetchDevocionais().then(setDevocionais).finally(() => setIsLoading(false));
+      fetchDevocionais()
+        .then(setDevocionais)
+        .catch(err => console.warn("Erro ao carregar devocionais:", err))
+        .finally(() => setIsLoading(false));
     }
   }, [activeSubView, club, selectedBibleBook, selectedBibleChapter, dictionarySearch]);
 
@@ -2015,10 +2116,17 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         fetchEspecialidades(club).then(all => {
           const liked = all.filter(s => completedSpecialties.includes(s.id.toString()));
           setSpecialties(liked);
+        }).catch(err => {
+          console.warn("Erro ao carregar favoritas:", err);
         }).finally(() => setIsLoading(false));
       } else {
         // Filtra pelo nome (Mestrado) que é o que aparece no botão
-        fetchEspecialidades(club, selectedCategory.nome).then(setSpecialties).finally(() => setIsLoading(false));
+        fetchEspecialidades(club, selectedCategory.nome)
+          .then(setSpecialties)
+          .catch(err => {
+            console.warn("Erro ao carregar especialidades por categoria:", err);
+          })
+          .finally(() => setIsLoading(false));
       }
     }
   }, [activeSubView, club, selectedCategory, completedSpecialties]);
@@ -2479,10 +2587,16 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           <div id="specialty-header" className="bg-white dark:bg-slate-800 rounded-[40px] p-8 shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center text-center relative">
             {/* Botão de Voltar */}
             <button 
-              onClick={() => setActiveSubView('SPECIALTIES_LIST')}
+              onClick={() => {
+                if (selectedCategory) {
+                  setActiveSubView('SPECIALTIES_LIST');
+                } else {
+                  setActiveSubView('SPECIALTIES');
+                }
+              }}
               className="absolute top-6 left-6 w-12 h-12 rounded-2xl transition-all active:scale-90 text-slate-400 dark:text-slate-300 bg-slate-50 dark:bg-slate-700/80 border border-slate-100 dark:border-slate-700 shadow-sm flex items-center justify-center"
               title="Voltar"
-              aria-label="Voltar para Lista de Especialidades"
+              aria-label="Voltar"
             >
               <ChevronLeft size={24} strokeWidth={3} />
             </button>
@@ -2847,119 +2961,67 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       );
     };
 
-    // Se for um sub-item (profundidade > 0), renderizamos com suporte a alinhamento
+    const imageBlocks = (item.blocks || []).filter(b => b.type === 'image' && b.content);
+    const textBlocks = (item.blocks || []).filter(b => b.type !== 'image' && b.content);
+    const hasAnyImages = Boolean(item.imagem) || imageBlocks.length > 0;
+    const align = item.imageAlign || 'center';
+
+    // Se for um sub-item (profundidade > 0)
     if (depth > 0) {
-      const align = item.imageAlign || 'center';
       return (
-        <div key={item.id} className="py-8 first:pt-2 last:pb-2 border-b border-slate-50 dark:border-slate-700/50 last:border-0 overflow-hidden">
-          <h5 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight mb-4 text-left">
+        <div key={item.id} className="py-6 first:pt-2 last:pb-2 border-b border-slate-100 dark:border-slate-700/50 last:border-0 overflow-hidden">
+          {/* 1. TÍTULO DO SUB-ITEM */}
+          <h5 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight mb-2 text-left">
             {item.titulo}
           </h5>
-          
-          <div className="relative">
-            {item.imagem || item.descricao ? (
-              <div className={`w-full flex ${
-                align === 'right' 
-                  ? 'flex-col-reverse sm:flex-row items-center sm:items-start justify-between gap-6' 
-                  : align === 'left'
-                  ? 'flex-col sm:flex-row items-center sm:items-start justify-between gap-6'
-                  : 'flex-col items-center gap-4 text-center'
-              }`}>
-                {align === 'right' ? (
-                  <>
-                    <div className="flex-1 min-w-0 text-slate-600 dark:text-slate-200 text-[13px] leading-relaxed font-medium text-left px-1">
-                      {item.subtitulo && (
-                        <span className="inline-block text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-2 block">
-                          {item.subtitulo}
-                        </span>
-                      )}
-                      {item.descricao && (
-                        <div className="whitespace-pre-wrap">
-                          {item.descricao}
-                        </div>
-                      )}
-                    </div>
-                    {item.imagem && (
-                      <div className={`${getItemImageSizeClass(item.imageSize, true)} shrink-0 overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-2xl p-2 flex items-center justify-center`}>
-                        <img 
-                          src={getImageUrl(item.imagem)} 
-                          alt={item.titulo} 
-                          className="w-full h-full object-contain"
-                          referrerPolicy="no-referrer"
-                        />
-                      </div>
-                    )}
-                  </>
-                ) : align === 'left' ? (
-                  <>
-                    {item.imagem && (
-                      <div className={`${getItemImageSizeClass(item.imageSize, true)} shrink-0 overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-2xl p-2 flex items-center justify-center`}>
-                        <img 
-                          src={getImageUrl(item.imagem)} 
-                          alt={item.titulo} 
-                          className="w-full h-full object-contain"
-                          referrerPolicy="no-referrer"
-                        />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0 text-slate-600 dark:text-slate-200 text-[13px] leading-relaxed font-medium text-left px-1">
-                      {item.subtitulo && (
-                        <span className="inline-block text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-2 block">
-                          {item.subtitulo}
-                        </span>
-                      )}
-                      {item.descricao && (
-                        <div className="whitespace-pre-wrap">
-                          {item.descricao}
-                        </div>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    {item.subtitulo && (
-                      <span className="inline-block text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider block">
-                        {item.subtitulo}
-                      </span>
-                    )}
-                    {item.imagem && (
-                      <div className={`${getItemImageSizeClass(item.imageSize, true)} overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-2xl p-2 flex items-center justify-center mx-auto`}>
-                        <img 
-                          src={getImageUrl(item.imagem)} 
-                          alt={item.titulo} 
-                          className="w-full h-full object-contain"
-                          referrerPolicy="no-referrer"
-                        />
-                      </div>
-                    )}
-                    {item.descricao && (
-                      <div className="text-slate-600 dark:text-slate-200 text-[13px] leading-relaxed font-medium whitespace-pre-wrap px-1">
-                        {item.descricao}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            ) : null}
 
-            {/* Blocos extras caso existam */}
-            {item.blocks && item.blocks.length > 0 && (
-              <div className="mt-4 space-y-4">
-                {item.blocks.map((block) => (
-                  block.type === 'image' ? (
-                    <div key={block.id} className="w-full max-w-sm mx-auto aspect-video sm:aspect-square overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-xl p-2 flex items-center justify-center">
-                      <img 
-                        src={getImageUrl(block.content)} 
-                        alt="" 
-                        className="w-full h-full object-contain"
-                        referrerPolicy="no-referrer"
-                      />
-                    </div>
-                  ) : (
-                    <div key={block.id} className="text-slate-600 dark:text-slate-200 text-[13px] leading-relaxed font-medium whitespace-pre-wrap text-left px-1">
-                      {block.content}
-                    </div>
-                  )
+          {item.subtitulo && (
+            <span className="inline-block text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-3 block text-left">
+              {item.subtitulo}
+            </span>
+          )}
+          
+          <div className="space-y-4">
+            {/* 2. IMAGEM PRINCIPAL E IMAGENS EXTRAS (ENTRE O TÍTULO E O TEXTO PRINCIPAL) */}
+            {hasAnyImages && (
+              <div className={`space-y-3 ${align === 'left' ? 'text-left' : align === 'right' ? 'text-right' : 'text-center'}`}>
+                {item.imagem && (
+                  <div className={`${getItemImageSizeClass(item.imageSize, true)} overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-2xl p-2 flex items-center justify-center ${align === 'center' ? 'mx-auto' : align === 'right' ? 'ml-auto' : 'mr-auto'}`}>
+                    <img 
+                      src={getImageUrl(item.imagem)} 
+                      alt={item.titulo} 
+                      className="w-full h-full object-contain"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                )}
+                {imageBlocks.map((block) => (
+                  <div key={block.id} className={`w-full max-w-xs overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-2xl p-2 flex items-center justify-center ${align === 'center' ? 'mx-auto' : align === 'right' ? 'ml-auto' : 'mr-auto'}`}>
+                    <img 
+                      src={getImageUrl(block.content)} 
+                      alt="" 
+                      className="w-full h-full object-contain"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 3. TEXTO PRINCIPAL / DESCRIÇÃO */}
+            {item.descricao && (
+              <div className="text-slate-600 dark:text-slate-200 text-[13px] leading-relaxed font-medium whitespace-pre-wrap text-left px-1">
+                {item.descricao}
+              </div>
+            )}
+
+            {/* 4. BLOCOS DE TEXTO ADICIONAIS */}
+            {textBlocks.length > 0 && (
+              <div className="space-y-3 text-left">
+                {textBlocks.map((block) => (
+                  <div key={block.id} className="text-slate-600 dark:text-slate-200 text-[13px] leading-relaxed font-medium whitespace-pre-wrap px-1">
+                    {block.content}
+                  </div>
                 ))}
               </div>
             )}
@@ -2982,8 +3044,6 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       return <FileText size={22} />;
     };
 
-    const align = item.imageAlign || 'center';
-
     return (
       <div key={item.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[32px] shadow-sm overflow-hidden mb-4">
         <button 
@@ -3005,116 +3065,63 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         
         {isExpanded && (
           <div className="px-4 pb-6 bg-white dark:bg-slate-800 border-t border-slate-50 dark:border-slate-700/50 animate-slide-down">
-            <div className="space-y-6">
-              {/* Layout com suporte a Alinhamento (Direita, Esquerda, Centro) */}
-              {align === 'right' ? (
-                <div className="mt-6 flex flex-col-reverse md:flex-row items-center md:items-start justify-between gap-6">
-                  <div className="flex-1 min-w-0 text-left">
-                    {item.subtitulo && (
-                      <div className="mb-3">
-                        <h5 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-tight">
-                          {item.subtitulo}
-                        </h5>
-                        <div className="w-8 h-1 bg-indigo-500 mt-2 rounded-full opacity-30" />
-                      </div>
-                    )}
-                    {item.descricao && (
-                      <div className="text-slate-600 dark:text-slate-200 text-sm leading-relaxed font-medium whitespace-pre-wrap">
-                        {item.descricao}
-                      </div>
-                    )}
-                  </div>
-                  {item.imagem && (
-                    <div className={`${getItemImageSizeClass(item.imageSize, false)} shrink-0 overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-3xl p-3 flex items-center justify-center`}>
-                      <img 
-                        src={getImageUrl(item.imagem)} 
-                        alt={item.titulo} 
-                        className="w-full h-full object-contain"
-                        referrerPolicy="no-referrer"
-                      />
-                    </div>
-                  )}
-                </div>
-              ) : align === 'left' ? (
-                <div className="mt-6 flex flex-col md:flex-row items-center md:items-start justify-between gap-6">
-                  {item.imagem && (
-                    <div className={`${getItemImageSizeClass(item.imageSize, false)} shrink-0 overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-3xl p-3 flex items-center justify-center`}>
-                      <img 
-                        src={getImageUrl(item.imagem)} 
-                        alt={item.titulo} 
-                        className="w-full h-full object-contain"
-                        referrerPolicy="no-referrer"
-                      />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0 text-left">
-                    {item.subtitulo && (
-                      <div className="mb-3">
-                        <h5 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-tight">
-                          {item.subtitulo}
-                        </h5>
-                        <div className="w-8 h-1 bg-indigo-500 mt-2 rounded-full opacity-30" />
-                      </div>
-                    )}
-                    {item.descricao && (
-                      <div className="text-slate-600 dark:text-slate-200 text-sm leading-relaxed font-medium whitespace-pre-wrap">
-                        {item.descricao}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-6 flex flex-col items-center text-center">
-                  {item.subtitulo && (
-                    <div className="mb-6 text-center">
-                      <h5 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-tight">
-                        {item.subtitulo}
-                      </h5>
-                      <div className="w-8 h-1 bg-indigo-500 mx-auto mt-2 rounded-full opacity-30" />
-                    </div>
-                  )}
-                  {item.imagem && (
-                    <div className={`${getItemImageSizeClass(item.imageSize, false)} mb-6 overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-3xl p-3 flex items-center justify-center`}>
-                      <img 
-                        src={getImageUrl(item.imagem)} 
-                        alt={item.titulo} 
-                        className="w-full h-full object-contain"
-                        referrerPolicy="no-referrer"
-                      />
-                    </div>
-                  )}
-                  {item.descricao && (
-                    <div className="text-slate-600 dark:text-slate-200 text-sm leading-relaxed font-medium whitespace-pre-wrap max-w-2xl">
-                      {item.descricao}
-                    </div>
-                  )}
+            <div className="space-y-6 pt-4">
+              {/* 1. SUBTÍTULO CASO EXISTA */}
+              {item.subtitulo && (
+                <div className="text-left">
+                  <h5 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-tight">
+                    {item.subtitulo}
+                  </h5>
+                  <div className="w-8 h-1 bg-indigo-500 mt-2 rounded-full opacity-30" />
                 </div>
               )}
 
-              {/* Blocos extras caso existam */}
-              {item.blocks && item.blocks.length > 0 && (
-                <div className="pt-4 space-y-4 border-t border-slate-100 dark:border-slate-700/50">
-                  {item.blocks.map((block) => (
-                    block.type === 'image' ? (
-                      <div key={block.id} className="w-40 h-40 sm:w-48 sm:h-48 mx-auto overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-2xl p-2 flex items-center justify-center">
-                        <img 
-                          src={getImageUrl(block.content)} 
-                          alt="" 
-                          className="w-full h-full object-contain"
-                          referrerPolicy="no-referrer"
-                        />
-                      </div>
-                    ) : (
-                      <div key={block.id} className="text-slate-600 dark:text-slate-200 text-sm leading-relaxed font-medium whitespace-pre-wrap text-left">
-                        {block.content}
-                      </div>
-                    )
+              {/* 2. IMAGEM PRINCIPAL E IMAGENS EM BLOCOS (ENTRE O TÍTULO E O TEXTO PRINCIPAL) */}
+              {hasAnyImages && (
+                <div className={`space-y-4 ${align === 'left' ? 'text-left' : align === 'right' ? 'text-right' : 'text-center'}`}>
+                  {item.imagem && (
+                    <div className={`${getItemImageSizeClass(item.imageSize, false)} overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-3xl p-3 flex items-center justify-center ${align === 'center' ? 'mx-auto' : align === 'right' ? 'ml-auto' : 'mr-auto'}`}>
+                      <img 
+                        src={getImageUrl(item.imagem)} 
+                        alt={item.titulo} 
+                        className="w-full h-full object-contain"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  )}
+                  {imageBlocks.map((block) => (
+                    <div key={block.id} className={`w-48 h-48 sm:w-64 sm:h-64 overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-2xl p-2 flex items-center justify-center ${align === 'center' ? 'mx-auto' : align === 'right' ? 'ml-auto' : 'mr-auto'}`}>
+                      <img 
+                        src={getImageUrl(block.content)} 
+                        alt="" 
+                        className="w-full h-full object-contain"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 3. TEXTO PRINCIPAL / DESCRIÇÃO */}
+              {item.descricao && (
+                <div className="text-slate-600 dark:text-slate-200 text-sm leading-relaxed font-medium whitespace-pre-wrap text-left px-1">
+                  {item.descricao}
+                </div>
+              )}
+
+              {/* 4. BLOCOS DE TEXTO ADICIONAIS */}
+              {textBlocks.length > 0 && (
+                <div className="space-y-4 text-left">
+                  {textBlocks.map((block) => (
+                    <div key={block.id} className="text-slate-600 dark:text-slate-200 text-sm leading-relaxed font-medium whitespace-pre-wrap px-1">
+                      {block.content}
+                    </div>
                   ))}
                 </div>
               )}
               
               {item.subitems && item.subitems.length > 0 && (
-                <div className="mt-10 divide-y divide-slate-50 dark:divide-slate-700/50 border-t border-slate-50 dark:border-slate-700/50">
+                <div className="mt-8 divide-y divide-slate-100 dark:divide-slate-700/50 border-t border-slate-100 dark:border-slate-700/50">
                   {item.subitems.map((sub, i) => renderCulturaItem(sub, depth + 1, i))}
                 </div>
               )}
@@ -3806,28 +3813,30 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         </div>
 
         {/* Menu de Ações da Bíblia */}
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { label: 'Bíblia', icon: <Book size={26} />, color: 'text-blue-500 dark:text-blue-400', border: 'border-blue-200 dark:border-slate-700', action: () => setActiveSubView('BIBLE_BOOKS') },
-            { label: 'Devocional', icon: <Heart size={26} />, color: 'text-emerald-500 dark:text-emerald-400', border: 'border-emerald-200 dark:border-slate-700', action: () => {
-              setSelectedDevocional(null);
-              setActiveSubView('BIBLE_DEVOTIONAL_VIEW');
-            } },
-            { label: 'Mais', icon: <Layers size={26} />, color: 'text-slate-400 dark:text-slate-400', border: 'border-slate-200 dark:border-slate-700', action: () => setActiveSubView('BIBLE_MORE') }
-          ].map((item, i) => (
-            <button 
-              key={i} 
-              onClick={item.action} 
-              className={`w-full aspect-square bg-white dark:bg-slate-800 border-2 ${item.border} rounded-[28px] flex flex-col items-center justify-center space-y-2.5 p-3 shadow-sm active:scale-95 transition-all group`}
-            >
-              <div className={`${item.color} group-hover:scale-110 transition-transform flex items-center justify-center`}>
-                {item.icon}
-              </div>
-              <span className={`text-[10px] font-black uppercase tracking-wider text-center leading-tight ${item.color}`}>
-                {item.label}
-              </span>
-            </button>
-          ))}
+        <div className="flex justify-center w-full">
+          <div className="grid grid-cols-3 gap-3 sm:gap-4 w-full max-w-sm sm:max-w-md">
+            {[
+              { label: 'Bíblia', icon: <Book size={24} className="sm:w-7 sm:h-7" strokeWidth={2.5} />, color: 'text-blue-500 dark:text-blue-400', border: 'border-blue-200 dark:border-slate-700', action: () => setActiveSubView('BIBLE_BOOKS') },
+              { label: 'Devocional', icon: <Heart size={24} className="sm:w-7 sm:h-7" strokeWidth={2.5} />, color: 'text-emerald-500 dark:text-emerald-400', border: 'border-emerald-200 dark:border-slate-700', action: () => {
+                setSelectedDevocional(null);
+                setActiveSubView('BIBLE_DEVOTIONAL_VIEW');
+              } },
+              { label: 'Mais', icon: <Layers size={24} className="sm:w-7 sm:h-7" strokeWidth={2.5} />, color: 'text-slate-400 dark:text-slate-400', border: 'border-slate-200 dark:border-slate-700', action: () => setActiveSubView('BIBLE_MORE') }
+            ].map((item, i) => (
+              <button 
+                key={i} 
+                onClick={item.action} 
+                className={`w-full aspect-square sm:aspect-auto sm:h-28 max-w-[130px] sm:max-w-[140px] mx-auto bg-white dark:bg-slate-800 border-2 ${item.border} rounded-[24px] sm:rounded-[28px] flex flex-col items-center justify-center space-y-2 sm:space-y-2.5 p-3 shadow-sm hover:shadow-md active:scale-95 transition-all group`}
+              >
+                <div className={`${item.color} group-hover:scale-110 transition-transform flex items-center justify-center`}>
+                  {item.icon}
+                </div>
+                <span className={`text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-center leading-tight ${item.color}`}>
+                  {item.label}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Histórico/Leituras Recentes */}
@@ -4342,7 +4351,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           shape: 'CIRCLE'
         });
         setConquistaEditId(null);
-        fetchConquistas().then(setAllConquistas);
+        fetchConquistas().then(setAllConquistas).catch(err => console.warn("Erro ao recarregar conquistas:", err));
       }
     };
 
@@ -4352,7 +4361,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         const { error } = await deleteConquista(id);
         setIsDeletingConquista(false);
         if (error) alert("Erro ao excluir: " + error.message);
-        else fetchConquistas().then(setAllConquistas);
+        else fetchConquistas().then(setAllConquistas).catch(err => console.warn("Erro ao recarregar conquistas:", err));
       }
     };
 
@@ -4810,7 +4819,36 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setNewTrunfo(prev => ({ ...prev, imagem: reader.result as string }));
+        const rawResult = reader.result as string;
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxDim = 1000;
+          let { width, height } = img;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressed = canvas.toDataURL('image/jpeg', 0.85);
+            setNewTrunfo(prev => ({ ...prev, imagem: compressed }));
+          } else {
+            setNewTrunfo(prev => ({ ...prev, imagem: rawResult }));
+          }
+        };
+        img.onerror = () => {
+          setNewTrunfo(prev => ({ ...prev, imagem: rawResult }));
+        };
+        img.src = rawResult;
       };
       reader.readAsDataURL(file);
     }
@@ -6669,6 +6707,16 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 {userAvatar ? <img src={userAvatar} className="w-full h-full object-cover" /> : <User size={22} />}
               </button>
             )}
+            {(activeSubView === 'SPECIALTIES' || activeSubView === 'SPECIALTIES_LIST') && (
+              <button 
+                onClick={openSpecialtySearch}
+                className="w-11 h-11 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-500 dark:text-slate-300 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-200 dark:hover:border-indigo-800"
+                title="Pesquisar Especialidades"
+                aria-label="Pesquisar Especialidades"
+              >
+                <Search size={20} strokeWidth={2.5} />
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -7044,6 +7092,202 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               alt={selectedTrunfoModal.titulo} 
               className="max-h-[85vh] max-w-[90vw] object-contain drop-shadow-2xl rounded-2xl"
             />
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Pesquisa de Especialidades */}
+      {isSpecialtySearchOpen && (
+        <div 
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 animate-fade-in"
+          onClick={() => setIsSpecialtySearchOpen(false)}
+        >
+          <div 
+            className="w-full max-w-2xl bg-[#F8FAFC] dark:bg-slate-900 rounded-t-[36px] sm:rounded-[36px] shadow-2xl flex flex-col h-[90vh] sm:h-[82vh] overflow-hidden border border-slate-100 dark:border-slate-800 animate-slide-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Cabeçalho do Modal */}
+            <div className="px-6 pt-5 pb-4 bg-white dark:bg-slate-800/90 border-b border-slate-100 dark:border-slate-700/80 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                  <Search size={20} strokeWidth={2.5} />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-800 dark:text-white text-base uppercase tracking-tight leading-tight">
+                    Pesquisar Especialidades
+                  </h3>
+                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest mt-0.5">
+                    {allSpecialtiesList.length > 0 
+                      ? `${allSpecialtiesList.length} especialidades cadastradas` 
+                      : (isPathfinder ? 'Desbravadores' : 'Aventureiros')}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsSpecialtySearchOpen(false)}
+                className="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-700/80 text-slate-400 hover:text-slate-600 dark:text-slate-300 dark:hover:text-white flex items-center justify-center transition-all active:scale-90"
+                title="Fechar pesquisa"
+              >
+                <X size={20} strokeWidth={2.5} />
+              </button>
+            </div>
+
+            {/* Barra de Pesquisa e Filtros */}
+            <div className="p-4 bg-white dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800 flex-shrink-0 space-y-3">
+              <div className="relative">
+                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none" />
+                <input 
+                  type="text"
+                  autoFocus
+                  value={specialtySearchQuery}
+                  onChange={(e) => setSpecialtySearchQuery(e.target.value)}
+                  placeholder="Digite nome, código (ex: HM001) ou área..."
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl pl-11 pr-10 py-3 text-sm font-semibold text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                />
+                {specialtySearchQuery && (
+                  <button 
+                    onClick={() => setSpecialtySearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+
+              {/* Categorias / Áreas para filtro rápido em chips horizontais */}
+              {availableSearchAreas.length > 0 && (
+                <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 scrollbar-hide text-xs">
+                  <button 
+                    onClick={() => setSelectedSearchArea('TODAS')}
+                    className={`px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-wider whitespace-nowrap transition-all ${
+                      selectedSearchArea === 'TODAS'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    Todas ({allSpecialtiesList.length})
+                  </button>
+                  {availableSearchAreas.map(area => (
+                    <button 
+                      key={area}
+                      onClick={() => setSelectedSearchArea(area)}
+                      className={`px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-wider whitespace-nowrap transition-all ${
+                        selectedSearchArea === area
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {area}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Lista de Resultados */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-2.5 scrollbar-hide">
+              {isLoadingSearchSpecialties ? (
+                <div className="flex flex-col items-center justify-center py-20 space-y-3">
+                  <div className="w-8 h-8 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Carregando especialidades...</p>
+                </div>
+              ) : filteredSearchSpecialties.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 px-4 text-center space-y-3">
+                  <div className="w-16 h-16 rounded-3xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-300 dark:text-slate-600">
+                    <Search size={28} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-tight">
+                      Nenhuma especialidade encontrada
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-1 max-w-xs">
+                      {specialtySearchQuery 
+                        ? `Não encontramos resultados para "${specialtySearchQuery}". Tente outro termo ou código.`
+                        : 'Nenhuma especialidade disponível nesta categoria.'}
+                    </p>
+                  </div>
+                  {specialtySearchQuery && (
+                    <button 
+                      onClick={() => {
+                        setSpecialtySearchQuery('');
+                        setSelectedSearchArea('TODAS');
+                      }}
+                      className="px-4 py-2 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-indigo-100 transition-all"
+                    >
+                      Limpar Filtros
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  <div className="px-1 flex items-center justify-between">
+                    <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                      {filteredSearchSpecialties.length} {filteredSearchSpecialties.length === 1 ? 'Especialidade encontrada' : 'Especialidades encontradas'}
+                    </span>
+                  </div>
+                  {filteredSearchSpecialties.map((esp) => {
+                    const isCompleted = completedSpecialties.includes(esp.id.toString());
+                    return (
+                      <div 
+                        key={esp.id}
+                        className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/80 rounded-[22px] p-3.5 flex items-center space-x-3.5 shadow-sm group hover:border-indigo-200 dark:hover:border-indigo-800/80 transition-all cursor-pointer"
+                        onClick={() => {
+                          setSelectedSpecialty(esp);
+                          setIsSpecialtySearchOpen(false);
+                          setActiveSubView('SPECIALTY_DETAILS');
+                        }}
+                      >
+                        <div className="w-13 h-13 sm:w-14 sm:h-14 bg-slate-50 dark:bg-slate-900/60 rounded-2xl flex items-center justify-center p-1.5 flex-shrink-0 border border-slate-100 dark:border-slate-800">
+                          {esp.logo ? (
+                            <img 
+                              src={getImageUrl(esp.logo)} 
+                              alt={esp.nome} 
+                              className="w-full h-full object-contain filter drop-shadow-sm group-hover:scale-105 transition-transform" 
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <Award size={24} className="text-slate-300 dark:text-slate-600" />
+                          )}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-black text-slate-800 dark:text-white text-xs sm:text-sm uppercase tracking-tight leading-tight truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                            {esp.nome}
+                          </h4>
+                          <div className="flex items-center flex-wrap gap-1.5 mt-1">
+                            {esp.area && (
+                              <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700/80 text-slate-500 dark:text-slate-300 rounded-md text-[9px] font-black uppercase tracking-wider truncate max-w-[150px]">
+                                {esp.area}
+                              </span>
+                            )}
+                            {(esp.codigo || esp.sigla) && (
+                              <span className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-md text-[9px] font-black uppercase tracking-widest">
+                                {esp.codigo || `${esp.sigla}${String(esp.id).padStart(3, '0')}`}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSpecialty(esp.id.toString());
+                          }}
+                          className={`p-2.5 rounded-xl transition-all active:scale-90 flex-shrink-0 ${
+                            isCompleted 
+                              ? 'text-red-500 bg-red-50 dark:bg-red-950/40' 
+                              : 'text-slate-300 dark:text-slate-600 hover:text-red-400 hover:bg-slate-50 dark:hover:bg-slate-700'
+                          }`}
+                          title={isCompleted ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+                        >
+                          <Heart size={18} fill={isCompleted ? "currentColor" : "none"} strokeWidth={2.5} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

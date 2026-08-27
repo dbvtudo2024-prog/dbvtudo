@@ -141,8 +141,9 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   useEffect(() => {
     const checkUser = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
+        const { data, error } = await supabase.auth.getUser();
+        if (!error && data?.user) {
+          const user = data.user;
           setUserId(user.id);
           let profile = await fetchUserProfile(user.id);
           
@@ -173,7 +174,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
           }
         }
       } catch (err) {
-        console.error("Erro ao verificar usuário:", err);
+        console.warn("Erro ao verificar usuário:", err);
       }
     };
     checkUser();
@@ -220,11 +221,16 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   useEffect(() => {
     if ((isSashView || likedIds.length > 0) && allSpecialties.length === 0) {
       setIsLoading(true);
-      fetchEspecialidades(userClubType).then(data => {
-        // Ordenar alfabeticamente
-        const sorted = [...data].sort((a, b) => a.nome.localeCompare(b.nome));
-        setAllSpecialties(sorted);
-      }).finally(() => setIsLoading(false));
+      fetchEspecialidades(userClubType)
+        .then(data => {
+          // Ordenar alfabeticamente
+          const sorted = [...data].sort((a, b) => a.nome.localeCompare(b.nome));
+          setAllSpecialties(sorted);
+        })
+        .catch(err => {
+          console.warn("Erro ao buscar especialidades no perfil:", err);
+        })
+        .finally(() => setIsLoading(false));
     }
   }, [isSashView, userClubType, allSpecialties.length]);
 
@@ -243,14 +249,19 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
   // Carregar conquistas
   useEffect(() => {
-    fetchConquistas().then(setAllConquistas);
+    fetchConquistas()
+      .then(setAllConquistas)
+      .catch(err => console.warn("Erro ao buscar conquistas:", err));
+
     if (userData.email && userData.email !== "email@exemplo.com") {
-      fetchUserAchievements(userData.email).then(data => {
-        if (data && data.length > 0) {
-          setUserAchievements(data);
-          localStorage.setItem('dbv_tudo_user_achievements', JSON.stringify(data));
-        }
-      });
+      fetchUserAchievements(userData.email)
+        .then(data => {
+          if (data && data.length > 0) {
+            setUserAchievements(data);
+            localStorage.setItem('dbv_tudo_user_achievements', JSON.stringify(data));
+          }
+        })
+        .catch(err => console.warn("Erro ao buscar conquistas do usuário:", err));
     }
   }, [userData.email]);
 

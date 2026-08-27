@@ -117,7 +117,11 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
         onLoginSuccess(false);
       }
     } catch (err: any) {
-      setError(err.message || "Erro ao cadastrar.");
+      if (err?.message === 'Failed to fetch' || err?.name === 'AuthRetryableFetchError' || err?.message?.includes('Failed to fetch')) {
+        setError("Não foi possível conectar ao servidor. Verifique sua conexão com a internet.");
+      } else {
+        setError(err.message || "Erro ao cadastrar.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -268,7 +272,11 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
         onLoginSuccess(false);
       }
     } catch (err: any) {
-      setError(err.message || "Erro ao entrar.");
+      if (err?.message === 'Failed to fetch' || err?.name === 'AuthRetryableFetchError' || err?.message?.includes('Failed to fetch')) {
+        setError("Não foi possível conectar ao servidor. Verifique sua conexão com a internet.");
+      } else {
+        setError(err.message || "Erro ao entrar.");
+      }
     } finally {
       setIsLoading(false);
     }

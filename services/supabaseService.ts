@@ -1312,13 +1312,52 @@ export async function fetchTrunfos(club?: string): Promise<Trunfo[]> {
     const localData = localStorage.getItem('dbv_tudo_trunfos');
     let localList: Trunfo[] = localData ? JSON.parse(localData) : DEFAULT_TRUNFOS;
 
-    const query = supabase.from('Trunfos').select('*').order('id', { ascending: false });
-    const { data, error } = await query;
+    // 1. Tentar buscar da tabela 'Trunfos' caso exista
+    try {
+      const query = supabase.from('Trunfos').select('*').order('id', { ascending: false });
+      const { data, error } = await query;
+      if (!error && data && data.length > 0) {
+        localStorage.setItem('dbv_tudo_trunfos', JSON.stringify(data));
+        localList = data;
+        if (club) {
+          return localList.filter(t => !t.club || t.club === club || t.club === 'ALL');
+        }
+        return localList;
+      }
+    } catch {}
 
-    if (!error && data && data.length > 0) {
-      localStorage.setItem('dbv_tudo_trunfos', JSON.stringify(data));
-      localList = data;
-    }
+    // 2. Buscar da tabela 'Cultura' (onde os trunfos ficam persistidos na coluna 'distintivos')
+    try {
+      const { data: culturaRows, error: cultError } = await supabase
+        .from('Cultura')
+        .select('club_type, distintivos');
+
+      if (!cultError && culturaRows && culturaRows.length > 0) {
+        let combinedTrunfos: Trunfo[] = [];
+        const seenIds = new Set<number>();
+
+        for (const row of culturaRows) {
+          if (row.distintivos) {
+            try {
+              const parsed = typeof row.distintivos === 'string' ? JSON.parse(row.distintivos) : row.distintivos;
+              if (Array.isArray(parsed)) {
+                for (const item of parsed) {
+                  if (item && item.id && !seenIds.has(item.id)) {
+                    seenIds.add(item.id);
+                    combinedTrunfos.push(item);
+                  }
+                }
+              }
+            } catch {}
+          }
+        }
+
+        if (combinedTrunfos.length > 0) {
+          localStorage.setItem('dbv_tudo_trunfos', JSON.stringify(combinedTrunfos));
+          localList = combinedTrunfos;
+        }
+      }
+    } catch {}
 
     if (club) {
       return localList.filter(t => !t.club || t.club === club || t.club === 'ALL');
@@ -1358,16 +1397,25 @@ export async function updateTrunfo(trunfo: Partial<Trunfo>) {
     }
     localStorage.setItem('dbv_tudo_trunfos', JSON.stringify(currentList));
 
+    // 1. Tentar salvar na tabela Trunfos se existir
     try {
       const payload: any = { ...trunfo };
       if (!payload.id || payload.id <= 0) {
         delete payload.id;
       }
-      const { data, error } = await supabase.from('Trunfos').upsert(payload).select().single();
-      if (!error && data) {
-        return { data, error: null };
-      }
+      await supabase.from('Trunfos').upsert(payload);
     } catch {}
+
+    // 2. Persistir na tabela Cultura (coluna distintivos) no banco Supabase
+    try {
+      const jsonStr = JSON.stringify(currentList);
+      await Promise.all([
+        supabase.from('Cultura').update({ distintivos: jsonStr }).eq('club_type', 'PATHFINDER'),
+        supabase.from('Cultura').update({ distintivos: jsonStr }).eq('club_type', 'ADVENTURER')
+      ]);
+    } catch (e) {
+      console.error("Erro ao salvar trunfos no banco Supabase:", e);
+    }
 
     return { data: savedItem, error: null };
   } catch (err: any) {
@@ -1378,16 +1426,28 @@ export async function updateTrunfo(trunfo: Partial<Trunfo>) {
 export async function deleteTrunfo(id: number) {
   try {
     const localData = localStorage.getItem('dbv_tudo_trunfos');
+    let filtered: Trunfo[] = [];
     if (localData) {
       const currentList: Trunfo[] = JSON.parse(localData);
-      const filtered = currentList.filter(item => item.id !== id);
+      filtered = currentList.filter(item => item.id !== id);
       localStorage.setItem('dbv_tudo_trunfos', JSON.stringify(filtered));
     }
 
+    // 1. Tentar deletar da tabela Trunfos
     try {
-      const { error } = await supabase.from('Trunfos').delete().eq('id', id);
-      return { error };
+      await supabase.from('Trunfos').delete().eq('id', id);
     } catch {}
+
+    // 2. Atualizar tabela Cultura no banco Supabase
+    try {
+      const jsonStr = JSON.stringify(filtered);
+      await Promise.all([
+        supabase.from('Cultura').update({ distintivos: jsonStr }).eq('club_type', 'PATHFINDER'),
+        supabase.from('Cultura').update({ distintivos: jsonStr }).eq('club_type', 'ADVENTURER')
+      ]);
+    } catch (e) {
+      console.error("Erro ao deletar trunfo no banco Supabase:", e);
+    }
 
     return { error: null };
   } catch (err: any) {
