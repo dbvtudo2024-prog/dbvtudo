@@ -1712,6 +1712,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   const [selectedSearchArea, setSelectedSearchArea] = useState<string>('TODAS');
 
   useEffect(() => {
+    setIsHeaderScrolled(false);
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
     if (onSubViewChange) {
       onSubViewChange(activeSubView === 'MAIN' ? undefined : activeSubView);
     }
@@ -1804,6 +1808,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [classRequirements, setClassRequirements] = useState<string[]>([]);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [lastRead, setLastRead] = useState<{ book: BibleBook, chapter: number } | null>(() => {
     const saved = localStorage.getItem('dbv_tudo_bible_last_read');
@@ -2111,6 +2116,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const scrollTop = e.currentTarget.scrollTop;
     setShowScrollTop(scrollTop > 400);
+    setIsHeaderScrolled(scrollTop > 150);
   };
 
   const scrollToTop = () => {
@@ -2496,18 +2502,26 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
     return (
       <div className="animate-slide-in space-y-4 pt-1 pb-28">
-        {/* Barra de Voltar Fixa no Topo */}
-        <div className="sticky top-0 z-30 flex items-center justify-between py-2 -mx-3.5 sm:-mx-5 px-3.5 sm:px-5 bg-[#F8FAFC]/90 dark:bg-slate-900/90 backdrop-blur-md transition-all">
+        {/* Barra Sticky com Botão Voltar */}
+        <div className={`sticky top-0 z-30 flex items-center justify-between py-2 -mx-3.5 sm:-mx-5 px-3.5 sm:px-5 transition-all duration-300 ${
+          isHeaderScrolled 
+            ? 'bg-[#F8FAFC]/95 dark:bg-slate-900/95 backdrop-blur-md shadow-sm border-b border-slate-100 dark:border-slate-800' 
+            : 'bg-transparent -mb-[64px] pointer-events-none'
+        }`}>
           <button 
             onClick={() => setActiveSubView('CLASSES')}
-            className="w-11 h-11 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-600 dark:text-slate-200 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center"
+            className={`w-11 h-11 rounded-2xl active:scale-90 transition-all flex items-center justify-center pointer-events-auto ${
+              isHeaderScrolled
+                ? 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-200 border border-slate-100 dark:border-slate-700 shadow-sm ml-0'
+                : 'bg-white/20 hover:bg-white/30 text-white backdrop-blur-md border border-white/25 shadow-sm ml-3 sm:ml-4'
+            }`}
             title="Voltar para Classes"
             aria-label="Voltar para Classes"
           >
             <ChevronLeft size={22} strokeWidth={3} />
           </button>
-          <div className="text-center flex-1 px-3 truncate">
-            <h4 className="font-black text-slate-800 dark:text-white text-xs uppercase tracking-tight truncate">
+          <div className={`text-center flex-1 px-3 truncate transition-all duration-300 ${isHeaderScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'}`}>
+            <h4 className="font-black text-slate-800 dark:text-white text-xs sm:text-sm uppercase tracking-tight truncate">
               {selectedClass.titulo}
             </h4>
           </div>
@@ -2516,7 +2530,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
         <div id="class-details-content" className="space-y-6">
           {/* Header da Classe */}
-          <div id="class-header" className="relative overflow-hidden rounded-[40px] p-8 shadow-xl" style={{ backgroundColor: classColor }}>
+          <div id="class-header" className="relative overflow-hidden rounded-[40px] p-8 pt-16 shadow-xl" style={{ backgroundColor: classColor }}>
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
             <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full -ml-12 -mb-12 blur-xl"></div>
 
@@ -2783,7 +2797,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     return (
       <div className="animate-slide-in space-y-4 pt-1 pb-28">
         {/* Barra de Voltar e Favorito Fixa no Topo */}
-        <div className="sticky top-0 z-30 flex items-center justify-between py-2 -mx-3.5 sm:-mx-5 px-3.5 sm:px-5 bg-[#F8FAFC]/90 dark:bg-slate-900/90 backdrop-blur-md transition-all">
+        <div className={`sticky top-0 z-30 flex items-center justify-between py-2 -mx-3.5 sm:-mx-5 px-3.5 sm:px-5 transition-all duration-300 ${
+          isHeaderScrolled 
+            ? 'bg-[#F8FAFC]/95 dark:bg-slate-900/95 backdrop-blur-md shadow-sm border-b border-slate-100 dark:border-slate-800' 
+            : 'bg-transparent -mb-[64px] pointer-events-none'
+        }`}>
           <button 
             onClick={() => {
               if (selectedCategory) {
@@ -2792,20 +2810,30 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 setActiveSubView('SPECIALTIES');
               }
             }}
-            className="w-11 h-11 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-600 dark:text-slate-200 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center"
+            className={`w-11 h-11 rounded-2xl active:scale-90 transition-all flex items-center justify-center pointer-events-auto ${
+              isHeaderScrolled
+                ? 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-200 border border-slate-100 dark:border-slate-700 shadow-sm ml-0'
+                : 'bg-slate-100/90 dark:bg-slate-700/90 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-600/60 shadow-sm ml-3 sm:ml-4'
+            }`}
             title="Voltar"
             aria-label="Voltar"
           >
             <ChevronLeft size={22} strokeWidth={3} />
           </button>
-          <div className="text-center flex-1 px-3 truncate">
-            <h4 className="font-black text-slate-800 dark:text-white text-xs uppercase tracking-tight truncate">
+          <div className={`text-center flex-1 px-3 truncate transition-all duration-300 ${isHeaderScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'}`}>
+            <h4 className="font-black text-slate-800 dark:text-white text-xs sm:text-sm uppercase tracking-tight truncate">
               {selectedSpecialty.nome}
             </h4>
           </div>
           <button 
             onClick={() => toggleSpecialty(selectedSpecialty.id.toString())}
-            className={`w-11 h-11 rounded-2xl transition-all active:scale-90 flex items-center justify-center shadow-sm ${isCompleted ? 'text-red-500 bg-red-50 dark:bg-red-950/40' : 'text-slate-400 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700'}`}
+            className={`w-11 h-11 rounded-2xl transition-all active:scale-90 flex items-center justify-center pointer-events-auto shadow-sm ${
+              isCompleted 
+                ? 'text-red-500 bg-red-50 dark:bg-red-950/40 border border-red-200/50 dark:border-red-900/50' 
+                : isHeaderScrolled 
+                  ? 'text-slate-400 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700' 
+                  : 'text-slate-400 dark:text-slate-300 bg-slate-100/90 dark:bg-slate-700/90 border border-slate-200/60 dark:border-slate-600/60'
+            } ${!isHeaderScrolled ? 'mr-3 sm:mr-4' : 'mr-0'}`}
             title={isCompleted ? "Remover dos favoritos" : "Adicionar aos favoritos"}
           >
             <Heart size={20} fill={isCompleted ? "currentColor" : "none"} />
@@ -2813,7 +2841,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         </div>
 
         <div id="specialty-details-content" className="space-y-6">
-          <div id="specialty-header" className="bg-white dark:bg-slate-800 rounded-[40px] p-8 shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center text-center relative">
+          <div id="specialty-header" className="bg-white dark:bg-slate-800 rounded-[40px] p-8 pt-16 shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center text-center relative">
             <div className="w-36 h-36 bg-transparent rounded-[32px] flex items-center justify-center mb-6">
               {selectedSpecialty.logo ? (
                 <img src={selectedSpecialty.logo} className="w-32 h-32 object-contain filter drop-shadow-sm" alt={selectedSpecialty.nome} referrerPolicy="no-referrer" />
@@ -3869,18 +3897,26 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
     return (
       <div className="animate-slide-in space-y-4 pt-1 pb-28">
-        {/* Barra de Voltar Fixa no Topo */}
-        <div className="sticky top-0 z-30 flex items-center justify-between py-2 -mx-3.5 sm:-mx-5 px-3.5 sm:px-5 bg-[#F8FAFC]/90 dark:bg-slate-900/90 backdrop-blur-md transition-all">
+        {/* Barra Sticky com Botão Voltar */}
+        <div className={`sticky top-0 z-30 flex items-center justify-between py-2 -mx-3.5 sm:-mx-5 px-3.5 sm:px-5 transition-all duration-300 ${
+          isHeaderScrolled 
+            ? 'bg-[#F8FAFC]/95 dark:bg-slate-900/95 backdrop-blur-md shadow-sm border-b border-slate-100 dark:border-slate-800' 
+            : 'bg-transparent -mb-[64px] pointer-events-none'
+        }`}>
           <button 
             onClick={() => setActiveSubView('DESBRAVA_PLUS')}
-            className="w-11 h-11 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-600 dark:text-slate-200 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center"
+            className={`w-11 h-11 rounded-2xl active:scale-90 transition-all flex items-center justify-center pointer-events-auto ${
+              isHeaderScrolled
+                ? 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-200 border border-slate-100 dark:border-slate-700 shadow-sm ml-0'
+                : 'bg-black/40 hover:bg-black/60 text-white backdrop-blur-md border border-white/20 shadow-sm ml-3 sm:ml-4'
+            }`}
             title="Voltar"
             aria-label="Voltar"
           >
             <ChevronLeft size={22} strokeWidth={3} />
           </button>
-          <div className="text-center flex-1 px-3 truncate">
-            <h4 className="font-black text-slate-800 dark:text-white text-xs uppercase tracking-tight truncate">
+          <div className={`text-center flex-1 px-3 truncate transition-all duration-300 ${isHeaderScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'}`}>
+            <h4 className="font-black text-slate-800 dark:text-white text-xs sm:text-sm uppercase tracking-tight truncate">
               {selectedDesbravaPlusItem.Nome}
             </h4>
           </div>
@@ -4043,7 +4079,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           >
             <ChevronLeft size={22} strokeWidth={3} />
           </button>
-          <div className="text-center">
+          <div className={`text-center transition-all duration-300 ${isHeaderScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'}`}>
             <h4 className="font-black text-slate-800 dark:text-white text-xs uppercase tracking-tight">Bíblia Sagrada</h4>
             <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest">ARC</p>
           </div>
