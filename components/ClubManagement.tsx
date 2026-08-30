@@ -19,7 +19,7 @@ import {
 import { PROFILE_KEY } from '../constants';
 import { 
   Shield, Award, User, Layers, Sparkles, Home as HomeIcon, Search,
-  ChevronRight, ChevronLeft, ChevronDown, Info, Book, Settings, Zap, Music, Flag, Shirt, Globe, Key, FileText, Library, CreditCard, MapPin, Video, Folder, BookOpen, Heart, ArrowUp,
+  ChevronRight, ChevronLeft, ChevronDown, Info, Book, Settings, Zap, Music, Flag, Shirt, Globe, Key, FileText, Library, CreditCard, MapPin, Video, Folder, BookOpen, Heart, ArrowUp, ArrowDown,
   Trash2, Plus, Save, Share2, Calendar, X, Image as ImageIcon, Download, ArrowLeft, ExternalLink, Filter, Edit2, Edit3, Check,
   AlignLeft, AlignCenter, AlignRight, ZoomIn, ZoomOut, Minus, Trophy
 } from 'lucide-react';
@@ -135,9 +135,11 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [newItem, setNewItem] = useState<Partial<CulturaItem>>({
     titulo: '',
+    titleAlign: 'left',
     subtitulo: '',
     descricao: '',
     imagem: '',
+    imagePosition: 'top',
     imageAlign: 'center',
     imageSize: 'md',
     blocks: [],
@@ -206,9 +208,11 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
     setNewItem({
       id: item.id,
       titulo: item.titulo || '',
+      titleAlign: item.titleAlign || 'left',
       subtitulo: item.subtitulo || '',
       descricao: item.descricao || '',
       imagem: item.imagem || '',
+      imagePosition: item.imagePosition || 'top',
       imageAlign: item.imageAlign || 'center',
       imageSize: item.imageSize || 'md',
       blocks: Array.isArray(item.blocks) ? [...item.blocks] : [],
@@ -224,9 +228,11 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
     setEditingItemId(null);
     setNewItem({
       titulo: '',
+      titleAlign: 'left',
       subtitulo: '',
       descricao: '',
       imagem: '',
+      imagePosition: 'top',
       imageAlign: 'center',
       imageSize: 'md',
       blocks: [],
@@ -403,9 +409,11 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
     const item: CulturaItem = {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
       titulo: newItem.titulo!,
+      titleAlign: newItem.titleAlign || 'left',
       subtitulo: newItem.subtitulo,
       descricao: newItem.descricao || '',
       imagem: newItem.imagem,
+      imagePosition: newItem.imagePosition || 'top',
       imageAlign: newItem.imageAlign || 'center',
       imageSize: newItem.imageSize || 'md',
       blocks: newItem.blocks || [],
@@ -440,7 +448,7 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
       }));
     }
 
-    setNewItem({ titulo: '', subtitulo: '', descricao: '', imagem: '', blocks: [], club: club, parentId: undefined });
+    setNewItem({ titulo: '', titleAlign: 'left', subtitulo: '', descricao: '', imagem: '', imagePosition: 'top', imageAlign: 'center', imageSize: 'md', blocks: [], club: club, parentId: undefined });
   };
 
   const saveItemEdit = (type: 'UNIFORMS' | 'EMBLEMS') => {
@@ -457,9 +465,11 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
           return {
             ...item,
             titulo: newItem.titulo!,
+            titleAlign: newItem.titleAlign || 'left',
             subtitulo: newItem.subtitulo,
             descricao: newItem.descricao || '',
             imagem: newItem.imagem,
+            imagePosition: newItem.imagePosition || 'top',
             imageAlign: newItem.imageAlign || 'center',
             imageSize: newItem.imageSize || 'md',
             blocks: newItem.blocks || [],
@@ -482,7 +492,7 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
     }));
 
     setEditingItemId(null);
-    setNewItem({ titulo: '', subtitulo: '', descricao: '', imagem: '', blocks: [], club: club, parentId: undefined });
+    setNewItem({ titulo: '', titleAlign: 'left', subtitulo: '', descricao: '', imagem: '', imagePosition: 'top', imageAlign: 'center', imageSize: 'md', blocks: [], club: club, parentId: undefined });
   };
 
   const removeItem = (type: 'UNIFORMS' | 'EMBLEMS', id: string) => {
@@ -772,13 +782,56 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1">Título do Item</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1">Título do Item</label>
+                      {/* Orientação do Título (Esquerda, Centro, Direita) */}
+                      <div className="flex items-center space-x-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <button
+                          type="button"
+                          onClick={() => setNewItem({ ...newItem, titleAlign: 'left' })}
+                          className={`p-1.5 rounded-lg text-xs font-bold transition-all ${
+                            (newItem.titleAlign || 'left') === 'left'
+                              ? 'bg-indigo-600 text-white shadow-sm'
+                              : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                          }`}
+                          title="Título à Esquerda"
+                        >
+                          <AlignLeft size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewItem({ ...newItem, titleAlign: 'center' })}
+                          className={`p-1.5 rounded-lg text-xs font-bold transition-all ${
+                            (newItem.titleAlign || 'left') === 'center'
+                              ? 'bg-indigo-600 text-white shadow-sm'
+                              : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                          }`}
+                          title="Título ao Centro"
+                        >
+                          <AlignCenter size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewItem({ ...newItem, titleAlign: 'right' })}
+                          className={`p-1.5 rounded-lg text-xs font-bold transition-all ${
+                            (newItem.titleAlign || 'left') === 'right'
+                              ? 'bg-indigo-600 text-white shadow-sm'
+                              : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                          }`}
+                          title="Título à Direita"
+                        >
+                          <AlignRight size={14} />
+                        </button>
+                      </div>
+                    </div>
                     <input 
                       type="text"
                       value={newItem.titulo || ''}
                       onChange={(e) => setNewItem({...newItem, titulo: e.target.value})}
                       placeholder="Ex: Uniforme de Gala"
-                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
+                      className={`w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm ${
+                        (newItem.titleAlign || 'left') === 'center' ? 'text-center' : (newItem.titleAlign || 'left') === 'right' ? 'text-right' : 'text-left'
+                      }`}
                     />
                   </div>
 
@@ -840,10 +893,60 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                       </div>
                     )}
 
-                    {/* Alinhamento da Imagem */}
+                    {/* Orientação / Posição da Imagem (Topo, Centro, Abaixo) */}
                     <div className="pt-2 space-y-2">
                       <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1 block">
-                        Alinhamento da Imagem
+                        Orientação / Posição da Imagem
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setNewItem({ ...newItem, imagePosition: 'top' })}
+                          className={`flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-tight transition-all border ${
+                            (newItem.imagePosition || 'top') === 'top'
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                          }`}
+                        >
+                          <ArrowUp size={15} />
+                          <span>Topo</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewItem({ ...newItem, imagePosition: 'center' })}
+                          className={`flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-tight transition-all border ${
+                            (newItem.imagePosition || 'top') === 'center'
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                          }`}
+                        >
+                          <AlignCenter size={15} />
+                          <span>Centro</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewItem({ ...newItem, imagePosition: 'bottom' })}
+                          className={`flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-tight transition-all border ${
+                            (newItem.imagePosition || 'top') === 'bottom'
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                          }`}
+                        >
+                          <ArrowDown size={15} />
+                          <span>Abaixo</span>
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold px-1">
+                        {(newItem.imagePosition || 'top') === 'top' && '➔ Imagem posicionada no TOPO (antes do texto explicativo)'}
+                        {(newItem.imagePosition || 'top') === 'center' && '➔ Imagem posicionada no CENTRO / LADO A LADO com o texto'}
+                        {(newItem.imagePosition || 'top') === 'bottom' && '➔ Imagem posicionada ABAIXO (depois do texto explicativo)'}
+                      </p>
+                    </div>
+
+                    {/* Alinhamento Horizontal da Imagem */}
+                    <div className="pt-2 space-y-2 border-t border-slate-200/60 dark:border-slate-800">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1 block">
+                        Alinhamento Horizontal da Imagem
                       </label>
                       <div className="grid grid-cols-3 gap-2">
                         <button
@@ -884,9 +987,9 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                         </button>
                       </div>
                       <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold px-1">
-                        {(newItem.imageAlign || 'center') === 'right' && '➔ Imagem à direita • Texto principal à esquerda'}
-                        {(newItem.imageAlign || 'center') === 'left' && '➔ Imagem à esquerda • Texto principal à direita'}
-                        {(newItem.imageAlign || 'center') === 'center' && '➔ Imagem centralizada • Texto abaixo'}
+                        {(newItem.imageAlign || 'center') === 'right' && '➔ Imagem alinhada à direita'}
+                        {(newItem.imageAlign || 'center') === 'left' && '➔ Imagem alinhada à esquerda'}
+                        {(newItem.imageAlign || 'center') === 'center' && '➔ Imagem centralizada'}
                       </p>
                     </div>
 
@@ -1158,13 +1261,56 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1">Título do Emblema</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1">Título do Emblema</label>
+                      {/* Orientação do Título (Esquerda, Centro, Direita) */}
+                      <div className="flex items-center space-x-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <button
+                          type="button"
+                          onClick={() => setNewItem({ ...newItem, titleAlign: 'left' })}
+                          className={`p-1.5 rounded-lg text-xs font-bold transition-all ${
+                            (newItem.titleAlign || 'left') === 'left'
+                              ? 'bg-indigo-600 text-white shadow-sm'
+                              : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                          }`}
+                          title="Título à Esquerda"
+                        >
+                          <AlignLeft size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewItem({ ...newItem, titleAlign: 'center' })}
+                          className={`p-1.5 rounded-lg text-xs font-bold transition-all ${
+                            (newItem.titleAlign || 'left') === 'center'
+                              ? 'bg-indigo-600 text-white shadow-sm'
+                              : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                          }`}
+                          title="Título ao Centro"
+                        >
+                          <AlignCenter size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewItem({ ...newItem, titleAlign: 'right' })}
+                          className={`p-1.5 rounded-lg text-xs font-bold transition-all ${
+                            (newItem.titleAlign || 'left') === 'right'
+                              ? 'bg-indigo-600 text-white shadow-sm'
+                              : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                          }`}
+                          title="Título à Direita"
+                        >
+                          <AlignRight size={14} />
+                        </button>
+                      </div>
+                    </div>
                     <input 
                       type="text"
                       value={newItem.titulo || ''}
                       onChange={(e) => setNewItem({...newItem, titulo: e.target.value})}
                       placeholder="Ex: Emblema D1"
-                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
+                      className={`w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm ${
+                        (newItem.titleAlign || 'left') === 'center' ? 'text-center' : (newItem.titleAlign || 'left') === 'right' ? 'text-right' : 'text-left'
+                      }`}
                     />
                   </div>
 
@@ -1226,10 +1372,60 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                       </div>
                     )}
 
-                    {/* Alinhamento da Imagem */}
+                    {/* Orientação / Posição da Imagem (Topo, Centro, Abaixo) */}
                     <div className="pt-2 space-y-2">
                       <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1 block">
-                        Alinhamento da Imagem
+                        Orientação / Posição da Imagem
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setNewItem({ ...newItem, imagePosition: 'top' })}
+                          className={`flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-tight transition-all border ${
+                            (newItem.imagePosition || 'top') === 'top'
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                          }`}
+                        >
+                          <ArrowUp size={15} />
+                          <span>Topo</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewItem({ ...newItem, imagePosition: 'center' })}
+                          className={`flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-tight transition-all border ${
+                            (newItem.imagePosition || 'top') === 'center'
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                          }`}
+                        >
+                          <AlignCenter size={15} />
+                          <span>Centro</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewItem({ ...newItem, imagePosition: 'bottom' })}
+                          className={`flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-tight transition-all border ${
+                            (newItem.imagePosition || 'top') === 'bottom'
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                          }`}
+                        >
+                          <ArrowDown size={15} />
+                          <span>Abaixo</span>
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold px-1">
+                        {(newItem.imagePosition || 'top') === 'top' && '➔ Imagem posicionada no TOPO (antes do texto explicativo)'}
+                        {(newItem.imagePosition || 'top') === 'center' && '➔ Imagem posicionada no CENTRO / LADO A LADO com o texto'}
+                        {(newItem.imagePosition || 'top') === 'bottom' && '➔ Imagem posicionada ABAIXO (depois do texto explicativo)'}
+                      </p>
+                    </div>
+
+                    {/* Alinhamento Horizontal da Imagem */}
+                    <div className="pt-2 space-y-2 border-t border-slate-200/60 dark:border-slate-800">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest ml-1 block">
+                        Alinhamento Horizontal da Imagem
                       </label>
                       <div className="grid grid-cols-3 gap-2">
                         <button
@@ -1270,9 +1466,9 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
                         </button>
                       </div>
                       <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold px-1">
-                        {(newItem.imageAlign || 'center') === 'right' && '➔ Imagem à direita • Texto principal à esquerda'}
-                        {(newItem.imageAlign || 'center') === 'left' && '➔ Imagem à esquerda • Texto principal à direita'}
-                        {(newItem.imageAlign || 'center') === 'center' && '➔ Imagem centralizada • Texto abaixo'}
+                        {(newItem.imageAlign || 'center') === 'right' && '➔ Imagem alinhada à direita'}
+                        {(newItem.imageAlign || 'center') === 'left' && '➔ Imagem alinhada à esquerda'}
+                        {(newItem.imageAlign || 'center') === 'center' && '➔ Imagem centralizada'}
                       </p>
                     </div>
 
@@ -2172,48 +2368,43 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   };
 
   const renderClassesMenu = () => (
-    <div className="animate-slide-in space-y-5 pt-4 pb-28">
+    <div className="animate-slide-in space-y-4 pt-4 pb-28">
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-4">
           <div className="w-8 h-8 border-3 border-slate-100 dark:border-slate-800 border-t-slate-300 rounded-full animate-spin"></div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4">
+        <div className="space-y-3">
           {classes.map((cls) => (
             <button 
               key={cls.id} 
               onClick={() => handleClassClick(cls)}
-              className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[32px] flex flex-col p-6 relative shadow-sm active:scale-[0.98] transition-all overflow-hidden group"
+              className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-5 flex items-center space-x-5 shadow-sm active:scale-[0.98] transition-all group"
             >
-              <div 
-                className="absolute left-0 top-0 bottom-0 w-1.5" 
-                style={{ backgroundColor: getClassColor(cls) }}
-              ></div>
-              
-              <div className="flex items-center space-x-5 pl-2">
-                <div className="w-16 h-16 flex items-center justify-center overflow-hidden flex-shrink-0 group-hover:scale-110 transition-transform duration-500">
-                  {cls.imagem ? (
-                    <img src={cls.imagem} className="w-full h-full object-contain filter drop-shadow-sm" alt={cls.titulo} referrerPolicy="no-referrer" />
-                  ) : (
-                    <Layers size={36} className="text-slate-300 dark:text-slate-600" />
-                  )}
-                </div>
+              <div className="w-14 h-14 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-500">
+                {cls.imagem ? (
+                  <img src={cls.imagem} className="w-full h-full object-contain filter drop-shadow-sm" alt={cls.titulo} referrerPolicy="no-referrer" />
+                ) : (
+                  <Layers size={28} className="text-slate-300 dark:text-slate-600" />
+                )}
+              </div>
 
-                <div className="flex-grow text-left">
-                  <h4 className="font-black text-[#1e293b] dark:text-slate-200 text-lg leading-tight tracking-tight uppercase">
-                    {cls.titulo}
-                  </h4>
-                  {cls.subtitulo && (
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-1">
-                      {cls.subtitulo}
-                    </p>
-                  )}
-                </div>
+              <div className="flex-grow text-left">
+                <h4 className="font-black text-[#1e293b] dark:text-slate-200 text-lg leading-tight tracking-tight uppercase">
+                  {cls.titulo}
+                </h4>
+                {cls.subtitulo ? (
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-0.5">
+                    {cls.subtitulo}
+                  </p>
+                ) : (
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                    Requisitos e Atividades
+                  </p>
+                )}
               </div>
               
-              <div className="absolute top-1/2 -translate-y-1/2 right-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                <ChevronRight size={20} className="text-slate-300 dark:text-slate-600" />
-              </div>
+              <ChevronRight size={20} className="text-slate-200 dark:text-slate-600 group-hover:translate-x-1 transition-transform" />
             </button>
           ))}
         </div>
@@ -2304,22 +2495,30 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     };
 
     return (
-      <div className="animate-slide-in space-y-6 pt-4 pb-28">
+      <div className="animate-slide-in space-y-4 pt-1 pb-28">
+        {/* Barra de Voltar Fixa no Topo */}
+        <div className="sticky top-0 z-30 flex items-center justify-between py-2 -mx-3.5 sm:-mx-5 px-3.5 sm:px-5 bg-[#F8FAFC]/90 dark:bg-slate-900/90 backdrop-blur-md transition-all">
+          <button 
+            onClick={() => setActiveSubView('CLASSES')}
+            className="w-11 h-11 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-600 dark:text-slate-200 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center"
+            title="Voltar para Classes"
+            aria-label="Voltar para Classes"
+          >
+            <ChevronLeft size={22} strokeWidth={3} />
+          </button>
+          <div className="text-center flex-1 px-3 truncate">
+            <h4 className="font-black text-slate-800 dark:text-white text-xs uppercase tracking-tight truncate">
+              {selectedClass.titulo}
+            </h4>
+          </div>
+          <div className="w-11 h-11" />
+        </div>
+
         <div id="class-details-content" className="space-y-6">
           {/* Header da Classe */}
           <div id="class-header" className="relative overflow-hidden rounded-[40px] p-8 shadow-xl" style={{ backgroundColor: classColor }}>
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
             <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full -ml-12 -mb-12 blur-xl"></div>
-            
-            {/* Botão de Voltar */}
-            <button 
-              onClick={() => setActiveSubView('CLASSES')}
-              className="absolute top-6 left-6 w-12 h-12 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-2xl flex items-center justify-center text-white active:scale-90 transition-all z-20 shadow-sm"
-              title="Voltar"
-              aria-label="Voltar para Classes"
-            >
-              <ChevronLeft size={24} strokeWidth={3} />
-            </button>
 
             <div className="relative z-10 flex flex-col items-center text-center">
               <div className="w-28 h-28 flex items-center justify-center mb-4">
@@ -2582,31 +2781,39 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     };
 
     return (
-      <div className="animate-slide-in space-y-6 pt-4 pb-28">
+      <div className="animate-slide-in space-y-4 pt-1 pb-28">
+        {/* Barra de Voltar e Favorito Fixa no Topo */}
+        <div className="sticky top-0 z-30 flex items-center justify-between py-2 -mx-3.5 sm:-mx-5 px-3.5 sm:px-5 bg-[#F8FAFC]/90 dark:bg-slate-900/90 backdrop-blur-md transition-all">
+          <button 
+            onClick={() => {
+              if (selectedCategory) {
+                setActiveSubView('SPECIALTIES_LIST');
+              } else {
+                setActiveSubView('SPECIALTIES');
+              }
+            }}
+            className="w-11 h-11 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-600 dark:text-slate-200 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center"
+            title="Voltar"
+            aria-label="Voltar"
+          >
+            <ChevronLeft size={22} strokeWidth={3} />
+          </button>
+          <div className="text-center flex-1 px-3 truncate">
+            <h4 className="font-black text-slate-800 dark:text-white text-xs uppercase tracking-tight truncate">
+              {selectedSpecialty.nome}
+            </h4>
+          </div>
+          <button 
+            onClick={() => toggleSpecialty(selectedSpecialty.id.toString())}
+            className={`w-11 h-11 rounded-2xl transition-all active:scale-90 flex items-center justify-center shadow-sm ${isCompleted ? 'text-red-500 bg-red-50 dark:bg-red-950/40' : 'text-slate-400 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700'}`}
+            title={isCompleted ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+          >
+            <Heart size={20} fill={isCompleted ? "currentColor" : "none"} />
+          </button>
+        </div>
+
         <div id="specialty-details-content" className="space-y-6">
           <div id="specialty-header" className="bg-white dark:bg-slate-800 rounded-[40px] p-8 shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center text-center relative">
-            {/* Botão de Voltar */}
-            <button 
-              onClick={() => {
-                if (selectedCategory) {
-                  setActiveSubView('SPECIALTIES_LIST');
-                } else {
-                  setActiveSubView('SPECIALTIES');
-                }
-              }}
-              className="absolute top-6 left-6 w-12 h-12 rounded-2xl transition-all active:scale-90 text-slate-400 dark:text-slate-300 bg-slate-50 dark:bg-slate-700/80 border border-slate-100 dark:border-slate-700 shadow-sm flex items-center justify-center"
-              title="Voltar"
-              aria-label="Voltar"
-            >
-              <ChevronLeft size={24} strokeWidth={3} />
-            </button>
-
-            <button 
-              onClick={() => toggleSpecialty(selectedSpecialty.id.toString())}
-              className={`absolute top-6 right-6 w-12 h-12 rounded-2xl transition-all active:scale-90 flex items-center justify-center ${isCompleted ? 'text-red-500 bg-red-50 dark:bg-red-950/40 shadow-sm' : 'text-slate-200 dark:text-slate-600 bg-slate-50 dark:bg-slate-700'}`}
-            >
-              <Heart size={24} fill={isCompleted ? "currentColor" : "none"} />
-            </button>
             <div className="w-36 h-36 bg-transparent rounded-[32px] flex items-center justify-center mb-6">
               {selectedSpecialty.logo ? (
                 <img src={selectedSpecialty.logo} className="w-32 h-32 object-contain filter drop-shadow-sm" alt={selectedSpecialty.nome} referrerPolicy="no-referrer" />
@@ -2966,6 +3173,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     const hasAnyImages = Boolean(item.imagem) || imageBlocks.length > 0;
     const hasText = Boolean(item.descricao) || textBlocks.length > 0;
     const align = item.imageAlign || 'center';
+    const imagePosition = item.imagePosition || 'top';
+    const titleAlignClass = item.titleAlign === 'center' ? 'text-center' : item.titleAlign === 'right' ? 'text-right' : 'text-left';
 
     const renderItemContent = (isSubitem: boolean) => {
       const imagesNode = (
@@ -2994,7 +3203,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       );
 
       const textsNode = (
-        <div className="flex-1 space-y-3 text-left">
+        <div className={`flex-1 space-y-3 ${titleAlignClass}`}>
           {item.descricao && (
             <div className={`text-slate-600 dark:text-slate-200 ${isSubitem ? 'text-[13px]' : 'text-sm'} leading-relaxed font-medium whitespace-pre-wrap`}>
               {item.descricao}
@@ -3008,8 +3217,34 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         </div>
       );
 
-      // Alinhamento à direita: texto à esquerda e imagem à direita na mesma linha horizontal
-      if (hasAnyImages && hasText && align === 'right') {
+      // Posição 'center' com imagem à esquerda ou à direita (lado a lado):
+      if (imagePosition === 'center' && hasAnyImages && hasText) {
+        if (align === 'right') {
+          return (
+            <div className="flex flex-row items-center justify-between gap-4 w-full">
+              {textsNode}
+              {imagesNode}
+            </div>
+          );
+        }
+        if (align === 'left') {
+          return (
+            <div className="flex flex-row items-center justify-between gap-4 w-full">
+              {imagesNode}
+              {textsNode}
+            </div>
+          );
+        }
+        return (
+          <div className="flex flex-col items-center justify-center gap-4 w-full">
+            {imagesNode}
+            {textsNode}
+          </div>
+        );
+      }
+
+      // Se alinhado lateralmente com texto
+      if (hasAnyImages && hasText && align === 'right' && imagePosition !== 'bottom') {
         return (
           <div className="flex flex-row items-center justify-between gap-4 w-full">
             {textsNode}
@@ -3018,8 +3253,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         );
       }
 
-      // Alinhamento à esquerda: imagem à esquerda e texto à direita na mesma linha horizontal
-      if (hasAnyImages && hasText && align === 'left') {
+      if (hasAnyImages && hasText && align === 'left' && imagePosition !== 'bottom') {
         return (
           <div className="flex flex-row items-center justify-between gap-4 w-full">
             {imagesNode}
@@ -3028,7 +3262,21 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         );
       }
 
-      // Alinhamento centralizado ou apenas um dos conteúdos presente
+      // Posição 'bottom': imagem ABAIXO do texto
+      if (imagePosition === 'bottom') {
+        return (
+          <div className="space-y-4">
+            {hasText && textsNode}
+            {hasAnyImages && (
+              <div className={`flex flex-col gap-3 ${align === 'right' ? 'items-end' : align === 'left' ? 'items-start' : 'items-center justify-center'}`}>
+                {imagesNode}
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      // Posição 'top' (padrão)
       return (
         <div className="space-y-4">
           {hasAnyImages && (
@@ -3046,12 +3294,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       return (
         <div key={item.id} className="py-6 first:pt-2 last:pb-2 border-b border-slate-100 dark:border-slate-700/50 last:border-0 overflow-hidden">
           {/* 1. TÍTULO DO SUB-ITEM */}
-          <h5 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight mb-2 text-left">
+          <h5 className={`text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight mb-2 ${titleAlignClass}`}>
             {item.titulo}
           </h5>
 
           {item.subtitulo && (
-            <span className="inline-block text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-3 block text-left">
+            <span className={`inline-block text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-3 block ${titleAlignClass}`}>
               {item.subtitulo}
             </span>
           )}
@@ -3083,15 +3331,15 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           onClick={() => toggleAccordion(item.id)}
           className={`w-full p-6 flex items-center justify-between transition-all text-left ${isExpanded ? 'bg-slate-50/30 dark:bg-slate-700/30' : 'bg-white dark:bg-slate-800'}`}
         >
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 rounded-2xl flex items-center justify-center shadow-sm">
+          <div className="flex items-center space-x-4 flex-1">
+            <div className="w-12 h-12 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 rounded-2xl flex items-center justify-center shadow-sm shrink-0">
               {getHeaderIcon(item.titulo)}
             </div>
-            <div className="flex-1">
+            <div className={`flex-1 ${titleAlignClass}`}>
               <h4 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight leading-tight">{item.titulo || 'Sem Título'}</h4>
             </div>
           </div>
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isExpanded ? 'bg-indigo-600 text-white rotate-180 shadow-md dark:shadow-none' : 'bg-slate-50 dark:bg-slate-700 text-slate-400 dark:text-slate-200'}`}>
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shrink-0 ml-2 ${isExpanded ? 'bg-indigo-600 text-white rotate-180 shadow-md dark:shadow-none' : 'bg-slate-50 dark:bg-slate-700 text-slate-400 dark:text-slate-200'}`}>
             <ChevronDown size={18} />
           </div>
         </button>
@@ -3101,15 +3349,15 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             <div className="space-y-6 pt-4">
               {/* 1. SUBTÍTULO CASO EXISTA */}
               {item.subtitulo && (
-                <div className="text-left">
+                <div className={titleAlignClass}>
                   <h5 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-tight">
                     {item.subtitulo}
                   </h5>
-                  <div className="w-8 h-1 bg-indigo-500 mt-2 rounded-full opacity-30" />
+                  <div className={`w-8 h-1 bg-indigo-500 mt-2 rounded-full opacity-30 ${item.titleAlign === 'center' ? 'mx-auto' : item.titleAlign === 'right' ? 'ml-auto' : ''}`} />
                 </div>
               )}
 
-              {/* 2. CONTEÚDO (TEXTO E IMAGEM NA MESMA LINHA OU CENTRALIZADO) */}
+              {/* 2. CONTEÚDO (TEXTO E IMAGEM CONFORME ORIENTAÇÃO E POSIÇÃO) */}
               {renderItemContent(false)}
               
               {item.subitems && item.subitems.length > 0 && (
@@ -3620,7 +3868,25 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     if (!selectedDesbravaPlusItem) return null;
 
     return (
-      <div className="animate-slide-in space-y-6 pt-2 pb-28">
+      <div className="animate-slide-in space-y-4 pt-1 pb-28">
+        {/* Barra de Voltar Fixa no Topo */}
+        <div className="sticky top-0 z-30 flex items-center justify-between py-2 -mx-3.5 sm:-mx-5 px-3.5 sm:px-5 bg-[#F8FAFC]/90 dark:bg-slate-900/90 backdrop-blur-md transition-all">
+          <button 
+            onClick={() => setActiveSubView('DESBRAVA_PLUS')}
+            className="w-11 h-11 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-600 dark:text-slate-200 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center"
+            title="Voltar"
+            aria-label="Voltar"
+          >
+            <ChevronLeft size={22} strokeWidth={3} />
+          </button>
+          <div className="text-center flex-1 px-3 truncate">
+            <h4 className="font-black text-slate-800 dark:text-white text-xs uppercase tracking-tight truncate">
+              {selectedDesbravaPlusItem.Nome}
+            </h4>
+          </div>
+          <div className="w-11 h-11" />
+        </div>
+
         <div className="bg-white dark:bg-slate-800 rounded-[40px] overflow-hidden shadow-sm border border-slate-100 dark:border-slate-700">
           <div className="h-56 w-full relative">
             {selectedDesbravaPlusItem.Capa ? (
@@ -3767,23 +4033,31 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     };
 
     return (
-      <div className="animate-slide-in space-y-6 pt-6 pb-10">
+      <div className="animate-slide-in space-y-4 pt-1 pb-10">
+        {/* Barra de Voltar Fixa no Topo */}
+        <div className="sticky top-0 z-30 flex items-center justify-between py-2 -mx-3.5 sm:-mx-5 px-3.5 sm:px-5 bg-[#F8FAFC]/90 dark:bg-slate-900/90 backdrop-blur-md transition-all">
+          <button 
+            onClick={() => setActiveSubView('MAIN')}
+            className="w-11 h-11 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-600 dark:text-slate-200 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center"
+            title="Voltar"
+          >
+            <ChevronLeft size={22} strokeWidth={3} />
+          </button>
+          <div className="text-center">
+            <h4 className="font-black text-slate-800 dark:text-white text-xs uppercase tracking-tight">Bíblia Sagrada</h4>
+            <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest">ARC</p>
+          </div>
+          <div className="w-11 h-11" />
+        </div>
+
         {/* Header Bíblia Sagrada */}
         <div className="bg-[#0f172a] rounded-[40px] p-8 shadow-xl text-center relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
             <div className="absolute top-[-20%] right-[-10%] w-64 h-64 bg-indigo-500 rounded-full blur-3xl"></div>
             <div className="absolute bottom-[-20%] left-[-10%] w-64 h-64 bg-blue-500 rounded-full blur-3xl"></div>
           </div>
-
-          {/* Botão Voltar Interno */}
-          <button 
-            onClick={() => setActiveSubView('MAIN')}
-            className="absolute top-6 left-6 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center justify-center text-white transition-all active:scale-90 z-20"
-          >
-            <ChevronLeft size={20} strokeWidth={3} />
-          </button>
           
-          <h3 className="text-2xl font-black text-white uppercase tracking-tight mb-1 relative z-10 mt-4">Bíblia Sagrada</h3>
+          <h3 className="text-2xl font-black text-white uppercase tracking-tight mb-1 relative z-10 mt-2">Bíblia Sagrada</h3>
           <p className="text-indigo-300 text-[10px] font-black uppercase tracking-[0.2em] mb-8 relative z-10">Versão Almeida Revista e Corrigida</p>
           
           {/* Versículo do Dia */}
@@ -3890,9 +4164,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     });
 
     return (
-      <div className="animate-slide-in space-y-6 pt-6 pb-28">
-        {/* Header Bíblia Sagrada Compacto */}
-        <div className="bg-[#1e40af] rounded-[32px] p-6 shadow-lg text-white relative overflow-hidden">
+      <div className="animate-slide-in space-y-6 pt-2 pb-28">
+        {/* Header Bíblia Sagrada Compacto Fixo no Topo */}
+        <div className="sticky top-0 z-30 bg-[#1e40af] rounded-[32px] p-5 shadow-lg text-white relative overflow-hidden">
           <div className="flex items-center justify-between relative z-10">
             <div className="flex items-center space-x-4">
               <button 
@@ -3998,9 +4272,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     const chapters = Array.from({ length: selectedBibleBook.total_chapters }, (_, i) => i + 1);
 
     return (
-      <div className="animate-slide-in space-y-6 pt-6 pb-28">
-        {/* Header Bíblia Sagrada Compacto */}
-        <div className="bg-[#1e40af] rounded-[32px] p-6 shadow-lg text-white relative overflow-hidden">
+      <div className="animate-slide-in space-y-6 pt-2 pb-28">
+        {/* Header Bíblia Sagrada Compacto Fixo no Topo */}
+        <div className="sticky top-0 z-30 bg-[#1e40af] rounded-[32px] p-5 shadow-lg text-white relative overflow-hidden">
           <div className="flex items-center justify-between relative z-10">
             <div className="flex items-center space-x-4">
               <button 
@@ -4041,9 +4315,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     if (!selectedBibleBook || selectedBibleChapter === null) return null;
 
     return (
-      <div className="animate-slide-in space-y-6 pt-6 pb-28">
-        {/* Header Bíblia Sagrada Compacto */}
-        <div className="bg-[#1e40af] rounded-[32px] p-6 shadow-lg text-white relative overflow-hidden">
+      <div className="animate-slide-in space-y-6 pt-2 pb-28">
+        {/* Header Bíblia Sagrada Compacto Fixo no Topo */}
+        <div className="sticky top-0 z-30 bg-[#1e40af] rounded-[32px] p-5 shadow-lg text-white relative overflow-hidden">
           <div className="flex items-center justify-between relative z-10">
             <div className="flex items-center space-x-4">
               <button 
@@ -4100,9 +4374,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
   const renderBibleMarkedVerses = () => {
     return (
-      <div className="animate-slide-in space-y-6 pt-6 pb-28">
-        {/* Header Bíblia Sagrada Compacto */}
-        <div className="bg-[#1e40af] rounded-[32px] p-6 shadow-lg text-white relative overflow-hidden">
+      <div className="animate-slide-in space-y-6 pt-2 pb-28">
+        {/* Header Bíblia Sagrada Compacto Fixo no Topo */}
+        <div className="sticky top-0 z-30 bg-[#1e40af] rounded-[32px] p-5 shadow-lg text-white relative overflow-hidden">
           <div className="flex items-center justify-between relative z-10">
             <div className="flex items-center space-x-4">
               <button 
@@ -4163,9 +4437,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
   const renderBibleDictionary = () => {
     return (
-      <div className="animate-slide-in space-y-6 pt-6 pb-28">
-        {/* Header Bíblia Sagrada Compacto */}
-        <div className="bg-[#1e40af] rounded-[32px] p-6 shadow-lg text-white relative overflow-hidden">
+      <div className="animate-slide-in space-y-6 pt-2 pb-28">
+        {/* Header Bíblia Sagrada Compacto Fixo no Topo */}
+        <div className="sticky top-0 z-30 bg-[#1e40af] rounded-[32px] p-5 shadow-lg text-white relative overflow-hidden">
           <div className="flex items-center justify-between relative z-10">
             <div className="flex items-center space-x-4">
               <button 
@@ -4244,9 +4518,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
   const renderBibleMore = () => {
     return (
-      <div className="animate-slide-in space-y-6 pt-6 pb-28">
-        {/* Header Bíblia Sagrada Compacto */}
-        <div className="bg-[#1e40af] rounded-[32px] p-6 shadow-lg text-white relative overflow-hidden">
+      <div className="animate-slide-in space-y-6 pt-2 pb-28">
+        {/* Header Bíblia Sagrada Compacto Fixo no Topo */}
+        <div className="sticky top-0 z-30 bg-[#1e40af] rounded-[32px] p-5 shadow-lg text-white relative overflow-hidden">
           <div className="flex items-center justify-between relative z-10">
             <div className="flex items-center space-x-4">
               <button 
@@ -4851,15 +5125,29 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       t.titulo.toLowerCase().includes(trunfoSearchQuery.toLowerCase()) ||
       (t.ano && t.ano.includes(trunfoSearchQuery)) ||
       (t.historia && t.historia.toLowerCase().includes(trunfoSearchQuery.toLowerCase()))
-    ).sort((a, b) => {
-      const yearA = parseInt(a.ano || '0', 10) || 0;
-      const yearB = parseInt(b.ano || '0', 10) || 0;
-      if (yearB !== yearA) return yearB - yearA;
-      return (a.titulo || '').localeCompare(b.titulo || '');
+    );
+
+    // Agrupamento por ano (sem timeline)
+    const groupedByYear = filteredTrunfos.reduce((acc, item) => {
+      const yearKey = item.ano && item.ano.trim() ? item.ano.trim() : 'Outros';
+      if (!acc[yearKey]) {
+        acc[yearKey] = [];
+      }
+      acc[yearKey].push(item);
+      return acc;
+    }, {} as Record<string, Trunfo[]>);
+
+    // Ordenar anos em ordem decrescente ('Outros' no final)
+    const sortedYears = Object.keys(groupedByYear).sort((a, b) => {
+      if (a === 'Outros') return 1;
+      if (b === 'Outros') return -1;
+      const numA = parseInt(a, 10) || 0;
+      const numB = parseInt(b, 10) || 0;
+      return numB - numA;
     });
 
     return (
-      <div className="animate-slide-in space-y-4 pt-1 pb-24">
+      <div className="animate-slide-in space-y-6 pt-1 pb-24">
         {/* Barra de Pesquisa */}
         <div className="relative">
           <input 
@@ -4880,7 +5168,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           )}
         </div>
 
-        {/* Grid de Trunfos Organizados por Ano */}
+        {/* Listagem de Trunfos Organizados por Ano */}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="w-8 h-8 border-3 border-slate-100 dark:border-slate-700 border-t-teal-500 rounded-full animate-spin"></div>
@@ -4893,39 +5181,60 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {filteredTrunfos.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setSelectedTrunfoModal(item)}
-                className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-3.5 flex flex-col items-center text-center shadow-sm hover:shadow-md active:scale-95 transition-all group"
-              >
-                {/* Miniatura */}
-                <div className="w-24 h-24 sm:w-28 sm:h-28 bg-slate-50 dark:bg-slate-900 rounded-2xl flex items-center justify-center overflow-hidden p-2 mb-3 border border-slate-100 dark:border-slate-800/60 group-hover:scale-105 transition-transform">
-                  {item.imagem ? (
-                    <img 
-                      src={getImageUrl(item.imagem)} 
-                      alt={item.titulo}
-                      className="w-full h-full object-contain drop-shadow-sm"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <Trophy size={36} className="text-teal-500 opacity-60" />
-                  )}
+          <div className="space-y-8">
+            {sortedYears.map((year) => {
+              const yearItems = groupedByYear[year].sort((a, b) => (a.titulo || '').localeCompare(b.titulo || ''));
+              return (
+                <div key={year} className="space-y-3">
+                  {/* Cabeçalho do Ano */}
+                  <div className="flex items-center space-x-3 px-1">
+                    <span className="px-3.5 py-1 bg-teal-600 dark:bg-teal-500 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm">
+                      {year === 'Outros' ? 'Outros Eventos' : `Ano ${year}`}
+                    </span>
+                    <div className="h-px bg-slate-200 dark:bg-slate-700 flex-1"></div>
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                      {yearItems.length} {yearItems.length === 1 ? 'item' : 'itens'}
+                    </span>
+                  </div>
+
+                  {/* Grid de Trunfos do Ano */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    {yearItems.map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => setSelectedTrunfoModal(item)}
+                        className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-3.5 flex flex-col items-center text-center shadow-sm hover:shadow-md active:scale-95 transition-all group"
+                      >
+                        {/* Miniatura */}
+                        <div className="w-24 h-24 sm:w-28 sm:h-28 bg-slate-50 dark:bg-slate-900 rounded-2xl flex items-center justify-center overflow-hidden p-2 mb-3 border border-slate-100 dark:border-slate-800/60 group-hover:scale-105 transition-transform">
+                          {item.imagem ? (
+                            <img 
+                              src={getImageUrl(item.imagem)} 
+                              alt={item.titulo}
+                              className="w-full h-full object-contain drop-shadow-sm"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <Trophy size={36} className="text-teal-500 opacity-60" />
+                          )}
+                        </div>
+
+                        {/* Título do Evento */}
+                        <h4 className="font-black text-slate-800 dark:text-white text-xs sm:text-sm uppercase tracking-tight leading-tight line-clamp-2 w-full px-1">
+                          {item.titulo}
+                        </h4>
+
+                        {item.ano && (
+                          <span className="mt-1.5 px-2.5 py-0.5 bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 rounded-full text-[10px] font-black uppercase tracking-wider">
+                            {item.ano}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-
-                {/* Título do Evento */}
-                <h4 className="font-black text-slate-800 dark:text-white text-xs sm:text-sm uppercase tracking-tight leading-tight line-clamp-2 w-full px-1">
-                  {item.titulo}
-                </h4>
-
-                {item.ano && (
-                  <span className="mt-1.5 px-2.5 py-0.5 bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 rounded-full text-[10px] font-black uppercase tracking-wider">
-                    {item.ano}
-                  </span>
-                )}
-              </button>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -5323,9 +5632,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       .sort((a, b) => new Date(b.agendado_para).getTime() - new Date(a.agendado_para).getTime());
 
     return (
-      <div className="animate-slide-in h-full flex flex-col pt-2 pb-28">
-        {/* Cabeçalho Customizado */}
-        <div className="flex items-center justify-between mb-6 px-1">
+      <div className="animate-slide-in h-full flex flex-col pt-1 pb-28">
+        {/* Cabeçalho Customizado Fixo no Topo */}
+        <div className="sticky top-0 z-30 flex items-center justify-between mb-4 py-2 px-3 bg-[#F8FAFC]/90 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
           <button 
             onClick={() => {
               if (isAdmin && selectedDevocional) {
@@ -5334,9 +5643,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 setActiveSubView('BIBLE');
               }
             }}
-            className="p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 text-slate-400 active:scale-95 transition-all"
+            className="p-2.5 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 text-slate-500 dark:text-slate-300 active:scale-95 transition-all"
           >
-            <ChevronLeft size={20} />
+            <ChevronLeft size={20} strokeWidth={3} />
           </button>
           <div className="text-center">
             <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Meditação</h3>
@@ -5438,9 +5747,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     };
 
     return (
-      <div className="animate-slide-in space-y-6 pt-6 pb-28">
-        {/* Header Bíblia Sagrada Compacto */}
-        <div className="bg-[#1e40af] rounded-[32px] p-6 shadow-lg text-white relative overflow-hidden">
+      <div className="animate-slide-in space-y-6 pt-2 pb-28">
+        {/* Header Bíblia Sagrada Compacto Fixo no Topo */}
+        <div className="sticky top-0 z-30 bg-[#1e40af] rounded-[32px] p-5 shadow-lg text-white relative overflow-hidden">
           <div className="flex items-center justify-between relative z-10">
             <div className="flex items-center space-x-4">
               <button 
@@ -5571,9 +5880,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     );
 
     return (
-      <div className="animate-slide-in space-y-6 pt-6 pb-28">
-        {/* Header Bíblia Sagrada Compacto */}
-        <div className="bg-[#1e40af] rounded-[32px] p-6 shadow-lg text-white relative overflow-hidden">
+      <div className="animate-slide-in space-y-6 pt-2 pb-28">
+        {/* Header Bíblia Sagrada Compacto Fixo no Topo */}
+        <div className="sticky top-0 z-30 bg-[#1e40af] rounded-[32px] p-5 shadow-lg text-white relative overflow-hidden">
           <div className="flex items-center justify-between relative z-10">
             <div className="flex items-center space-x-4">
               <button 

@@ -587,7 +587,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
           <div className="absolute bottom-10 left-10 w-40 h-40 bg-black rounded-full blur-3xl"></div>
         </div>
 
-        <div className="w-full grid grid-cols-3 items-center text-white relative z-10">
+        <div className="sticky top-0 z-30 w-full grid grid-cols-3 items-center text-white py-1">
           <div className="flex justify-start">
             <button 
               onClick={handleBackNavigation} 

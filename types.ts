@@ -104,9 +104,11 @@ export interface ContentBlock {
 export interface CulturaItem {
   id: string;
   titulo: string;
+  titleAlign?: 'left' | 'center' | 'right';
   subtitulo?: string;
   descricao?: string;
   imagem?: string;
+  imagePosition?: 'top' | 'center' | 'bottom';
   imageAlign?: 'left' | 'center' | 'right';
   imageSize?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
   blocks?: ContentBlock[];

@@ -128,12 +128,12 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
   };
 
   const renderSignup = () => (
-    <div className="animate-slide-up space-y-6 px-7 pb-20 pt-6">
-      <div className="flex items-center space-x-4 mb-4">
+    <div className="animate-slide-up space-y-6 px-7 pb-20 pt-2">
+      <div className="sticky top-0 z-30 flex items-center space-x-4 py-3 -mx-7 px-7 bg-[#F8FAFC]/90 dark:bg-slate-900/90 backdrop-blur-md transition-all">
         <button onClick={() => onViewChange('LOGIN')} className="p-2.5 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 text-slate-400 active:scale-90 transition-all">
           <ChevronLeft size={20} />
         </button>
-        <h2 className="text-2xl font-black text-[#004d40] dark:text-emerald-500 tracking-tighter uppercase">Criar Nova Conta</h2>
+        <h2 className="text-xl font-black text-[#004d40] dark:text-emerald-500 tracking-tighter uppercase">Criar Nova Conta</h2>
       </div>
 
       <div className="space-y-4">
