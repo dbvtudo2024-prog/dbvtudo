@@ -2191,11 +2191,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               ></div>
               
               <div className="flex items-center space-x-5 pl-2">
-                <div className="w-16 h-16 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-inner group-hover:scale-110 transition-transform duration-500">
+                <div className="w-16 h-16 flex items-center justify-center overflow-hidden flex-shrink-0 group-hover:scale-110 transition-transform duration-500">
                   {cls.imagem ? (
-                    <img src={cls.imagem} className="w-12 h-12 object-contain" alt={cls.titulo} />
+                    <img src={cls.imagem} className="w-full h-full object-contain filter drop-shadow-sm" alt={cls.titulo} referrerPolicy="no-referrer" />
                   ) : (
-                    <Layers size={28} className="text-slate-200 dark:text-slate-700" />
+                    <Layers size={36} className="text-slate-300 dark:text-slate-600" />
                   )}
                 </div>
 
@@ -2322,11 +2322,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             </button>
 
             <div className="relative z-10 flex flex-col items-center text-center">
-              <div className="w-24 h-24 bg-white rounded-3xl shadow-lg flex items-center justify-center mb-6 p-4">
+              <div className="w-28 h-28 flex items-center justify-center mb-4">
                 {selectedClass.imagem ? (
-                  <img src={selectedClass.imagem} className="w-full h-full object-contain" alt={selectedClass.titulo} referrerPolicy="no-referrer" />
+                  <img src={selectedClass.imagem} className="w-full h-full object-contain filter drop-shadow-md" alt={selectedClass.titulo} referrerPolicy="no-referrer" />
                 ) : (
-                  <Layers size={40} style={{ color: classColor }} />
+                  <Layers size={48} className="text-white" />
                 )}
               </div>
               <h3 className="text-2xl font-black text-white uppercase tracking-tight leading-tight">
@@ -2964,7 +2964,82 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     const imageBlocks = (item.blocks || []).filter(b => b.type === 'image' && b.content);
     const textBlocks = (item.blocks || []).filter(b => b.type !== 'image' && b.content);
     const hasAnyImages = Boolean(item.imagem) || imageBlocks.length > 0;
+    const hasText = Boolean(item.descricao) || textBlocks.length > 0;
     const align = item.imageAlign || 'center';
+
+    const renderItemContent = (isSubitem: boolean) => {
+      const imagesNode = (
+        <div className="flex flex-col items-center gap-3 shrink-0">
+          {item.imagem && (
+            <div className={`${getItemImageSizeClass(item.imageSize, isSubitem)} flex items-center justify-center`}>
+              <img 
+                src={getImageUrl(item.imagem)} 
+                alt={item.titulo || ''} 
+                className="w-full h-full object-contain filter drop-shadow-sm"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+          )}
+          {imageBlocks.map((block) => (
+            <div key={block.id} className={`${getItemImageSizeClass(item.imageSize, isSubitem)} flex items-center justify-center`}>
+              <img 
+                src={getImageUrl(block.content)} 
+                alt="" 
+                className="w-full h-full object-contain filter drop-shadow-sm"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+          ))}
+        </div>
+      );
+
+      const textsNode = (
+        <div className="flex-1 space-y-3 text-left">
+          {item.descricao && (
+            <div className={`text-slate-600 dark:text-slate-200 ${isSubitem ? 'text-[13px]' : 'text-sm'} leading-relaxed font-medium whitespace-pre-wrap`}>
+              {item.descricao}
+            </div>
+          )}
+          {textBlocks.map((block) => (
+            <div key={block.id} className={`text-slate-600 dark:text-slate-200 ${isSubitem ? 'text-[13px]' : 'text-sm'} leading-relaxed font-medium whitespace-pre-wrap`}>
+              {block.content}
+            </div>
+          ))}
+        </div>
+      );
+
+      // Alinhamento à direita: texto à esquerda e imagem à direita na mesma linha horizontal
+      if (hasAnyImages && hasText && align === 'right') {
+        return (
+          <div className="flex flex-row items-center justify-between gap-4 w-full">
+            {textsNode}
+            {imagesNode}
+          </div>
+        );
+      }
+
+      // Alinhamento à esquerda: imagem à esquerda e texto à direita na mesma linha horizontal
+      if (hasAnyImages && hasText && align === 'left') {
+        return (
+          <div className="flex flex-row items-center justify-between gap-4 w-full">
+            {imagesNode}
+            {textsNode}
+          </div>
+        );
+      }
+
+      // Alinhamento centralizado ou apenas um dos conteúdos presente
+      return (
+        <div className="space-y-4">
+          {hasAnyImages && (
+            <div className={`flex flex-col gap-3 ${align === 'right' ? 'items-end' : align === 'left' ? 'items-start' : 'items-center justify-center'}`}>
+              {imagesNode}
+            </div>
+          )}
+          {hasText && textsNode}
+        </div>
+      );
+    };
 
     // Se for um sub-item (profundidade > 0)
     if (depth > 0) {
@@ -2982,49 +3057,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           )}
           
           <div className="space-y-4">
-            {/* 2. IMAGEM PRINCIPAL E IMAGENS EXTRAS (ENTRE O TÍTULO E O TEXTO PRINCIPAL) */}
-            {hasAnyImages && (
-              <div className={`space-y-3 ${align === 'left' ? 'text-left' : align === 'right' ? 'text-right' : 'text-center'}`}>
-                {item.imagem && (
-                  <div className={`${getItemImageSizeClass(item.imageSize, true)} overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-2xl p-2 flex items-center justify-center ${align === 'center' ? 'mx-auto' : align === 'right' ? 'ml-auto' : 'mr-auto'}`}>
-                    <img 
-                      src={getImageUrl(item.imagem)} 
-                      alt={item.titulo} 
-                      className="w-full h-full object-contain"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                )}
-                {imageBlocks.map((block) => (
-                  <div key={block.id} className={`w-full max-w-xs overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-2xl p-2 flex items-center justify-center ${align === 'center' ? 'mx-auto' : align === 'right' ? 'ml-auto' : 'mr-auto'}`}>
-                    <img 
-                      src={getImageUrl(block.content)} 
-                      alt="" 
-                      className="w-full h-full object-contain"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* 3. TEXTO PRINCIPAL / DESCRIÇÃO */}
-            {item.descricao && (
-              <div className="text-slate-600 dark:text-slate-200 text-[13px] leading-relaxed font-medium whitespace-pre-wrap text-left px-1">
-                {item.descricao}
-              </div>
-            )}
-
-            {/* 4. BLOCOS DE TEXTO ADICIONAIS */}
-            {textBlocks.length > 0 && (
-              <div className="space-y-3 text-left">
-                {textBlocks.map((block) => (
-                  <div key={block.id} className="text-slate-600 dark:text-slate-200 text-[13px] leading-relaxed font-medium whitespace-pre-wrap px-1">
-                    {block.content}
-                  </div>
-                ))}
-              </div>
-            )}
+            {renderItemContent(true)}
           </div>
 
           {item.subitems && item.subitems.length > 0 && (
@@ -3076,49 +3109,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 </div>
               )}
 
-              {/* 2. IMAGEM PRINCIPAL E IMAGENS EM BLOCOS (ENTRE O TÍTULO E O TEXTO PRINCIPAL) */}
-              {hasAnyImages && (
-                <div className={`space-y-4 ${align === 'left' ? 'text-left' : align === 'right' ? 'text-right' : 'text-center'}`}>
-                  {item.imagem && (
-                    <div className={`${getItemImageSizeClass(item.imageSize, false)} overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-3xl p-3 flex items-center justify-center ${align === 'center' ? 'mx-auto' : align === 'right' ? 'ml-auto' : 'mr-auto'}`}>
-                      <img 
-                        src={getImageUrl(item.imagem)} 
-                        alt={item.titulo} 
-                        className="w-full h-full object-contain"
-                        referrerPolicy="no-referrer"
-                      />
-                    </div>
-                  )}
-                  {imageBlocks.map((block) => (
-                    <div key={block.id} className={`w-48 h-48 sm:w-64 sm:h-64 overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-900 rounded-2xl p-2 flex items-center justify-center ${align === 'center' ? 'mx-auto' : align === 'right' ? 'ml-auto' : 'mr-auto'}`}>
-                      <img 
-                        src={getImageUrl(block.content)} 
-                        alt="" 
-                        className="w-full h-full object-contain"
-                        referrerPolicy="no-referrer"
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* 3. TEXTO PRINCIPAL / DESCRIÇÃO */}
-              {item.descricao && (
-                <div className="text-slate-600 dark:text-slate-200 text-sm leading-relaxed font-medium whitespace-pre-wrap text-left px-1">
-                  {item.descricao}
-                </div>
-              )}
-
-              {/* 4. BLOCOS DE TEXTO ADICIONAIS */}
-              {textBlocks.length > 0 && (
-                <div className="space-y-4 text-left">
-                  {textBlocks.map((block) => (
-                    <div key={block.id} className="text-slate-600 dark:text-slate-200 text-sm leading-relaxed font-medium whitespace-pre-wrap px-1">
-                      {block.content}
-                    </div>
-                  ))}
-                </div>
-              )}
+              {/* 2. CONTEÚDO (TEXTO E IMAGEM NA MESMA LINHA OU CENTRALIZADO) */}
+              {renderItemContent(false)}
               
               {item.subitems && item.subitems.length > 0 && (
                 <div className="mt-8 divide-y divide-slate-100 dark:divide-slate-700/50 border-t border-slate-100 dark:border-slate-700/50">
@@ -4859,7 +4851,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       t.titulo.toLowerCase().includes(trunfoSearchQuery.toLowerCase()) ||
       (t.ano && t.ano.includes(trunfoSearchQuery)) ||
       (t.historia && t.historia.toLowerCase().includes(trunfoSearchQuery.toLowerCase()))
-    );
+    ).sort((a, b) => {
+      const yearA = parseInt(a.ano || '0', 10) || 0;
+      const yearB = parseInt(b.ano || '0', 10) || 0;
+      if (yearB !== yearA) return yearB - yearA;
+      return (a.titulo || '').localeCompare(b.titulo || '');
+    });
 
     return (
       <div className="animate-slide-in space-y-4 pt-1 pb-24">
@@ -4883,7 +4880,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           )}
         </div>
 
-        {/* Grid de Trunfos (Apenas Miniatura e Título do Evento) */}
+        {/* Grid de Trunfos Organizados por Ano */}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="w-8 h-8 border-3 border-slate-100 dark:border-slate-700 border-t-teal-500 rounded-full animate-spin"></div>
@@ -5096,7 +5093,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           {trunfos.length === 0 ? (
             <p className="text-center py-8 text-slate-400 text-xs font-bold uppercase tracking-widest">Nenhum trunfo cadastrado</p>
           ) : (
-            trunfos.map((t) => (
+            [...trunfos].sort((a, b) => {
+              const yearA = parseInt(a.ano || '0', 10) || 0;
+              const yearB = parseInt(b.ano || '0', 10) || 0;
+              if (yearB !== yearA) return yearB - yearA;
+              return (b.id || 0) - (a.id || 0);
+            }).map((t) => (
               <div 
                 key={t.id} 
                 className={`bg-white dark:bg-slate-800 border ${editingTrunfoId === t.id ? 'border-amber-400 dark:border-amber-500 ring-2 ring-amber-400/20' : 'border-slate-100 dark:border-slate-700'} rounded-[28px] p-4 flex items-center justify-between shadow-sm`}
