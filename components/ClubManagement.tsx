@@ -5163,23 +5163,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       (t.historia && t.historia.toLowerCase().includes(trunfoSearchQuery.toLowerCase()))
     );
 
-    // Agrupamento por ano (sem timeline)
-    const groupedByYear = filteredTrunfos.reduce((acc, item) => {
-      const yearKey = item.ano && item.ano.trim() ? item.ano.trim() : 'Outros';
-      if (!acc[yearKey]) {
-        acc[yearKey] = [];
-      }
-      acc[yearKey].push(item);
-      return acc;
-    }, {} as Record<string, Trunfo[]>);
-
-    // Ordenar anos em ordem decrescente ('Outros' no final)
-    const sortedYears = Object.keys(groupedByYear).sort((a, b) => {
-      if (a === 'Outros') return 1;
-      if (b === 'Outros') return -1;
-      const numA = parseInt(a, 10) || 0;
-      const numB = parseInt(b, 10) || 0;
-      return numB - numA;
+    // Ordenar trunfos por ano (mais recente primeiro) e depois por título
+    const sortedTrunfos = [...filteredTrunfos].sort((a, b) => {
+      const yearA = parseInt(a.ano || '0', 10) || 0;
+      const yearB = parseInt(b.ano || '0', 10) || 0;
+      if (yearB !== yearA) return yearB - yearA;
+      return (a.titulo || '').localeCompare(b.titulo || '');
     });
 
     return (
@@ -5204,12 +5193,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           )}
         </div>
 
-        {/* Listagem de Trunfos Organizados por Ano */}
+        {/* Listagem de Trunfos em Grid Unificado */}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="w-8 h-8 border-3 border-slate-100 dark:border-slate-700 border-t-teal-500 rounded-full animate-spin"></div>
           </div>
-        ) : filteredTrunfos.length === 0 ? (
+        ) : sortedTrunfos.length === 0 ? (
           <div className="bg-white dark:bg-slate-800 rounded-[32px] p-12 text-center border border-slate-100 dark:border-slate-700 shadow-sm">
             <Trophy size={48} className="text-slate-200 dark:text-slate-700 mx-auto mb-4" />
             <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">
@@ -5217,60 +5206,39 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             </p>
           </div>
         ) : (
-          <div className="space-y-8">
-            {sortedYears.map((year) => {
-              const yearItems = groupedByYear[year].sort((a, b) => (a.titulo || '').localeCompare(b.titulo || ''));
-              return (
-                <div key={year} className="space-y-3">
-                  {/* Cabeçalho do Ano */}
-                  <div className="flex items-center space-x-3 px-1">
-                    <span className="px-3.5 py-1 bg-teal-600 dark:bg-teal-500 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm">
-                      {year === 'Outros' ? 'Outros Eventos' : `Ano ${year}`}
-                    </span>
-                    <div className="h-px bg-slate-200 dark:bg-slate-700 flex-1"></div>
-                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                      {yearItems.length} {yearItems.length === 1 ? 'item' : 'itens'}
-                    </span>
-                  </div>
-
-                  {/* Grid de Trunfos do Ano */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    {yearItems.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => setSelectedTrunfoModal(item)}
-                        className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-3.5 flex flex-col items-center text-center shadow-sm hover:shadow-md active:scale-95 transition-all group"
-                      >
-                        {/* Miniatura */}
-                        <div className="w-24 h-24 sm:w-28 sm:h-28 bg-slate-50 dark:bg-slate-900 rounded-2xl flex items-center justify-center overflow-hidden p-2 mb-3 border border-slate-100 dark:border-slate-800/60 group-hover:scale-105 transition-transform">
-                          {item.imagem ? (
-                            <img 
-                              src={getImageUrl(item.imagem)} 
-                              alt={item.titulo}
-                              className="w-full h-full object-contain drop-shadow-sm"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <Trophy size={36} className="text-teal-500 opacity-60" />
-                          )}
-                        </div>
-
-                        {/* Título do Evento */}
-                        <h4 className="font-black text-slate-800 dark:text-white text-xs sm:text-sm uppercase tracking-tight leading-tight line-clamp-2 w-full px-1">
-                          {item.titulo}
-                        </h4>
-
-                        {item.ano && (
-                          <span className="mt-1.5 px-2.5 py-0.5 bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 rounded-full text-[10px] font-black uppercase tracking-wider">
-                            {item.ano}
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {sortedTrunfos.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setSelectedTrunfoModal(item)}
+                className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-3.5 flex flex-col items-center text-center shadow-sm hover:shadow-md active:scale-95 transition-all group"
+              >
+                {/* Miniatura */}
+                <div className="w-24 h-24 sm:w-28 sm:h-28 bg-slate-50 dark:bg-slate-900 rounded-2xl flex items-center justify-center overflow-hidden p-2 mb-3 border border-slate-100 dark:border-slate-800/60 group-hover:scale-105 transition-transform">
+                  {item.imagem ? (
+                    <img 
+                      src={getImageUrl(item.imagem)} 
+                      alt={item.titulo}
+                      className="w-full h-full object-contain drop-shadow-sm"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <Trophy size={36} className="text-teal-500 opacity-60" />
+                  )}
                 </div>
-              );
-            })}
+
+                {/* Título do Evento */}
+                <h4 className="font-black text-slate-800 dark:text-white text-xs sm:text-sm uppercase tracking-tight leading-tight line-clamp-2 w-full px-1">
+                  {item.titulo}
+                </h4>
+
+                {item.ano && (
+                  <span className="mt-1.5 px-2.5 py-0.5 bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 rounded-full text-[10px] font-black uppercase tracking-wider">
+                    {item.ano}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
         )}
       </div>
@@ -7397,16 +7365,37 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 </div>
               </div>
 
-              {/* História / Texto Principal */}
-              <div className="bg-white dark:bg-slate-800 rounded-[32px] p-6 sm:p-8 border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-4">
-                <div className="flex items-center space-x-2 text-xs font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest">
-                  <BookOpen size={18} className="text-teal-600 dark:text-teal-400" />
-                  <span>História do Evento</span>
+              {/* História / Texto Principal formatado com destaque para seções */}
+              <div className="bg-[#182335] dark:bg-[#111c2d] rounded-[32px] p-6 sm:p-8 border border-[#22354e] shadow-lg space-y-6">
+                <div className="flex items-center space-x-2.5 text-xs font-black text-teal-400 uppercase tracking-widest pb-1 border-b border-white/5">
+                  <BookOpen size={18} className="text-teal-400 stroke-[2.5]" />
+                  <span>HISTÓRIA DO EVENTO</span>
                 </div>
-                <div className="pt-2">
-                  <p className="text-slate-700 dark:text-slate-200 text-sm sm:text-base leading-relaxed whitespace-pre-line font-medium">
-                    {selectedTrunfoModal.historia || 'Nenhuma história cadastrada para este trunfo.'}
-                  </p>
+                <div className="space-y-4 text-slate-100 text-sm sm:text-base leading-relaxed font-normal">
+                  {selectedTrunfoModal.historia ? (
+                    selectedTrunfoModal.historia.split('\n\n').map((paragraph, idx) => {
+                      const trimmed = paragraph.trim();
+                      if (!trimmed) return null;
+                      
+                      // Destaque de rótulos como Local:, Participantes:, Tema central:, Atividades:
+                      const match = trimmed.match(/^(Local|Participantes|Tema central|Atividades|Público|Edição|Data):\s*(.*)$/i);
+                      if (match) {
+                        return (
+                          <p key={idx} className="leading-relaxed">
+                            <strong className="font-bold text-white tracking-wide">{match[1]}: </strong>
+                            <span className="text-slate-200">{match[2]}</span>
+                          </p>
+                        );
+                      }
+                      return (
+                        <p key={idx} className="leading-relaxed text-slate-100 font-medium">
+                          {trimmed}
+                        </p>
+                      );
+                    })
+                  ) : (
+                    <p className="text-slate-400">Nenhuma história cadastrada para este trunfo.</p>
+                  )}
                 </div>
               </div>
             </div>
