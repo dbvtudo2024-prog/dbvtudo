@@ -1640,35 +1640,84 @@ Atividades: Trilha ecológica educativa, observação de pássaros, jogos de coo
   }
 ];
 
-// Helper para mesclar os padrões com dados locais/nuvem preservando edições e novidades
-function mergeWithDefaultTrunfos(loadedList: Trunfo[]): Trunfo[] {
-  const map = new Map<number, Trunfo>();
-  DEFAULT_TRUNFOS.forEach(item => map.set(item.id, item));
-  loadedList.forEach(item => {
-    if (item && item.id) {
-      map.set(item.id, { ...map.get(item.id), ...item });
+// Helper para gerenciar IDs de trunfos excluídos
+function getDeletedTrunfoIds(): Set<number> {
+  try {
+    const raw = localStorage.getItem('dbv_tudo_trunfos_deleted_ids');
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        return new Set(arr.map(Number));
+      }
     }
-  });
-  return Array.from(map.values());
+  } catch {}
+  return new Set<number>();
+}
+
+function recordDeletedTrunfoId(id: number) {
+  try {
+    const set = getDeletedTrunfoIds();
+    set.add(Number(id));
+    localStorage.setItem('dbv_tudo_trunfos_deleted_ids', JSON.stringify(Array.from(set)));
+  } catch {}
+}
+
+function unrecordDeletedTrunfoId(id: number) {
+  try {
+    const set = getDeletedTrunfoIds();
+    set.delete(Number(id));
+    localStorage.setItem('dbv_tudo_trunfos_deleted_ids', JSON.stringify(Array.from(set)));
+  } catch {}
+}
+
+// Helper para mesclar os padrões com dados locais/nuvem respeitando itens excluídos
+function mergeWithDefaultTrunfos(loadedList: Trunfo[] | null, isSeeding = false): Trunfo[] {
+  const deletedIds = getDeletedTrunfoIds();
+  
+  // Se recebemos uma lista concreta da nuvem ou do localStorage
+  if (loadedList && Array.isArray(loadedList) && loadedList.length > 0) {
+    return loadedList.filter(item => item && item.id && !deletedIds.has(Number(item.id)));
+  }
+
+  // Se a lista estiver vazia ou for inicialização pela primeira vez
+  return DEFAULT_TRUNFOS.filter(item => !deletedIds.has(Number(item.id)));
 }
 
 export async function fetchTrunfos(club?: string): Promise<Trunfo[]> {
   try {
+    const deletedIds = getDeletedTrunfoIds();
     const localData = localStorage.getItem('dbv_tudo_trunfos');
-    let localList: Trunfo[] = localData ? mergeWithDefaultTrunfos(JSON.parse(localData)) : DEFAULT_TRUNFOS;
+    let localList: Trunfo[] = [];
 
-    // 1. Tentar buscar da tabela 'Trunfos' caso exista
+    if (localData) {
+      try {
+        const parsed = JSON.parse(localData);
+        if (Array.isArray(parsed)) {
+          localList = parsed.filter(item => item && item.id && !deletedIds.has(Number(item.id)));
+        }
+      } catch {}
+    }
+
+    if (localList.length === 0 && !localStorage.getItem('dbv_tudo_trunfos_initialized')) {
+      localList = DEFAULT_TRUNFOS.filter(item => !deletedIds.has(Number(item.id)));
+      localStorage.setItem('dbv_tudo_trunfos_initialized', 'true');
+      localStorage.setItem('dbv_tudo_trunfos', JSON.stringify(localList));
+    }
+
+    // 1. Tentar buscar da tabela 'Trunfos' do Supabase
     try {
       const query = supabase.from('Trunfos').select('*').order('id', { ascending: false });
       const { data, error } = await query;
-      if (!error && data && data.length > 0) {
-        const merged = mergeWithDefaultTrunfos(data);
-        localStorage.setItem('dbv_tudo_trunfos', JSON.stringify(merged));
-        localList = merged;
-        if (club) {
-          return localList.filter(t => !t.club || t.club === club || t.club === 'ALL');
+      if (!error && data && Array.isArray(data)) {
+        if (data.length > 0) {
+          const validData = data.filter(item => item && item.id && !deletedIds.has(Number(item.id)));
+          localStorage.setItem('dbv_tudo_trunfos', JSON.stringify(validData));
+          localList = validData;
+          if (club) {
+            return localList.filter(t => !t.club || t.club === club || t.club === 'ALL');
+          }
+          return localList;
         }
-        return localList;
       }
     } catch {}
 
@@ -1688,8 +1737,8 @@ export async function fetchTrunfos(club?: string): Promise<Trunfo[]> {
               const parsed = typeof row.distintivos === 'string' ? JSON.parse(row.distintivos) : row.distintivos;
               if (Array.isArray(parsed)) {
                 for (const item of parsed) {
-                  if (item && item.id && !seenIds.has(item.id)) {
-                    seenIds.add(item.id);
+                  if (item && item.id && !seenIds.has(Number(item.id)) && !deletedIds.has(Number(item.id))) {
+                    seenIds.add(Number(item.id));
                     combinedTrunfos.push(item);
                   }
                 }
@@ -1699,9 +1748,8 @@ export async function fetchTrunfos(club?: string): Promise<Trunfo[]> {
         }
 
         if (combinedTrunfos.length > 0) {
-          const merged = mergeWithDefaultTrunfos(combinedTrunfos);
-          localStorage.setItem('dbv_tudo_trunfos', JSON.stringify(merged));
-          localList = merged;
+          localStorage.setItem('dbv_tudo_trunfos', JSON.stringify(combinedTrunfos));
+          localList = combinedTrunfos;
         }
       }
     } catch {}
@@ -1713,8 +1761,20 @@ export async function fetchTrunfos(club?: string): Promise<Trunfo[]> {
     }
     return localList;
   } catch {
+    const deletedIds = getDeletedTrunfoIds();
     const localData = localStorage.getItem('dbv_tudo_trunfos');
-    const localList: Trunfo[] = localData ? mergeWithDefaultTrunfos(JSON.parse(localData)) : DEFAULT_TRUNFOS;
+    let localList: Trunfo[] = [];
+    if (localData) {
+      try {
+        const parsed = JSON.parse(localData);
+        if (Array.isArray(parsed)) {
+          localList = parsed.filter(item => item && item.id && !deletedIds.has(Number(item.id)));
+        }
+      } catch {}
+    }
+    if (localList.length === 0) {
+      localList = DEFAULT_TRUNFOS.filter(item => !deletedIds.has(Number(item.id)));
+    }
     if (club) {
       return localList.filter(t => !t.club || t.club === club || t.club === 'ALL');
     }
@@ -1724,11 +1784,26 @@ export async function fetchTrunfos(club?: string): Promise<Trunfo[]> {
 
 export async function updateTrunfo(trunfo: Partial<Trunfo>) {
   try {
+    const deletedIds = getDeletedTrunfoIds();
     const localData = localStorage.getItem('dbv_tudo_trunfos');
-    let currentList: Trunfo[] = localData ? JSON.parse(localData) : [...DEFAULT_TRUNFOS];
+    let currentList: Trunfo[] = [];
+
+    if (localData) {
+      try {
+        const parsed = JSON.parse(localData);
+        if (Array.isArray(parsed)) {
+          currentList = parsed.filter(item => item && item.id && !deletedIds.has(Number(item.id)));
+        }
+      } catch {}
+    }
+
+    if (currentList.length === 0) {
+      currentList = DEFAULT_TRUNFOS.filter(item => !deletedIds.has(Number(item.id)));
+    }
 
     let savedItem: Trunfo;
     if (trunfo.id && trunfo.id > 0) {
+      unrecordDeletedTrunfoId(trunfo.id);
       currentList = currentList.map(item => item.id === trunfo.id ? { ...item, ...trunfo } as Trunfo : item);
       savedItem = currentList.find(item => item.id === trunfo.id)!;
     } else {
@@ -1748,10 +1823,14 @@ export async function updateTrunfo(trunfo: Partial<Trunfo>) {
 
     // 1. Tentar salvar na tabela Trunfos se existir
     try {
-      const payload: any = { ...trunfo };
-      if (!payload.id || payload.id <= 0) {
-        delete payload.id;
-      }
+      const payload: any = { 
+        id: savedItem.id,
+        titulo: savedItem.titulo,
+        ano: savedItem.ano,
+        imagem: savedItem.imagem,
+        historia: savedItem.historia,
+        club: savedItem.club
+      };
       await supabase.from('Trunfos').upsert(payload);
     } catch {}
 
@@ -1774,18 +1853,30 @@ export async function updateTrunfo(trunfo: Partial<Trunfo>) {
 
 export async function deleteTrunfo(id: number) {
   try {
+    const numId = Number(id);
+    recordDeletedTrunfoId(numId);
+
     const localData = localStorage.getItem('dbv_tudo_trunfos');
     let filtered: Trunfo[] = [];
     if (localData) {
-      const currentList: Trunfo[] = JSON.parse(localData);
-      filtered = currentList.filter(item => item.id !== id);
-      localStorage.setItem('dbv_tudo_trunfos', JSON.stringify(filtered));
+      try {
+        const currentList: Trunfo[] = JSON.parse(localData);
+        if (Array.isArray(currentList)) {
+          filtered = currentList.filter(item => item && Number(item.id) !== numId);
+        }
+      } catch {}
+    } else {
+      filtered = DEFAULT_TRUNFOS.filter(item => Number(item.id) !== numId);
     }
 
-    // 1. Tentar deletar da tabela Trunfos
+    localStorage.setItem('dbv_tudo_trunfos', JSON.stringify(filtered));
+
+    // 1. Tentar deletar da tabela Trunfos no Supabase
     try {
-      await supabase.from('Trunfos').delete().eq('id', id);
-    } catch {}
+      await supabase.from('Trunfos').delete().eq('id', numId);
+    } catch (e) {
+      console.warn("Erro ao deletar da tabela Trunfos no Supabase:", e);
+    }
 
     // 2. Atualizar tabela Cultura no banco Supabase
     try {
@@ -1795,7 +1886,7 @@ export async function deleteTrunfo(id: number) {
         supabase.from('Cultura').update({ distintivos: jsonStr }).eq('club_type', 'ADVENTURER')
       ]);
     } catch (e) {
-      console.error("Erro ao deletar trunfo no banco Supabase:", e);
+      console.warn("Erro ao atualizar Cultura no Supabase:", e);
     }
 
     return { error: null };

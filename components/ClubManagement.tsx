@@ -5173,22 +5173,34 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
     return (
       <div className="animate-slide-in space-y-6 pt-1 pb-24">
-        {/* Barra de Pesquisa */}
-        <div className="relative">
-          <input 
-            type="text"
-            placeholder="Pesquisar trunfo por evento ou ano..."
-            value={trunfoSearchQuery}
-            onChange={(e) => setTrunfoSearchQuery(e.target.value)}
-            className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-3.5 pl-12 pr-4 text-sm font-bold text-slate-700 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 shadow-sm"
-          />
-          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-          {trunfoSearchQuery && (
-            <button 
-              onClick={() => setTrunfoSearchQuery('')}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+        {/* Barra de Pesquisa e Ações de Administrador */}
+        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+          <div className="relative flex-1">
+            <input 
+              type="text"
+              placeholder="Pesquisar trunfo por evento ou ano..."
+              value={trunfoSearchQuery}
+              onChange={(e) => setTrunfoSearchQuery(e.target.value)}
+              className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-3.5 pl-12 pr-4 text-sm font-bold text-slate-700 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 shadow-sm"
+            />
+            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+            {trunfoSearchQuery && (
+              <button 
+                onClick={() => setTrunfoSearchQuery('')}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+          
+          {(isAdmin || isUserAdmin) && (
+            <button
+              onClick={() => setActiveSubView('TRUNFOS_ADMIN')}
+              className="bg-teal-600 hover:bg-teal-700 active:scale-95 text-white px-5 py-3.5 rounded-2xl font-black uppercase tracking-wider text-xs flex items-center justify-center space-x-2 shadow-md transition-all flex-shrink-0"
             >
-              <X size={16} />
+              <Plus size={16} />
+              <span>Gerenciar / Excluir</span>
             </button>
           )}
         </div>
@@ -7398,6 +7410,46 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                   )}
                 </div>
               </div>
+
+              {/* Botões de Ação para Administradores */}
+              {(isAdmin || isUserAdmin) && (
+                <div className="pt-2 flex items-center justify-end space-x-3">
+                  <button
+                    onClick={() => {
+                      const trunfoToEdit = selectedTrunfoModal;
+                      setSelectedTrunfoModal(null);
+                      setNewTrunfo({
+                        titulo: trunfoToEdit.titulo,
+                        ano: trunfoToEdit.ano || '',
+                        imagem: trunfoToEdit.imagem || '',
+                        historia: trunfoToEdit.historia || '',
+                        club: trunfoToEdit.club || club
+                      });
+                      setEditingTrunfoId(trunfoToEdit.id);
+                      setActiveSubView('TRUNFOS_ADMIN');
+                      scrollToTop();
+                    }}
+                    className="flex items-center space-x-2 px-4 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-md active:scale-95"
+                  >
+                    <Edit2 size={16} />
+                    <span>Editar Trunfo</span>
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      const idToDelete = selectedTrunfoModal.id;
+                      if (confirm(`Tem certeza que deseja excluir o trunfo "${selectedTrunfoModal.titulo}"?`)) {
+                        setSelectedTrunfoModal(null);
+                        await handleDeleteTrunfo(idToDelete);
+                      }
+                    }}
+                    className="flex items-center space-x-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-md active:scale-95"
+                  >
+                    <Trash2 size={16} />
+                    <span>Excluir Trunfo</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
