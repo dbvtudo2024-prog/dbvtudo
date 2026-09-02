@@ -5099,11 +5099,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
   const handleDeleteTrunfo = async (id: number) => {
     if (confirm("Tem certeza que deseja excluir este trunfo?")) {
-      await deleteTrunfo(id);
-      const clubType = club === ClubType.PATHFINDER ? 'PATHFINDER' : 'ADVENTURER';
-      const updatedList = await fetchTrunfos(clubType);
-      setTrunfos(updatedList);
-      if (editingTrunfoId === id) {
+      const numId = Number(id);
+      // Atualização otimista imediata na UI
+      setTrunfos(prev => prev.filter(t => Number(t.id) !== numId));
+      if (editingTrunfoId === numId) {
         setEditingTrunfoId(null);
         setNewTrunfo({
           titulo: '',
@@ -5112,6 +5111,17 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           historia: '',
           club: club
         });
+      }
+      
+      const res = await deleteTrunfo(numId);
+      const clubType = club === ClubType.PATHFINDER ? 'PATHFINDER' : 'ADVENTURER';
+      const updatedList = await fetchTrunfos(clubType);
+      setTrunfos(updatedList);
+      
+      if (!res || !res.error) {
+        // Sucesso silencioso ou feedback
+      } else {
+        alert("Erro ao remover o trunfo no servidor: " + (res.error?.message || "Tente novamente"));
       }
     }
   };
@@ -5447,7 +5457,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                     )}
                   </div>
                 </div>
-                <div className="flex items-center space-x-1 ml-2">
+                <div className="flex items-center space-x-1.5 ml-2">
                   <button 
                     onClick={() => {
                       setNewTrunfo({
@@ -5460,17 +5470,17 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                       setEditingTrunfoId(t.id);
                       scrollToTop();
                     }}
-                    className="p-2 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-xl transition-colors"
+                    className="p-2.5 text-amber-500 hover:text-amber-600 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-900/50 rounded-xl transition-all active:scale-95"
                     title="Editar Trunfo"
                   >
-                    <Edit2 size={18} />
+                    <Edit2 size={16} />
                   </button>
                   <button 
                     onClick={() => handleDeleteTrunfo(t.id)}
-                    className="p-2 text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-colors"
+                    className="p-2.5 text-red-500 hover:text-red-600 bg-red-50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-xl transition-all active:scale-95"
                     title="Excluir Trunfo"
                   >
-                    <Trash2 size={18} />
+                    <Trash2 size={16} />
                   </button>
                 </div>
               </div>
