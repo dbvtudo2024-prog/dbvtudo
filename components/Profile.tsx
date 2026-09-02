@@ -205,6 +205,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   }, [likedKey, userData.email]);
 
   const currentThemeColor = userData.tipo === "Desbravador" ? '#dc371b' : '#800000';
+  const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
 
   // Sincronizar se o localStorage mudar externamente
   useEffect(() => {
@@ -572,70 +573,91 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
         </div>
       )}
 
-      <div className="flex flex-col h-full bg-[#F8FAFC] dark:bg-slate-900 animate-slide-in transition-colors duration-500 overflow-y-auto scrollbar-hide pb-12">
-
-      {/* Header */}
       <div 
-        className="relative h-48 w-full flex flex-col items-center justify-start pt-8 px-6 rounded-b-[50px] shadow-xl transition-all duration-500 flex-shrink-0"
-        style={{ 
-          backgroundColor: currentThemeColor,
-          backgroundImage: `radial-gradient(at 0% 0%, rgba(255,255,255,0.15) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(0,0,0,0.1) 0px, transparent 50%)`
-        }}
+        onScroll={(e) => setIsHeaderScrolled(e.currentTarget.scrollTop > 80)}
+        className="flex flex-col h-full bg-[#F8FAFC] dark:bg-slate-900 animate-slide-in transition-colors duration-500 overflow-y-auto scrollbar-hide pb-16 relative"
       >
-        <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none overflow-hidden rounded-b-[50px]">
-          <div className="absolute top-10 right-10 w-32 h-32 bg-white rounded-full blur-3xl"></div>
-          <div className="absolute bottom-10 left-10 w-40 h-40 bg-black rounded-full blur-3xl"></div>
-        </div>
-
-        <div className="sticky top-0 z-30 w-full grid grid-cols-3 items-center text-white py-1">
-          <div className="flex justify-start">
-            <button 
-              onClick={handleBackNavigation} 
-              className="flex items-center justify-center w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 active:scale-90 transition-all"
-            >
-              <ChevronLeft size={24} strokeWidth={3} />
-            </button>
-          </div>
+        {/* Barra Sticky com Botão Voltar e Ações (Idêntico ao padrão de Classes e Especialidades) */}
+        <div className={`sticky top-0 z-30 flex items-center justify-between py-2 px-3.5 sm:px-5 transition-all duration-300 ${
+          isHeaderScrolled 
+            ? 'bg-[#F8FAFC]/95 dark:bg-slate-900/95 backdrop-blur-md shadow-sm border-b border-slate-100 dark:border-slate-800' 
+            : 'bg-transparent -mb-[64px] pointer-events-none'
+        }`}>
+          <button 
+            onClick={handleBackNavigation} 
+            className={`w-11 h-11 rounded-2xl active:scale-90 transition-all flex items-center justify-center pointer-events-auto ${
+              isHeaderScrolled
+                ? 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-200 border border-slate-100 dark:border-slate-700 shadow-sm ml-0'
+                : 'bg-white/20 hover:bg-white/30 text-white backdrop-blur-md border border-white/25 shadow-sm ml-0.5'
+            }`}
+            title="Voltar"
+            aria-label="Voltar"
+          >
+            <ChevronLeft size={22} strokeWidth={3} />
+          </button>
           
-          <div className="flex justify-center">
-            <h1 className="font-black uppercase tracking-[0.2em] text-[10px] whitespace-nowrap opacity-80">
+          <div className={`text-center flex-1 px-3 truncate transition-all duration-300 ${isHeaderScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'}`}>
+            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest leading-none mb-0.5">
               Meu Perfil
-            </h1>
+            </p>
+            <h4 className="font-black text-slate-800 dark:text-white text-xs sm:text-sm uppercase tracking-tight truncate">
+              {userData.name}
+            </h4>
           </div>
           
-          <div className="flex justify-end">
-            <button 
-              onClick={onLogout}
-              className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 active:scale-90 transition-all"
-            >
-              <LogOut size={20} className="text-white" />
-            </button>
-          </div>
+          <button 
+            onClick={onLogout}
+            className={`w-11 h-11 rounded-2xl active:scale-90 transition-all flex items-center justify-center pointer-events-auto ${
+              isHeaderScrolled
+                ? 'bg-white dark:bg-slate-800 text-red-500 border border-slate-100 dark:border-slate-700 shadow-sm mr-0'
+                : 'bg-white/20 hover:bg-white/30 text-white backdrop-blur-md border border-white/25 shadow-sm mr-0.5'
+            }`}
+            title="Sair da Conta"
+            aria-label="Sair da Conta"
+          >
+            <LogOut size={18} />
+          </button>
         </div>
 
-        {/* Foto de Perfil */}
-        <div className="absolute -bottom-14 left-1/2 -translate-x-1/2 z-20">
-          <div className="relative group">
-            <div className="w-32 h-32 rounded-[40px] border-[6px] border-white shadow-2xl overflow-hidden bg-slate-100 transition-all flex items-center justify-center">
-              {userData.avatar ? (
-                <img src={userData.avatar} className="w-full h-full object-cover" alt="Avatar" />
-              ) : (
-                <User size={56} className="text-slate-300" />
-              )}
-            </div>
-            <div className="absolute -bottom-1 -right-1 w-9 h-9 rounded-2xl border-4 border-white shadow-lg transition-colors flex items-center justify-center bg-emerald-500">
-              <Check size={14} className="text-white" />
+        {/* Header Visual do Perfil com Avatar e Banner */}
+        <div 
+          className="relative w-full flex flex-col items-center justify-start rounded-b-[48px] shadow-lg transition-all duration-500 flex-shrink-0 pt-16 pb-10"
+          style={{ 
+            backgroundColor: currentThemeColor,
+            backgroundImage: `radial-gradient(at 0% 0%, rgba(255,255,255,0.18) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(0,0,0,0.12) 0px, transparent 50%)`
+          }}
+        >
+          {/* Efeitos de luz no fundo do banner */}
+          <div className="absolute top-0 left-0 w-full h-full opacity-15 pointer-events-none overflow-hidden rounded-b-[48px]">
+            <div className="absolute top-10 right-10 w-36 h-36 bg-white rounded-full blur-3xl"></div>
+            <div className="absolute bottom-10 left-10 w-44 h-44 bg-black rounded-full blur-3xl"></div>
+          </div>
+
+          {/* Foto de Perfil Centralizada */}
+          <div className="relative z-10">
+            <div className="relative group">
+              <div className="w-32 h-32 rounded-[40px] border-[6px] border-white dark:border-slate-800 shadow-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 transition-all flex items-center justify-center">
+                {userData.avatar ? (
+                  <img src={userData.avatar} className="w-full h-full object-cover" alt="Avatar" />
+                ) : (
+                  <User size={52} className="text-slate-300 dark:text-slate-600" />
+                )}
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-9 h-9 rounded-2xl border-4 border-white dark:border-slate-800 shadow-lg transition-colors flex items-center justify-center bg-emerald-500">
+                <Check size={14} className="text-white" />
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div className="mt-24 text-center px-8">
-        <div className="animate-slide-up">
-          <h2 className="text-3xl font-black tracking-tight text-slate-800 dark:text-white leading-none">{userData.name}</h2>
-          <p className="text-slate-400 dark:text-slate-500 font-bold text-xs mt-2 uppercase tracking-widest opacity-60">{userData.email}</p>
+          <div className="text-center text-white mt-4 z-10 px-6">
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-none drop-shadow-sm">
+              {userData.name}
+            </h2>
+            <p className="text-white/80 font-bold text-xs mt-1.5 uppercase tracking-widest opacity-90">
+              {userData.email}
+            </p>
+          </div>
         </div>
-      </div>
 
       <div className="px-8 mt-6 border-t border-slate-100 dark:border-slate-800 pt-5">
         <div className="grid grid-cols-2 gap-2">
@@ -677,7 +699,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
         {isAdmin && onOpenAdmin && (
           <button 
             onClick={onOpenAdmin}
-            className="w-full py-5 bg-slate-900 rounded-[28px] text-white font-black uppercase text-[11px] tracking-[0.2em] shadow-xl active:scale-95 transition-all flex items-center justify-center space-x-3"
+            className="w-full py-5 bg-slate-900 dark:bg-slate-800 text-white rounded-[28px] font-black uppercase text-[11px] tracking-[0.2em] shadow-xl border border-slate-900 dark:border-slate-500/60 active:scale-95 transition-all flex items-center justify-center space-x-3"
           >
             <Shield size={18} className="text-indigo-400" />
             <span>Painel Administrativo</span>

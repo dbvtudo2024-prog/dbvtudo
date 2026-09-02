@@ -1783,7 +1783,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     const saved = localStorage.getItem('markedVerses');
     return saved ? JSON.parse(saved) : [];
   });
-  const [selectedTestament, setSelectedTestament] = useState<'ANTIGO' | 'NOVO' | 'TODOS'>('TODOS');
+  const [selectedTestament, setSelectedTestament] = useState<'ANTIGO' | 'NOVO' | 'TODOS'>('ANTIGO');
   const [bibleSearch, setBibleSearch] = useState('');
   const [bibleDictionary, setBibleDictionary] = useState<BibleDictionaryEntry[]>([]);
   const [dictionarySearch, setDictionarySearch] = useState('');
@@ -1971,6 +1971,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   }, [activeSubView]);
 
   const loadProfile = useCallback(() => {
+    if (isGuest) {
+      setUserAvatar(null);
+      setUserEmail(null);
+      setIsUserAdmin(false);
+      return;
+    }
     const saved = localStorage.getItem(PROFILE_KEY);
     if (saved) {
       try {
@@ -1979,8 +1985,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         setUserEmail(parsed.email || null);
         setIsUserAdmin(parsed.isAdmin || false);
       } catch { }
+    } else {
+      setUserAvatar(null);
+      setUserEmail(null);
+      setIsUserAdmin(false);
     }
-  }, []);
+  }, [isGuest]);
 
   useEffect(() => {
     loadProfile();
@@ -4608,10 +4618,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           </div>
         </div>
 
-        {/* Barra de Busca e Filtros */}
-        <div className="space-y-4">
-          <div className="relative">
-            <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-500">
+        {/* Barra de Busca e Filtros com botões AT e NT no lado direito */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-500">
               <Search size={18} />
             </div>
             <input 
@@ -4619,27 +4629,32 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               placeholder="Buscar livro..."
               value={bibleSearch}
               onChange={(e) => setBibleSearch(e.target.value)}
-              className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-4 pl-14 pr-24 text-sm font-bold text-slate-700 dark:text-white focus:outline-none shadow-sm placeholder:text-slate-300 dark:placeholder:text-slate-500"
+              className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-3.5 pl-11 pr-4 text-sm font-bold text-slate-700 dark:text-white focus:outline-none shadow-sm placeholder:text-slate-300 dark:placeholder:text-slate-500"
             />
-            <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-blue-500 text-white px-5 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest active:scale-95 transition-all">
-              Buscar
-            </button>
           </div>
 
-          <div className="flex space-x-2">
+          <div className="flex items-center space-x-1.5 shrink-0">
             <button 
               onClick={() => setSelectedTestament(selectedTestament === 'ANTIGO' ? 'TODOS' : 'ANTIGO')}
-              className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center justify-center space-x-2 ${selectedTestament === 'ANTIGO' ? 'bg-blue-500 border-blue-500 text-white shadow-md' : 'bg-blue-50 dark:bg-slate-800 border-blue-100 dark:border-slate-700 text-blue-500 dark:text-blue-400'}`}
+              className={`h-12 min-w-[46px] px-3 rounded-2xl text-xs font-black tracking-wider transition-all flex items-center justify-center border active:scale-95 shadow-sm ${
+                selectedTestament === 'ANTIGO' 
+                  ? 'bg-blue-600 border-blue-600 text-white shadow-blue-500/25 ring-2 ring-blue-400/30' 
+                  : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-blue-400'
+              }`}
+              title="Antigo Testamento"
             >
-              <Zap size={14} className="rotate-180" />
-              <span>Antigo Testamento</span>
+              AT
             </button>
             <button 
               onClick={() => setSelectedTestament(selectedTestament === 'NOVO' ? 'TODOS' : 'NOVO')}
-              className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center justify-center space-x-2 ${selectedTestament === 'NOVO' ? 'bg-blue-500 border-blue-500 text-white shadow-md' : 'bg-blue-50 dark:bg-slate-800 border-blue-100 dark:border-slate-700 text-blue-500 dark:text-blue-400'}`}
+              className={`h-12 min-w-[46px] px-3 rounded-2xl text-xs font-black tracking-wider transition-all flex items-center justify-center border active:scale-95 shadow-sm ${
+                selectedTestament === 'NOVO' 
+                  ? 'bg-blue-600 border-blue-600 text-white shadow-blue-500/25 ring-2 ring-blue-400/30' 
+                  : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-blue-400'
+              }`}
+              title="Novo Testamento"
             >
-              <ChevronRight size={14} />
-              <span>Novo Testamento</span>
+              NT
             </button>
           </div>
         </div>
@@ -4648,8 +4663,16 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         <div className="space-y-3">
           <div className="flex items-center justify-between px-2">
             <h4 className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-tight">
-              {selectedTestament === 'ANTIGO' ? '39 livros' : selectedTestament === 'NOVO' ? '27 livros' : `${filteredBooks.length} livros`}
+              {selectedTestament === 'ANTIGO' ? 'Antigo Testamento (39 livros)' : selectedTestament === 'NOVO' ? 'Novo Testamento (27 livros)' : `${filteredBooks.length} livros`}
             </h4>
+            {selectedTestament !== 'TODOS' && (
+              <button 
+                onClick={() => setSelectedTestament('TODOS')}
+                className="text-[10px] font-bold text-blue-500 hover:underline"
+              >
+                Mostrar todos
+              </button>
+            )}
           </div>
 
           {isLoading ? (
@@ -7142,32 +7165,32 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
         <button 
           onClick={() => setActiveSubView('SPECIALTIES')}
-          className="w-full bg-white dark:bg-slate-800 p-5 rounded-[36px] shadow-sm border border-slate-50 dark:border-slate-700 flex items-center justify-between active:scale-[0.98] transition-all group"
+          className="w-full p-5 rounded-[36px] shadow-lg flex items-center justify-between text-white active:scale-[0.98] transition-all group bg-amber-600 dark:bg-amber-700"
         >
           <div className="flex items-center space-x-4">
-            <div className={`w-14 h-14 ${themeBgLight} dark:bg-slate-700 rounded-[22px] flex items-center justify-center`}>
-              <Award size={28} strokeWidth={2.5} style={{ color: themeColor }} />
+            <div className="w-14 h-14 bg-white/20 rounded-[22px] flex items-center justify-center">
+              <Award size={28} strokeWidth={2.5} />
             </div>
             <div className="text-left">
-              <h3 className="font-black text-lg text-slate-800 dark:text-white uppercase tracking-tight">Especialidades</h3>
-              <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 uppercase tracking-widest">Manual e Instruções</p>
+              <h3 className="font-black text-lg uppercase tracking-tight">Especialidades</h3>
+              <p className="text-[9px] font-bold opacity-80 uppercase tracking-widest">Manual, Áreas e Requisitos</p>
             </div>
           </div>
-          <ChevronRight size={18} className="text-slate-300 dark:text-slate-400" />
+          <ChevronRight size={18} />
         </button>
         {/* Botão Gestão (Apenas se for admin) */}
         {isUserAdmin && (
           <button 
             onClick={() => setActiveSubView('BIBLE_ADMIN')}
-            className="w-full bg-white dark:bg-slate-800 p-5 rounded-[36px] shadow-sm border border-slate-50 dark:border-slate-700 flex items-center justify-between active:scale-[0.98] transition-all group"
+            className="w-full bg-slate-900 dark:bg-slate-800 p-5 rounded-[36px] shadow-sm border border-slate-900 dark:border-slate-500/60 flex items-center justify-between active:scale-[0.98] transition-all group"
           >
             <div className="flex items-center space-x-4">
               <div className="w-14 h-14 bg-slate-800 dark:bg-slate-700 rounded-[22px] flex items-center justify-center text-white">
                 <Settings size={28} strokeWidth={2.5} />
               </div>
               <div className="text-left">
-                <h3 className="font-black text-lg text-slate-800 dark:text-white uppercase tracking-tight">Painel Administrativo</h3>
-                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 uppercase tracking-widest">Administração do Clube</p>
+                <h3 className="font-black text-lg text-white uppercase tracking-tight">Painel Administrativo</h3>
+                <p className="text-[9px] font-bold text-slate-300 dark:text-slate-300 uppercase tracking-widest">Administração do Clube</p>
               </div>
             </div>
             <ChevronRight size={18} className="text-slate-300 dark:text-slate-400" />

@@ -6,6 +6,8 @@ import ClubManagement, { SubViewType } from './components/ClubManagement';
 import Auth from './components/Auth';
 import Profile from './components/Profile';
 import { Settings, X, ChevronLeft } from 'lucide-react';
+import { PROFILE_KEY } from './constants';
+import { supabase } from './services/supabaseService';
 
 const styles = `
   @keyframes slideUp {
@@ -43,60 +45,45 @@ const styles = `
 `;
 
 const App: React.FC = () => {
+  // Se o usuário estiver logado, inicia na tela inicial (HOME); caso contrário, na tela de LOGIN
   const [currentView, setCurrentView] = useState<ViewState>(() => {
     try {
-      const saved = localStorage.getItem('dbv_tudo_app_state');
-      if (saved) {
-        const { view } = JSON.parse(saved);
-        if (view && ['LOGIN', 'SIGNUP', 'HOME', 'CLUB_LIST', 'PROFILE', 'SETTINGS'].includes(view)) {
-          return view;
+      const savedProfile = localStorage.getItem(PROFILE_KEY);
+      if (savedProfile) {
+        const parsed = JSON.parse(savedProfile);
+        if (parsed && (parsed.email || parsed.name)) {
+          return 'HOME';
         }
       }
     } catch (e) {
-      console.error("Erro ao carregar view inicial:", e);
+      console.error("Erro ao carregar sessão inicial:", e);
     }
     return 'LOGIN';
   });
 
   const [activeSubView, setActiveSubView] = useState<SubViewType | undefined>(undefined);
-  
-  const [selectedClub, setSelectedClub] = useState<ClubType | null>(() => {
-    try {
-      const saved = localStorage.getItem('dbv_tudo_app_state');
-      if (saved) {
-        const { club } = JSON.parse(saved);
-        if (club === ClubType.PATHFINDER || club === ClubType.ADVENTURER) {
-          return club;
-        }
-      }
-    } catch (e) {
-      console.error("Erro ao carregar clube inicial:", e);
-    }
-    return null;
-  });
+  const [selectedClub, setSelectedClub] = useState<ClubType | null>(null);
+  const [isGuest, setIsGuest] = useState<boolean>(false);
 
-  const [isGuest, setIsGuest] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('dbv_tudo_app_state');
-      if (saved) {
-        const { guest } = JSON.parse(saved);
-        if (guest !== undefined) return Boolean(guest);
+  // Verificar se há sessão ativa no Supabase e perfil salvo
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const savedProfile = localStorage.getItem(PROFILE_KEY);
+      if (session?.user && savedProfile && !isGuest) {
+        setCurrentView(prev => (prev === 'LOGIN' || prev === 'SIGNUP') ? 'HOME' : prev);
       }
-    } catch (e) {
-      console.error("Erro ao carregar guest inicial:", e);
-    }
-    return false;
-  });
+    }).catch(() => {});
+  }, [isGuest]);
 
+  // Manter apenas a preferência de Tema Escuro salva no dispositivo
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     try {
-      const saved = localStorage.getItem('dbv_tudo_app_state');
-      if (saved) {
-        const { darkMode: savedDarkMode } = JSON.parse(saved);
-        return savedDarkMode || false;
+      const savedTheme = localStorage.getItem('dbv_tudo_theme');
+      if (savedTheme) {
+        return savedTheme === 'dark';
       }
     } catch (e) {
-      console.error("Erro ao carregar darkMode inicial:", e);
+      console.error("Erro ao carregar tema inicial:", e);
     }
     return false;
   });
@@ -104,29 +91,27 @@ const App: React.FC = () => {
   const [pendingPrompt, setPendingPrompt] = useState<string | undefined>(undefined);
   const [pendingSubView, setPendingSubView] = useState<SubViewType | undefined>(undefined);
 
-  // Sincronizar classe dark para Tailwind
+  // Limpar qualquer estado salvo legado ao inicializar
+  useEffect(() => {
+    try {
+      localStorage.removeItem('dbv_tudo_app_state');
+    } catch (e) {}
+  }, []);
+
+  // Sincronizar classe dark para Tailwind e salvar preferência de tema
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
+      try {
+        localStorage.setItem('dbv_tudo_theme', 'dark');
+      } catch (e) {}
     } else {
       document.documentElement.classList.remove('dark');
+      try {
+        localStorage.setItem('dbv_tudo_theme', 'light');
+      } catch (e) {}
     }
   }, [darkMode]);
-
-  // Salvar estado quando houver alterações
-  useEffect(() => {
-    try {
-      const stateToSave = {
-        view: currentView,
-        club: selectedClub,
-        guest: isGuest,
-        darkMode
-      };
-      localStorage.setItem('dbv_tudo_app_state', JSON.stringify(stateToSave));
-    } catch (e) {
-      console.error("Erro ao salvar estado no localStorage:", e);
-    }
-  }, [currentView, selectedClub, isGuest, darkMode]);
 
   // Gerenciar histórico para o botão voltar do Android
   useEffect(() => {
@@ -177,6 +162,13 @@ const App: React.FC = () => {
 
   const handleLoginSuccess = (asGuest: boolean = false) => {
     setIsGuest(asGuest);
+    if (asGuest) {
+      try {
+        localStorage.removeItem(PROFILE_KEY);
+        localStorage.removeItem('dbv_tudo_global_user_profile');
+        supabase.auth.signOut().catch(() => {});
+      } catch (e) {}
+    }
     // Use replaceState ao fazer login para que o botão voltar não retorne à tela de login
     try {
       window.history.replaceState({ view: 'HOME', subView: undefined, club: selectedClub, guest: asGuest }, '', '');
@@ -185,16 +177,35 @@ const App: React.FC = () => {
   };
 
   const handleOpenProfile = () => {
-    setCurrentView('PROFILE');
+    const savedProfile = localStorage.getItem(PROFILE_KEY);
+    if (isGuest || !savedProfile) {
+      // Se estiver sem conta logada / modo visitante, leva para o LOGIN
+      setCurrentView('LOGIN');
+    } else {
+      setCurrentView('PROFILE');
+    }
   };
 
   const handleLogout = () => {
     try {
+      localStorage.removeItem(PROFILE_KEY);
+      localStorage.removeItem('dbv_tudo_global_user_profile');
       localStorage.removeItem('dbv_tudo_app_state');
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('sb-') || key.includes('auth-token') || key.includes('supabase'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(k => {
+        try { localStorage.removeItem(k); } catch (e) {}
+      });
+      supabase.auth.signOut().catch(() => {});
     } catch (e) {}
-    // Não removemos o perfil global para o usuário não ter que digitar tudo de novo se voltar
     setIsGuest(false);
     setSelectedClub(null);
+    setActiveSubView(undefined);
     setCurrentView('LOGIN');
   };
 
@@ -209,6 +220,7 @@ const App: React.FC = () => {
           onSelectClub={navigateToClub} 
           onOpenSettings={() => setCurrentView('SETTINGS')} 
           onOpenProfile={handleOpenProfile}
+          isGuest={isGuest}
         />;
       case 'CLUB_LIST':
         return (
@@ -287,7 +299,7 @@ const App: React.FC = () => {
           </div>
         );
       default:
-        return <Home onSelectClub={navigateToClub} onOpenSettings={() => setCurrentView('SETTINGS')} onOpenProfile={handleOpenProfile} />;
+        return <Home onSelectClub={navigateToClub} onOpenSettings={() => setCurrentView('SETTINGS')} onOpenProfile={handleOpenProfile} isGuest={isGuest} />;
     }
   };
 
