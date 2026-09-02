@@ -40,6 +40,57 @@ const getImageUrl = (url: string | undefined | null) => {
   return trimmed;
 };
 
+const loadImageDataUrl = async (url: string | undefined | null): Promise<string | null> => {
+  if (!url || typeof url !== 'string') return null;
+  const processedUrl = getImageUrl(url);
+  if (!processedUrl) return null;
+
+  try {
+    const response = await fetch(processedUrl);
+    if (response.ok) {
+      const blob = await response.blob();
+      return await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+            resolve(reader.result);
+          } else {
+            resolve('');
+          }
+        };
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(blob);
+      });
+    }
+  } catch {
+    // Continua para fallback via Image + Canvas se fetch falhar (CORS)
+  }
+
+  return new Promise<string | null>((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width || 120;
+        canvas.height = img.naturalHeight || img.height || 120;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          const dataUrl = canvas.toDataURL('image/png');
+          resolve(dataUrl);
+          return;
+        }
+      } catch (err) {
+        console.warn('Erro ao desenhar imagem em canvas para PDF:', err);
+      }
+      resolve(null);
+    };
+    img.onerror = () => resolve(null);
+    img.src = processedUrl;
+  });
+};
+
 interface CultureAdminProps {
   culturaData: Cultura | null;
   club: ClubType;
@@ -2445,32 +2496,47 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           return false;
         };
 
+        // Imagem da Classe
+        if (selectedClass.imagem) {
+          try {
+            const imgData = await loadImageDataUrl(selectedClass.imagem);
+            if (imgData) {
+              const imgSize = 28;
+              const imgX = (pageWidth - imgSize) / 2;
+              pdf.addImage(imgData, 'PNG', imgX, currentY, imgSize, imgSize);
+              currentY += imgSize + 6;
+            }
+          } catch (imgErr) {
+            console.warn('Não foi possível carregar a imagem da classe para o PDF:', imgErr);
+          }
+        }
+
         // Header
         pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(22);
+        pdf.setFontSize(20);
         pdf.setTextColor(30, 41, 59); // slate-800
-        pdf.text(selectedClass.titulo.toUpperCase(), margin, currentY);
-        currentY += 12;
+        pdf.text(selectedClass.titulo.toUpperCase(), pageWidth / 2, currentY, { align: 'center' });
+        currentY += 8;
 
         if (selectedClass.subtitulo) {
           pdf.setFont('helvetica', 'normal');
-          pdf.setFontSize(12);
+          pdf.setFontSize(11);
           pdf.setTextColor(100, 116, 139); // slate-500
           const subtitleLines = pdf.splitTextToSize(selectedClass.subtitulo, innerWidth);
-          pdf.text(subtitleLines, margin, currentY);
-          currentY += (subtitleLines.length * 6) + 8;
+          pdf.text(subtitleLines, pageWidth / 2, currentY, { align: 'center' });
+          currentY += (subtitleLines.length * 5) + 6;
         }
 
         pdf.setDrawColor(226, 232, 240); // slate-200
         pdf.line(margin, currentY, margin + innerWidth, currentY);
-        currentY += 12;
+        currentY += 10;
 
         // Requisitos
         pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(16);
+        pdf.setFontSize(14);
         pdf.setTextColor(30, 41, 59);
         pdf.text('REQUISITOS', margin, currentY);
-        currentY += 12;
+        currentY += 10;
 
         classRequirements.forEach((req) => {
           const parts = req.split(':');
@@ -2861,31 +2927,57 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           return false;
         };
 
+        // Imagem da Especialidade
+        if (selectedSpecialty.logo) {
+          try {
+            const imgData = await loadImageDataUrl(selectedSpecialty.logo);
+            if (imgData) {
+              const imgSize = 28;
+              const imgX = (pageWidth - imgSize) / 2;
+              pdf.addImage(imgData, 'PNG', imgX, currentY, imgSize, imgSize);
+              currentY += imgSize + 6;
+            }
+          } catch (imgErr) {
+            console.warn('Não foi possível carregar a imagem da especialidade para o PDF:', imgErr);
+          }
+        }
+
         // Header
         pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(22);
+        pdf.setFontSize(20);
         pdf.setTextColor(79, 70, 229); // indigo-600
-        pdf.text(selectedSpecialty.nome.toUpperCase(), margin, currentY);
-        currentY += 12;
+        pdf.text(selectedSpecialty.nome.toUpperCase(), pageWidth / 2, currentY, { align: 'center' });
+        currentY += 8;
 
         pdf.setFont('helvetica', 'normal');
         pdf.setFontSize(10);
         pdf.setTextColor(100, 116, 139); // slate-500
-        pdf.text(`ÁREA: ${selectedSpecialty.area.toUpperCase()}`, margin, currentY);
-        currentY += 6;
-        pdf.text(`CÓDIGO: ${selectedSpecialty.codigo} | NÍVEL: ${selectedSpecialty.nivel} | ANO: ${selectedSpecialty.ano || selectedSpecialty.origem || 'N/A'}`, margin, currentY);
-        currentY += 12;
+        if (selectedSpecialty.area) {
+          pdf.text(`ÁREA: ${selectedSpecialty.area.toUpperCase()}`, pageWidth / 2, currentY, { align: 'center' });
+          currentY += 5;
+        }
+
+        const metaParts = [
+          selectedSpecialty.codigo ? `CÓDIGO: ${selectedSpecialty.codigo}` : null,
+          selectedSpecialty.nivel ? `NÍVEL: ${selectedSpecialty.nivel}` : null,
+          selectedSpecialty.ano ? `ANO: ${selectedSpecialty.ano}` : (selectedSpecialty.origem ? `ORIGEM: ${selectedSpecialty.origem}` : null)
+        ].filter(Boolean);
+
+        if (metaParts.length > 0) {
+          pdf.text(metaParts.join(' | '), pageWidth / 2, currentY, { align: 'center' });
+          currentY += 6;
+        }
 
         pdf.setDrawColor(226, 232, 240); // slate-200
         pdf.line(margin, currentY, margin + innerWidth, currentY);
-        currentY += 12;
+        currentY += 10;
 
         // Requisitos
         pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(16);
+        pdf.setFontSize(14);
         pdf.setTextColor(30, 41, 59);
         pdf.text('REQUISITOS', margin, currentY);
-        currentY += 12;
+        currentY += 10;
 
         selectedSpecialty.requisitos.forEach((req, idx) => {
           pdf.setFont('helvetica', 'bold');
@@ -2905,8 +2997,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       }
     };
 
-    // Contagem de especialidades identificadas na lista de requisitos
-    const matchedCount = selectedSpecialty.requisitos.filter(r => !!findMatchingSpecialty(r, allSpecialtiesList)).length;
+    // Contagem de especialidades identificadas na lista de requisitos (somente para Mestrados)
+    const matchedCount = isMastery
+      ? selectedSpecialty.requisitos.filter(r => !!findMatchingSpecialty(r, allSpecialtiesList)).length
+      : 0;
 
     return (
       <div className="animate-slide-in space-y-4 pt-1 pb-28">
@@ -3017,7 +3111,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
               {selectedSpecialty.requisitos.length > 0 ? (
                 selectedSpecialty.requisitos.map((req, idx) => {
                   const trimmedReq = req.trim();
-                  const matched = findMatchingSpecialty(trimmedReq, allSpecialtiesList);
+                  const matched = isMastery ? findMatchingSpecialty(trimmedReq, allSpecialtiesList) : null;
                   
                   // Se encontrou a especialidade correspondente, renderiza o card com miniatura
                   if (matched) {
