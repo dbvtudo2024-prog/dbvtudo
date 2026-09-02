@@ -17,6 +17,7 @@ import {
   fetchTrunfos, updateTrunfo, deleteTrunfo
 } from '../services/supabaseService';
 import { PROFILE_KEY } from '../constants';
+import { MASTERY_RULES } from '../masteryRules';
 import { 
   Shield, Award, User, Layers, Sparkles, Home as HomeIcon, Search,
   ChevronRight, ChevronLeft, ChevronDown, Info, Book, Settings, Zap, Music, Flag, Shirt, Globe, Key, FileText, Library, CreditCard, MapPin, Video, Folder, BookOpen, Heart, ArrowUp, ArrowDown,
@@ -1701,6 +1702,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [specialties, setSpecialties] = useState<Especialidade[]>([]);
   const [selectedSpecialty, setSelectedSpecialty] = useState<Especialidade | null>(null);
+  const [specialtyNavStack, setSpecialtyNavStack] = useState<Especialidade[]>([]);
   const [desbravaPlusItems, setDesbravaPlusItems] = useState<DesbravaMais[]>([]);
   const [selectedDesbravaPlusItem, setSelectedDesbravaPlusItem] = useState<DesbravaMais | null>(null);
 
@@ -2150,12 +2152,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         .then(setClasses)
         .catch(err => console.warn("Erro ao carregar classes:", err))
         .finally(() => setIsLoading(false));
-    } else if (activeSubView === 'SPECIALTIES') {
-      setIsLoading(true);
-      fetchCategories(club)
-        .then(setCategories)
-        .catch(err => console.warn("Erro ao carregar categorias:", err))
-        .finally(() => setIsLoading(false));
+    } else if (activeSubView === 'SPECIALTIES' || activeSubView === 'SPECIALTIES_LIST' || activeSubView === 'SPECIALTY_DETAILS') {
+      if (activeSubView === 'SPECIALTIES') {
+        setIsLoading(true);
+        fetchCategories(club)
+          .then(setCategories)
+          .catch(err => console.warn("Erro ao carregar categorias:", err))
+          .finally(() => setIsLoading(false));
+      }
       if (allSpecialtiesList.length === 0) {
         fetchEspecialidades(club)
           .then(setAllSpecialtiesList)
@@ -2727,9 +2731,116 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     </div>
   );
 
+  const cleanTextForSpecialtyMatching = (str: string) => {
+    return str
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[\;\.\:\,\(\)\"\'\–\—\-\[\]]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  const KNOWN_SPECIALTY_TYPO_MAP: Record<string, string> = {
+    'calaque': 'caiaque',
+    'marsupials': 'marsupiais',
+    'doencas tropicals': 'doencas tropicais',
+    'prevencao de doencas tropicals': 'prevencao de doencas tropicais',
+    'pequenos mamiferos': 'pequenos mamiferos de estimacao',
+    'animais ameacados': 'animais ameacados de extincao',
+    'reciclagem': 'reciclagem e sustentabilidade',
+    'nutricao avancado': 'nutricao avancado',
+    'primeiros socorros avancado': 'primeiros socorros avancado',
+  };
+
+  const findMatchingSpecialty = (reqText: string, allList: Especialidade[]): Especialidade | null => {
+    if (!reqText || !allList || allList.length === 0) return null;
+    
+    let clean = cleanTextForSpecialtyMatching(reqText)
+      .replace(/^ter\s+(sete|oito|nove|dez|quatorze|\d+)\s+das\s+seguintes\s+especialidades/g, '')
+      .replace(/^ter\s+(sete|oito|nove|dez|quatorze|\d+)\s+especialidades/g, '')
+      .replace(/^\d+\s*(ter|\-|\.)*/g, '')
+      .replace(/^(a|as)\s+especialidade(s)?\s+(de|da|do)?/g, '')
+      .replace(/^especialidade(s)?\s+(de|da|do)?/g, '')
+      .trim();
+
+    if (!clean || clean.length < 3) return null;
+
+    if (KNOWN_SPECIALTY_TYPO_MAP[clean]) {
+      clean = KNOWN_SPECIALTY_TYPO_MAP[clean];
+    }
+
+    const ordinaryList = allList.filter(e => !e.nome.toLowerCase().includes('mestrado'));
+
+    // 1. Match exato
+    let match = ordinaryList.find(e => cleanTextForSpecialtyMatching(e.nome) === clean);
+    if (match) return match;
+
+    // 2. Prefixo ou Sufixo
+    match = ordinaryList.find(e => {
+      const n = cleanTextForSpecialtyMatching(e.nome);
+      return n === clean || clean.startsWith(n) || n.startsWith(clean);
+    });
+    if (match) return match;
+
+    // 3. Substring
+    match = ordinaryList.find(e => {
+      const n = cleanTextForSpecialtyMatching(e.nome);
+      if (n.length < 4) return false;
+      return clean.includes(n) || n.includes(clean);
+    });
+    return match || null;
+  };
+
+  const getMasteryGlobalSpecialties = (masteryName: string, allList: Especialidade[]): Especialidade[] => {
+    if (!masteryName || !allList || allList.length === 0) return [];
+    const normalize = (txt: string) => 
+      txt.toLowerCase()
+         .normalize("NFD")
+         .replace(/[\u0300-\u036f]/g, "")
+         .replace('mestrado em ', '')
+         .replace('mestrado de ', '')
+         .replace('campreste', 'campestre')
+         .replace('tecinologia', 'tecnologia')
+         .trim();
+
+    const mName = normalize(masteryName);
+    const rule = MASTERY_RULES.find(r => {
+      const rName = normalize(r.name);
+      return mName === rName || mName.includes(rName) || rName.includes(mName);
+    });
+
+    const ordinary = allList.filter(s => !s.nome.toLowerCase().includes('mestrado'));
+
+    if (!rule) {
+      return ordinary.filter(s => {
+        const area = s.area ? normalize(s.area) : '';
+        return area && (mName.includes(area) || area.includes(mName));
+      });
+    }
+
+    if (rule.isGlobalArea) {
+      return ordinary.filter(s => {
+        if (s.area && normalize(s.area).includes(normalize(rule.category))) return true;
+        if (s.sigla && rule.siglas?.includes(s.sigla)) return true;
+        return false;
+      });
+    }
+
+    return ordinary.filter(s => {
+      const sName = normalize(s.nome);
+      return rule.specialties.some(rs => {
+        const rsName = normalize(rs);
+        return sName === rsName || sName.includes(rsName) || rsName.includes(sName);
+      });
+    });
+  };
+
   const renderSpecialtyDetails = () => {
     if (!selectedSpecialty) return null;
     const isCompleted = completedSpecialties.includes(selectedSpecialty.id.toString());
+    const isMastery = selectedSpecialty.nome.toLowerCase().includes('mestrado') || selectedSpecialty.area === 'Mestrados';
+    const globalAreaSpecialties = isMastery ? getMasteryGlobalSpecialties(selectedSpecialty.nome, allSpecialtiesList) : [];
 
     const generateSpecialtyPDF = async () => {
       setIsGeneratingPDF(true);
@@ -2794,6 +2905,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       }
     };
 
+    // Contagem de especialidades identificadas na lista de requisitos
+    const matchedCount = selectedSpecialty.requisitos.filter(r => !!findMatchingSpecialty(r, allSpecialtiesList)).length;
+
     return (
       <div className="animate-slide-in space-y-4 pt-1 pb-28">
         {/* Barra de Voltar e Favorito Fixa no Topo */}
@@ -2804,7 +2918,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         }`}>
           <button 
             onClick={() => {
-              if (selectedCategory) {
+              if (specialtyNavStack.length > 0) {
+                const prev = specialtyNavStack[specialtyNavStack.length - 1];
+                setSpecialtyNavStack(prevStack => prevStack.slice(0, prevStack.length - 1));
+                setSelectedSpecialty(prev);
+                if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
+              } else if (selectedCategory) {
                 setActiveSubView('SPECIALTIES_LIST');
               } else {
                 setActiveSubView('SPECIALTIES');
@@ -2844,7 +2963,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           <div id="specialty-header" className="bg-white dark:bg-slate-800 rounded-[40px] p-8 pt-16 shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center text-center relative">
             <div className="w-36 h-36 bg-transparent rounded-[32px] flex items-center justify-center mb-6">
               {selectedSpecialty.logo ? (
-                <img src={selectedSpecialty.logo} className="w-32 h-32 object-contain filter drop-shadow-sm" alt={selectedSpecialty.nome} referrerPolicy="no-referrer" />
+                <img src={getImageUrl(selectedSpecialty.logo)} className="w-32 h-32 object-contain filter drop-shadow-sm" alt={selectedSpecialty.nome} referrerPolicy="no-referrer" />
               ) : (
                 <Award size={48} className="text-slate-200 dark:text-slate-600" />
               )}
@@ -2888,26 +3007,198 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           </div>
 
           <div className="space-y-4">
-            <div id="specialty-requirements-title" className="px-2">
-              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Requisitos</h4>
+            <div id="specialty-requirements-title" className="px-2 flex items-center justify-between">
+              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                {isMastery ? 'Especialidades e Requisitos' : 'Requisitos'}
+              </h4>
             </div>
             
             <div className="space-y-3">
               {selectedSpecialty.requisitos.length > 0 ? (
-                selectedSpecialty.requisitos.map((req, idx) => (
-                  <div key={idx} className="specialty-requirement-card bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-5 shadow-sm flex items-start space-x-4">
-                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2.5 flex-shrink-0"></div>
-                    <p className="text-[14px] font-bold text-slate-700 dark:text-slate-200 leading-snug">
-                      {req.trim()}
-                    </p>
-                  </div>
-                ))
+                selectedSpecialty.requisitos.map((req, idx) => {
+                  const trimmedReq = req.trim();
+                  const matched = findMatchingSpecialty(trimmedReq, allSpecialtiesList);
+                  
+                  // Se encontrou a especialidade correspondente, renderiza o card com miniatura
+                  if (matched) {
+                    const isMatchedCompleted = completedSpecialties.includes(matched.id.toString());
+                    return (
+                      <div 
+                        key={idx}
+                        onClick={() => {
+                          if (selectedSpecialty) {
+                            setSpecialtyNavStack(prev => [...prev, selectedSpecialty]);
+                          }
+                          setSelectedSpecialty(matched);
+                          if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
+                        }}
+                        className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-[24px] p-3.5 sm:p-4 shadow-sm flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all group"
+                      >
+                        <div className="flex items-center space-x-3.5 sm:space-x-4 flex-1 min-w-0">
+                          {/* Miniatura da Especialidade */}
+                          <div className="w-14 h-14 sm:w-16 sm:h-16 bg-slate-50 dark:bg-slate-900/80 rounded-2xl border border-slate-100 dark:border-slate-700/60 flex items-center justify-center p-2 flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform overflow-hidden">
+                            {matched.logo ? (
+                              <img 
+                                src={getImageUrl(matched.logo)} 
+                                alt={matched.nome} 
+                                className="w-full h-full object-contain filter drop-shadow-sm" 
+                                referrerPolicy="no-referrer"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <Award size={24} className="text-amber-500" />
+                            )}
+                          </div>
+
+                          {/* Informações da Especialidade */}
+                          <div className="flex-1 min-w-0 pr-2">
+                            <h5 className="font-black text-slate-800 dark:text-white text-xs sm:text-[13px] uppercase tracking-tight leading-snug group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-2">
+                              {matched.nome}
+                            </h5>
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                              {matched.area && (
+                                <span className="text-[9px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
+                                  {matched.area}
+                                </span>
+                              )}
+                              {matched.codigo && (
+                                <span className="text-[9px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded-md">
+                                  {matched.codigo}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Indicadores e Ação */}
+                        <div className="flex items-center space-x-2 flex-shrink-0">
+                          {isMatchedCompleted && (
+                            <div className="p-1.5 bg-red-50 dark:bg-red-950/40 rounded-xl text-red-500" title="Especialidade guardada">
+                              <Heart size={14} fill="currentColor" />
+                            </div>
+                          )}
+                          <div className="w-8 h-8 rounded-xl bg-slate-50 dark:bg-slate-700/50 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-950/60 transition-colors">
+                            <ChevronRight size={16} />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // Se for uma instrução/cabeçalho de mestrado
+                  const isInstruction = isMastery && (
+                    trimmedReq.toLowerCase().startsWith('ter ') || 
+                    trimmedReq.toLowerCase().startsWith('1 ter ') ||
+                    trimmedReq.toLowerCase().startsWith('completar ') ||
+                    trimmedReq.toLowerCase().includes('seguintes especialidades')
+                  );
+
+                  if (isInstruction) {
+                    return (
+                      <div key={idx} className="bg-gradient-to-r from-indigo-50/80 to-blue-50/50 dark:from-indigo-950/40 dark:to-slate-800/40 border border-indigo-100/80 dark:border-indigo-900/40 rounded-[22px] p-4 shadow-sm flex items-center space-x-3">
+                        <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-indigo-500/20">
+                          <Info size={16} />
+                        </div>
+                        <p className="text-xs sm:text-sm font-black text-indigo-950 dark:text-indigo-200 uppercase tracking-tight leading-snug">
+                          {trimmedReq}
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  // Requisito padrão
+                  return (
+                    <div key={idx} className="specialty-requirement-card bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-5 shadow-sm flex items-start space-x-4">
+                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2.5 flex-shrink-0"></div>
+                      <p className="text-[14px] font-bold text-slate-700 dark:text-slate-200 leading-snug">
+                        {trimmedReq}
+                      </p>
+                    </div>
+                  );
+                })
               ) : (
                 <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-8 text-center">
                   <p className="text-slate-400 font-bold text-sm">Nenhum requisito listado no momento.</p>
                 </div>
               )}
             </div>
+
+            {/* Caso seja um Mestrado de área ampla com lista de especialidades válidas */}
+            {isMastery && matchedCount < 3 && globalAreaSpecialties.length > 0 && (
+              <div className="pt-4 space-y-3">
+                <div className="px-2 flex items-center justify-between">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                    Especialidades Válidas ({globalAreaSpecialties.length})
+                  </h4>
+                </div>
+                <div className="space-y-2.5">
+                  {globalAreaSpecialties.map((esp) => {
+                    const isEspCompleted = completedSpecialties.includes(esp.id.toString());
+                    return (
+                      <div 
+                        key={esp.id}
+                        onClick={() => {
+                          if (selectedSpecialty) {
+                            setSpecialtyNavStack(prev => [...prev, selectedSpecialty]);
+                          }
+                          setSelectedSpecialty(esp);
+                          if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
+                        }}
+                        className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-[24px] p-3.5 sm:p-4 shadow-sm flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all group"
+                      >
+                        <div className="flex items-center space-x-3.5 sm:space-x-4 flex-1 min-w-0">
+                          {/* Miniatura da Especialidade */}
+                          <div className="w-14 h-14 sm:w-16 sm:h-16 bg-slate-50 dark:bg-slate-900/80 rounded-2xl border border-slate-100 dark:border-slate-700/60 flex items-center justify-center p-2 flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform overflow-hidden">
+                            {esp.logo ? (
+                              <img 
+                                src={getImageUrl(esp.logo)} 
+                                alt={esp.nome} 
+                                className="w-full h-full object-contain filter drop-shadow-sm" 
+                                referrerPolicy="no-referrer"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <Award size={24} className="text-amber-500" />
+                            )}
+                          </div>
+
+                          {/* Informações da Especialidade */}
+                          <div className="flex-1 min-w-0 pr-2">
+                            <h5 className="font-black text-slate-800 dark:text-white text-xs sm:text-[13px] uppercase tracking-tight leading-snug group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-2">
+                              {esp.nome}
+                            </h5>
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                              {esp.area && (
+                                <span className="text-[9px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
+                                  {esp.area}
+                                </span>
+                              )}
+                              {esp.codigo && (
+                                <span className="text-[9px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded-md">
+                                  {esp.codigo}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Indicadores e Ação */}
+                        <div className="flex items-center space-x-2 flex-shrink-0">
+                          {isEspCompleted && (
+                            <div className="p-1.5 bg-red-50 dark:bg-red-950/40 rounded-xl text-red-500" title="Especialidade guardada">
+                              <Heart size={14} fill="currentColor" />
+                            </div>
+                          )}
+                          <div className="w-8 h-8 rounded-xl bg-slate-50 dark:bg-slate-700/50 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-950/60 transition-colors">
+                            <ChevronRight size={16} />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

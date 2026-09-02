@@ -197,10 +197,10 @@ export const MASTERY_RULES: MasteryRule[] = [
   },
   {
     name: "Mestrado em Ensinos Bíblicos",
-    category: "Atividades Missionárias",
+    category: "Ensinos Bíblicos",
     requirementsCount: 14,
     specialties: [],
     isGlobalArea: true,
-    siglas: ['AM', 'MA']
+    siglas: ['AM-EB', 'EB']
   }
 ];
