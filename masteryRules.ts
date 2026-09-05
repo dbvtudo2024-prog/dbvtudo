@@ -575,6 +575,6 @@ export const MASTERY_RULES: MasteryRule[] = [
     requirementsCount: 14,
     specialties: [],
     isGlobalArea: true,
-    siglas: ['EB', 'AM-EB', 'AM']
+    siglas: ['AM-EB']
   }
 ];

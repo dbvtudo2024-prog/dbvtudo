@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { ChevronLeft, LogOut, Shield, MapPin, Briefcase, Award, Camera, Check, X, User, Mail, Phone, ChevronDown, Heart, Search, Settings, Layers, Globe, Trophy, ArrowUp } from 'lucide-react';
+import { ChevronLeft, LogOut, Shield, MapPin, Briefcase, Award, Camera, Check, X, User, Mail, Phone, ChevronDown, Heart, Search, Settings, Layers, Globe, Trophy, ArrowUp, RotateCcw, AlertTriangle } from 'lucide-react';
 import { ClubType, Especialidade, UserProfile, Conquista } from '../types';
 import { MASTERY_RULES } from '../masteryRules';
 import { 
@@ -91,6 +91,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const storageKey = `dbv_tudo_global_user_profile`;
@@ -322,6 +323,21 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     }
   };
 
+  const handleResetSpecialties = async () => {
+    setLikedIds([]);
+    try {
+      localStorage.removeItem(likedKey);
+      localStorage.setItem(likedKey, JSON.stringify([]));
+    } catch (e) {
+      console.warn("Erro ao limpar localStorage de especialidades:", e);
+    }
+
+    if (userData.email && userData.email !== "email@exemplo.com") {
+      await updateUserSpecialties(userData.email, []);
+    }
+    setShowResetConfirm(false);
+  };
+
   const likedSpecialtiesList = useMemo(() => {
     return allSpecialties.filter(s => likedIds.includes(s.id.toString()));
   }, [allSpecialties, likedIds]);
@@ -442,19 +458,44 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
               </button>
             </div>
             
-            <div className="p-6 pb-2">
-              <div className="relative">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400">
-                  <Search size={18} />
+            <div className="p-6 pb-2 space-y-3">
+              <div className="flex items-center space-x-2">
+                <div className="relative flex-grow">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400">
+                    <Search size={18} />
+                  </div>
+                  <input 
+                    type="text"
+                    placeholder="Buscar especialidade..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-3.5 pl-12 pr-4 text-sm font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 transition-all shadow-inner placeholder:text-slate-400 dark:placeholder:text-slate-400"
+                  />
                 </div>
-                <input 
-                  type="text"
-                  placeholder="Buscar especialidade..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-3.5 pl-12 pr-4 text-sm font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 transition-all shadow-inner placeholder:text-slate-400 dark:placeholder:text-slate-400"
-                />
+                {likedIds.length > 0 && (
+                  <button
+                    onClick={() => setShowResetConfirm(true)}
+                    title="Resetar especialidades favoritadas"
+                    className="h-[50px] px-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 flex items-center justify-center space-x-1.5 active:scale-95 transition-all flex-shrink-0 text-xs font-black uppercase tracking-wider hover:bg-rose-100 dark:hover:bg-rose-900/60 shadow-sm"
+                  >
+                    <RotateCcw size={16} />
+                    <span className="hidden sm:inline">Resetar</span>
+                  </button>
+                )}
               </div>
+
+              {likedIds.length > 0 && (
+                <div className="flex items-center justify-between px-1 text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                  <span>{likedIds.length} especialidade{likedIds.length > 1 ? 's' : ''} favoritada{likedIds.length > 1 ? 's' : ''}</span>
+                  <button
+                    onClick={() => setShowResetConfirm(true)}
+                    className="text-rose-500 hover:text-rose-600 dark:text-rose-400 text-[10px] font-black uppercase tracking-wider flex items-center space-x-1 active:scale-95 transition-all"
+                  >
+                    <RotateCcw size={12} />
+                    <span>Limpar tudo</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="flex-grow overflow-y-auto p-6 pt-2 space-y-3 scrollbar-hide">
@@ -834,9 +875,18 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
           {/* Especialidades Curtidas (Minha Faixa) */}
           {likedIds.length > 0 && (
             <div className="w-full pt-6 border-t border-slate-50 dark:border-slate-700">
-              <p className="text-center text-[9px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-[0.2em] mb-4">
-                Especialidades na Faixa ({likedIds.length})
-              </p>
+              <div className="flex items-center justify-between mb-4 px-1">
+                <p className="text-[9px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-[0.2em]">
+                  Especialidades na Faixa ({likedIds.length})
+                </p>
+                <button
+                  onClick={() => setShowResetConfirm(true)}
+                  className="text-[9px] font-black text-rose-500 hover:text-rose-600 dark:text-rose-400 uppercase tracking-wider flex items-center space-x-1 px-2.5 py-1 rounded-full bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/40 active:scale-95 transition-all shadow-xs"
+                >
+                  <RotateCcw size={11} />
+                  <span>Resetar</span>
+                </button>
+              </div>
               
               <div className="space-y-12">
                 {isLoading ? (
@@ -846,56 +896,8 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                 ) : (
                   (() => {
                     const likedSpecialties = allSpecialties.filter(s => likedIds.includes(s.id.toString()));
-                    // 0. Pré-processar TODAS as especialidades curtidas para garantir que tenham a área CORRETA de acordo com as regras
-                    // Normalizador seguro de texto
-                    const cleanNorm = (txt: string) => 
-                      (txt || "")
-                        .toLowerCase()
-                        .normalize("NFD")
-                        .replace(/[\u0300-\u036f]/g, "")
-                        .replace(/[-–—_]/g, " ")
-                        .replace(/\s+/g, " ")
-                        .trim();
-
-                    // Pre-processamento: não sobrescrever a área se a sigla pertencer a outra área conhecida
-                    const processedSpecialties = likedSpecialties.map(s => {
-                      const sClean = cleanNorm(s.nome);
-                      if (sClean.includes('mestrado')) return s;
-
-                      // 1. Tentar match por NOME EXATO na lista de especialidades de uma regra
-                      let specificRule = MASTERY_RULES.find(r => 
-                        r.specialties.some(rs => {
-                          const rsClean = cleanNorm(rs);
-                          return rsClean === sClean || 
-                                 (rsClean === "bacterias" && sClean === "bacteria") ||
-                                 (rsClean === "bacteria" && sClean === "bacterias");
-                        })
-                      );
-
-                      // Se encontrou uma regra por nome exato, verificar se a sigla não é incompatível
-                      if (specificRule && s.sigla && specificRule.siglas && !specificRule.siglas.includes(s.sigla)) {
-                        // Se a regra tem siglas estritas (ex: AP) e o item tem sigla HM (como Fotografia digital), não sobrescreve
-                        if (specificRule.name !== "Mestrado em Vida Campestre") {
-                          specificRule = undefined;
-                        }
-                      }
-
-                      // 2. Se for uma Área Global e a sigla bater exatamente
-                      if (!specificRule && s.sigla) {
-                        const globalRule = MASTERY_RULES.find(r => 
-                          r.isGlobalArea && r.siglas?.includes(s.sigla!)
-                        );
-                        if (globalRule) return { ...s, area: globalRule.category };
-                      }
-
-                      if (specificRule) {
-                        return { ...s, area: specificRule.category };
-                      }
-                      return s;
-                    });
-
                     const allMasterySpecialties = allSpecialties.filter(s => s.nome.toLowerCase().includes('mestrado'));
-                    const ordinarySpecialties = processedSpecialties.filter(s => !s.nome.toLowerCase().includes('mestrado'));
+                    const ordinarySpecialties = likedSpecialties.filter(s => !s.nome.toLowerCase().includes('mestrado'));
                     
                     // Track which ordinary specialties have been assigned to an activated mastery group
                     const assignedIds = new Set<string>();
@@ -952,46 +954,55 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
                     // Helper para filtrar especialidades que pertencem a uma regra de mestrado
                     const getSpecialtiesForRule = (rule: typeof MASTERY_RULES[0], pool: Especialidade[], masteryItem?: Especialidade) => {
-                      // Se o item de Mestrado do banco tiver lista de requisitos cadastrada
                       const dbReqs = masteryItem?.requisitos?.map(r => cleanStr(r)) || [];
 
                       return pool.filter(s => {
                         const sClean = cleanStr(s.nome);
+                        const sCat = cleanStr(s.area);
+                        const sSigla = s.sigla || '';
 
-                        // 1. Se a regra for de área global irrestrita (ex: ADRA, Artes e Habilidades Manuais, Habilidades Domésticas, etc.)
+                        // 1. Se a regra for de área global irrestrita (ADRA, Artes Manuais, Agrícolas, Domésticas, Ensinos Bíblicos)
                         if (rule.isGlobalArea) {
-                          if (s.area && cleanStr(s.area).includes(cleanStr(rule.category))) return true;
-                          if (s.sigla && rule.siglas?.includes(s.sigla)) return true;
+                          if (sCat && (sCat === cleanStr(rule.category) || sCat.includes(cleanStr(rule.category)))) return true;
+                          if (sSigla && rule.siglas && rule.siglas.includes(sSigla)) return true;
                           return false;
                         }
 
-                        // 2. Checagem contra os requisitos diretos da aba Especialidades / Mestrado
-                        if (dbReqs.length > 0) {
-                          const matchedDbReq = dbReqs.some(req => {
-                            if (req.length < 3) return false;
-                            if (req === sClean) return true;
-                            // Separa por ponto e vírgula se estiver na mesma linha
-                            const parts = req.split(';').map(p => p.trim());
-                            return parts.some(p => p === sClean || (p.length > 5 && (p.startsWith(sClean) || sClean.startsWith(p))));
-                          });
-                          if (matchedDbReq) return true;
-                        }
-
-                        // 3. Checagem contra as especialidades oficiais da regra de Mestrado (incluindo exceções como Bactérias em Saúde, Plantas silvestres em Vida Campestre, etc.)
-                        return rule.specialties.some(rs => {
+                        // 2. Checagem contra a lista de especialidades oficiais do Mestrado
+                        const isInRuleList = rule.specialties.some(rs => {
                           const rsClean = cleanStr(rs);
-                          
-                          // Match exato
                           if (sClean === rsClean) return true;
-                          
-                          // Tratamento de singular/plural
                           if ((rsClean === "bacterias" && sClean === "bacteria") || (rsClean === "bacteria" && sClean === "bacterias")) return true;
-
-                          // Variações com traço onde uma pontuação foi suprimida
-                          if (rsClean.includes(" ") && (sClean === rsClean.replace(/\s+/g, " ") || sClean.replace(/\s+/g, " ") === rsClean)) return true;
-                          
                           return false;
                         });
+
+                        const isInDbReqs = dbReqs.length > 0 && dbReqs.some(req => {
+                          if (req.length < 3) return false;
+                          if (req === sClean) return true;
+                          const parts = req.split(';').map(p => p.trim());
+                          return parts.some(p => p === sClean);
+                        });
+
+                        if (!isInRuleList && !isInDbReqs) return false;
+
+                        // 3. Proteções contra colisão de nomes parecidos entre áreas diferentes
+                        if (rule.name === "Mestrado em Atividades Profissionais") {
+                          return sSigla === "AP";
+                        }
+
+                        if (rule.name === "Mestrado em Testificação") {
+                          return sSigla === "AM" || sSigla === "MA";
+                        }
+
+                        if (rule.name === "Mestrado em Zoologia") {
+                          return sSigla === "EN" || sClean === "zoonoses";
+                        }
+
+                        if (rule.name === "Mestrado em Botânica" || rule.name === "Mestrado em Ecologia") {
+                          return sSigla === "EN" || sSigla === "AG";
+                        }
+
+                        return true;
                       });
                     };
 
@@ -1164,6 +1175,46 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
         >
           <ArrowUp size={24} strokeWidth={3} />
         </button>
+      )}
+
+      {/* Modal de Confirmação de Reset de Especialidades */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div 
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" 
+            onClick={() => setShowResetConfirm(false)}
+          />
+          <div className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-[36px] p-6 sm:p-8 shadow-2xl border border-slate-100 dark:border-slate-800 text-center space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 rounded-3xl bg-rose-50 dark:bg-rose-950/40 text-rose-500 flex items-center justify-center mx-auto border border-rose-100 dark:border-rose-900/40 shadow-inner">
+              <RotateCcw size={30} strokeWidth={2.5} />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-black uppercase tracking-tight text-slate-800 dark:text-white">
+                Resetar Minha Faixa?
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-bold leading-relaxed">
+                Tem certeza que deseja desmarcar todas as <span className="text-rose-500 font-black">{likedIds.length}</span> especialidades favoritadas da sua faixa?
+              </p>
+            </div>
+            <div className="flex space-x-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowResetConfirm(false)}
+                className="flex-1 py-4 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-black text-xs uppercase tracking-wider active:scale-95 transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleResetSpecialties}
+                className="flex-1 py-4 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-rose-500/30 active:scale-95 transition-all flex items-center justify-center space-x-2"
+              >
+                <RotateCcw size={15} strokeWidth={2.5} />
+                <span>Sim, Limpar</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

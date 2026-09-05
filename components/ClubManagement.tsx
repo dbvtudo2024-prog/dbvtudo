@@ -2905,12 +2905,32 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
     return ordinary.filter(s => {
       const sName = normalize(s.nome);
-      return rule.specialties.some(rs => {
+      const sSigla = s.sigla || '';
+      
+      const isInList = rule.specialties.some(rs => {
         const rsName = normalize(rs);
         if (sName === rsName) return true;
         if ((rsName === "bacterias" && sName === "bacteria") || (rsName === "bacteria" && sName === "bacterias")) return true;
         return false;
       });
+
+      if (!isInList) return false;
+
+      // Proteções por sigla
+      if (rule.name === "Mestrado em Atividades Profissionais") {
+        return sSigla === "AP";
+      }
+      if (rule.name === "Mestrado em Testificação") {
+        return sSigla === "AM" || sSigla === "MA";
+      }
+      if (rule.name === "Mestrado em Zoologia") {
+        return sSigla === "EN" || sName === "zoonoses";
+      }
+      if (rule.name === "Mestrado em Botânica" || rule.name === "Mestrado em Ecologia") {
+        return sSigla === "EN" || sSigla === "AG";
+      }
+
+      return true;
     });
   };
 
