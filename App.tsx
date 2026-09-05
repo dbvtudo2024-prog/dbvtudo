@@ -5,7 +5,9 @@ import Home from './components/Home';
 import ClubManagement, { SubViewType } from './components/ClubManagement';
 import Auth from './components/Auth';
 import Profile from './components/Profile';
+import UpdateNotification from './components/UpdateNotification';
 import { Settings, X, ChevronLeft } from 'lucide-react';
+
 import { PROFILE_KEY } from './constants';
 import { supabase } from './services/supabaseService';
 
@@ -306,6 +308,7 @@ const App: React.FC = () => {
   return (
     <div className={`h-screen w-screen flex items-center justify-center p-0 sm:p-4 md:p-8 overflow-hidden transition-colors duration-500 ${darkMode ? 'bg-slate-950' : 'bg-[#f8fafc]'}`}>
       <style>{styles}</style>
+      <UpdateNotification />
       <div className={`h-full w-full max-w-7xl shadow-2xl relative overflow-hidden sm:rounded-[48px] sm:border-[8px] flex flex-col transition-colors duration-500 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
         <main className={`flex-1 w-full overflow-hidden flex flex-col transition-colors duration-500 ${darkMode ? 'bg-slate-900' : 'bg-mesh'}`}>
           {renderContent()}
