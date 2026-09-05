@@ -330,7 +330,15 @@ CREATE TABLE IF NOT EXISTS public."AppLinks" (
     url TEXT NOT NULL
 );
 
--- 9. Usuários e Perfis
+-- 9. Funções / Cargos
+CREATE TABLE IF NOT EXISTS public."Funcao" (
+    id TEXT PRIMARY KEY,
+    cargo TEXT NOT NULL,
+    indice TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 10. Usuários e Perfis
 CREATE TABLE IF NOT EXISTS public.profiles (
     user_id TEXT PRIMARY KEY,
     created_at TIMESTAMPTZ DEFAULT now(),
@@ -365,7 +373,7 @@ DECLARE
         'LivroDasClasses', 'LivroDoAno', 'OutrosLivros', 'ManuaisDBV', 'CampingDBV',
         'LivrosAVT', 'ManuaisAVT', 'DesbravaMais', 'Formularios',
         'VideoCategories', 'VideosDBV', 'AtividadesJogosDBV', 'CerimoniasDBV',
-        'Conquistas', 'AppLinks', 'profiles'
+        'Conquistas', 'AppLinks', 'Funcao', 'profiles'
     ];
 BEGIN
     FOREACH t IN ARRAY tables LOOP

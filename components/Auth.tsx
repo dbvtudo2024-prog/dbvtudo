@@ -1,8 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Mail, Lock, User, Shield, MapPin, Briefcase, Phone, ChevronLeft, Eye, EyeOff, UserCircle } from 'lucide-react';
 import { ClubType, UserProfile } from '../types';
-import { supabase, updateUserProfile } from '../services/supabaseService';
+import { supabase, updateUserProfile, fetchFuncoes, DEFAULT_CARGOS } from '../services/supabaseService';
 
 interface AuthProps {
   onLoginSuccess: (isGuest?: boolean) => void;
@@ -50,18 +50,22 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
     password: ''
   });
 
-  const cargos = [
-    "Diretor(a)",
-    "Diretor(a) Associado(a)",
-    "Secretário(a)",
-    "Tesoureiro(a)",
-    "Capelão(ã)",
-    "Conselheiro(a)",
-    "Instrutor(a)",
-    "Regional",
-    "Distrital",
-    "Pastor"
-  ];
+  const [cargos, setCargos] = useState<string[]>(DEFAULT_CARGOS);
+
+  useEffect(() => {
+    fetchFuncoes().then(loadedCargos => {
+      if (loadedCargos && loadedCargos.length > 0) {
+        setCargos(loadedCargos);
+      }
+    });
+  }, []);
+
+  const availableCargos = useMemo(() => {
+    if (formData.cargo && !cargos.includes(formData.cargo)) {
+      return [formData.cargo, ...cargos];
+    }
+    return cargos;
+  }, [cargos, formData.cargo]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -204,7 +208,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
               className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 pl-12 pr-10 text-sm shadow-sm focus:outline-none focus:border-emerald-500 appearance-none text-slate-800 dark:text-slate-200 font-medium"
             >
               <option value="" className="text-slate-400">Selecione um cargo</option>
-              {cargos.map(c => <option key={c} value={c} className="text-slate-800">{c}</option>)}
+              {availableCargos.map(c => <option key={c} value={c} className="text-slate-800">{c}</option>)}
             </select>
             <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
               <ChevronLeft size={16} className="-rotate-90" />

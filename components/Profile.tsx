@@ -6,21 +6,11 @@ import { MASTERY_RULES } from '../masteryRules';
 import { 
   fetchEspecialidades, updateUserSpecialties, fetchUserSpecialties, 
   fetchUserProfile, fetchUserProfileByEmail, updateUserProfile, supabase,
-  fetchConquistas, fetchUserAchievements, updateUserAchievements
+  fetchConquistas, fetchUserAchievements, updateUserAchievements,
+  fetchFuncoes, DEFAULT_CARGOS
 } from '../services/supabaseService';
 
-const CARGOS = [
-  "Diretor(a)",
-  "Diretor(a) Associado(a)",
-  "Secretário(a)",
-  "Tesoureiro(a)",
-  "Capelão(ã)",
-  "Conselheiro(a)",
-  "Instrutor(a)",
-  "Regional",
-  "Distrital",
-  "Pastor"
-];
+const CARGOS = DEFAULT_CARGOS;
 
 interface EditInputProps {
   label: string;
@@ -51,23 +41,32 @@ interface EditSelectProps {
   onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
 }
 
-const EditSelect: React.FC<EditSelectProps> = ({ label, value, name, options, onChange }) => (
-  <div className="space-y-1.5 text-left">
-    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] ml-1">{label}</label>
-    <div className="relative">
-      <select 
-        value={value}
-        name={name}
-        onChange={onChange}
-        className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500 transition-all shadow-sm font-bold appearance-none"
-      >
-        <option value="">Selecione...</option>
-        {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-      </select>
-      <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600 pointer-events-none" />
+const EditSelect: React.FC<EditSelectProps> = ({ label, value, name, options, onChange }) => {
+  const mergedOptions = useMemo(() => {
+    if (value && !options.includes(value)) {
+      return [value, ...options];
+    }
+    return options;
+  }, [options, value]);
+
+  return (
+    <div className="space-y-1.5 text-left">
+      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] ml-1">{label}</label>
+      <div className="relative">
+        <select 
+          value={value}
+          name={name}
+          onChange={onChange}
+          className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500 transition-all shadow-sm font-bold appearance-none"
+        >
+          <option value="">Selecione...</option>
+          {mergedOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+        </select>
+        <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600 pointer-events-none" />
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 interface ProfileProps {
   club: ClubType;
@@ -122,6 +121,15 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
   const [userData, setUserData] = useState(getInitialData);
   const [userId, setUserId] = useState<string | null>(null);
+  const [cargosList, setCargosList] = useState<string[]>(DEFAULT_CARGOS);
+
+  useEffect(() => {
+    fetchFuncoes().then(loaded => {
+      if (loaded && loaded.length > 0) {
+        setCargosList(loaded);
+      }
+    });
+  }, []);
   const isAdmin = userData.isAdmin || userData.email === 'ronaldosonic@gmail.com' || userData.email === 'dbvtudo2024@gmail.com';
   const userClubType = userData.tipo === "Desbravador" ? ClubType.PATHFINDER : ClubType.ADVENTURER;
   const likedKey = `dbv_tudo_liked_specialties_${userClubType}`;
@@ -603,7 +611,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
               <EditInput label="Nome Completo" value={userData.name} name="name" onChange={handleInputChange} />
               <EditInput label="E-mail" value={userData.email} name="email" type="email" onChange={handleInputChange} />
               <EditInput label="Nome do Clube" value={userData.clube} name="clube" onChange={handleInputChange} />
-              <EditSelect label="Cargo / Função" value={userData.cargo} name="cargo" options={CARGOS} onChange={handleInputChange} />
+              <EditSelect label="Cargo / Função" value={userData.cargo} name="cargo" options={cargosList} onChange={handleInputChange} />
               <EditInput label="Telefone" value={userData.telefone} name="telefone" onChange={handleInputChange} />
               <div className="grid grid-cols-2 gap-5">
                 <EditInput label="Cidade" value={userData.cidade || ""} name="cidade" onChange={handleInputChange} />

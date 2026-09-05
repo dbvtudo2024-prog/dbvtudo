@@ -52,6 +52,9 @@ export const UpdateNotification: React.FC = () => {
 
     // Notificação nativa via Service Worker ou Notification API
     try {
+      if (localStorage.getItem('dbv_notifications_enabled') === 'false') {
+        return;
+      }
       if ('Notification' in window && Notification.permission === 'granted') {
         const title = '✨ Nova Atualização Disponível!';
         const options: NotificationOptions & { renotify?: boolean } = {
@@ -113,7 +116,8 @@ export const UpdateNotification: React.FC = () => {
   useEffect(() => {
     if ('Notification' in window) {
       setNotificationPermission(Notification.permission);
-      if (Notification.permission === 'default') {
+      const isExplicitlyDisabled = localStorage.getItem('dbv_notifications_enabled') === 'false';
+      if (Notification.permission === 'default' && !isExplicitlyDisabled) {
         const hasPrompted = localStorage.getItem('dbv_notification_prompted');
         if (!hasPrompted) {
           // Exibe convite sutil após 10 segundos para ativar notificações de updates
@@ -186,6 +190,7 @@ export const UpdateNotification: React.FC = () => {
         const perm = await Notification.requestPermission();
         setNotificationPermission(perm);
         if (perm === 'granted') {
+          localStorage.setItem('dbv_notifications_enabled', 'true');
           // Feedback tátil e mensagem de teste
           if ('vibrate' in navigator) navigator.vibrate(100);
           if ('serviceWorker' in navigator) {

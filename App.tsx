@@ -90,6 +90,127 @@ const App: React.FC = () => {
     return false;
   });
 
+  // Notificações: preferência salva no dispositivo e verificação de suporte/permissão
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('dbv_notifications_enabled');
+      if (saved !== null) {
+        return saved === 'true';
+      }
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        return Notification.permission === 'granted';
+      }
+    } catch (e) {}
+    return false;
+  });
+  const [notificationStatusMsg, setNotificationStatusMsg] = useState<string | null>(null);
+
+  // Sincronizar estado de notificações com as permissões do navegador ao abrir Ajustes
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      const saved = localStorage.getItem('dbv_notifications_enabled');
+      if (saved === 'false') {
+        setNotificationsEnabled(false);
+      } else if (Notification.permission === 'granted') {
+        setNotificationsEnabled(true);
+      } else if (Notification.permission === 'denied') {
+        setNotificationsEnabled(false);
+      }
+    }
+  }, [currentView]);
+
+  const handleToggleNotifications = async () => {
+    if (notificationsEnabled) {
+      setNotificationsEnabled(false);
+      try {
+        localStorage.setItem('dbv_notifications_enabled', 'false');
+      } catch (e) {}
+      setNotificationStatusMsg('Notificações desativadas.');
+      setTimeout(() => setNotificationStatusMsg(null), 3000);
+    } else {
+      if (typeof window === 'undefined' || !('Notification' in window)) {
+        setNotificationStatusMsg('Seu dispositivo ou navegador não suporta notificações web.');
+        setTimeout(() => setNotificationStatusMsg(null), 3500);
+        return;
+      }
+
+      if (Notification.permission === 'granted') {
+        setNotificationsEnabled(true);
+        try {
+          localStorage.setItem('dbv_notifications_enabled', 'true');
+          localStorage.setItem('dbv_notification_prompted', 'true');
+        } catch (e) {}
+        setNotificationStatusMsg('Notificações ativadas com sucesso!');
+        setTimeout(() => setNotificationStatusMsg(null), 3000);
+
+        try {
+          if ('vibrate' in navigator && typeof navigator.vibrate === 'function') {
+            navigator.vibrate(100);
+          }
+          if ('serviceWorker' in navigator) {
+            const reg = await navigator.serviceWorker.ready;
+            if (reg && reg.showNotification) {
+              reg.showNotification('✅ Notificações Ativadas!', {
+                body: 'Você receberá avisos e novidades do DBV Tudo.',
+                icon: '/favicon.ico'
+              });
+              return;
+            }
+          }
+          new Notification('✅ Notificações Ativadas!', {
+            body: 'Você receberá avisos e novidades do DBV Tudo.',
+            icon: '/favicon.ico'
+          });
+        } catch (e) {}
+      } else if (Notification.permission === 'denied') {
+        setNotificationStatusMsg('As notificações estão bloqueadas nas configurações do seu navegador. Habilite o envio para este site para ativá-las.');
+        setTimeout(() => setNotificationStatusMsg(null), 5000);
+      } else {
+        try {
+          const perm = await Notification.requestPermission();
+          if (perm === 'granted') {
+            setNotificationsEnabled(true);
+            try {
+              localStorage.setItem('dbv_notifications_enabled', 'true');
+              localStorage.setItem('dbv_notification_prompted', 'true');
+            } catch (e) {}
+            setNotificationStatusMsg('Notificações ativadas com sucesso!');
+            setTimeout(() => setNotificationStatusMsg(null), 3000);
+
+            try {
+              if ('vibrate' in navigator && typeof navigator.vibrate === 'function') {
+                navigator.vibrate(100);
+              }
+              if ('serviceWorker' in navigator) {
+                const reg = await navigator.serviceWorker.ready;
+                if (reg && reg.showNotification) {
+                  reg.showNotification('✅ Notificações Ativadas!', {
+                    body: 'Você receberá avisos e novidades do DBV Tudo.',
+                    icon: '/favicon.ico'
+                  });
+                  return;
+                }
+              }
+              new Notification('✅ Notificações Ativadas!', {
+                body: 'Você receberá avisos e novidades do DBV Tudo.',
+                icon: '/favicon.ico'
+              });
+            } catch (e) {}
+          } else {
+            setNotificationsEnabled(false);
+            try {
+              localStorage.setItem('dbv_notifications_enabled', 'false');
+            } catch (e) {}
+            setNotificationStatusMsg('Permissão de notificações não foi concedida.');
+            setTimeout(() => setNotificationStatusMsg(null), 3000);
+          }
+        } catch (e) {
+          console.error('Erro ao solicitar permissão de notificações:', e);
+        }
+      }
+    }
+  };
+
   const [pendingPrompt, setPendingPrompt] = useState<string | undefined>(undefined);
   const [pendingSubView, setPendingSubView] = useState<SubViewType | undefined>(undefined);
 
@@ -288,6 +409,27 @@ const App: React.FC = () => {
                     <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ${darkMode ? 'translate-x-7' : ''}`}></div>
                   </div>
                 </button>
+
+                <button 
+                  onClick={handleToggleNotifications}
+                  className={`w-full p-5 rounded-3xl flex justify-between items-center shadow-sm border transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
+                >
+                  <div className="flex flex-col items-start text-left">
+                    <span className={`font-semibold ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>Notificações</span>
+                    <span className={`text-xs mt-0.5 ${notificationsEnabled ? (darkMode ? 'text-indigo-400' : 'text-indigo-600 font-medium') : (darkMode ? 'text-slate-400' : 'text-slate-400')}`}>
+                      {notificationsEnabled ? 'Ativadas' : 'Desativadas'}
+                    </span>
+                  </div>
+                  <div className={`w-14 h-7 rounded-full p-1 transition-colors duration-300 shrink-0 ${notificationsEnabled ? 'bg-indigo-500' : (darkMode ? 'bg-slate-700' : 'bg-slate-200')}`}>
+                    <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ${notificationsEnabled ? 'translate-x-7' : ''}`}></div>
+                  </div>
+                </button>
+
+                {notificationStatusMsg && (
+                  <div className={`text-xs px-4 py-2.5 rounded-2xl text-center animate-slide-up transition-all ${darkMode ? 'bg-slate-800/90 text-indigo-300 border border-slate-700' : 'bg-indigo-50/80 text-indigo-900 border border-indigo-100'}`}>
+                    {notificationStatusMsg}
+                  </div>
+                )}
 
                 <button 
                   onClick={handleLogout}

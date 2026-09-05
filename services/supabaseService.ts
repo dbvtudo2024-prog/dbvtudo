@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, UserProfile, Devocional, Cultura, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario, Video, VideoCategory, LivroAVT, ManualAVT, AppLink, Conquista, Trunfo } from '../types';
+import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, UserProfile, FuncaoCargo, Devocional, Cultura, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario, Video, VideoCategory, LivroAVT, ManualAVT, AppLink, Conquista, Trunfo } from '../types';
 
 const DEFAULT_URL = 'https://qfpyjavbncijowjvznkg.supabase.co';
 const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmcHlqYXZibmNpam93anZ6bmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NDcxMDUsImV4cCI6MjA3NDQyMzEwNX0.adxRCkobV-m_XUHp1KBXmg67VXkR-HL4QKFVtgQOmYc';
@@ -562,6 +562,59 @@ export async function updateUserProfile(profile: Partial<UserProfile>) {
     return { error };
   } catch (err: any) {
     return { error: err };
+  }
+}
+
+export const DEFAULT_CARGOS: string[] = [
+  "Pastor",
+  "Regional",
+  "Distrital",
+  "Diretor (a)",
+  "Diretor (a) Associado (a)",
+  "Secretário (a)",
+  "Tesoureiro (a)",
+  "Capelão (ã)",
+  "Ancião (â)",
+  "Instrutor (a)",
+  "Conselheiro (a)",
+  "Conselheiro (a) Associado (a)",
+  "Capitão (ã)",
+  "Desbravador (a)",
+  "Aspirante",
+  "Apoio"
+];
+
+export async function fetchFuncoes(): Promise<string[]> {
+  try {
+    const { data, error } = await supabase
+      .from('Funcao')
+      .select('*');
+
+    if (error) {
+      console.warn("Erro ao buscar funções do Supabase:", error);
+      return DEFAULT_CARGOS;
+    }
+
+    if (data && data.length > 0) {
+      const sorted = [...data].sort((a, b) => {
+        const numA = parseInt(a.indice || a.id || '999', 10);
+        const numB = parseInt(b.indice || b.id || '999', 10);
+        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+        return (a.cargo || '').localeCompare(b.cargo || '');
+      });
+
+      const list = sorted
+        .map(item => item.cargo?.trim())
+        .filter((c): c is string => Boolean(c));
+
+      if (list.length > 0) {
+        return Array.from(new Set(list));
+      }
+    }
+    return DEFAULT_CARGOS;
+  } catch (err) {
+    console.error("Exceção ao buscar funções do banco:", err);
+    return DEFAULT_CARGOS;
   }
 }
 

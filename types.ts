@@ -204,6 +204,13 @@ export interface UserProfile {
   Especialidades?: string;
 }
 
+export interface FuncaoCargo {
+  id?: string;
+  cargo: string;
+  indice?: string;
+  created_at?: string;
+}
+
 export interface LivroClasse {
   id: number;
   created_at: string;
