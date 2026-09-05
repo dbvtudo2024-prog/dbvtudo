@@ -2907,7 +2907,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       const sName = normalize(s.nome);
       return rule.specialties.some(rs => {
         const rsName = normalize(rs);
-        return sName === rsName || sName.includes(rsName) || rsName.includes(sName);
+        if (sName === rsName) return true;
+        if ((rsName === "bacterias" && sName === "bacteria") || (rsName === "bacteria" && sName === "bacterias")) return true;
+        return false;
       });
     });
   };

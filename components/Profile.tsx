@@ -847,55 +847,40 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                   (() => {
                     const likedSpecialties = allSpecialties.filter(s => likedIds.includes(s.id.toString()));
                     // 0. Pré-processar TODAS as especialidades curtidas para garantir que tenham a área CORRETA de acordo com as regras
-                    const processedSpecialties = likedSpecialties.map(s => {
-                      const sName = s.nome.toLowerCase().trim();
-                      // Se for um item de mestrado, não mexemos na área dele aqui
-                      if (sName.includes('mestrado')) return s;
+                    // Normalizador seguro de texto
+                    const cleanNorm = (txt: string) => 
+                      (txt || "")
+                        .toLowerCase()
+                        .normalize("NFD")
+                        .replace(/[\u0300-\u036f]/g, "")
+                        .replace(/[-–—_]/g, " ")
+                        .replace(/\s+/g, " ")
+                        .trim();
 
-                      // 1. Tentar match por NOME EXATO na lista de especialidades (Prioridade Máxima)
-                      // Isso permite que especialidades como 'Bactérias' ou 'Plantas Silvestres' 
-                      // fujam de suas siglas originais se estiverem em uma lista específica.
+                    // Pre-processamento: não sobrescrever a área se a sigla pertencer a outra área conhecida
+                    const processedSpecialties = likedSpecialties.map(s => {
+                      const sClean = cleanNorm(s.nome);
+                      if (sClean.includes('mestrado')) return s;
+
+                      // 1. Tentar match por NOME EXATO na lista de especialidades de uma regra
                       let specificRule = MASTERY_RULES.find(r => 
                         r.specialties.some(rs => {
-                          const rsName = rs.toLowerCase().trim();
-                          // Match exato ou tratamento de singular/plural comum
-                          return rsName === sName || 
-                                 (rsName === "bacterias" && sName === "bacteria") ||
-                                 (rsName === "bacteria" && sName === "bacterias");
+                          const rsClean = cleanNorm(rs);
+                          return rsClean === sClean || 
+                                 (rsClean === "bacterias" && sClean === "bacteria") ||
+                                 (rsClean === "bacteria" && sClean === "bacterias");
                         })
                       );
 
-                      // 2. Tentar match por Sigla + Lista Específica
-                      if (!specificRule) {
-                        specificRule = MASTERY_RULES.find(r => 
-                          s.sigla && r.siglas?.includes(s.sigla) &&
-                          r.specialties.some(rs => {
-                            const rsName = rs.toLowerCase().trim();
-                            if (rsName === "fisica" && sName.includes("cultura fisica")) return false;
-                            return sName === rsName || sName.includes(rsName);
-                          })
-                        );
-                      }
-                      
-                      // 3. Se ainda não encontrar, tentar match por inclusão com proteções
-                      if (!specificRule) {
-                        specificRule = MASTERY_RULES.find(r => 
-                          !r.isGlobalArea && 
-                          r.specialties.some(rs => {
-                            const rsName = rs.toLowerCase().trim();
-                            
-                            // Caso especial: "Física" vs "Cultura Física"
-                            if (rsName === "fisica" && sName.includes("cultura fisica")) return false;
-                            
-                            // Se a regra for curta, exige match mais preciso para evitar capturas erradas
-                            if (rsName.length <= 5) return sName === rsName;
-                            
-                            return sName.includes(rsName);
-                          })
-                        );
+                      // Se encontrou uma regra por nome exato, verificar se a sigla não é incompatível
+                      if (specificRule && s.sigla && specificRule.siglas && !specificRule.siglas.includes(s.sigla)) {
+                        // Se a regra tem siglas estritas (ex: AP) e o item tem sigla HM (como Fotografia digital), não sobrescreve
+                        if (specificRule.name !== "Mestrado em Vida Campestre") {
+                          specificRule = undefined;
+                        }
                       }
 
-                      // 4. Se for uma Área Global e a sigla bater, atribui
+                      // 2. Se for uma Área Global e a sigla bater exatamente
                       if (!specificRule && s.sigla) {
                         const globalRule = MASTERY_RULES.find(r => 
                           r.isGlobalArea && r.siglas?.includes(s.sigla!)
@@ -966,27 +951,44 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                         .trim();
 
                     // Helper para filtrar especialidades que pertencem a uma regra de mestrado
-                    const getSpecialtiesForRule = (rule: typeof MASTERY_RULES[0], pool: Especialidade[]) => {
+                    const getSpecialtiesForRule = (rule: typeof MASTERY_RULES[0], pool: Especialidade[], masteryItem?: Especialidade) => {
+                      // Se o item de Mestrado do banco tiver lista de requisitos cadastrada
+                      const dbReqs = masteryItem?.requisitos?.map(r => cleanStr(r)) || [];
+
                       return pool.filter(s => {
                         const sClean = cleanStr(s.nome);
-                        
-                        // Se a regra for de área global irrestrita (ex: ADRA, Artes e Habilidades Manuais, etc.)
+
+                        // 1. Se a regra for de área global irrestrita (ex: ADRA, Artes e Habilidades Manuais, Habilidades Domésticas, etc.)
                         if (rule.isGlobalArea) {
                           if (s.area && cleanStr(s.area).includes(cleanStr(rule.category))) return true;
                           if (s.sigla && rule.siglas?.includes(s.sigla)) return true;
+                          return false;
                         }
 
-                        // Para regras de lista fechada (como Atividades Profissionais, Testificação, etc.)
-                        // 1. Match exato ou quase-exato por nome com a lista oficial
+                        // 2. Checagem contra os requisitos diretos da aba Especialidades / Mestrado
+                        if (dbReqs.length > 0) {
+                          const matchedDbReq = dbReqs.some(req => {
+                            if (req.length < 3) return false;
+                            if (req === sClean) return true;
+                            // Separa por ponto e vírgula se estiver na mesma linha
+                            const parts = req.split(';').map(p => p.trim());
+                            return parts.some(p => p === sClean || (p.length > 5 && (p.startsWith(sClean) || sClean.startsWith(p))));
+                          });
+                          if (matchedDbReq) return true;
+                        }
+
+                        // 3. Checagem contra as especialidades oficiais da regra de Mestrado (incluindo exceções como Bactérias em Saúde, Plantas silvestres em Vida Campestre, etc.)
                         return rule.specialties.some(rs => {
                           const rsClean = cleanStr(rs);
                           
                           // Match exato
                           if (sClean === rsClean) return true;
                           
-                          // Variações de pontuação ou prefixo (ex: "Cães - cuidado e treinamento" vs "Cães")
-                          if (rsClean.length > 5 && sClean.startsWith(rsClean)) return true;
-                          if (sClean.length > 5 && rsClean.startsWith(sClean)) return true;
+                          // Tratamento de singular/plural
+                          if ((rsClean === "bacterias" && sClean === "bacteria") || (rsClean === "bacteria" && sClean === "bacterias")) return true;
+
+                          // Variações com traço onde uma pontuação foi suprimida
+                          if (rsClean.includes(" ") && (sClean === rsClean.replace(/\s+/g, " ") || sClean.replace(/\s+/g, " ") === rsClean)) return true;
                           
                           return false;
                         });
@@ -1009,7 +1011,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                     MASTERY_RULES.forEach(rule => {
                       const masteryItem = findMasteryItem(rule.name, rule.category);
                       const isManuallyLiked = masteryItem && likedIds.includes(masteryItem.id.toString());
-                      const matchingItems = getSpecialtiesForRule(rule, ordinarySpecialties);
+                      const matchingItems = getSpecialtiesForRule(rule, ordinarySpecialties, masteryItem);
                       const reqCount = rule.requirementsCount || 7;
                       const hasMetRequirements = matchingItems.length >= reqCount;
 

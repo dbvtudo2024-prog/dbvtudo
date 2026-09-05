@@ -1,14 +1,14 @@
-
 export interface MasteryRule {
   name: string;
   category: string;
   requirementsCount: number;
-  specialties: string[]; // Nomes ou parte dos nomes das especialidades
-  isGlobalArea?: boolean; // Se true, qualquer uma da área serve
-  siglas?: string[]; // Siglas correspondentes no banco de dados (ex: 'HM', 'EN')
+  specialties: string[]; // Nomes oficiais das especialidades
+  isGlobalArea?: boolean; // Se true, qualquer uma da área/sigla serve
+  siglas?: string[]; // Siglas correspondentes no banco de dados (ex: 'HM', 'EN', 'AP', etc.)
 }
 
 export const MASTERY_RULES: MasteryRule[] = [
+  // 001 - Mestrado em ADRA (Global: 7 especialidades de ADRA)
   {
     name: "Mestrado em ADRA",
     category: "ADRA",
@@ -17,6 +17,8 @@ export const MASTERY_RULES: MasteryRule[] = [
     isGlobalArea: true,
     siglas: ['AD']
   },
+
+  // 002 - Mestrado em Artes e Habilidades Manuais (Global: 7 especialidades de Artes e Habilidades Manuais)
   {
     name: "Mestrado em Artes e Habilidades Manuais",
     category: "Artes e Habilidades Manuais",
@@ -25,6 +27,8 @@ export const MASTERY_RULES: MasteryRule[] = [
     isGlobalArea: true,
     siglas: ['HM']
   },
+
+  // 003 - Mestrado em Atividades Agrícolas (Global: 7 especialidades de Atividades Agrícolas)
   {
     name: "Mestrado em Atividades Agrícolas",
     category: "Atividades Agrícolas",
@@ -33,24 +37,69 @@ export const MASTERY_RULES: MasteryRule[] = [
     isGlobalArea: true,
     siglas: ['AG']
   },
+
+  // 004 - Mestrado em Testificação (Lista Fechada oficial de 50 especialidades)
   {
     name: "Mestrado em Testificação",
     category: "Atividades Missionárias",
     requirementsCount: 7,
     specialties: [
-      "Adoração cristã", "Apocalipse", "Arqueologia bíblica", "Arte da pregação cristã", 
-      "Arte de contar histórias cristãs", "Arte em fantoches", "Asseio e cortesia cristã", 
-      "Aventuras com Cristo", "Braille", "Cidadania cristã", "Colportagem", "Criacionismo", 
-      "Crítico de mídia", "Dramatização cristã", "Escatologia", "Espírito de Profecia", 
-      "Etnologia missionária", "Evangelismo pessoal", "Evangelismo web", "Historiador eclesiástico", 
-      "Intercessor", "Interpretação bíblica", "Investigador bíblico", "Liderança juvenil", 
-      "Língua de sinais", "Lives", "Livro de Daniel", "Marcação bíblica", "Mensageira de Deus", 
-      "Mordomia", "Pacificador", "Parábolas de Jesus", "Pioneiros adventistas", 
-      "Pregador evangelista", "Relacionamentos saudáveis", "Santuário", "Sonoplastia", 
-      "Temperança", "Testemunho juvenil", "Vida familiar"
+      "Adoração cristã",
+      "Apocalipse",
+      "Arqueologia bíblica",
+      "Arte da pregação cristã",
+      "Arte da pregação cristã - avançado",
+      "Arte de contar histórias cristãs",
+      "Arte em fantoches",
+      "Arte em fantoches - avançado",
+      "Asseio e cortesia cristã",
+      "Aventuras com Cristo",
+      "Aventuras com Cristo - avançado",
+      "Braille",
+      "Cidadania cristã",
+      "Colportagem",
+      "Criacionismo",
+      "Criacionismo - avançado",
+      "Crítico de mídia",
+      "Dramatização cristã",
+      "Escatologia",
+      "Espírito de Profecia",
+      "Etnologia missionária",
+      "Evangelismo pessoal",
+      "Evangelismo web",
+      "Evangelismo web - avançado",
+      "Historiador eclesiástico",
+      "Intercessor",
+      "Interpretação bíblica",
+      "Investigador bíblico",
+      "Liderança juvenil",
+      "Língua de sinais",
+      "Língua de sinais - avançado",
+      "Lives - transmissão de cultos online",
+      "Livro de Daniel",
+      "Marcação bíblica",
+      "Marcação bíblica - avançado",
+      "Mensageira de Deus",
+      "Mordomia",
+      "Pacificador",
+      "Pacificador - avançado",
+      "Parábolas de Jesus",
+      "Pioneiros adventistas",
+      "Pregador evangelista",
+      "Pregador evangelista - avançado",
+      "Relacionamentos saudáveis",
+      "Santuário",
+      "Sonoplastia",
+      "Sonoplastia - avançado",
+      "Temperança",
+      "Testemunho juvenil",
+      "Vida familiar"
     ],
+    isGlobalArea: false,
     siglas: ['AM', 'MA']
   },
+
+  // 005 - Mestrado em Atividades Profissionais (Lista Fechada oficial de 50 especialidades)
   {
     name: "Mestrado em Atividades Profissionais",
     category: "Atividades Profissionais",
@@ -67,6 +116,7 @@ export const MASTERY_RULES: MasteryRule[] = [
       "Contabilidade",
       "Corte e costura",
       "Corte e costura - avançado",
+      "Cuidado e manutenção de violões",
       "Cuidados e manutenção de violões",
       "Desenvolvimento de software",
       "Eletricidade",
@@ -84,6 +134,7 @@ export const MASTERY_RULES: MasteryRule[] = [
       "Marcenaria",
       "Marketing",
       "Marketing - avançado",
+      "Marketing avançado",
       "Mecânica automotiva",
       "Mecânica de pequenos motores",
       "Modelagem têxtil",
@@ -105,129 +156,409 @@ export const MASTERY_RULES: MasteryRule[] = [
       "Tipografia",
       "Vendas",
       "Web designer",
-      "Web designer - avançado"
+      "Web designer - avançado",
+      "Web designer avançado"
     ],
     isGlobalArea: false,
     siglas: ['AP']
   },
+
+  // 006 - Mestrado em Ciência e Tecnologia
   {
     name: "Mestrado em Ciência e Tecnologia",
     category: "Ciência e Tecnologia",
     requirementsCount: 7,
     specialties: [
-      "Computação", "Software", "Eletrônica", "Experimentos científicos", "Física", 
-      "Matemática", "Informática", "Internet", "Metodologia de estudo", "Óptica", 
-      "Química", "Redes sociais", "Web designer"
+      "Computação I",
+      "Computação II",
+      "Computação III",
+      "Computação IV",
+      "Computação V",
+      "Desenvolvimento de software",
+      "Eletrônica",
+      "Experimentos científicos",
+      "Física",
+      "Habilidades em matemática I",
+      "Habilidades em matemática II",
+      "Informática programável",
+      "Internet",
+      "Internet - avançado",
+      "Metodologia de estudo",
+      "Óptica",
+      "Química",
+      "Segurança nas redes sociais",
+      "Web designer",
+      "Web designer - avançado",
+      "Web designer avançado"
     ],
-    siglas: ['AP']
+    isGlobalArea: false,
+    siglas: ['AP', 'CT']
   },
+
+  // 007 - Mestrado em Aquática
   {
     name: "Mestrado em Aquática",
     category: "Atividades Aquáticas",
     requirementsCount: 7,
     specialties: [
-      "Caiaque", "Canoagem", "Esqui aquático", "Mergulho", "Natação", "Navegação", 
-      "Rafting", "Remo", "Saltos ornamentais", "Salvamento", "Segurança básica na água", "Vela"
+      "Caiaque",
+      "Calaque",
+      "Canoagem",
+      "Esqui aquático",
+      "Mergulho autônomo",
+      "Mergulho livre",
+      "Natação principiante I",
+      "Natação principiante II",
+      "Natação intermediário I",
+      "Natação intermediário II",
+      "Natação avançado",
+      "Navegação",
+      "Rafting",
+      "Remo",
+      "Saltos ornamentais",
+      "Salvamento de afogados",
+      "Salvamento de afogados - avançado",
+      "Salvamento de afogados avançado",
+      "Segurança básica na água",
+      "Vela"
     ],
-    siglas: ['AA']
+    isGlobalArea: false,
+    siglas: ['AA', 'AR']
   },
+
+  // 008 - Mestrado em Esportes
   {
     name: "Mestrado em Esportes",
     category: "Atividades Recreativas",
     requirementsCount: 7,
     specialties: [
-      "Arco e flecha", "Atletismo", "Basquete", "Ciclismo", "Cultura física", "Equitação", 
-      "Escalada", "Esportes adaptados", "Esqui aquático", "Exploração de cavernas", 
-      "Futebol", "Futsal", "Ginástica acrobática", "Handebol", "Mountain biking", 
-      "Rapel", "Softbol", "Tênis de mesa", "Triathlon", "Vôlei"
+      "Arco e flecha",
+      "Atletismo",
+      "Basquete",
+      "Ciclismo",
+      "Ciclismo avançado",
+      "Ciclismo - avançado",
+      "Cultura física",
+      "Equitação",
+      "Escalada",
+      "Escalada - avançado",
+      "Esportes adaptados",
+      "Esqui aquático",
+      "Exploração de cavernas",
+      "Exploração de cavernas - avançado",
+      "Futebol",
+      "Futsal",
+      "Ginástica acrobática",
+      "Handebol",
+      "Mountain biking",
+      "Rapel",
+      "Rapel - avançado",
+      "Rapel - instrutor",
+      "Softbol",
+      "Tênis de mesa",
+      "Triathlon",
+      "Vôlei"
     ],
-    siglas: ['AR']
+    isGlobalArea: false,
+    siglas: ['AR', 'ES']
   },
+
+  // 009 - Mestrado em Vida Campestre
   {
     name: "Mestrado em Vida Campestre",
     category: "Vida Campestre",
     requirementsCount: 7,
     specialties: [
-      "Acampamento consciente", "Acampamento em baixas temperaturas", "Acampamento I", "Acampamento II", 
-      "Acampamento III", "Acampamento IV", "Acampamento seguro", "Acampamento seguro - avançado", 
-      "Arte de acampar", "Artes mateiras", "Comida mateira", "Construções rústicas de grande porte", 
-      "Cozinha com forno holandês", "Escalada em árvores", "Excursionismo pedestre", 
-      "Excursionismo pedestre - avançado", "Excursionismo pedestre com mochila", 
-      "Excursionismo pedestre com mochila - avançado", "Excursionismo pedestre na neve", 
-      "Fogueiras e cozinha ao ar livre", "Liderança campestre", "Liderança campestre - avançado", 
-      "Liderança na selva", "Liderança na selva - avançado", "Mapa e bússola", "Nós e amarras", 
-      "Nós e amarras - avançado", "Orientação com GPS", "Pioneiras", "Pioneiras - avançado", 
-      "Pioneirismo", "Plantas silvestres comestíveis", "Trilha de sinais", "Vida silvestre"
+      "Acampamento consciente",
+      "Acampamento em baixas temperaturas",
+      "Acampamento I",
+      "Acampamento II",
+      "Acampamento III",
+      "Acampamento IV",
+      "Acampamento seguro",
+      "Acampamento seguro - avançado",
+      "Acampamento seguro avançado",
+      "Arte de acampar",
+      "Artes mateiras",
+      "Comida mateira",
+      "Construções rústicas de grande porte",
+      "Cozinha com forno holandês",
+      "Escalada em árvores",
+      "Excursionismo pedestre",
+      "Excursionismo pedestre - avançado",
+      "Excursionismo pedestre avançado",
+      "Excursionismo pedestre com mochila",
+      "Excursionismo pedestre com mochila - avançado",
+      "Excursionismo pedestre com mochila avançado",
+      "Excursionismo pedestre na neve",
+      "Fogueiras e cozinha ao ar livre",
+      "Liderança campestre",
+      "Liderança campestre - avançado",
+      "Liderança campestre avançado",
+      "Liderança na selva",
+      "Liderança na selva - avançado",
+      "Liderança na selva avançado",
+      "Mapa e bússola",
+      "Nós e amarras",
+      "Nós e amarras - avançado",
+      "Nós e amarras avançado",
+      "Orientação com GPS",
+      "Pioneirias",
+      "Pioneirias - avançado",
+      "Pioneirias avançado",
+      "Pioneiras",
+      "Pioneiras - avançado",
+      "Pioneirismo",
+      "Plantas silvestres comestíveis",
+      "Trilha de sinais",
+      "Vida silvestre"
     ],
-    siglas: ['VC', 'AR'] // Algumas vezes vem como AR no banco, mas a lista protege
+    isGlobalArea: false,
+    siglas: ['VC', 'AR']
   },
+
+  // 010 - Mestrado em Atividades Recreativas
   {
     name: "Mestrado em Atividades Recreativas",
     category: "Atividades Recreativas",
     requirementsCount: 7,
     specialties: [
-      "Aquarismo", "Boliche", "Bolinha de gude", "Carrinho de rolimã", "Colecionador", 
-      "Cubo mágico", "Ordem unida", "Fanfarra", "Filatelia", "Futebol de botão", 
-      "Geocaching", "Nós e amarras", "Numismática", "Patins", "Pião", "Pipas", 
-      "Segurança básica na água", "Skate", "Slackline", "Troca de pins", 
-      "Viagem e turismo"
+      "Aquarismo",
+      "Boliche",
+      "Bolinha de gude",
+      "Carrinho de rolimã",
+      "Carrinho de rolima",
+      "Colecionador",
+      "Cubo mágico",
+      "Evolução em ordem unida",
+      "Fanfarra",
+      "Filatelia",
+      "Futebol de botão",
+      "Geocaching",
+      "Geocaching - avançado",
+      "Geocaching avançado",
+      "Nós e amarras",
+      "Nós e amarras - avançado",
+      "Numismática",
+      "Numismática - avançado",
+      "Numismática avançado",
+      "Ordem unida",
+      "Ordem unida - avançado",
+      "Ordem unida - instrutor",
+      "Patins",
+      "Pião",
+      "Pipas",
+      "Segurança básica na água",
+      "Skate",
+      "Slackline",
+      "Troca de pins",
+      "Viagem e turismo",
+      "Viagem e turismo - avançado",
+      "Viagem e turismo avançado"
     ],
+    isGlobalArea: false,
     siglas: ['AR']
   },
+
+  // 011 - Mestrado em Saúde
   {
     name: "Mestrado em Saúde",
     category: "Saúde",
     requirementsCount: 7,
     specialties: [
-      "Alerta vermelho", "Anatomia", "Bactérias", "Bioquímica", "Biossegurança", "Citologia", 
-      "Coração", "Digestão", "Enfermagem", "Hereditariedade", "Higiene oral", 
-      "Inteligência emocional", "Microscopia", "Nutrição", "Ossos", "Músculos", 
-      "Plantas medicinais", "Doenças tropicais", "Primeiros socorros", "Protozoários", 
-      "Reanimação", "Remédios da natureza", "Resgate", "Sangue", "Saúde e cura", 
-      "Saúde mental", "Sexualidade humana", "Sistema nervoso", "Sistema respiratório", 
-      "Vacinas", "Vírus", "Zoonoses"
+      "Alerta vermelho",
+      "Anatomia humana básica",
+      "Bactérias",
+      "Bacteria",
+      "Bioquímica",
+      "Biossegurança",
+      "Citologia",
+      "Coração e circulação",
+      "Digestão",
+      "Enfermagem básica",
+      "Hereditariedade",
+      "Higiene oral",
+      "Higiene oral - avançado",
+      "Higiene oral avançado",
+      "Inteligência emocional",
+      "Microscopia",
+      "Nutrição",
+      "Nutrição - avançado",
+      "Nutrição avançado",
+      "Ossos, músculos e articulações",
+      "Plantas medicinais",
+      "Prevenção de doenças tropicais",
+      "Prevenção de doenças tropicals",
+      "Primeiros socorros - básico",
+      "Primeiros socorros - intermediário",
+      "Primeiros socorros - avançado",
+      "Protozoários",
+      "Reanimação cardiopulmonar",
+      "Remédios da natureza",
+      "Resgate básico",
+      "Sangue e defesas do corpo",
+      "Saúde e cura",
+      "Saúde mental",
+      "Sexualidade humana",
+      "Sistema nervoso",
+      "Sistema respiratório",
+      "Vacinas",
+      "Vírus",
+      "Zoonoses"
     ],
-    isGlobalArea: true,
-    siglas: ['CS', 'SC']
+    isGlobalArea: false,
+    siglas: ['CS', 'SC', 'SA']
   },
+
+  // 012 - Mestrado em Zoologia
   {
     name: "Mestrado em Zoologia",
     category: "Estudo da Natureza",
     requirementsCount: 7,
     specialties: [
-      "Abelhas", "Vespas", "Anfíbios", "Animais migratórios", "Animais nocivos", 
-      "Animais noturnos", "Animais peçonhentos", "Aranhas", "Araras", "Papagaios", 
-      "Periquitos", "Aves", "Cães", "Camelos", "Cetáceos", "Cigarras", "Crustáceos", 
-      "Equinodermos", "Fauna marinha", "Felinos", "Formigas", "Insetos", "Mamíferos", 
-      "Mariposas", "Borboletas", "Marsupiais", "Mimetismo", "Moluscos", "Morcegos", 
-      "Odonata", "Peixes", "Pequenos mamíferos", "Poríferos", "Primatas", "Quelônios", 
-      "Rastreio", "Rebanhos", "Répteis", "Tubarões", "Vermes", "Zoonoses"
+      "Abelhas e vespas",
+      "Anfíbios",
+      "Anfibios",
+      "Anfíbios - avançado",
+      "Anfibios avançado",
+      "Animais migratórios",
+      "Animais nocivos",
+      "Animais noturnos",
+      "Animais peçonhentos",
+      "Aranhas",
+      "Araras, papagaios e periquitos",
+      "Aves",
+      "Aves - avançado",
+      "Aves avançado",
+      "Aves de estimação",
+      "Aves de rapina",
+      "Aves domésticas",
+      "Cães",
+      "Camelos",
+      "Cetáceos",
+      "Cigarras",
+      "Crustáceos",
+      "Equinodermos",
+      "Fauna marinha",
+      "Felinos",
+      "Felinos - avançado",
+      "Felinos avançado",
+      "Formigas",
+      "Insetos",
+      "Insetos - avançado",
+      "Insetos avançado",
+      "Mamíferos",
+      "Mamiferos",
+      "Mamíferos - avançado",
+      "Mamíferos avançado",
+      "Mamíferos marinhos",
+      "Mariposas e borboletas",
+      "Marsupiais",
+      "Marsupials",
+      "Mimetismo e camuflagem",
+      "Moluscos",
+      "Moluscos - avançado",
+      "Moluscos avançado",
+      "Morcegos",
+      "Morcegos - avançado",
+      "Morcegos avançado",
+      "Odonata",
+      "Peixes",
+      "Peixes ornamentais",
+      "Pequenos mamíferos de estimação",
+      "Poríferos e cnidários",
+      "Primatas",
+      "Quelônios",
+      "Rastreio de animais",
+      "Rastreio de animais - avançado",
+      "Rastreio de animais avançado",
+      "Rebanhos domésticos",
+      "Répteis",
+      "Répteis - avançado",
+      "Répteis avançado",
+      "Tubarões",
+      "Vermes",
+      "Vermes - avançado",
+      "Vermes avançado",
+      "Zoonoses"
     ],
+    isGlobalArea: false,
     siglas: ['EN']
   },
+
+  // 013 - Mestrado em Ecologia
   {
     name: "Mestrado em Ecologia",
     category: "Estudo da Natureza",
     requirementsCount: 7,
     specialties: [
-      "Animais ameaçados", "Araras", "Papagaios", "Periquitos", "Compostagem", 
-      "Conservação ambiental", "Ecologia", "Energias renováveis", "Estuário", 
-      "Recursos hídricos", "Quedas d'água", "Quelônios", "Reciclagem"
+      "Animais ameaçados de extinção",
+      "Araras, papagaios e periquitos",
+      "Compostagem doméstica",
+      "Conservação ambiental",
+      "Ecologia",
+      "Ecologia - avançado",
+      "Ecologia avançado",
+      "Energias renováveis",
+      "Estuário",
+      "Preservação de recursos hídricos",
+      "Quedas d'água",
+      "Quelônios",
+      "Reciclagem e sustentabilidade",
+      "Reciclagem e sustentabilidade - avançado",
+      "Reciclagem e sustentabilidade avançado"
     ],
+    isGlobalArea: false,
     siglas: ['EN']
   },
+
+  // 014 - Mestrado em Botânica
   {
     name: "Mestrado em Botânica",
     category: "Estudo da Natureza",
     requirementsCount: 7,
     specialties: [
-      "Algas", "Arbustos", "Árvores", "Briófitas", "Bromélias", "Cactos", "Ervas", 
-      "Eucaliptos", "Fisiologia vegetal", "Flores", "Gramíneas", "Liquens", 
-      "Orquídeas", "Palmeiras", "Plantas carnívoras", "Plantas caseiras", 
-      "Samambaias", "Sementes"
+      "Algas",
+      "Arbustos",
+      "Arbustos - avançado",
+      "Arbustos avançado",
+      "Árvores",
+      "Arvores",
+      "Árvores - avançado",
+      "Arvores- avançado",
+      "Arvores avançado",
+      "Briófitas",
+      "Bromélias",
+      "Cactos",
+      "Cactos - avançado",
+      "Cactos avançado",
+      "Ervas",
+      "Eucaliptos",
+      "Fisiologia vegetal",
+      "Flores",
+      "Flores - avançado",
+      "Flores avançado",
+      "Gramíneas",
+      "Gramineas",
+      "Liquens",
+      "Orquídeas",
+      "Orquideas",
+      "Orquídeas - avançado",
+      "Orquídeas-avançado",
+      "Orquídeas avançado",
+      "Palmeiras",
+      "Plantas carnívoras",
+      "Plantas caseiras",
+      "Samambaias",
+      "Sementes",
+      "Sementes - avançado",
+      "Sementes avançado"
     ],
+    isGlobalArea: false,
     siglas: ['EN']
   },
+
+  // 015 - Mestrado em Habilidades Domésticas (Global: 7 especialidades de Habilidades Domésticas)
   {
     name: "Mestrado em Habilidades Domésticas",
     category: "Habilidades Domésticas",
@@ -236,12 +567,14 @@ export const MASTERY_RULES: MasteryRule[] = [
     isGlobalArea: true,
     siglas: ['HD']
   },
+
+  // 016 - Mestrado em Ensinos Bíblicos (Global: 14 especialidades em Ensinos Bíblicos)
   {
     name: "Mestrado em Ensinos Bíblicos",
     category: "Ensinos Bíblicos",
     requirementsCount: 14,
     specialties: [],
     isGlobalArea: true,
-    siglas: ['AM-EB', 'EB']
+    siglas: ['EB', 'AM-EB', 'AM']
   }
 ];
