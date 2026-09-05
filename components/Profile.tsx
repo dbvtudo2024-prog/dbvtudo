@@ -955,43 +955,40 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                       return found;
                     };
 
+                    // Helper para normalizar strings de comparação
+                    const cleanStr = (txt: string) => 
+                      (txt || "")
+                        .toLowerCase()
+                        .normalize("NFD")
+                        .replace(/[\u0300-\u036f]/g, "")
+                        .replace(/[-–—_]/g, " ")
+                        .replace(/\s+/g, " ")
+                        .trim();
+
                     // Helper para filtrar especialidades que pertencem a uma regra de mestrado
                     const getSpecialtiesForRule = (rule: typeof MASTERY_RULES[0], pool: Especialidade[]) => {
                       return pool.filter(s => {
-                        const sName = s.nome.toLowerCase().trim();
+                        const sClean = cleanStr(s.nome);
                         
-                        // Se a regra for de área global (ex: ADRA, Artes e Habilidades Manuais, etc.)
+                        // Se a regra for de área global irrestrita (ex: ADRA, Artes e Habilidades Manuais, etc.)
                         if (rule.isGlobalArea) {
-                          if (s.area && normalize(s.area).includes(normalize(rule.category))) return true;
+                          if (s.area && cleanStr(s.area).includes(cleanStr(rule.category))) return true;
                           if (s.sigla && rule.siglas?.includes(s.sigla)) return true;
                         }
 
-                        // 1. Match por sigla + lista de especialidades
-                        const hasSiglaMatch = s.sigla && rule.siglas?.includes(s.sigla) && 
-                                             rule.specialties.some(rs => rs.toLowerCase().trim() === sName || sName.includes(rs.toLowerCase().trim()));
-                        if (hasSiglaMatch) return true;
-
-                        // 2. Match exato por nome
-                        const hasExactMatch = rule.specialties.some(rs => rs.toLowerCase().trim() === sName);
-                        if (hasExactMatch) return true;
-
-                        // 3. Match de inclusão seguro
-                        const otherMasteryHasExactMatch = MASTERY_RULES.some(r => 
-                          !r.isGlobalArea && 
-                          r.name !== rule.name && 
-                          r.specialties.some(rs => rs.toLowerCase().trim() === sName)
-                        );
-                        if (otherMasteryHasExactMatch) return false;
-
-                        if (s.sigla && !rule.siglas?.includes(s.sigla)) {
-                          if (rule.name !== "Mestrado em Vida Campestre") return false;
-                        }
-
+                        // Para regras de lista fechada (como Atividades Profissionais, Testificação, etc.)
+                        // 1. Match exato ou quase-exato por nome com a lista oficial
                         return rule.specialties.some(rs => {
-                          const rsName = rs.toLowerCase().trim();
-                          if (rsName === "fisica" && sName.includes("cultura fisica")) return false;
-                          if (rsName.length <= 5) return sName === rsName;
-                          return sName.includes(rsName);
+                          const rsClean = cleanStr(rs);
+                          
+                          // Match exato
+                          if (sClean === rsClean) return true;
+                          
+                          // Variações de pontuação ou prefixo (ex: "Cães - cuidado e treinamento" vs "Cães")
+                          if (rsClean.length > 5 && sClean.startsWith(rsClean)) return true;
+                          if (sClean.length > 5 && rsClean.startsWith(sClean)) return true;
+                          
+                          return false;
                         });
                       });
                     };

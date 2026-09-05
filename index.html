@@ -98,24 +98,6 @@
           };
         } catch(e) {}
       })();
-
-      // 4. Safe Service Worker and Cache cleanup
-      try {
-        if ('serviceWorker' in navigator && navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
-          navigator.serviceWorker.getRegistrations().then(function(registrations) {
-            for (var i = 0; i < registrations.length; i++) {
-              registrations[i].unregister().catch(function(){});
-            }
-          }).catch(function(){});
-        }
-        if ('caches' in window && window.caches && window.caches.keys) {
-          window.caches.keys().then(function(names) {
-            for (var j = 0; j < names.length; j++) {
-              window.caches.delete(names[j]).catch(function(){});
-            }
-          }).catch(function(){});
-        }
-      } catch(e) {}
     </script>
     <style>
         html, body, #root {
