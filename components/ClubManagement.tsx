@@ -2795,9 +2795,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                     e.stopPropagation();
                     toggleSpecialty(esp.id.toString());
                   }}
-                  className={`p-3 rounded-xl transition-all active:scale-90 ${isCompleted ? 'text-red-500 bg-red-50 dark:bg-red-950/40' : 'text-slate-200 dark:text-slate-600 hover:text-red-200'}`}
+                  className={`w-11 h-11 min-w-[44px] max-w-[44px] min-h-[44px] max-h-[44px] shrink-0 flex-shrink-0 aspect-square rounded-2xl flex items-center justify-center transition-all active:scale-90 ${isCompleted ? 'text-red-500 bg-red-50 dark:bg-red-950/40' : 'text-slate-200 dark:text-slate-600 hover:text-red-200'}`}
                 >
-                  <Heart size={20} fill={isCompleted ? "currentColor" : "none"} />
+                  <Heart size={20} className="shrink-0" fill={isCompleted ? "currentColor" : "none"} />
                 </button>
               </div>
             );
@@ -7165,7 +7165,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
         <button 
           onClick={() => setActiveSubView('SPECIALTIES')}
-          className="w-full p-5 rounded-[36px] shadow-lg flex items-center justify-between text-white active:scale-[0.98] transition-all group bg-amber-600 dark:bg-amber-700"
+          className="w-full p-5 rounded-[36px] shadow-md flex items-center justify-between text-white active:scale-[0.98] transition-all group bg-amber-500 hover:bg-amber-500/90 dark:bg-amber-600/90 dark:hover:bg-amber-600"
         >
           <div className="flex items-center space-x-4">
             <div className="w-14 h-14 bg-white/20 rounded-[22px] flex items-center justify-center">

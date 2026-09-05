@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { ChevronLeft, LogOut, Shield, MapPin, Briefcase, Award, Camera, Check, X, User, Mail, Phone, ChevronDown, Heart, Search, Settings, Layers, Globe, Trophy } from 'lucide-react';
+import { ChevronLeft, LogOut, Shield, MapPin, Briefcase, Award, Camera, Check, X, User, Mail, Phone, ChevronDown, Heart, Search, Settings, Layers, Globe, Trophy, ArrowUp } from 'lucide-react';
 import { ClubType, Especialidade, UserProfile, Conquista } from '../types';
 import { MASTERY_RULES } from '../masteryRules';
 import { 
@@ -206,6 +206,23 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
   const currentThemeColor = userData.tipo === "Desbravador" ? '#dc371b' : '#800000';
   const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const scrollTop = e.currentTarget.scrollTop;
+    setShowScrollTop(scrollTop > 150);
+    setIsHeaderScrolled(scrollTop > 80);
+  };
+
+  const scrollToTop = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    }
+  };
 
   // Sincronizar se o localStorage mudar externamente
   useEffect(() => {
@@ -401,7 +418,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   };
 
   return (
-    <>
+    <div className="flex flex-col h-full bg-[#F8FAFC] dark:bg-slate-900 overflow-hidden relative transition-colors duration-500">
       <input type="file" ref={fileInputRef} onChange={handlePhotoUpload} accept="image/*" className="hidden" />
 
       {/* Modal Minha Faixa */}
@@ -448,14 +465,14 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
               ) : filteredSpecialties.length > 0 ? (
                 filteredSpecialties.map((esp) => (
                   <div key={esp.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-4 flex items-center space-x-4 shadow-sm hover:border-slate-200 dark:hover:border-slate-600 transition-all">
-                    <div className="w-14 h-14 bg-slate-50 dark:bg-slate-700 rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0 border border-slate-50 dark:border-slate-600">
+                    <div className="w-14 h-14 bg-slate-50 dark:bg-slate-700 rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0 shrink-0 border border-slate-50 dark:border-slate-600">
                       {esp.logo ? (
                         <img src={esp.logo} className="w-10 h-10 object-contain" alt={esp.nome} />
                       ) : (
                         <Award size={24} className="text-slate-300 dark:text-slate-400" />
                       )}
                     </div>
-                    <div className="flex-grow text-left">
+                    <div className="flex-grow text-left min-w-0 pr-1">
                       <h4 className="font-black text-slate-700 dark:text-slate-200 text-[12px] uppercase tracking-tight leading-tight">
                         {esp.nome}
                       </h4>
@@ -465,13 +482,13 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                     </div>
                     <button 
                       onClick={() => toggleLike(esp.id)}
-                      className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
+                      className={`w-11 h-11 min-w-[44px] max-w-[44px] min-h-[44px] max-h-[44px] shrink-0 flex-shrink-0 aspect-square rounded-2xl flex items-center justify-center transition-all active:scale-90 ${
                         likedIds.includes(esp.id.toString()) 
                           ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-500 shadow-sm' 
                           : 'bg-slate-50 dark:bg-slate-700 text-slate-300 dark:text-slate-500'
                       }`}
                     >
-                      <Heart size={20} fill={likedIds.includes(esp.id.toString()) ? "currentColor" : "none"} />
+                      <Heart size={20} className="shrink-0" fill={likedIds.includes(esp.id.toString()) ? "currentColor" : "none"} />
                     </button>
                   </div>
                 ))
@@ -574,8 +591,9 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
       )}
 
       <div 
-        onScroll={(e) => setIsHeaderScrolled(e.currentTarget.scrollTop > 80)}
-        className="flex flex-col h-full bg-[#F8FAFC] dark:bg-slate-900 animate-slide-in transition-colors duration-500 overflow-y-auto scrollbar-hide pb-16 relative"
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="flex-grow overflow-y-auto scrollbar-hide pb-16 relative"
       >
         {/* Barra Sticky com Botão Voltar e Ações (Idêntico ao padrão de Classes e Especialidades) */}
         <div className={`sticky top-0 z-30 flex items-center justify-between py-2 px-3.5 sm:px-5 transition-all duration-300 ${
@@ -891,90 +909,152 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                       return s;
                     });
 
-                    const masteries = processedSpecialties.filter(s => s.nome.toLowerCase().includes('mestrado'));
+                    const allMasterySpecialties = allSpecialties.filter(s => s.nome.toLowerCase().includes('mestrado'));
                     const ordinarySpecialties = processedSpecialties.filter(s => !s.nome.toLowerCase().includes('mestrado'));
                     
-                    // Track which ordinary specialties have been assigned to a mastery group
+                    // Track which ordinary specialties have been assigned to an activated mastery group
                     const assignedIds = new Set<string>();
-                    
-                    // 1. Processar Mestrados Oficiais
-                    const masteryGroups = masteries.map(mastery => {
-                      // Normalização ultra-robusta para evitar erros de digitação (ex: Campreste vs Campestre)
-                      const normalize = (txt: string) => 
-                        txt.toLowerCase()
-                           .normalize("NFD")
-                           .replace(/[\u0300-\u036f]/g, "")
-                           .replace('mestrado em ', '')
-                           .replace('mestrado de ', '')
-                           .replace('campreste', 'campestre')
-                           .replace('tecinologia', 'tecnologia')
-                           .trim();
 
-                      const mName = normalize(mastery.nome);
+                    const normalize = (txt: string) => 
+                      (txt || "")
+                         .toLowerCase()
+                         .normalize("NFD")
+                         .replace(/[\u0300-\u036f]/g, "")
+                         .replace('mestrado em ', '')
+                         .replace('mestrado de ', '')
+                         .replace('campreste', 'campestre')
+                         .replace('tecinologia', 'tecnologia')
+                         .trim();
+
+                    // Helper para encontrar o objeto de especialidade oficial do Mestrado em allSpecialties (para obter seu logo/insígnia)
+                    const findMasteryItem = (ruleName: string, category: string): Especialidade | undefined => {
+                      const normRule = normalize(ruleName);
+                      const normCat = normalize(category);
                       
-                      // Encontrar a regra correspondente ao item de mestrado
-                      const rule = MASTERY_RULES.find(r => {
-                        const rName = normalize(r.name);
-                        return mName === rName || mName.includes(rName) || rName.includes(mName);
+                      // 1. Tentar por nome direto do mestrado
+                      let found = allMasterySpecialties.find(s => {
+                        const sNorm = normalize(s.nome);
+                        return sNorm === normRule || sNorm.includes(normRule) || normRule.includes(sNorm);
                       });
                       
-                      let groupItems: Especialidade[] = [];
-                      if (rule) {
-                        // Capturamos itens que pertencem a esta regra
-                        groupItems = ordinarySpecialties.filter(s => {
-                          const sName = s.nome.toLowerCase().trim();
-                          
-                          // Se a regra for de área global (ex: ADRA, Agrícolas), usa a área
-                          if (rule.isGlobalArea) {
-                            return s.area?.toLowerCase() === rule.category.toLowerCase() ||
-                                   s.area?.toLowerCase().includes(rule.category.toLowerCase());
-                          }
-
-                          // SISTEMA DE TRÊS CAMADAS PARA GRUPOS
-                          // 1. Se a sigla bater E estiver na lista deste mestrado
-                          const hasSiglaMatch = s.sigla && rule.siglas?.includes(s.sigla) && 
-                                               rule.specialties.some(rs => rs.toLowerCase().trim() === sName || sName.includes(rs.toLowerCase().trim()));
-                          if (hasSiglaMatch) return true;
-
-                          // 2. Se o nome for idêntico a algum item da lista deste mestrado
-                          const hasExactMatch = rule.specialties.some(rs => rs.toLowerCase().trim() === sName);
-                          if (hasExactMatch) return true;
-
-                          // 3. Senão, tenta inclusão mas verifica se outro mestrado não tem esse nome EXATAMENTE ou SIGLA específica
-                          const otherMasteryHasExactMatch = MASTERY_RULES.some(r => 
-                            !r.isGlobalArea && 
-                            r.name !== rule.name && 
-                            r.specialties.some(rs => rs.toLowerCase().trim() === sName)
-                          );
-                          if (otherMasteryHasExactMatch) return false;
-
-                          // Verificação adicional por sigla para evitar que EN (Zoologia) capture HM (Artes) por engano se o nome incluir algo
-                          if (s.sigla && !rule.siglas?.includes(s.sigla)) {
-                            // Se a especialidade tem uma sigla e ela não pertence a este mestrado, 
-                            // e este mestrado NÃO é Vida Campestre (que é exceção), ignoramos
-                            if (rule.name !== "Mestrado em Vida Campestre") return false;
-                          }
-
-                          return rule.specialties.some(rs => {
-                            const rsName = rs.toLowerCase().trim();
-                            if (rsName === "fisica" && sName.includes("cultura fisica")) return false;
-                            if (rsName.length <= 5) return sName === rsName;
-                            return sName.includes(rsName);
-                          });
+                      // 2. Tentar por categoria/área
+                      if (!found) {
+                        found = allMasterySpecialties.find(s => {
+                          const sNorm = normalize(s.nome);
+                          return sNorm === normCat || sNorm.includes(normCat) || normCat.includes(sNorm);
                         });
                       }
 
-                      // Marcar estes itens como atribuídos
-                      groupItems.forEach(s => assignedIds.add(s.id.toString()));
+                      // 3. Fallback em allSpecialties completo
+                      if (!found) {
+                        found = allSpecialties.find(s => {
+                          const sNorm = normalize(s.nome);
+                          return sNorm.includes(normRule) || (normCat && sNorm.includes(normCat));
+                        });
+                      }
+                      return found;
+                    };
 
-                      return {
-                        id: mastery.id,
-                        mastery,
-                        items: groupItems
-                      };
+                    // Helper para filtrar especialidades que pertencem a uma regra de mestrado
+                    const getSpecialtiesForRule = (rule: typeof MASTERY_RULES[0], pool: Especialidade[]) => {
+                      return pool.filter(s => {
+                        const sName = s.nome.toLowerCase().trim();
+                        
+                        // Se a regra for de área global (ex: ADRA, Artes e Habilidades Manuais, etc.)
+                        if (rule.isGlobalArea) {
+                          if (s.area && normalize(s.area).includes(normalize(rule.category))) return true;
+                          if (s.sigla && rule.siglas?.includes(s.sigla)) return true;
+                        }
+
+                        // 1. Match por sigla + lista de especialidades
+                        const hasSiglaMatch = s.sigla && rule.siglas?.includes(s.sigla) && 
+                                             rule.specialties.some(rs => rs.toLowerCase().trim() === sName || sName.includes(rs.toLowerCase().trim()));
+                        if (hasSiglaMatch) return true;
+
+                        // 2. Match exato por nome
+                        const hasExactMatch = rule.specialties.some(rs => rs.toLowerCase().trim() === sName);
+                        if (hasExactMatch) return true;
+
+                        // 3. Match de inclusão seguro
+                        const otherMasteryHasExactMatch = MASTERY_RULES.some(r => 
+                          !r.isGlobalArea && 
+                          r.name !== rule.name && 
+                          r.specialties.some(rs => rs.toLowerCase().trim() === sName)
+                        );
+                        if (otherMasteryHasExactMatch) return false;
+
+                        if (s.sigla && !rule.siglas?.includes(s.sigla)) {
+                          if (rule.name !== "Mestrado em Vida Campestre") return false;
+                        }
+
+                        return rule.specialties.some(rs => {
+                          const rsName = rs.toLowerCase().trim();
+                          if (rsName === "fisica" && sName.includes("cultura fisica")) return false;
+                          if (rsName.length <= 5) return sName === rsName;
+                          return sName.includes(rsName);
+                        });
+                      });
+                    };
+
+                    // 1. Processar Mestrados (Ativados por seleção manual OU automaticamente pela quantidade mínima de especialidades)
+                    interface ActiveMasteryGroup {
+                      id: string | number;
+                      name: string;
+                      logo?: string;
+                      items: Especialidade[];
+                      isManual?: boolean;
+                      requirementsCount: number;
+                    }
+
+                    const activeMasteryGroups: ActiveMasteryGroup[] = [];
+
+                    // Avaliar cada regra oficial de Mestrado
+                    MASTERY_RULES.forEach(rule => {
+                      const masteryItem = findMasteryItem(rule.name, rule.category);
+                      const isManuallyLiked = masteryItem && likedIds.includes(masteryItem.id.toString());
+                      const matchingItems = getSpecialtiesForRule(rule, ordinarySpecialties);
+                      const reqCount = rule.requirementsCount || 7;
+                      const hasMetRequirements = matchingItems.length >= reqCount;
+
+                      // Se o usuário selecionou a quantidade mínima OU curtiu o mestrado diretamente
+                      if (hasMetRequirements || isManuallyLiked) {
+                        matchingItems.forEach(s => assignedIds.add(s.id.toString()));
+                        activeMasteryGroups.push({
+                          id: masteryItem ? masteryItem.id : rule.name,
+                          name: masteryItem ? masteryItem.nome.replace(/campreste/gi, 'Campestre') : rule.name,
+                          logo: masteryItem?.logo,
+                          items: matchingItems,
+                          isManual: !!isManuallyLiked,
+                          requirementsCount: reqCount
+                        });
+                      }
                     });
 
-                    // 2. Agrupar o resto por Área (Especialidades sozinhas ou mestrados dinâmicos)
+                    // Também verificar se o usuário curtiu algum mestrado do banco que não estava nas regras explícitas
+                    allMasterySpecialties.forEach(mastery => {
+                      if (likedIds.includes(mastery.id.toString())) {
+                        const alreadyAdded = activeMasteryGroups.some(g => String(g.id) === String(mastery.id));
+                        if (!alreadyAdded) {
+                          const mName = normalize(mastery.nome);
+                          const unassigned = ordinarySpecialties.filter(s => !assignedIds.has(s.id.toString()));
+                          const matching = unassigned.filter(s => {
+                            const area = s.area ? normalize(s.area) : '';
+                            return area && (mName.includes(area) || area.includes(mName));
+                          });
+                          matching.forEach(s => assignedIds.add(s.id.toString()));
+                          activeMasteryGroups.push({
+                            id: mastery.id,
+                            name: mastery.nome.replace(/campreste/gi, 'Campestre'),
+                            logo: mastery.logo,
+                            items: matching,
+                            isManual: true,
+                            requirementsCount: 7
+                          });
+                        }
+                      }
+                    });
+
+                    // 2. Agrupar as especialidades restantes (que ainda não completaram mestrado) por Área
                     const remainingSpecialties = ordinarySpecialties.filter(s => !assignedIds.has(s.id.toString()));
                     const remainingGroups = Object.entries(
                       remainingSpecialties.reduce((acc, esp) => {
@@ -991,27 +1071,47 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
                     return (
                       <>
-                        {/* Render Mastery Groups */}
-                        {masteryGroups.map(group => (
+                        {/* Grupos de Mestrado Conquistados / Ativos com Insígnia Automática */}
+                        {activeMasteryGroups.map(group => (
                           <div key={group.id} className="space-y-6">
-                            <div className="flex flex-col items-center space-y-4">
-                              <div className="w-24 h-24 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-[32px] border-2 border-amber-200 dark:border-amber-700/50 p-4 shadow-lg shadow-amber-500/10 group-hover:scale-105 transition-transform">
-                                <img src={group.mastery.logo} className="w-full h-full object-contain" alt={group.mastery.nome} />
+                            <div className="flex flex-col items-center space-y-3">
+                              <div className="relative group">
+                                <div className="w-24 h-24 sm:w-28 sm:h-28 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent dark:from-amber-500/20 dark:via-amber-500/10 dark:to-transparent rounded-[32px] border-2 border-amber-400/60 dark:border-amber-500/50 p-3.5 shadow-xl shadow-amber-500/10 flex items-center justify-center transition-transform hover:scale-105">
+                                  {group.logo ? (
+                                    <img src={group.logo} className="w-full h-full object-contain drop-shadow-md" alt={group.name} />
+                                  ) : (
+                                    <Trophy size={48} className="text-amber-500" />
+                                  )}
+                                </div>
+                                <div className="absolute -top-1.5 -right-1.5 w-7 h-7 bg-amber-500 text-white rounded-full flex items-center justify-center shadow-md border-2 border-white dark:border-slate-900" title="Insígnia de Mestrado Conquistada">
+                                  <Trophy size={13} />
+                                </div>
                               </div>
-                              <span className="mt-2 text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-tight text-center max-w-[120px]">
-                                {group.mastery.nome.replace(/campreste/gi, 'Campestre')}
-                              </span>
+                              <div className="text-center px-4">
+                                <h4 className="text-[12px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-tight leading-tight">
+                                  {group.name}
+                                </h4>
+                                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">
+                                  {group.items.length} {group.items.length === 1 ? 'Especialidade Concluída' : 'Especialidades Concluídas'}
+                                </p>
+                              </div>
                               <div className="flex items-center space-x-3 w-full px-2">
                                 <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800" />
-                                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest">({group.items.length} Especialidades)</span>
+                                <span className="text-[8px] font-black text-amber-500/80 uppercase tracking-widest">
+                                  Insígnia de Mestrado
+                                </span>
                                 <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800" />
                               </div>
                             </div>
                             <div className="grid grid-cols-4 gap-3 px-2">
                               {group.items.sort((a, b) => a.nome.localeCompare(b.nome)).map(esp => (
                                 <div key={esp.id} className="flex flex-col items-center">
-                                  <div className="w-16 h-16 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center justify-center p-2.5 shadow-sm">
-                                    <img src={esp.logo} className="w-full h-full object-contain" alt={esp.nome} />
+                                  <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-100 dark:border-slate-700/80 flex items-center justify-center p-2 shadow-sm hover:scale-105 transition-transform" title={esp.nome}>
+                                    {esp.logo ? (
+                                      <img src={esp.logo} className="w-full h-full object-contain" alt={esp.nome} />
+                                    ) : (
+                                      <Award size={24} className="text-slate-300 dark:text-slate-500" />
+                                    )}
                                   </div>
                                 </div>
                               ))}
@@ -1019,39 +1119,31 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                           </div>
                         ))}
 
-                        {/* Render Remaining Groups */}
-                        {remainingGroups.map(group => {
-                          const hasDynamicMastery = group.items.length >= 7;
-                          return (
-                            <div key={group.id} className="space-y-6">
-                              <div className="flex items-center space-x-3 px-2">
-                                <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800" />
-                                {hasDynamicMastery ? (
-                                  <div className="flex items-center space-x-2 bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 rounded-full border border-amber-100 dark:border-amber-900/50 shadow-sm">
-                                    <Trophy size={14} className="text-amber-500" />
-                                    <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-tighter">
-                                      Mestrado em {group.area}
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                                    {group.area} ({group.items.length})
-                                  </span>
-                                )}
-                                <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800" />
-                              </div>
-                              <div className="grid grid-cols-4 gap-3 px-2">
-                                {group.items.sort((a, b) => a.nome.localeCompare(b.nome)).map(esp => (
-                                  <div key={esp.id} className="flex flex-col items-center">
-                                    <div className="w-16 h-16 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center justify-center p-2.5 shadow-sm">
-                                      <img src={esp.logo} className="w-full h-full object-contain" alt={esp.nome} />
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
+                        {/* Especialidades Restantes Agrupadas por Área */}
+                        {remainingGroups.map(group => (
+                          <div key={group.id} className="space-y-6">
+                            <div className="flex items-center space-x-3 px-2">
+                              <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800" />
+                              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                                {group.area} ({group.items.length})
+                              </span>
+                              <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800" />
                             </div>
-                          );
-                        })}
+                            <div className="grid grid-cols-4 gap-3 px-2">
+                              {group.items.sort((a, b) => a.nome.localeCompare(b.nome)).map(esp => (
+                                <div key={esp.id} className="flex flex-col items-center">
+                                  <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-100 dark:border-slate-700/80 flex items-center justify-center p-2 shadow-sm hover:scale-105 transition-transform" title={esp.nome}>
+                                    {esp.logo ? (
+                                      <img src={esp.logo} className="w-full h-full object-contain" alt={esp.nome} />
+                                    ) : (
+                                      <Award size={24} className="text-slate-300 dark:text-slate-500" />
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
                       </>
                     );
                   })()
@@ -1061,9 +1153,21 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
           )}
         </div>
       </div>
+      </div>
+
+      {/* Botão Voltar ao Topo */}
+      {showScrollTop && (
+        <button 
+          onClick={scrollToTop}
+          className="fixed bottom-28 right-6 w-12 h-12 bg-white dark:bg-slate-800 rounded-full shadow-2xl border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-400 dark:text-slate-300 active:scale-90 transition-all z-[60] animate-bounce-in"
+          title="Voltar ao Topo"
+          aria-label="Voltar ao Topo"
+        >
+          <ArrowUp size={24} strokeWidth={3} />
+        </button>
+      )}
     </div>
-  </>
-);
+  );
 };
 
 export default Profile;
