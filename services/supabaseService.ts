@@ -311,6 +311,50 @@ export async function fetchClasses(club: ClubType): Promise<ClubClass[]> {
   }
 }
 
+const ESPECIALIDADES_CACHE_KEY_PREFIX = 'dbv_tudo_cached_specialties_';
+const ESPECIALIDADES_ALL_CACHE_KEY = 'dbv_tudo_cached_specialties_all';
+
+export function getCachedEspecialidades(club?: ClubType | null): Especialidade[] {
+  if (typeof window === 'undefined' || !window.localStorage) return [];
+  try {
+    if (club) {
+      const specific = localStorage.getItem(ESPECIALIDADES_CACHE_KEY_PREFIX + club);
+      if (specific) {
+        const parsed = JSON.parse(specific);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    }
+    const all = localStorage.getItem(ESPECIALIDADES_ALL_CACHE_KEY);
+    if (all) {
+      const parsed = JSON.parse(all);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        if (club) return parsed.filter((item: Especialidade) => item.club === club);
+        return parsed;
+      }
+    }
+  } catch {}
+  return [];
+}
+
+export async function fetchAllEspecialidades(): Promise<Especialidade[]> {
+  try {
+    const [dbv, avt] = await Promise.all([
+      fetchEspecialidades(ClubType.PATHFINDER),
+      fetchEspecialidades(ClubType.ADVENTURER)
+    ]);
+    const combined = [...dbv, ...avt];
+    if (combined.length > 0) {
+      try {
+        localStorage.setItem(ESPECIALIDADES_ALL_CACHE_KEY, JSON.stringify(combined));
+      } catch {}
+      return combined;
+    }
+    return getCachedEspecialidades();
+  } catch {
+    return getCachedEspecialidades();
+  }
+}
+
 export async function fetchEspecialidades(club: ClubType, categoryFilter?: string): Promise<Especialidade[]> {
   try {
     const table = club === ClubType.PATHFINDER ? 'EspecialidadesDBV' : 'EspecialidadesAVT';
@@ -318,8 +362,10 @@ export async function fetchEspecialidades(club: ClubType, categoryFilter?: strin
     if (categoryFilter) query = query.eq('Categoria', categoryFilter);
     
     const { data, error } = await query.order('ID', { ascending: true });
-    if (error) return [];
-    return (data || []).map(item => ({
+    if (error || !data) {
+      return getCachedEspecialidades(club);
+    }
+    const mapped: Especialidade[] = (data || []).map(item => ({
       id: item.id,
       nome: item.Nome,
       area: item.Categoria,
@@ -332,8 +378,16 @@ export async function fetchEspecialidades(club: ClubType, categoryFilter?: strin
       origem: item.Origem,
       codigo: item.ID
     }));
+
+    if (!categoryFilter && mapped.length > 0) {
+      try {
+        localStorage.setItem(ESPECIALIDADES_CACHE_KEY_PREFIX + club, JSON.stringify(mapped));
+      } catch {}
+    }
+
+    return mapped;
   } catch {
-    return [];
+    return getCachedEspecialidades(club);
   }
 }
 
@@ -355,39 +409,299 @@ export async function fetchDesbravaMais(): Promise<DesbravaMais[]> {
 }
 
 // Funções para a Faixa (Especialidades Curtidas) no Banco de Dados - Tabela Usuarios, Coluna Especialidades
-export async function fetchUserSpecialties(email: string): Promise<string[]> {
+const SPECIALTY_GLOBAL_KEY = 'dbv_tudo_completed_specialties_global';
+
+export function getLocalUserSpecialties(email?: string | null, clubType?: string | null): string[] {
+  if (typeof window === 'undefined' || !window.localStorage) return [];
+  
+  const foundIds = new Set<string>();
+
+  const parseAndAdd = (raw: string | null) => {
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        parsed.forEach(item => {
+          if (item !== null && item !== undefined) {
+            const str = item.toString().trim();
+            if (str.length > 0) foundIds.add(str);
+          }
+        });
+      }
+    } catch {}
+  };
+
+  // 0. Chave do Perfil Global (dbv_tudo_global_user_profile)
   try {
-    const { data, error } = await supabase
-      .from('Usuarios')
-      .select('Especialidades')
-      .eq('email', email)
-      .maybeSingle();
-    
-    if (error || !data || !data.Especialidades) return [];
-    
-    // Se for string (ex: "1,2,3"), converte para array de strings
-    if (typeof data.Especialidades === 'string') {
-      return data.Especialidades.split(',').map(id => id.trim()).filter(id => id.length > 0);
+    const profileRaw = localStorage.getItem('dbv_tudo_global_user_profile');
+    if (profileRaw) {
+      const profile = JSON.parse(profileRaw);
+      if (Array.isArray(profile.specialties)) {
+        profile.specialties.forEach((id: any) => {
+          if (id !== null && id !== undefined) {
+            const str = id.toString().trim();
+            if (str.length > 0) foundIds.add(str);
+          }
+        });
+      }
+      if (Array.isArray(profile.Especialidades)) {
+        profile.Especialidades.forEach((id: any) => {
+          if (id !== null && id !== undefined) {
+            const str = id.toString().trim();
+            if (str.length > 0) foundIds.add(str);
+          }
+        });
+      }
+      if (typeof profile.Especialidades === 'string') {
+        profile.Especialidades.split(',').forEach((id: string) => {
+          const str = id.trim();
+          if (str.length > 0) foundIds.add(str);
+        });
+      }
     }
-    
-    // Se já for array
-    if (Array.isArray(data.Especialidades)) {
-      return data.Especialidades.map(id => id.toString());
+  } catch {}
+
+  // 1. Chave Global Unificada
+  parseAndAdd(localStorage.getItem(SPECIALTY_GLOBAL_KEY));
+
+  // 2. Chaves por Email
+  if (email && email !== 'email@exemplo.com') {
+    const cleanEmail = email.toLowerCase().trim();
+    parseAndAdd(localStorage.getItem(`dbv_tudo_completed_specialties_${cleanEmail}`));
+    parseAndAdd(localStorage.getItem(`dbv_tudo_completed_specialties_${email}`));
+  }
+
+  // 3. Chave Guest
+  parseAndAdd(localStorage.getItem('dbv_tudo_completed_specialties_guest'));
+
+  // 4. Chaves por Clube
+  parseAndAdd(localStorage.getItem('dbv_tudo_liked_specialties_PATHFINDER'));
+  parseAndAdd(localStorage.getItem('dbv_tudo_liked_specialties_ADVENTURER'));
+  if (clubType) {
+    parseAndAdd(localStorage.getItem(`dbv_tudo_liked_specialties_${clubType}`));
+  }
+
+  return Array.from(foundIds);
+}
+
+export function saveLocalUserSpecialties(specialties: string[], email?: string | null, clubType?: string | null): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+
+  const validIds = Array.from(new Set(
+    (specialties || [])
+      .map(id => (id !== null && id !== undefined ? id.toString().trim() : ''))
+      .filter(id => id.length > 0)
+  ));
+  const serialized = JSON.stringify(validIds);
+
+  try {
+    // Evitar loops infinitos de re-render se os dados já estiverem exatamente iguais
+    const currentGlobal = localStorage.getItem(SPECIALTY_GLOBAL_KEY);
+    if (currentGlobal === serialized) {
+      return;
     }
 
-    return [];
-  } catch {
-    return [];
+    // 0. Salvar também dentro do perfil global no localStorage para redundância máxima
+    try {
+      const profileRaw = localStorage.getItem('dbv_tudo_global_user_profile');
+      if (profileRaw) {
+        const profile = JSON.parse(profileRaw);
+        profile.specialties = validIds;
+        profile.Especialidades = validIds.join(',');
+        localStorage.setItem('dbv_tudo_global_user_profile', JSON.stringify(profile));
+      }
+    } catch {}
+
+    // 1. Salvar na chave global unificada
+    localStorage.setItem(SPECIALTY_GLOBAL_KEY, serialized);
+
+    // 2. Salvar na chave por email
+    if (email && email !== 'email@exemplo.com') {
+      const cleanEmail = email.toLowerCase().trim();
+      localStorage.setItem(`dbv_tudo_completed_specialties_${cleanEmail}`, serialized);
+      localStorage.setItem(`dbv_tudo_completed_specialties_${email}`, serialized);
+    } else {
+      localStorage.setItem('dbv_tudo_completed_specialties_guest', serialized);
+    }
+
+    // 3. Salvar nas chaves de clubes para compatibilidade imediata com Minha Faixa
+    localStorage.setItem('dbv_tudo_liked_specialties_PATHFINDER', serialized);
+    localStorage.setItem('dbv_tudo_liked_specialties_ADVENTURER', serialized);
+    if (clubType) {
+      localStorage.setItem(`dbv_tudo_liked_specialties_${clubType}`, serialized);
+    }
+
+    // 4. Notificar a aplicação em tempo real apenas quando houver alteração real
+    window.dispatchEvent(new CustomEvent('dbv_specialties_changed', { detail: validIds }));
+  } catch (e) {
+    console.warn("Erro ao salvar especialidades localmente:", e);
   }
 }
 
-export async function updateUserSpecialties(email: string, specialties: string[]) {
+export function clearLocalUserSpecialties(email?: string | null, clubType?: string | null): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  const empty = JSON.stringify([]);
   try {
-    const { error } = await supabase
-      .from('Usuarios')
-      .update({ Especialidades: specialties.join(',') })
-      .eq('email', email);
-    return { error };
+    try {
+      const profileRaw = localStorage.getItem('dbv_tudo_global_user_profile');
+      if (profileRaw) {
+        const profile = JSON.parse(profileRaw);
+        profile.specialties = [];
+        profile.Especialidades = '';
+        localStorage.setItem('dbv_tudo_global_user_profile', JSON.stringify(profile));
+      }
+    } catch {}
+
+    localStorage.setItem(SPECIALTY_GLOBAL_KEY, empty);
+    localStorage.setItem('dbv_tudo_completed_specialties_guest', empty);
+    localStorage.setItem('dbv_tudo_liked_specialties_PATHFINDER', empty);
+    localStorage.setItem('dbv_tudo_liked_specialties_ADVENTURER', empty);
+    if (clubType) {
+      localStorage.setItem(`dbv_tudo_liked_specialties_${clubType}`, empty);
+    }
+    if (email && email !== 'email@exemplo.com') {
+      const cleanEmail = email.toLowerCase().trim();
+      localStorage.setItem(`dbv_tudo_completed_specialties_${cleanEmail}`, empty);
+      localStorage.setItem(`dbv_tudo_completed_specialties_${email}`, empty);
+    }
+    window.dispatchEvent(new CustomEvent('dbv_specialties_changed', { detail: [] }));
+  } catch (e) {
+    console.warn("Erro ao limpar especialidades locais:", e);
+  }
+}
+
+export async function fetchUserSpecialties(email?: string | null, userId?: string | null): Promise<string[]> {
+  try {
+    let rawData: any = null;
+
+    // 1. Obter userId da sessão se não fornecido
+    let effectiveUserId = userId;
+    if (!effectiveUserId) {
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (data?.user) {
+          effectiveUserId = data.user.id;
+        }
+      } catch {}
+    }
+
+    // 2. Se temos userId, buscar primeiro por user_id na tabela Usuarios
+    if (effectiveUserId) {
+      try {
+        const { data } = await supabase
+          .from('Usuarios')
+          .select('Especialidades, especialidades')
+          .eq('user_id', effectiveUserId)
+          .maybeSingle();
+        if (data) {
+          rawData = data.Especialidades || data.especialidades;
+        }
+      } catch {}
+    }
+
+    // 3. Fallback na tabela 'profiles' se existir
+    if (!rawData && effectiveUserId) {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('Especialidades, especialidades')
+          .eq('user_id', effectiveUserId)
+          .maybeSingle();
+        if (data) {
+          rawData = data.Especialidades || data.especialidades;
+        }
+      } catch {}
+    }
+
+    if (!rawData) {
+      return getLocalUserSpecialties(email);
+    }
+
+    // Se for string (ex: "1,2,3"), converte para array de strings
+    if (typeof rawData === 'string') {
+      const parsed = rawData
+        .split(',')
+        .map(id => id.trim())
+        .filter(id => id.length > 0);
+      if (parsed.length > 0) return parsed;
+    }
+
+    // Se já for array
+    if (Array.isArray(rawData)) {
+      const parsed = rawData
+        .map(id => (id !== null && id !== undefined ? id.toString().trim() : ''))
+        .filter(id => id.length > 0);
+      if (parsed.length > 0) return parsed;
+    }
+
+    return getLocalUserSpecialties(email);
+  } catch {
+    return getLocalUserSpecialties(email);
+  }
+}
+
+export async function updateUserSpecialties(email?: string | null, specialties: string[] = [], userId?: string | null) {
+  try {
+    const validIds = Array.from(new Set(
+      (specialties || [])
+        .map(id => (id !== null && id !== undefined ? id.toString().trim() : ''))
+        .filter(id => id.length > 0)
+    ));
+    const espString = validIds.join(',');
+
+    // Sempre salva localmente primeiro para proteção total
+    saveLocalUserSpecialties(validIds, email);
+
+    // Obter user_id se não fornecido
+    let effectiveUserId = userId;
+    if (!effectiveUserId) {
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (data?.user) {
+          effectiveUserId = data.user.id;
+        }
+      } catch {}
+    }
+
+    let success = false;
+    let lastError: any = null;
+
+    if (effectiveUserId) {
+      // 1. Tentar upsert com Especialidades na tabela Usuarios
+      const upsertRes = await supabase
+        .from('Usuarios')
+        .upsert(
+          { user_id: effectiveUserId, Especialidades: espString },
+          { onConflict: 'user_id' }
+        );
+
+      if (!upsertRes.error) {
+        success = true;
+      } else {
+        // Se falhar o upsert, tentar update direto
+        const res1 = await supabase
+          .from('Usuarios')
+          .update({ Especialidades: espString })
+          .eq('user_id', effectiveUserId);
+
+        if (!res1.error) {
+          success = true;
+        } else {
+          // Tenta com minúsculas se a coluna tiver casing diferente
+          const res2 = await supabase
+            .from('Usuarios')
+            .update({ especialidades: espString })
+            .eq('user_id', effectiveUserId);
+          if (!res2.error) {
+            success = true;
+          } else {
+            lastError = res1.error || res2.error;
+          }
+        }
+      }
+    }
+
+    return { error: success ? null : lastError };
   } catch (err: any) {
     return { error: err };
   }
@@ -537,27 +851,37 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile | nu
 }
 
 export async function fetchUserProfileByEmail(email: string): Promise<UserProfile | null> {
-  try {
-    const { data, error } = await supabase
-      .from('Usuarios')
-      .select('*')
-      .eq('email', email)
-      .maybeSingle();
-    
-    if (error) return null;
-    return data;
-  } catch {
-    return null;
-  }
+  // A tabela 'Usuarios' não tem a coluna 'email'. Retornamos null com segurança para evitar erro PGRST204.
+  return null;
 }
 
 export async function updateUserProfile(profile: Partial<UserProfile>) {
   if (!profile.user_id) return { error: "User ID is required" };
   
   try {
+    // Sanitização de campos: a tabela 'Usuarios' NÃO tem a coluna 'email'!
+    // Qualquer payload contendo 'email' provoca erro PGRST204 impedindo upsert no Supabase.
+    const cleanProfile: Record<string, any> = {
+      user_id: profile.user_id,
+    };
+    if (profile.nome !== undefined) cleanProfile.nome = profile.nome;
+    if (profile.foto !== undefined) cleanProfile.foto = profile.foto;
+    if (profile.telefone !== undefined) cleanProfile.telefone = profile.telefone;
+    if (profile.clube !== undefined) cleanProfile.clube = profile.clube;
+    if (profile.funçao !== undefined || (profile as any).cargo !== undefined) {
+      cleanProfile.funçao = profile.funçao || (profile as any).cargo;
+    }
+    if (profile.clubes !== undefined) cleanProfile.clubes = profile.clubes;
+    if (profile.cidade !== undefined) cleanProfile.cidade = profile.cidade;
+    if (profile.estado !== undefined) cleanProfile.estado = profile.estado;
+    if (profile.ADM !== undefined) cleanProfile.ADM = profile.ADM;
+    if (profile.fundo !== undefined) cleanProfile.fundo = profile.fundo;
+    if (profile.Especialidades !== undefined) cleanProfile.Especialidades = profile.Especialidades;
+    if (profile.Conquistas !== undefined) cleanProfile.Conquistas = profile.Conquistas;
+
     const { error } = await supabase
       .from('Usuarios')
-      .upsert(profile, { onConflict: 'user_id' });
+      .upsert(cleanProfile, { onConflict: 'user_id' });
       
     return { error };
   } catch (err: any) {
@@ -569,6 +893,10 @@ export const DEFAULT_CARGOS: string[] = [
   "Pastor",
   "Regional",
   "Distrital",
+  "Coordenador (a)",
+  "Coordenador (a) Geral",
+  "Departamental",
+  "Secretário (a) de Campo",
   "Diretor (a)",
   "Diretor (a) Associado (a)",
   "Secretário (a)",
@@ -580,41 +908,88 @@ export const DEFAULT_CARGOS: string[] = [
   "Conselheiro (a) Associado (a)",
   "Capitão (ã)",
   "Desbravador (a)",
+  "Aventureiro (a)",
+  "Conselheiro (a) de Pais",
+  "Rede Familiar",
+  "Líder",
+  "Líder Master",
+  "Líder Master Avançado",
+  "Guia Maior",
   "Aspirante",
   "Apoio"
 ];
 
-export async function fetchFuncoes(): Promise<string[]> {
+const CARGOS_CACHE_KEY = 'dbv_tudo_cargos_cache';
+
+export function getCachedFuncoes(): string[] {
+  if (typeof window === 'undefined' || !window.localStorage) return DEFAULT_CARGOS;
   try {
-    const { data, error } = await supabase
-      .from('Funcao')
-      .select('*');
-
-    if (error) {
-      console.warn("Erro ao buscar funções do Supabase:", error);
-      return DEFAULT_CARGOS;
-    }
-
-    if (data && data.length > 0) {
-      const sorted = [...data].sort((a, b) => {
-        const numA = parseInt(a.indice || a.id || '999', 10);
-        const numB = parseInt(b.indice || b.id || '999', 10);
-        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-        return (a.cargo || '').localeCompare(b.cargo || '');
-      });
-
-      const list = sorted
-        .map(item => item.cargo?.trim())
-        .filter((c): c is string => Boolean(c));
-
-      if (list.length > 0) {
-        return Array.from(new Set(list));
+    const cached = localStorage.getItem(CARGOS_CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return Array.from(new Set([...parsed, ...DEFAULT_CARGOS]));
       }
     }
-    return DEFAULT_CARGOS;
+  } catch {}
+  return DEFAULT_CARGOS;
+}
+
+export async function fetchFuncoes(): Promise<string[]> {
+  try {
+    let rows: any[] = [];
+
+    // 1. Tenta carregar da tabela 'Funcao'
+    const res1 = await supabase.from('Funcao').select('*');
+    if (!res1.error && res1.data && res1.data.length > 0) {
+      rows = res1.data;
+    } else {
+      // 2. Tenta variações de nomenclatura de tabela
+      const res2 = await supabase.from('funcao').select('*');
+      if (!res2.error && res2.data && res2.data.length > 0) {
+        rows = res2.data;
+      } else {
+        const res3 = await supabase.from('Funcoes').select('*');
+        if (!res3.error && res3.data && res3.data.length > 0) {
+          rows = res3.data;
+        }
+      }
+    }
+
+    if (rows.length > 0) {
+      const sorted = [...rows].sort((a, b) => {
+        const idxA = a.indice || a.Indice || a.ordem || a.Ordem || a.id || a.ID || '999';
+        const idxB = b.indice || b.Indice || b.ordem || b.Ordem || b.id || b.ID || '999';
+        const numA = parseInt(idxA, 10);
+        const numB = parseInt(idxB, 10);
+        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+        const nameA = (a.cargo || a.Cargo || a.funcao || a.Funcao || a.funçao || a.Função || a.nome || a.Nome || '').toString();
+        const nameB = (b.cargo || b.Cargo || b.funcao || b.Funcao || b.funçao || b.Função || b.nome || b.Nome || '').toString();
+        return nameA.localeCompare(nameB);
+      });
+
+      const dbList = sorted
+        .map(item => {
+          const raw = item.cargo || item.Cargo || item.funcao || item.Funcao || item.funçao || item.Função || item.nome || item.Nome || item.titulo || item.Titulo || item.descricao || item.name;
+          return typeof raw === 'string' ? raw.trim() : '';
+        })
+        .filter((c): c is string => Boolean(c && c.length > 0));
+
+      if (dbList.length > 0) {
+        const combined = Array.from(new Set([...dbList, ...DEFAULT_CARGOS]));
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            localStorage.setItem(CARGOS_CACHE_KEY, JSON.stringify(combined));
+          }
+        } catch {}
+        return combined;
+      }
+    }
+
+    return getCachedFuncoes();
   } catch (err) {
     console.error("Exceção ao buscar funções do banco:", err);
-    return DEFAULT_CARGOS;
+    return getCachedFuncoes();
   }
 }
 

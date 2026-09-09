@@ -6,6 +6,7 @@ import {
   fetchCategories, fetchEspecialidades, fetchClasses, fetchDesbravaMais, 
   fetchBibleBooks, fetchBibleVerses, fetchBibleDictionary, fetchDevocionais, 
   createDevocional, updateDevocional, deleteDevocional, fetchUserSpecialties, updateUserSpecialties, 
+  getLocalUserSpecialties, saveLocalUserSpecialties,
   fetchCultura, updateCultura, fetchUserProfile, supabase,
   fetchLivrosClasses, fetchLivrosAno, fetchOutrosLivros, fetchManuaisDBV,
   fetchCampingDBV, fetchFormularios, createFormulario, updateFormulario, deleteFormulario,
@@ -1854,7 +1855,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isUserAdmin, setIsUserAdmin] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [completedSpecialties, setCompletedSpecialties] = useState<string[]>([]);
+  const [completedSpecialties, setCompletedSpecialties] = useState<string[]>(() => {
+    return getLocalUserSpecialties(null, club);
+  });
   const [culturaData, setCulturaData] = useState<Cultura | null>(null);
   const [activeAccordions, setActiveAccordions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -2011,9 +2014,29 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   }, [bibleSettings]);
 
   useEffect(() => {
+    // Carregar especialidades locais imediatamente
+    const local = getLocalUserSpecialties(userEmail, club);
+    if (local.length > 0) {
+      setCompletedSpecialties(prev => Array.from(new Set([...prev, ...local])));
+    }
+
     if (userEmail) {
       fetchUserSpecialties(userEmail)
-        .then(setCompletedSpecialties)
+        .then(serverSpecialties => {
+          if (serverSpecialties && serverSpecialties.length > 0) {
+            setCompletedSpecialties(prev => {
+              const combined = Array.from(new Set([...prev, ...serverSpecialties]));
+              saveLocalUserSpecialties(combined, userEmail, club);
+              return combined;
+            });
+          } else {
+            // Se o servidor retornou vazio mas temos dados locais, enviar os locais para restaurar no servidor
+            const currentLocal = getLocalUserSpecialties(userEmail, club);
+            if (currentLocal.length > 0) {
+              updateUserSpecialties(userEmail, currentLocal);
+            }
+          }
+        })
         .catch(err => console.warn("Erro ao buscar especialidades do usuário:", err));
       
       // If isUserAdmin is not set yet, try to fetch from Supabase
@@ -2049,7 +2072,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         }
       }
     }
-  }, [userEmail, isUserAdmin]);
+  }, [userEmail, isUserAdmin, club]);
 
   useEffect(() => {
     fetchConquistas()
@@ -2076,16 +2099,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     // Optimistic update
     setCompletedSpecialties(newCompleted);
     
-    // Always save locally for instant feedback and guest support
-    localStorage.setItem(`dbv_tudo_completed_specialties_${userEmail || 'guest'}`, JSON.stringify(newCompleted));
+    // Always save locally across all storage keys for instant feedback and guest support
+    saveLocalUserSpecialties(newCompleted, userEmail, club);
 
     if (userEmail && userEmail !== 'email@exemplo.com' && !isGuest) {
       try {
         const { error } = await updateUserSpecialties(userEmail, newCompleted);
         if (error) {
           console.error("Erro ao sincronizar especialidades com o servidor:", error);
-          // Don't alert here to avoid annoying the user if it's a minor sync issue, 
-          // the local storage keeps it working for the session.
         }
       } catch (err) {
         console.error("Erro fatal ao atualizar especialidades:", err);

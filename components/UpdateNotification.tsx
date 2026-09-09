@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Sparkles, RefreshCw, X, Bell, BellRing } from 'lucide-react';
+import { getLocalUserSpecialties, saveLocalUserSpecialties } from '../services/supabaseService';
 
 declare const __APP_BUILD_TIME__: number | string | undefined;
 
@@ -210,6 +211,20 @@ export const UpdateNotification: React.FC = () => {
   const handleUpdateNow = async () => {
     setIsUpdating(true);
     try {
+      // Garante persistência das especialidades antes de recarregar a página
+      const globalProfile = localStorage.getItem('dbv_tudo_global_user_profile');
+      let userEmail = null;
+      if (globalProfile) {
+        try {
+          const parsed = JSON.parse(globalProfile);
+          userEmail = parsed.email;
+        } catch {}
+      }
+      const currentSpecialties = getLocalUserSpecialties(userEmail);
+      if (currentSpecialties.length > 0) {
+        saveLocalUserSpecialties(currentSpecialties, userEmail);
+      }
+
       // Notifica o Service Worker para ativar imediatamente
       if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });

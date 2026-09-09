@@ -202,6 +202,7 @@ export interface UserProfile {
   fundo?: string;
   clube?: string;
   Especialidades?: string;
+  Conquistas?: string;
 }
 
 export interface FuncaoCargo {

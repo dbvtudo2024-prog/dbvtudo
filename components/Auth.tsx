@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Mail, Lock, User, Shield, MapPin, Briefcase, Phone, ChevronLeft, Eye, EyeOff, UserCircle } from 'lucide-react';
 import { ClubType, UserProfile } from '../types';
-import { supabase, updateUserProfile, fetchFuncoes, DEFAULT_CARGOS } from '../services/supabaseService';
+import { supabase, updateUserProfile, fetchFuncoes, DEFAULT_CARGOS, getCachedFuncoes } from '../services/supabaseService';
 
 interface AuthProps {
   onLoginSuccess: (isGuest?: boolean) => void;
@@ -50,7 +50,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
     password: ''
   });
 
-  const [cargos, setCargos] = useState<string[]>(DEFAULT_CARGOS);
+  const [cargos, setCargos] = useState<string[]>(() => getCachedFuncoes());
 
   useEffect(() => {
     fetchFuncoes().then(loadedCargos => {
@@ -97,7 +97,6 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
         const profile: Partial<UserProfile> = {
           user_id: data.user.id,
           nome: formData.name,
-          email: formData.email,
           telefone: formData.phone,
           clube: formData.clubName,
           funçao: formData.cargo,

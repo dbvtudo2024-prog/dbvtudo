@@ -4,10 +4,11 @@ import { ChevronLeft, LogOut, Shield, MapPin, Briefcase, Award, Camera, Check, X
 import { ClubType, Especialidade, UserProfile, Conquista } from '../types';
 import { MASTERY_RULES } from '../masteryRules';
 import { 
-  fetchEspecialidades, updateUserSpecialties, fetchUserSpecialties, 
+  fetchEspecialidades, fetchAllEspecialidades, getCachedEspecialidades, updateUserSpecialties, fetchUserSpecialties, 
   fetchUserProfile, fetchUserProfileByEmail, updateUserProfile, supabase,
   fetchConquistas, fetchUserAchievements, updateUserAchievements,
-  fetchFuncoes, DEFAULT_CARGOS
+  fetchFuncoes, DEFAULT_CARGOS, getCachedFuncoes,
+  getLocalUserSpecialties, saveLocalUserSpecialties, clearLocalUserSpecialties
 } from '../services/supabaseService';
 
 const CARGOS = DEFAULT_CARGOS;
@@ -38,10 +39,13 @@ interface EditSelectProps {
   value: string;
   name: string;
   options: string[];
-  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  onChange: (e: { target: { name: string; value: string } }) => void;
 }
 
 const EditSelect: React.FC<EditSelectProps> = ({ label, value, name, options, onChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
   const mergedOptions = useMemo(() => {
     if (value && !options.includes(value)) {
       return [value, ...options];
@@ -49,21 +53,134 @@ const EditSelect: React.FC<EditSelectProps> = ({ label, value, name, options, on
     return options;
   }, [options, value]);
 
+  const filteredOptions = useMemo(() => {
+    if (!search.trim()) return mergedOptions;
+    const q = search.toLowerCase().trim();
+    return mergedOptions.filter(opt => opt.toLowerCase().includes(q));
+  }, [mergedOptions, search]);
+
+  const handleSelect = (selectedVal: string) => {
+    onChange({ target: { name, value: selectedVal } });
+    setIsOpen(false);
+    setSearch('');
+  };
+
   return (
     <div className="space-y-1.5 text-left">
       <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] ml-1">{label}</label>
-      <div className="relative">
-        <select 
-          value={value}
-          name={name}
-          onChange={onChange}
-          className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-3.5 pl-5 pr-12 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500 transition-all shadow-sm font-bold appearance-none"
-        >
-          <option value="">Selecione...</option>
-          {mergedOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-        </select>
-        <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600 pointer-events-none" />
-      </div>
+      
+      {/* Botão de Trigger */}
+      <button 
+        type="button"
+        onClick={() => setIsOpen(true)}
+        className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-3.5 px-5 text-sm text-left text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500 transition-all shadow-sm font-bold flex items-center justify-between group active:scale-[0.99]"
+      >
+        <div className="flex items-center space-x-2.5 truncate">
+          <Briefcase size={16} className="text-slate-400 dark:text-slate-500 group-hover:text-emerald-500 shrink-0 transition-colors" />
+          <span className={value ? "text-slate-800 dark:text-slate-200 truncate" : "text-slate-400 dark:text-slate-500 font-normal"}>
+            {value || "Selecione uma função..."}
+          </span>
+        </div>
+        <ChevronDown size={18} className="text-slate-400 dark:text-slate-500 group-hover:text-emerald-500 transition-colors shrink-0 ml-2" />
+      </button>
+
+      {/* Modal Compacto para Selecionar Função */}
+      {isOpen && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div 
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+            onClick={() => {
+              setIsOpen(false);
+              setSearch('');
+            }}
+          />
+          
+          <div className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-[28px] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-[70vh] sm:max-h-[460px] animate-in zoom-in-95 duration-200">
+            {/* Cabeçalho do Modal */}
+            <div className="px-5 py-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                  <Briefcase size={16} strokeWidth={2.5} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">
+                    Selecionar Função
+                  </h4>
+                  <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
+                    {filteredOptions.length} opções disponíveis
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  setSearch('');
+                }}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 flex items-center justify-center transition-colors active:scale-90"
+              >
+                <X size={16} strokeWidth={2.5} />
+              </button>
+            </div>
+
+            {/* Campo de Busca Rápida */}
+            <div className="p-3 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-800/30">
+              <div className="relative">
+                <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Pesquisar cargo ou função..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  autoFocus
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 pl-9 pr-3 text-xs font-semibold text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            {/* Lista de Opções Compacta */}
+            <div className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-hide">
+              {filteredOptions.length === 0 ? (
+                <div className="py-8 text-center px-4">
+                  <p className="text-xs font-bold text-slate-400 dark:text-slate-500">Nenhuma função encontrada com "{search}"</p>
+                  {search.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => handleSelect(search.trim())}
+                      className="mt-3 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-colors shadow-sm active:scale-95"
+                    >
+                      Usar "{search.trim()}"
+                    </button>
+                  )}
+                </div>
+              ) : (
+                filteredOptions.map((opt) => {
+                  const isSelected = value === opt;
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => handleSelect(opt)}
+                      className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${
+                        isSelected
+                          ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-black'
+                          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80 active:bg-slate-200'
+                      }`}
+                    >
+                      <span className="truncate pr-2">{opt}</span>
+                      {isSelected && (
+                        <div className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                          <Check size={12} strokeWidth={3} />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -78,7 +195,7 @@ interface ProfileProps {
 const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSashView, setIsSashView] = useState(false);
-  const [allSpecialties, setAllSpecialties] = useState<Especialidade[]>([]);
+  const [allSpecialties, setAllSpecialties] = useState<Especialidade[]>(() => getCachedEspecialidades());
   const [allConquistas, setAllConquistas] = useState<Conquista[]>([]);
   const [userAchievements, setUserAchievements] = useState<number[]>(() => {
     try {
@@ -121,7 +238,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
   const [userData, setUserData] = useState(getInitialData);
   const [userId, setUserId] = useState<string | null>(null);
-  const [cargosList, setCargosList] = useState<string[]>(DEFAULT_CARGOS);
+  const [cargosList, setCargosList] = useState<string[]>(() => getCachedFuncoes());
 
   useEffect(() => {
     fetchFuncoes().then(loaded => {
@@ -138,9 +255,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     try {
       const initialData = getInitialData();
       const initialClubType = initialData.tipo === "Desbravador" ? ClubType.PATHFINDER : ClubType.ADVENTURER;
-      const initialKey = `dbv_tudo_liked_specialties_${initialClubType}`;
-      const saved = localStorage.getItem(initialKey);
-      return saved ? JSON.parse(saved) : [];
+      return getLocalUserSpecialties(initialData.email, initialClubType);
     } catch {
       return [];
     }
@@ -189,29 +304,49 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     checkUser();
   }, []);
 
-  // Carregar curtidas quando o tipo de clube mudar (ex: edição de perfil)
+  // Carregar curtidas e sincronizar com o banco sem perder especialidades locais
   useEffect(() => {
     const loadLiked = async () => {
-      // Tenta carregar do banco primeiro se tiver email
-      if (userData.email && userData.email !== "email@exemplo.com") {
-        const dbIds = await fetchUserSpecialties(userData.email);
-        if (dbIds.length > 0) {
-          setLikedIds(dbIds);
-          localStorage.setItem(likedKey, JSON.stringify(dbIds));
-          return;
-        }
+      // 1. Sempre carrega imediatamente os dados do localStorage
+      const local = getLocalUserSpecialties(userData.email, userClubType);
+      if (local.length > 0) {
+        setLikedIds(prev => {
+          const combined = Array.from(new Set([...prev, ...local]));
+          if (prev.length === combined.length && prev.every((id, idx) => id === combined[idx])) {
+            return prev;
+          }
+          return combined;
+        });
       }
 
-      // Fallback para localStorage
-      const saved = localStorage.getItem(likedKey);
-      const currentSaved = saved ? JSON.parse(saved) : [];
-      if (JSON.stringify(currentSaved) !== JSON.stringify(likedIds)) {
-        setLikedIds(currentSaved);
+      // 2. Se tiver email do usuário, busca do banco e sincroniza
+      if (userData.email && userData.email !== "email@exemplo.com") {
+        try {
+          const dbIds = await fetchUserSpecialties(userData.email, userId);
+          if (dbIds && dbIds.length > 0) {
+            setLikedIds(prev => {
+              const combined = Array.from(new Set([...prev, ...dbIds]));
+              if (prev.length === combined.length && prev.every((id, idx) => id === combined[idx])) {
+                return prev;
+              }
+              saveLocalUserSpecialties(combined, userData.email, userClubType);
+              return combined;
+            });
+          } else {
+            // Se o banco retornou vazio mas temos especialidades locais, restaura no banco
+            const currentLocal = getLocalUserSpecialties(userData.email, userClubType);
+            if (currentLocal.length > 0) {
+              await updateUserSpecialties(userData.email, currentLocal, userId);
+            }
+          }
+        } catch (err) {
+          console.warn("Erro ao buscar especialidades do usuário:", err);
+        }
       }
     };
 
     loadLiked();
-  }, [likedKey, userData.email]);
+  }, [userClubType, userData.email, userId]);
 
   const currentThemeColor = userData.tipo === "Desbravador" ? '#dc371b' : '#800000';
   const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
@@ -233,46 +368,65 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     }
   };
 
-  // Sincronizar se o localStorage mudar externamente
+  // Sincronizar se o localStorage mudar externamente ou se especialidades forem alteradas
   useEffect(() => {
     const data = getInitialData();
     setUserData(data);
   }, [storageKey]);
 
-  // Resetar especialidades quando o tipo de clube mudar
+  // Listener para sincronização imediata de especialidades entre abas/telas
   useEffect(() => {
-    setAllSpecialties([]);
-  }, [userClubType]);
+    const handleSpecialtiesSync = (e: any) => {
+      const incoming: string[] = (e?.detail && Array.isArray(e.detail))
+        ? e.detail
+        : getLocalUserSpecialties(userData.email, userClubType);
+
+      if (incoming && Array.isArray(incoming)) {
+        setLikedIds(prev => {
+          if (prev.length === incoming.length && prev.every((id, idx) => id === incoming[idx])) {
+            return prev;
+          }
+          return incoming;
+        });
+      }
+    };
+    window.addEventListener('dbv_specialties_changed', handleSpecialtiesSync);
+    window.addEventListener('storage', handleSpecialtiesSync);
+    return () => {
+      window.removeEventListener('dbv_specialties_changed', handleSpecialtiesSync);
+      window.removeEventListener('storage', handleSpecialtiesSync);
+    };
+  }, [userData.email, userClubType]);
 
   // Carregar todas as especialidades para a faixa ou se houver curtidas
   useEffect(() => {
-    if ((isSashView || likedIds.length > 0) && allSpecialties.length === 0) {
+    let isMounted = true;
+    const loadSpecialties = async () => {
+      if (allSpecialties.length > 0 && !isSashView) return;
       setIsLoading(true);
-      fetchEspecialidades(userClubType)
-        .then(data => {
-          // Ordenar alfabeticamente
+      try {
+        const data = await fetchAllEspecialidades();
+        if (isMounted && data && data.length > 0) {
           const sorted = [...data].sort((a, b) => a.nome.localeCompare(b.nome));
           setAllSpecialties(sorted);
-        })
-        .catch(err => {
-          console.warn("Erro ao buscar especialidades no perfil:", err);
-        })
-        .finally(() => setIsLoading(false));
-    }
-  }, [isSashView, userClubType, allSpecialties.length]);
+        }
+      } catch (err) {
+        console.warn("Erro ao buscar especialidades no perfil:", err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    loadSpecialties();
+    return () => { isMounted = false; };
+  }, [isSashView]);
 
   // Salvar curtidas no localStorage apenas se houver IDs ou se for uma mudança intencional
   useEffect(() => {
-    // Evita salvar dados de um clube no outro durante a transição
-    const saved = localStorage.getItem(likedKey);
-    const savedIds = saved ? JSON.parse(saved) : [];
-    
-    // Só salva se likedIds for diferente do que já está no banco para este clube específico
-    // Isso evita que o estado temporário do clube anterior sobrescreva o novo clube
-    if (JSON.stringify(savedIds) !== JSON.stringify(likedIds)) {
-      localStorage.setItem(likedKey, JSON.stringify(likedIds));
+    if (likedIds && likedIds.length > 0) {
+      saveLocalUserSpecialties(likedIds, userData.email, userClubType);
     }
-  }, [likedIds, likedKey]);
+  }, [likedIds, userData.email, userClubType]);
 
   // Carregar conquistas
   useEffect(() => {
@@ -324,24 +478,20 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
     // Atualiza localmente primeiro (UI rápida)
     setLikedIds(newList);
+    saveLocalUserSpecialties(newList, userData.email, userClubType);
 
     // Salva no banco se tiver email (atualiza a coluna Especialidades na tabela Usuarios)
     if (userData.email && userData.email !== "email@exemplo.com") {
-      await updateUserSpecialties(userData.email, newList);
+      await updateUserSpecialties(userData.email, newList, userId);
     }
   };
 
   const handleResetSpecialties = async () => {
     setLikedIds([]);
-    try {
-      localStorage.removeItem(likedKey);
-      localStorage.setItem(likedKey, JSON.stringify([]));
-    } catch (e) {
-      console.warn("Erro ao limpar localStorage de especialidades:", e);
-    }
+    clearLocalUserSpecialties(userData.email, userClubType);
 
     if (userData.email && userData.email !== "email@exemplo.com") {
-      await updateUserSpecialties(userData.email, []);
+      await updateUserSpecialties(userData.email, [], userId);
     }
     setShowResetConfirm(false);
   };
@@ -369,7 +519,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     };
   }, [isSashView, isEditing]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement> | { target: { name: string; value: string } }) => {
     const { name, value } = e.target;
     setUserData(prev => ({ ...prev, [name]: value }));
   };
@@ -417,8 +567,9 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
         await updateUserProfile(profile);
 
-        // 2. Salvar Especialidades (likedIds)
-        await updateUserSpecialties(userData.email, likedIds);
+        // 2. Salvar Especialidades (likedIds ou locais)
+        const effectiveSpecialties = likedIds.length > 0 ? likedIds : getLocalUserSpecialties(userData.email, userClubType);
+        await updateUserSpecialties(userData.email, effectiveSpecialties, userId);
 
         // 3. Salvar Conquistas
         await updateUserAchievements(userData.email, userAchievements);
@@ -553,55 +704,55 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
       {/* Modal de Edição */}
       {isEditing && (
-        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsEditing(false)}></div>
-          <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-[40px] sm:rounded-[40px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 max-h-[90vh] flex flex-col">
-            <div className="p-8 pb-4 flex items-center justify-between border-b border-slate-50 dark:border-slate-800">
-              <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Editar Perfil</h3>
+          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[84vh] flex flex-col">
+            <div className="px-6 py-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight">Editar Perfil</h3>
               <button 
                 onClick={() => setIsEditing(false)}
-                className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 active:scale-90 transition-all"
+                className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 active:scale-90 transition-all"
               >
-                <X size={20} strokeWidth={3} />
+                <X size={18} strokeWidth={2.5} />
               </button>
             </div>
             
-            <div className="flex-grow overflow-y-auto p-8 pt-6 space-y-6 scrollbar-hide">
-              <div className="flex flex-col items-center mb-8">
+            <div className="flex-grow overflow-y-auto p-6 pt-4 space-y-5 scrollbar-hide">
+              <div className="flex flex-col items-center mb-6">
                 <div className="relative group">
-                  <div className="w-28 h-28 rounded-[32px] border-[5px] border-slate-50 dark:border-slate-800 shadow-lg overflow-hidden bg-slate-100 dark:bg-slate-800 transition-all flex items-center justify-center ring-8 ring-emerald-500/5">
+                  <div className="w-24 h-24 rounded-[28px] border-4 border-slate-50 dark:border-slate-800 shadow-md overflow-hidden bg-slate-100 dark:bg-slate-800 transition-all flex items-center justify-center ring-4 ring-emerald-500/5">
                     {userData.avatar ? (
                       <img src={userData.avatar} className="w-full h-full object-cover" alt="Avatar" />
                     ) : (
-                      <User size={48} className="text-slate-300 dark:text-slate-600" />
+                      <User size={40} className="text-slate-300 dark:text-slate-600" />
                     )}
                   </div>
                   <button 
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-[32px] transition-opacity opacity-0 group-hover:opacity-100"
+                    className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-[28px] transition-opacity opacity-0 group-hover:opacity-100"
                   >
-                    <Camera size={24} className="text-white" />
+                    <Camera size={22} className="text-white" />
                   </button>
-                  <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-xl border-4 border-white dark:border-slate-900 shadow-md bg-amber-500 flex items-center justify-center">
-                    <Settings size={12} className="text-white" />
+                  <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-lg border-2 border-white dark:border-slate-900 shadow-sm bg-amber-500 flex items-center justify-center">
+                    <Settings size={11} className="text-white" />
                   </div>
                 </div>
-                <p className="mt-3 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Alterar Foto</p>
+                <p className="mt-2.5 text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Alterar Foto</p>
               </div>
 
-              <div className="space-y-2 text-left">
+              <div className="space-y-1.5 text-left">
                 <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] ml-1">Tipo de Ministério</label>
-                <div className="flex p-1.5 bg-slate-100 dark:bg-slate-800 rounded-[24px] space-x-1.5 border border-slate-200/50 dark:border-slate-700/50">
+                <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl space-x-1 border border-slate-200/50 dark:border-slate-700/50">
                   <button 
                     onClick={() => handleClubToggle("Desbravador")} 
-                    className={`flex-1 py-3 rounded-[18px] text-[10px] font-black uppercase transition-all ${userData.tipo === "Desbravador" ? 'bg-[#dc371b] text-white shadow-lg' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400'}`}
+                    className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${userData.tipo === "Desbravador" ? 'bg-[#dc371b] text-white shadow' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400'}`}
                   >
                     Desbravador
                   </button>
                   <button 
                     onClick={() => handleClubToggle("Aventureiro")} 
-                    className={`flex-1 py-3 rounded-[18px] text-[10px] font-black uppercase transition-all ${userData.tipo === "Aventureiro" ? 'bg-[#800000] text-white shadow-lg' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400'}`}
+                    className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${userData.tipo === "Aventureiro" ? 'bg-[#800000] text-white shadow' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400'}`}
                   >
                     Aventureiro
                   </button>
@@ -613,23 +764,23 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
               <EditInput label="Nome do Clube" value={userData.clube} name="clube" onChange={handleInputChange} />
               <EditSelect label="Cargo / Função" value={userData.cargo} name="cargo" options={cargosList} onChange={handleInputChange} />
               <EditInput label="Telefone" value={userData.telefone} name="telefone" onChange={handleInputChange} />
-              <div className="grid grid-cols-2 gap-5">
+              <div className="grid grid-cols-2 gap-4">
                 <EditInput label="Cidade" value={userData.cidade || ""} name="cidade" onChange={handleInputChange} />
                 <EditInput label="Estado" value={userData.estado || ""} name="estado" onChange={handleInputChange} />
               </div>
             </div>
 
-            <div className="p-8 pt-4 border-t border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+            <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
               <button 
                 onClick={handleSave} 
                 disabled={isLoading}
-                className="w-full py-5 bg-emerald-600 rounded-[28px] text-white font-black uppercase text-[11px] tracking-[0.2em] shadow-xl active:scale-95 transition-all flex items-center justify-center space-x-3 disabled:opacity-50"
+                className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 rounded-2xl text-white font-black uppercase text-[11px] tracking-[0.2em] shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2.5 disabled:opacity-50"
               >
                 {isLoading ? (
-                  <div className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                 ) : (
                   <>
-                    <Check size={20} strokeWidth={3} />
+                    <Check size={18} strokeWidth={3} />
                     <span>Salvar Alterações</span>
                   </>
                 )}
@@ -897,9 +1048,10 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
               </div>
               
               <div className="space-y-12">
-                {isLoading ? (
-                  <div className="py-4 text-center text-[10px] text-slate-400 dark:text-slate-400 font-bold uppercase tracking-widest">
-                    Carregando...
+                {isLoading && allSpecialties.length === 0 ? (
+                  <div className="py-8 flex flex-col items-center justify-center space-y-2 text-slate-400">
+                    <div className="w-6 h-6 border-2 border-slate-200 dark:border-slate-700 border-t-indigo-500 rounded-full animate-spin"></div>
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Carregando especialidades da faixa...</span>
                   </div>
                 ) : (
                   (() => {
