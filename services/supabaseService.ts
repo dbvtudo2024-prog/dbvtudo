@@ -893,10 +893,6 @@ export const DEFAULT_CARGOS: string[] = [
   "Pastor",
   "Regional",
   "Distrital",
-  "Coordenador (a)",
-  "Coordenador (a) Geral",
-  "Departamental",
-  "Secretário (a) de Campo",
   "Diretor (a)",
   "Diretor (a) Associado (a)",
   "Secretário (a)",
@@ -908,18 +904,11 @@ export const DEFAULT_CARGOS: string[] = [
   "Conselheiro (a) Associado (a)",
   "Capitão (ã)",
   "Desbravador (a)",
-  "Aventureiro (a)",
-  "Conselheiro (a) de Pais",
-  "Rede Familiar",
-  "Líder",
-  "Líder Master",
-  "Líder Master Avançado",
-  "Guia Maior",
   "Aspirante",
   "Apoio"
 ];
 
-const CARGOS_CACHE_KEY = 'dbv_tudo_cargos_cache';
+const CARGOS_CACHE_KEY = 'dbv_tudo_cargos_cache_v2';
 
 export function getCachedFuncoes(): string[] {
   if (typeof window === 'undefined' || !window.localStorage) return DEFAULT_CARGOS;
@@ -928,7 +917,7 @@ export function getCachedFuncoes(): string[] {
     if (cached) {
       const parsed = JSON.parse(cached);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return Array.from(new Set([...parsed, ...DEFAULT_CARGOS]));
+        return parsed;
       }
     }
   } catch {}
@@ -976,13 +965,14 @@ export async function fetchFuncoes(): Promise<string[]> {
         .filter((c): c is string => Boolean(c && c.length > 0));
 
       if (dbList.length > 0) {
-        const combined = Array.from(new Set([...dbList, ...DEFAULT_CARGOS]));
         try {
           if (typeof window !== 'undefined' && window.localStorage) {
-            localStorage.setItem(CARGOS_CACHE_KEY, JSON.stringify(combined));
+            localStorage.setItem(CARGOS_CACHE_KEY, JSON.stringify(dbList));
+            // Remove o cache antigo que continha itens extras
+            localStorage.removeItem('dbv_tudo_cargos_cache');
           }
         } catch {}
-        return combined;
+        return dbList;
       }
     }
 
