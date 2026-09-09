@@ -7,6 +7,7 @@ import {
   fetchBibleBooks, fetchBibleVerses, fetchBibleDictionary, fetchDevocionais, 
   createDevocional, updateDevocional, deleteDevocional, fetchUserSpecialties, updateUserSpecialties, 
   getLocalUserSpecialties, saveLocalUserSpecialties,
+  getLocalCatalogFavorites, saveLocalCatalogFavorites,
   fetchCultura, updateCultura, fetchUserProfile, supabase,
   fetchLivrosClasses, fetchLivrosAno, fetchOutrosLivros, fetchManuaisDBV,
   fetchCampingDBV, fetchFormularios, createFormulario, updateFormulario, deleteFormulario,
@@ -1856,7 +1857,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   const [isUserAdmin, setIsUserAdmin] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [completedSpecialties, setCompletedSpecialties] = useState<string[]>(() => {
-    return getLocalUserSpecialties(null, club);
+    return getLocalCatalogFavorites(null, club);
   });
   const [culturaData, setCulturaData] = useState<Cultura | null>(null);
   const [activeAccordions, setActiveAccordions] = useState<string[]>([]);
@@ -2014,64 +2015,55 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   }, [bibleSettings]);
 
   useEffect(() => {
-    // Carregar especialidades locais imediatamente
-    const local = getLocalUserSpecialties(userEmail, club);
-    if (local.length > 0) {
-      setCompletedSpecialties(prev => Array.from(new Set([...prev, ...local])));
-    }
+    // Carregar especialidades favoritas do catálogo para o clube atual
+    const local = getLocalCatalogFavorites(userEmail, club);
+    setCompletedSpecialties(local);
 
-    if (userEmail) {
-      fetchUserSpecialties(userEmail)
-        .then(serverSpecialties => {
-          if (serverSpecialties && serverSpecialties.length > 0) {
-            setCompletedSpecialties(prev => {
-              const combined = Array.from(new Set([...prev, ...serverSpecialties]));
-              saveLocalUserSpecialties(combined, userEmail, club);
-              return combined;
-            });
-          } else {
-            // Se o servidor retornou vazio mas temos dados locais, enviar os locais para restaurar no servidor
-            const currentLocal = getLocalUserSpecialties(userEmail, club);
-            if (currentLocal.length > 0) {
-              updateUserSpecialties(userEmail, currentLocal);
-            }
-          }
-        })
-        .catch(err => console.warn("Erro ao buscar especialidades do usuário:", err));
-      
-      // If isUserAdmin is not set yet, try to fetch from Supabase
-      if (!isUserAdmin) {
-        const savedState = localStorage.getItem('dbv_tudo_app_state');
-        if (savedState) {
-          try {
-            const { guest } = JSON.parse(savedState);
-            if (!guest) {
-              // Get current user session to get ID
-              supabase.auth.getUser()
-                .then(({ data, error }) => {
-                  if (!error && data?.user) {
-                    fetchUserProfile(data.user.id)
-                      .then(profile => {
-                        if (profile?.ADM) {
-                          setIsUserAdmin(true);
-                          // Update local storage for next time
-                          const savedProfile = localStorage.getItem(PROFILE_KEY);
-                          if (savedProfile) {
-                            const parsed = JSON.parse(savedProfile);
-                            parsed.isAdmin = true;
-                            localStorage.setItem(PROFILE_KEY, JSON.stringify(parsed));
-                          }
+    // Ouvinte para manter sincronizado quando o catálogo deste clube mudar
+    const handleCatalogSync = (e: any) => {
+      const clubKey = club === ClubType.ADVENTURER ? 'ADVENTURER' : 'PATHFINDER';
+      if (e?.detail?.club === clubKey && Array.isArray(e?.detail?.favorites)) {
+        setCompletedSpecialties(e.detail.favorites);
+      }
+    };
+    window.addEventListener('dbv_catalog_favs_changed', handleCatalogSync);
+
+    // If isUserAdmin is not set yet, try to fetch from Supabase
+    if (userEmail && !isUserAdmin) {
+      const savedState = localStorage.getItem('dbv_tudo_app_state');
+      if (savedState) {
+        try {
+          const { guest } = JSON.parse(savedState);
+          if (!guest) {
+            // Get current user session to get ID
+            supabase.auth.getUser()
+              .then(({ data, error }) => {
+                if (!error && data?.user) {
+                  fetchUserProfile(data.user.id)
+                    .then(profile => {
+                      if (profile?.ADM) {
+                        setIsUserAdmin(true);
+                        // Update local storage for next time
+                        const savedProfile = localStorage.getItem(PROFILE_KEY);
+                        if (savedProfile) {
+                          const parsed = JSON.parse(savedProfile);
+                          parsed.isAdmin = true;
+                          localStorage.setItem(PROFILE_KEY, JSON.stringify(parsed));
                         }
-                      })
-                      .catch(err => console.warn("Erro ao buscar perfil:", err));
-                  }
-                })
-                .catch(err => console.warn("Erro ao verificar sessão:", err));
-            }
-          } catch {}
-        }
+                      }
+                    })
+                    .catch(err => console.warn("Erro ao buscar perfil:", err));
+                }
+              })
+              .catch(err => console.warn("Erro ao verificar sessão:", err));
+          }
+        } catch {}
       }
     }
+
+    return () => {
+      window.removeEventListener('dbv_catalog_favs_changed', handleCatalogSync);
+    };
   }, [userEmail, isUserAdmin, club]);
 
   useEffect(() => {
@@ -2096,22 +2088,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       ? completedSpecialties.filter(id => id !== sId)
       : [...completedSpecialties, sId];
     
-    // Optimistic update
+    // Atualização otimista
     setCompletedSpecialties(newCompleted);
     
-    // Always save locally across all storage keys for instant feedback and guest support
-    saveLocalUserSpecialties(newCompleted, userEmail, club);
-
-    if (userEmail && userEmail !== 'email@exemplo.com' && !isGuest) {
-      try {
-        const { error } = await updateUserSpecialties(userEmail, newCompleted);
-        if (error) {
-          console.error("Erro ao sincronizar especialidades com o servidor:", error);
-        }
-      } catch (err) {
-        console.error("Erro fatal ao atualizar especialidades:", err);
-      }
-    }
+    // Salva exclusivamente nas favoritas de catálogo deste clube (não mistura com Minha Faixa)
+    saveLocalCatalogFavorites(newCompleted, userEmail, club);
   };
 
   const availableSearchAreas = React.useMemo(() => {

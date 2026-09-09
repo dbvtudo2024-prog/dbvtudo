@@ -4,11 +4,12 @@ import { ChevronLeft, LogOut, Shield, MapPin, Briefcase, Award, Camera, Check, X
 import { ClubType, Especialidade, UserProfile, Conquista } from '../types';
 import { MASTERY_RULES } from '../masteryRules';
 import { 
-  fetchEspecialidades, fetchAllEspecialidades, getCachedEspecialidades, updateUserSpecialties, fetchUserSpecialties, 
+  fetchEspecialidades, getCachedEspecialidades,
   fetchUserProfile, fetchUserProfileByEmail, updateUserProfile, supabase,
   fetchConquistas, fetchUserAchievements, updateUserAchievements,
   fetchFuncoes, DEFAULT_CARGOS, getCachedFuncoes,
-  getLocalUserSpecialties, saveLocalUserSpecialties, clearLocalUserSpecialties
+  getLocalFaixaSpecialties, saveLocalFaixaSpecialties, clearLocalFaixaSpecialties,
+  fetchUserFaixaSpecialties, updateUserFaixa
 } from '../services/supabaseService';
 
 const CARGOS = DEFAULT_CARGOS;
@@ -44,7 +45,6 @@ interface EditSelectProps {
 
 const EditSelect: React.FC<EditSelectProps> = ({ label, value, name, options, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [search, setSearch] = useState('');
 
   const mergedOptions = useMemo(() => {
     if (value && !options.includes(value)) {
@@ -53,16 +53,9 @@ const EditSelect: React.FC<EditSelectProps> = ({ label, value, name, options, on
     return options;
   }, [options, value]);
 
-  const filteredOptions = useMemo(() => {
-    if (!search.trim()) return mergedOptions;
-    const q = search.toLowerCase().trim();
-    return mergedOptions.filter(opt => opt.toLowerCase().includes(q));
-  }, [mergedOptions, search]);
-
   const handleSelect = (selectedVal: string) => {
     onChange({ target: { name, value: selectedVal } });
     setIsOpen(false);
-    setSearch('');
   };
 
   return (
@@ -84,15 +77,12 @@ const EditSelect: React.FC<EditSelectProps> = ({ label, value, name, options, on
         <ChevronDown size={18} className="text-slate-400 dark:text-slate-500 group-hover:text-emerald-500 transition-colors shrink-0 ml-2" />
       </button>
 
-      {/* Modal Compacto para Selecionar Função */}
+      {/* Modal Compacto para Selecionar Função - Sem Campo de Pesquisa */}
       {isOpen && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div 
             className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
-            onClick={() => {
-              setIsOpen(false);
-              setSearch('');
-            }}
+            onClick={() => setIsOpen(false)}
           />
           
           <div className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-[28px] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-[70vh] sm:max-h-[460px] animate-in zoom-in-95 duration-200">
@@ -107,76 +97,43 @@ const EditSelect: React.FC<EditSelectProps> = ({ label, value, name, options, on
                     Selecionar Função
                   </h4>
                   <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
-                    {filteredOptions.length} opções disponíveis
+                    {mergedOptions.length} opções disponíveis
                   </p>
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  setIsOpen(false);
-                  setSearch('');
-                }}
+                onClick={() => setIsOpen(false)}
                 className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 flex items-center justify-center transition-colors active:scale-90"
               >
                 <X size={16} strokeWidth={2.5} />
               </button>
             </div>
 
-            {/* Campo de Busca Rápida */}
-            <div className="p-3 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-800/30">
-              <div className="relative">
-                <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Pesquisar cargo ou função..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  autoFocus
-                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 pl-9 pr-3 text-xs font-semibold text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                />
-              </div>
-            </div>
-
-            {/* Lista de Opções Compacta */}
+            {/* Lista de Opções Compacta sem pesquisa */}
             <div className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-hide">
-              {filteredOptions.length === 0 ? (
-                <div className="py-8 text-center px-4">
-                  <p className="text-xs font-bold text-slate-400 dark:text-slate-500">Nenhuma função encontrada com "{search}"</p>
-                  {search.trim() && (
-                    <button
-                      type="button"
-                      onClick={() => handleSelect(search.trim())}
-                      className="mt-3 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-colors shadow-sm active:scale-95"
-                    >
-                      Usar "{search.trim()}"
-                    </button>
-                  )}
-                </div>
-              ) : (
-                filteredOptions.map((opt) => {
-                  const isSelected = value === opt;
-                  return (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => handleSelect(opt)}
-                      className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${
-                        isSelected
-                          ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-black'
-                          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80 active:bg-slate-200'
-                      }`}
-                    >
-                      <span className="truncate pr-2">{opt}</span>
-                      {isSelected && (
-                        <div className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                          <Check size={12} strokeWidth={3} />
-                        </div>
-                      )}
-                    </button>
-                  );
-                })
-              )}
+              {mergedOptions.map((opt) => {
+                const isSelected = value === opt;
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => handleSelect(opt)}
+                    className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${
+                      isSelected
+                        ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-black'
+                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80 active:bg-slate-200'
+                    }`}
+                  >
+                    <span className="truncate pr-2">{opt}</span>
+                    {isSelected && (
+                      <div className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                        <Check size={12} strokeWidth={3} />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -195,7 +152,15 @@ interface ProfileProps {
 const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSashView, setIsSashView] = useState(false);
-  const [allSpecialties, setAllSpecialties] = useState<Especialidade[]>(() => getCachedEspecialidades());
+  const [allSpecialties, setAllSpecialties] = useState<Especialidade[]>(() => {
+    try {
+      const initialData = getInitialData();
+      const initialClubType = initialData.tipo === "Desbravador" ? ClubType.PATHFINDER : ClubType.ADVENTURER;
+      return getCachedEspecialidades(initialClubType);
+    } catch {
+      return [];
+    }
+  });
   const [allConquistas, setAllConquistas] = useState<Conquista[]>([]);
   const [userAchievements, setUserAchievements] = useState<number[]>(() => {
     try {
@@ -255,7 +220,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     try {
       const initialData = getInitialData();
       const initialClubType = initialData.tipo === "Desbravador" ? ClubType.PATHFINDER : ClubType.ADVENTURER;
-      return getLocalUserSpecialties(initialData.email, initialClubType);
+      return getLocalFaixaSpecialties(initialData.email, initialClubType);
     } catch {
       return [];
     }
@@ -304,11 +269,11 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     checkUser();
   }, []);
 
-  // Carregar curtidas e sincronizar com o banco sem perder especialidades locais
+  // Carregar faixa e sincronizar com o banco sem perder especialidades da faixa local
   useEffect(() => {
     const loadLiked = async () => {
-      // 1. Sempre carrega imediatamente os dados do localStorage
-      const local = getLocalUserSpecialties(userData.email, userClubType);
+      // 1. Sempre carrega imediatamente os dados locais da faixa do clube atual
+      const local = getLocalFaixaSpecialties(userData.email, userClubType);
       if (local.length > 0) {
         setLikedIds(prev => {
           const combined = Array.from(new Set([...prev, ...local]));
@@ -322,25 +287,25 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
       // 2. Se tiver email do usuário, busca do banco e sincroniza
       if (userData.email && userData.email !== "email@exemplo.com") {
         try {
-          const dbIds = await fetchUserSpecialties(userData.email, userId);
+          const dbIds = await fetchUserFaixaSpecialties(userData.email, userId, userClubType);
           if (dbIds && dbIds.length > 0) {
             setLikedIds(prev => {
               const combined = Array.from(new Set([...prev, ...dbIds]));
               if (prev.length === combined.length && prev.every((id, idx) => id === combined[idx])) {
                 return prev;
               }
-              saveLocalUserSpecialties(combined, userData.email, userClubType);
+              saveLocalFaixaSpecialties(combined, userData.email, userClubType);
               return combined;
             });
           } else {
-            // Se o banco retornou vazio mas temos especialidades locais, restaura no banco
-            const currentLocal = getLocalUserSpecialties(userData.email, userClubType);
+            // Se o banco retornou vazio mas temos especialidades locais da faixa, restaura no banco
+            const currentLocal = getLocalFaixaSpecialties(userData.email, userClubType);
             if (currentLocal.length > 0) {
-              await updateUserSpecialties(userData.email, currentLocal, userId);
+              await updateUserFaixa(userData.email, currentLocal, userId, userClubType);
             }
           }
         } catch (err) {
-          console.warn("Erro ao buscar especialidades do usuário:", err);
+          console.warn("Erro ao buscar especialidades da faixa do usuário:", err);
         }
       }
     };
@@ -368,18 +333,21 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     }
   };
 
-  // Sincronizar se o localStorage mudar externamente ou se especialidades forem alteradas
+  // Sincronizar se o localStorage mudar externamente ou se dados do perfil forem alterados
   useEffect(() => {
     const data = getInitialData();
     setUserData(data);
   }, [storageKey]);
 
-  // Listener para sincronização imediata de especialidades entre abas/telas
+  // Listener para sincronização imediata de especialidades da Faixa
   useEffect(() => {
-    const handleSpecialtiesSync = (e: any) => {
-      const incoming: string[] = (e?.detail && Array.isArray(e.detail))
-        ? e.detail
-        : getLocalUserSpecialties(userData.email, userClubType);
+    const handleFaixaSync = (e: any) => {
+      const targetClub = userClubType === ClubType.ADVENTURER ? 'ADVENTURER' : 'PATHFINDER';
+      if (e?.detail?.club && e.detail.club !== targetClub) return;
+      
+      const incoming: string[] = (e?.detail?.specialties && Array.isArray(e.detail.specialties))
+        ? e.detail.specialties
+        : getLocalFaixaSpecialties(userData.email, userClubType);
 
       if (incoming && Array.isArray(incoming)) {
         setLikedIds(prev => {
@@ -390,24 +358,24 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
         });
       }
     };
-    window.addEventListener('dbv_specialties_changed', handleSpecialtiesSync);
-    window.addEventListener('storage', handleSpecialtiesSync);
+    window.addEventListener('dbv_faixa_changed', handleFaixaSync);
+    window.addEventListener('storage', handleFaixaSync);
     return () => {
-      window.removeEventListener('dbv_specialties_changed', handleSpecialtiesSync);
-      window.removeEventListener('storage', handleSpecialtiesSync);
+      window.removeEventListener('dbv_faixa_changed', handleFaixaSync);
+      window.removeEventListener('storage', handleFaixaSync);
     };
   }, [userData.email, userClubType]);
 
-  // Carregar todas as especialidades para a faixa ou se houver curtidas
+  // Carregar apenas as especialidades do clube ativo (Desbravador ou Aventureiro) para a faixa
   useEffect(() => {
     let isMounted = true;
     const loadSpecialties = async () => {
-      if (allSpecialties.length > 0 && !isSashView) return;
       setIsLoading(true);
       try {
-        const data = await fetchAllEspecialidades();
+        const data = await fetchEspecialidades(userClubType);
         if (isMounted && data && data.length > 0) {
-          const sorted = [...data].sort((a, b) => a.nome.localeCompare(b.nome));
+          const clubOnly = data.filter(s => s.club === userClubType);
+          const sorted = [...clubOnly].sort((a, b) => a.nome.localeCompare(b.nome));
           setAllSpecialties(sorted);
         }
       } catch (err) {
@@ -419,12 +387,12 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
     loadSpecialties();
     return () => { isMounted = false; };
-  }, [isSashView]);
+  }, [userClubType, isSashView]);
 
-  // Salvar curtidas no localStorage apenas se houver IDs ou se for uma mudança intencional
+  // Salvar especialidades da faixa no localStorage ao alterar
   useEffect(() => {
     if (likedIds && likedIds.length > 0) {
-      saveLocalUserSpecialties(likedIds, userData.email, userClubType);
+      saveLocalFaixaSpecialties(likedIds, userData.email, userClubType);
     }
   }, [likedIds, userData.email, userClubType]);
 
@@ -471,41 +439,45 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     const idStr = id.toString();
     const isLiked = likedIds.includes(idStr);
     
-    // Calcula a nova lista
+    // Calcula a nova lista exclusiva da Faixa
     const newList = isLiked 
       ? likedIds.filter(i => i !== idStr) 
       : [...likedIds, idStr];
 
-    // Atualiza localmente primeiro (UI rápida)
+    // Atualiza localmente primeiro (UI rápida) exclusivamente para a Faixa
     setLikedIds(newList);
-    saveLocalUserSpecialties(newList, userData.email, userClubType);
+    saveLocalFaixaSpecialties(newList, userData.email, userClubType);
 
-    // Salva no banco se tiver email (atualiza a coluna Especialidades na tabela Usuarios)
+    // Salva no banco de dados na coluna Especialidades de Usuarios
     if (userData.email && userData.email !== "email@exemplo.com") {
-      await updateUserSpecialties(userData.email, newList, userId);
+      await updateUserFaixa(userData.email, newList, userId, userClubType);
     }
   };
 
   const handleResetSpecialties = async () => {
     setLikedIds([]);
-    clearLocalUserSpecialties(userData.email, userClubType);
+    clearLocalFaixaSpecialties(userData.email, userClubType);
 
     if (userData.email && userData.email !== "email@exemplo.com") {
-      await updateUserSpecialties(userData.email, [], userId);
+      await updateUserFaixa(userData.email, [], userId, userClubType);
     }
     setShowResetConfirm(false);
   };
 
   const likedSpecialtiesList = useMemo(() => {
-    return allSpecialties.filter(s => likedIds.includes(s.id.toString()));
-  }, [allSpecialties, likedIds]);
+    return allSpecialties
+      .filter(s => s.club === userClubType)
+      .filter(s => likedIds.includes(s.id.toString()));
+  }, [allSpecialties, likedIds, userClubType]);
 
   const filteredSpecialties = useMemo(() => {
-    return allSpecialties.filter(s => 
-      s.nome.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      (s.codigo && s.codigo.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-  }, [allSpecialties, searchTerm]);
+    return allSpecialties
+      .filter(s => s.club === userClubType)
+      .filter(s => 
+        s.nome.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        (s.codigo && s.codigo.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+  }, [allSpecialties, searchTerm, userClubType]);
 
   // Bloquear scroll do fundo quando modal aberto
   useEffect(() => {
@@ -567,9 +539,9 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
         await updateUserProfile(profile);
 
-        // 2. Salvar Especialidades (likedIds ou locais)
-        const effectiveSpecialties = likedIds.length > 0 ? likedIds : getLocalUserSpecialties(userData.email, userClubType);
-        await updateUserSpecialties(userData.email, effectiveSpecialties, userId);
+        // 2. Salvar Especialidades da Faixa (likedIds ou locais)
+        const effectiveSpecialties = likedIds.length > 0 ? likedIds : getLocalFaixaSpecialties(userData.email, userClubType);
+        await updateUserFaixa(userData.email, effectiveSpecialties, userId, userClubType);
 
         // 3. Salvar Conquistas
         await updateUserAchievements(userData.email, userAchievements);

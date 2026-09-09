@@ -408,12 +408,13 @@ export async function fetchDesbravaMais(): Promise<DesbravaMais[]> {
   }
 }
 
-// Funções para a Faixa (Especialidades Curtidas) no Banco de Dados - Tabela Usuarios, Coluna Especialidades
-const SPECIALTY_GLOBAL_KEY = 'dbv_tudo_completed_specialties_global';
-
-export function getLocalUserSpecialties(email?: string | null, clubType?: string | null): string[] {
+// ==========================================
+// 1. Minha Faixa (Especialidades Conquistadas pelo Membro - Isoladas por Clube)
+// ==========================================
+export function getLocalFaixaSpecialties(email?: string | null, clubType?: string | null): string[] {
   if (typeof window === 'undefined' || !window.localStorage) return [];
-  
+  const club = clubType === 'ADVENTURER' ? 'ADVENTURER' : 'PATHFINDER';
+  const cleanEmail = (email && email !== 'email@exemplo.com') ? email.toLowerCase().trim() : null;
   const foundIds = new Set<string>();
 
   const parseAndAdd = (raw: string | null) => {
@@ -431,61 +432,23 @@ export function getLocalUserSpecialties(email?: string | null, clubType?: string
     } catch {}
   };
 
-  // 0. Chave do Perfil Global (dbv_tudo_global_user_profile)
-  try {
-    const profileRaw = localStorage.getItem('dbv_tudo_global_user_profile');
-    if (profileRaw) {
-      const profile = JSON.parse(profileRaw);
-      if (Array.isArray(profile.specialties)) {
-        profile.specialties.forEach((id: any) => {
-          if (id !== null && id !== undefined) {
-            const str = id.toString().trim();
-            if (str.length > 0) foundIds.add(str);
-          }
-        });
-      }
-      if (Array.isArray(profile.Especialidades)) {
-        profile.Especialidades.forEach((id: any) => {
-          if (id !== null && id !== undefined) {
-            const str = id.toString().trim();
-            if (str.length > 0) foundIds.add(str);
-          }
-        });
-      }
-      if (typeof profile.Especialidades === 'string') {
-        profile.Especialidades.split(',').forEach((id: string) => {
-          const str = id.trim();
-          if (str.length > 0) foundIds.add(str);
-        });
-      }
-    }
-  } catch {}
-
-  // 1. Chave Global Unificada
-  parseAndAdd(localStorage.getItem(SPECIALTY_GLOBAL_KEY));
-
-  // 2. Chaves por Email
-  if (email && email !== 'email@exemplo.com') {
-    const cleanEmail = email.toLowerCase().trim();
-    parseAndAdd(localStorage.getItem(`dbv_tudo_completed_specialties_${cleanEmail}`));
-    parseAndAdd(localStorage.getItem(`dbv_tudo_completed_specialties_${email}`));
+  if (cleanEmail) {
+    parseAndAdd(localStorage.getItem(`dbv_tudo_faixa_${club}_${cleanEmail}`));
   }
+  parseAndAdd(localStorage.getItem(`dbv_tudo_faixa_${club}`));
 
-  // 3. Chave Guest
-  parseAndAdd(localStorage.getItem('dbv_tudo_completed_specialties_guest'));
-
-  // 4. Chaves por Clube
-  parseAndAdd(localStorage.getItem('dbv_tudo_liked_specialties_PATHFINDER'));
-  parseAndAdd(localStorage.getItem('dbv_tudo_liked_specialties_ADVENTURER'));
-  if (clubType) {
-    parseAndAdd(localStorage.getItem(`dbv_tudo_liked_specialties_${clubType}`));
+  // Fallback legível apenas da chave isolada daquele clube
+  if (foundIds.size === 0) {
+    parseAndAdd(localStorage.getItem(`dbv_tudo_liked_specialties_${club}`));
   }
 
   return Array.from(foundIds);
 }
 
-export function saveLocalUserSpecialties(specialties: string[], email?: string | null, clubType?: string | null): void {
+export function saveLocalFaixaSpecialties(specialties: string[], email?: string | null, clubType?: string | null): void {
   if (typeof window === 'undefined' || !window.localStorage) return;
+  const club = clubType === 'ADVENTURER' ? 'ADVENTURER' : 'PATHFINDER';
+  const cleanEmail = (email && email !== 'email@exemplo.com') ? email.toLowerCase().trim() : null;
 
   const validIds = Array.from(new Set(
     (specialties || [])
@@ -495,76 +458,210 @@ export function saveLocalUserSpecialties(specialties: string[], email?: string |
   const serialized = JSON.stringify(validIds);
 
   try {
-    // Evitar loops infinitos de re-render se os dados já estiverem exatamente iguais
-    const currentGlobal = localStorage.getItem(SPECIALTY_GLOBAL_KEY);
-    if (currentGlobal === serialized) {
-      return;
+    localStorage.setItem(`dbv_tudo_faixa_${club}`, serialized);
+    if (cleanEmail) {
+      localStorage.setItem(`dbv_tudo_faixa_${club}_${cleanEmail}`, serialized);
     }
+    // Manter chave de compatibilidade por clube para persistência resiliente da faixa
+    localStorage.setItem(`dbv_tudo_liked_specialties_${club}`, serialized);
 
-    // 0. Salvar também dentro do perfil global no localStorage para redundância máxima
+    // Salva no perfil global
     try {
       const profileRaw = localStorage.getItem('dbv_tudo_global_user_profile');
       if (profileRaw) {
         const profile = JSON.parse(profileRaw);
-        profile.specialties = validIds;
+        profile.faixa = validIds;
         profile.Especialidades = validIds.join(',');
         localStorage.setItem('dbv_tudo_global_user_profile', JSON.stringify(profile));
       }
     } catch {}
 
-    // 1. Salvar na chave global unificada
-    localStorage.setItem(SPECIALTY_GLOBAL_KEY, serialized);
-
-    // 2. Salvar na chave por email
-    if (email && email !== 'email@exemplo.com') {
-      const cleanEmail = email.toLowerCase().trim();
-      localStorage.setItem(`dbv_tudo_completed_specialties_${cleanEmail}`, serialized);
-      localStorage.setItem(`dbv_tudo_completed_specialties_${email}`, serialized);
-    } else {
-      localStorage.setItem('dbv_tudo_completed_specialties_guest', serialized);
-    }
-
-    // 3. Salvar nas chaves de clubes para compatibilidade imediata com Minha Faixa
-    localStorage.setItem('dbv_tudo_liked_specialties_PATHFINDER', serialized);
-    localStorage.setItem('dbv_tudo_liked_specialties_ADVENTURER', serialized);
-    if (clubType) {
-      localStorage.setItem(`dbv_tudo_liked_specialties_${clubType}`, serialized);
-    }
-
-    // 4. Notificar a aplicação em tempo real apenas quando houver alteração real
-    window.dispatchEvent(new CustomEvent('dbv_specialties_changed', { detail: validIds }));
+    // Notificar exclusivamente ouvintes da Faixa (NÃO notifica o catálogo)
+    window.dispatchEvent(new CustomEvent('dbv_faixa_changed', { detail: { club, specialties: validIds } }));
   } catch (e) {
-    console.warn("Erro ao salvar especialidades localmente:", e);
+    console.warn("Erro ao salvar faixa localmente:", e);
   }
+}
+
+export function clearLocalFaixaSpecialties(email?: string | null, clubType?: string | null): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  const club = clubType === 'ADVENTURER' ? 'ADVENTURER' : 'PATHFINDER';
+  const cleanEmail = (email && email !== 'email@exemplo.com') ? email.toLowerCase().trim() : null;
+  const empty = JSON.stringify([]);
+
+  try {
+    localStorage.setItem(`dbv_tudo_faixa_${club}`, empty);
+    if (cleanEmail) {
+      localStorage.setItem(`dbv_tudo_faixa_${club}_${cleanEmail}`, empty);
+    }
+    localStorage.setItem(`dbv_tudo_liked_specialties_${club}`, empty);
+
+    window.dispatchEvent(new CustomEvent('dbv_faixa_changed', { detail: { club, specialties: [] } }));
+  } catch (e) {
+    console.warn("Erro ao limpar faixa localmente:", e);
+  }
+}
+
+export async function fetchUserFaixaSpecialties(email?: string | null, userId?: string | null, clubType?: string | null): Promise<string[]> {
+  try {
+    let rawData: any = null;
+    let effectiveUserId = userId;
+    if (!effectiveUserId) {
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (data?.user) effectiveUserId = data.user.id;
+      } catch {}
+    }
+
+    if (effectiveUserId) {
+      try {
+        const { data } = await supabase
+          .from('Usuarios')
+          .select('Especialidades, especialidades')
+          .eq('user_id', effectiveUserId)
+          .maybeSingle();
+        if (data) rawData = data.Especialidades || data.especialidades;
+      } catch {}
+    }
+
+    if (!rawData) {
+      return getLocalFaixaSpecialties(email, clubType);
+    }
+
+    if (typeof rawData === 'string') {
+      const parsed = rawData.split(',').map(id => id.trim()).filter(id => id.length > 0);
+      if (parsed.length > 0) return parsed;
+    }
+
+    if (Array.isArray(rawData)) {
+      const parsed = rawData
+        .map(id => (id !== null && id !== undefined ? id.toString().trim() : ''))
+        .filter(id => id.length > 0);
+      if (parsed.length > 0) return parsed;
+    }
+
+    return getLocalFaixaSpecialties(email, clubType);
+  } catch {
+    return getLocalFaixaSpecialties(email, clubType);
+  }
+}
+
+export async function updateUserFaixa(email?: string | null, specialties: string[] = [], userId?: string | null, clubType?: string | null) {
+  try {
+    const validIds = Array.from(new Set(
+      (specialties || [])
+        .map(id => (id !== null && id !== undefined ? id.toString().trim() : ''))
+        .filter(id => id.length > 0)
+    ));
+    const espString = validIds.join(',');
+
+    // Salva localmente na Faixa de forma imediata e isolada
+    saveLocalFaixaSpecialties(validIds, email, clubType);
+
+    let effectiveUserId = userId;
+    if (!effectiveUserId) {
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (data?.user) effectiveUserId = data.user.id;
+      } catch {}
+    }
+
+    if (!effectiveUserId) return { error: "Sem ID de usuário autenticado" };
+
+    const updatePayload: any = {
+      Especialidades: espString,
+      updated_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase
+      .from('Usuarios')
+      .update(updatePayload)
+      .eq('user_id', effectiveUserId);
+
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+// ==========================================
+// 2. Especialidades Curtidas no Catálogo (Salvas para Estudo - Isoladas por Clube)
+// ==========================================
+export function getLocalCatalogFavorites(email?: string | null, club?: ClubType | string | null): string[] {
+  if (typeof window === 'undefined' || !window.localStorage) return [];
+  const clubKey = club === ClubType.ADVENTURER || club === 'ADVENTURER' ? 'ADVENTURER' : 'PATHFINDER';
+  const cleanEmail = (email && email !== 'email@exemplo.com') ? email.toLowerCase().trim() : null;
+  const found = new Set<string>();
+
+  const parseAndAdd = (raw: string | null) => {
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        parsed.forEach(item => {
+          if (item !== null && item !== undefined) {
+            const str = item.toString().trim();
+            if (str.length > 0) found.add(str);
+          }
+        });
+      }
+    } catch {}
+  };
+
+  if (cleanEmail) {
+    parseAndAdd(localStorage.getItem(`dbv_tudo_catalog_favs_${clubKey}_${cleanEmail}`));
+  }
+  parseAndAdd(localStorage.getItem(`dbv_tudo_catalog_favs_${clubKey}`));
+
+  return Array.from(found);
+}
+
+export function saveLocalCatalogFavorites(favorites: string[], email?: string | null, club?: ClubType | string | null): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  const clubKey = club === ClubType.ADVENTURER || club === 'ADVENTURER' ? 'ADVENTURER' : 'PATHFINDER';
+  const cleanEmail = (email && email !== 'email@exemplo.com') ? email.toLowerCase().trim() : null;
+
+  const validIds = Array.from(new Set(
+    (favorites || [])
+      .map(id => (id !== null && id !== undefined ? id.toString().trim() : ''))
+      .filter(id => id.length > 0)
+  ));
+  const serialized = JSON.stringify(validIds);
+
+  try {
+    localStorage.setItem(`dbv_tudo_catalog_favs_${clubKey}`, serialized);
+    if (cleanEmail) {
+      localStorage.setItem(`dbv_tudo_catalog_favs_${clubKey}_${cleanEmail}`, serialized);
+    }
+    // Notifica exclusivamente a tela de catálogo
+    window.dispatchEvent(new CustomEvent('dbv_catalog_favs_changed', { detail: { club: clubKey, favorites: validIds } }));
+  } catch (e) {
+    console.warn("Erro ao salvar favoritas do catálogo:", e);
+  }
+}
+
+// Funções de compatibilidade para chamadas legadas
+const SPECIALTY_GLOBAL_KEY = 'dbv_tudo_completed_specialties_global';
+
+export function getLocalUserSpecialties(email?: string | null, clubType?: string | null): string[] {
+  return getLocalCatalogFavorites(email, clubType);
+}
+
+export function saveLocalUserSpecialties(specialties: string[], email?: string | null, clubType?: string | null): void {
+  saveLocalCatalogFavorites(specialties, email, clubType);
 }
 
 export function clearLocalUserSpecialties(email?: string | null, clubType?: string | null): void {
   if (typeof window === 'undefined' || !window.localStorage) return;
+  const clubKey = clubType === 'ADVENTURER' ? 'ADVENTURER' : 'PATHFINDER';
+  const cleanEmail = (email && email !== 'email@exemplo.com') ? email.toLowerCase().trim() : null;
   const empty = JSON.stringify([]);
   try {
-    try {
-      const profileRaw = localStorage.getItem('dbv_tudo_global_user_profile');
-      if (profileRaw) {
-        const profile = JSON.parse(profileRaw);
-        profile.specialties = [];
-        profile.Especialidades = '';
-        localStorage.setItem('dbv_tudo_global_user_profile', JSON.stringify(profile));
-      }
-    } catch {}
-
-    localStorage.setItem(SPECIALTY_GLOBAL_KEY, empty);
-    localStorage.setItem('dbv_tudo_completed_specialties_guest', empty);
-    localStorage.setItem('dbv_tudo_liked_specialties_PATHFINDER', empty);
-    localStorage.setItem('dbv_tudo_liked_specialties_ADVENTURER', empty);
-    if (clubType) {
-      localStorage.setItem(`dbv_tudo_liked_specialties_${clubType}`, empty);
+    localStorage.setItem(`dbv_tudo_catalog_favs_${clubKey}`, empty);
+    if (cleanEmail) {
+      localStorage.setItem(`dbv_tudo_catalog_favs_${clubKey}_${cleanEmail}`, empty);
     }
-    if (email && email !== 'email@exemplo.com') {
-      const cleanEmail = email.toLowerCase().trim();
-      localStorage.setItem(`dbv_tudo_completed_specialties_${cleanEmail}`, empty);
-      localStorage.setItem(`dbv_tudo_completed_specialties_${email}`, empty);
-    }
-    window.dispatchEvent(new CustomEvent('dbv_specialties_changed', { detail: [] }));
+    window.dispatchEvent(new CustomEvent('dbv_catalog_favs_changed', { detail: { club: clubKey, favorites: [] } }));
   } catch (e) {
     console.warn("Erro ao limpar especialidades locais:", e);
   }
