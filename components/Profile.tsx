@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { ChevronLeft, LogOut, Shield, MapPin, Briefcase, Award, Camera, Check, X, User, Mail, Phone, ChevronDown, Heart, Search, Settings, Layers, Globe, Trophy, ArrowUp, RotateCcw, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, LogOut, Shield, MapPin, Briefcase, Award, Camera, Check, X, User, Mail, Phone, ChevronDown, Heart, Search, Settings, Layers, Globe, Trophy, ArrowUp, RotateCcw, AlertTriangle, Calendar, Lock } from 'lucide-react';
 import { ClubType, Especialidade, UserProfile, Conquista } from '../types';
 import { MASTERY_RULES } from '../masteryRules';
 import { 
@@ -11,6 +11,85 @@ import {
   getLocalFaixaSpecialties, saveLocalFaixaSpecialties, clearLocalFaixaSpecialties,
   fetchUserFaixaSpecialties, updateUserFaixa
 } from '../services/supabaseService';
+
+// Helpers para Cálculo de Idade e Elegibilidade de Conquistas
+export const calculateAge = (birthDateString?: string): number | null => {
+  if (!birthDateString || birthDateString.trim() === '') return null;
+  const parts = birthDateString.split('-');
+  if (parts.length === 3) {
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+      const birthDate = new Date(year, month, day);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      return age >= 0 ? age : null;
+    }
+  }
+  return null;
+};
+
+export const formatBirthDate = (birthDateString?: string): string => {
+  if (!birthDateString) return '';
+  const parts = birthDateString.split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return birthDateString;
+};
+
+// Idades mínimas oficiais conforme regra dos Desbravadores:
+// 10 anos: Amigo e Amigo da Natureza
+// 11 anos: Companheiro e Companheiro de Excursionismo
+// 12 anos: Pesquisador e Pesquisador de Campos de Bosques
+// 13 anos: Pioneiro e Pioneiro de Novas Fronteiras
+// 14 anos: Excursionista e Excursionista na Mata
+// 15 anos: Guia e Guia de Exploração
+// Qualquer idade: Insígnia de Excelência
+// 18+ anos: Líder, Líder Master e Líder Master Avançado
+export const getConquistaMinAge = (con: Conquista): number => {
+  if (con.tipo === 'INSIGNIA') {
+    return 0; // Em qualquer idade
+  }
+  if (con.tipo === 'LIDERANCA') {
+    return 18; // A partir dos 18 anos
+  }
+  if (con.tipo === 'CLASSE_REGULAR' || con.tipo === 'CLASSE_AVANCADA') {
+    const ordem = con.ordem || 1;
+    switch (ordem) {
+      case 1: return 10;
+      case 2: return 11;
+      case 3: return 12;
+      case 4: return 13;
+      case 5: return 14;
+      case 6: return 15;
+      default: return 10;
+    }
+  }
+  return 0;
+};
+
+export const checkConquistaEligibility = (con: Conquista, age: number | null): { isEligible: boolean; minAge: number; msg?: string } => {
+  const minAge = getConquistaMinAge(con);
+  if (age === null) {
+    return { isEligible: true, minAge };
+  }
+  const isEligible = age >= minAge;
+  let msg = '';
+  if (!isEligible) {
+    if (con.tipo === 'LIDERANCA') {
+      msg = `Disponível a partir dos 18 anos (sua idade: ${age} anos)`;
+    } else {
+      msg = `Disponível a partir dos ${minAge} anos (sua idade: ${age} anos)`;
+    }
+  }
+  return { isEligible, minAge, msg };
+};
 
 const CARGOS = DEFAULT_CARGOS;
 
@@ -142,6 +221,25 @@ const EditSelect: React.FC<EditSelectProps> = ({ label, value, name, options, on
   );
 };
 
+const DEFAULT_CONQUISTAS_FALLBACK: Conquista[] = [
+  { id: 8, nome: 'Excelência', tipo: 'INSIGNIA', shape: 'RECTANGLE', ordem: 1, imagem_colorida: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/excelencia.png', imagem_cinza: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/excelencia%20PB.png' },
+  { id: 17, nome: 'Guia de Exploração', tipo: 'CLASSE_AVANCADA', shape: 'RECTANGLE', ordem: 6, imagem_colorida: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/16.png', imagem_cinza: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/16%20PB.png' },
+  { id: 16, nome: 'Excursionista na mata', tipo: 'CLASSE_AVANCADA', shape: 'RECTANGLE', ordem: 5, imagem_colorida: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/15.png', imagem_cinza: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/15%20PB.png' },
+  { id: 15, nome: 'Pioneiro de Novas Fronteiras', tipo: 'CLASSE_AVANCADA', shape: 'RECTANGLE', ordem: 4, imagem_colorida: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/14.png', imagem_cinza: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/14%20PB.png' },
+  { id: 14, nome: 'Pesquisador de Campos de Bosques', tipo: 'CLASSE_AVANCADA', shape: 'RECTANGLE', ordem: 3, imagem_colorida: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/13.png', imagem_cinza: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/13%20PB.png' },
+  { id: 13, nome: 'Companheiro de Excursionismo', tipo: 'CLASSE_AVANCADA', shape: 'RECTANGLE', ordem: 2, imagem_colorida: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/12.png', imagem_cinza: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/12%20PB.png' },
+  { id: 12, nome: 'Amigo da Natureza', tipo: 'CLASSE_AVANCADA', shape: 'RECTANGLE', ordem: 1, imagem_colorida: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/11.png', imagem_cinza: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/11%20PB.png' },
+  { id: 2, nome: 'Amigo', tipo: 'CLASSE_REGULAR', shape: 'CIRCLE', ordem: 1, imagem_colorida: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/01.png', imagem_cinza: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/01%20PB.png' },
+  { id: 3, nome: 'Companheiro', tipo: 'CLASSE_REGULAR', shape: 'CIRCLE', ordem: 2, imagem_colorida: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/02.png', imagem_cinza: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/02%20PB.png' },
+  { id: 4, nome: 'Pesquisador', tipo: 'CLASSE_REGULAR', shape: 'CIRCLE', ordem: 3, imagem_colorida: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/03.png', imagem_cinza: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/03%20PB.png' },
+  { id: 5, nome: 'Pioneiro', tipo: 'CLASSE_REGULAR', shape: 'CIRCLE', ordem: 4, imagem_colorida: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/04.png', imagem_cinza: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/04%20PB.png' },
+  { id: 6, nome: 'Excursionista', tipo: 'CLASSE_REGULAR', shape: 'CIRCLE', ordem: 5, imagem_colorida: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/05.png', imagem_cinza: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/05%20PB.png' },
+  { id: 7, nome: 'Guia', tipo: 'CLASSE_REGULAR', shape: 'CIRCLE', ordem: 6, imagem_colorida: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/06.png', imagem_cinza: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/06%20PB.png' },
+  { id: 9, nome: 'Líder', tipo: 'LIDERANCA', shape: 'OVAL', ordem: 1, imagem_colorida: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/07.png', imagem_cinza: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/07%20PB.png' },
+  { id: 10, nome: 'Líder Master', tipo: 'LIDERANCA', shape: 'OVAL', ordem: 2, imagem_colorida: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/08.png', imagem_cinza: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/08%20PB.png' },
+  { id: 11, nome: 'Líder Master Avançado', tipo: 'LIDERANCA', shape: 'OVAL', ordem: 3, imagem_colorida: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/09.png', imagem_cinza: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/09%20PB.png' }
+];
+
 interface ProfileProps {
   club: ClubType;
   onBack: (club?: ClubType) => void;
@@ -161,7 +259,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
       return [];
     }
   });
-  const [allConquistas, setAllConquistas] = useState<Conquista[]>([]);
+  const [allConquistas, setAllConquistas] = useState<Conquista[]>(DEFAULT_CONQUISTAS_FALLBACK);
   const [userAchievements, setUserAchievements] = useState<number[]>(() => {
     try {
       const saved = localStorage.getItem('dbv_tudo_user_achievements');
@@ -197,6 +295,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
       avatar: "",
       cidade: "",
       estado: "",
+      data_nascimento: "",
       isAdmin: false
     };
   };
@@ -204,6 +303,9 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   const [userData, setUserData] = useState(getInitialData);
   const [userId, setUserId] = useState<string | null>(null);
   const [cargosList, setCargosList] = useState<string[]>(() => getCachedFuncoes());
+
+  // Idade calculada do usuário
+  const userAge = useMemo(() => calculateAge(userData.data_nascimento), [userData.data_nascimento]);
 
   useEffect(() => {
     fetchFuncoes().then(loaded => {
@@ -254,6 +356,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
               avatar: profile.foto || userData.avatar,
               cidade: profile.cidade || "",
               estado: profile.estado || "",
+              data_nascimento: profile.data_nascimento || (profile as any)['data de nascimento'] || (profile as any)['nascimento'] || "",
               isAdmin: profile.ADM || false
             };
             setUserData(mappedData);
@@ -420,6 +523,15 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   }, [userAchievements]);
 
   const toggleAchievement = async (id: number) => {
+    const con = allConquistas.find(c => c.id === id);
+    if (con && userAge !== null) {
+      const eligibility = checkConquistaEligibility(con, userAge);
+      if (!eligibility.isEligible) {
+        alert(`⚠️ ${con.nome}: ${eligibility.msg}`);
+        return;
+      }
+    }
+
     setUserAchievements(prev => {
       const isAcquired = prev.includes(id);
       const newList = isAcquired 
@@ -517,6 +629,20 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     try {
       localStorage.setItem(storageKey, JSON.stringify(userData));
       
+      // Filtrar conquistas se a idade mudou e alguma não for mais elegível
+      const currentAge = calculateAge(userData.data_nascimento);
+      let updatedAchievements = userAchievements;
+      if (currentAge !== null) {
+        updatedAchievements = userAchievements.filter(id => {
+          const con = allConquistas.find(c => c.id === id);
+          return !con || checkConquistaEligibility(con, currentAge).isEligible;
+        });
+        if (updatedAchievements.length !== userAchievements.length) {
+          setUserAchievements(updatedAchievements);
+          localStorage.setItem('dbv_tudo_user_achievements', JSON.stringify(updatedAchievements));
+        }
+      }
+
       // Salvar no Supabase se tiver userId ou email
       if (userData.email && userData.email !== "email@exemplo.com") {
         // 1. Salvar Perfil Básico
@@ -530,6 +656,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
           clubes: userData.tipo,
           cidade: userData.cidade,
           estado: userData.estado,
+          data_nascimento: userData.data_nascimento,
           ADM: userData.isAdmin
         };
 
@@ -544,7 +671,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
         await updateUserFaixa(userData.email, effectiveSpecialties, userId, userClubType);
 
         // 3. Salvar Conquistas
-        await updateUserAchievements(userData.email, userAchievements);
+        await updateUserAchievements(userData.email, updatedAchievements);
       }
       
       setIsEditing(false);
@@ -736,6 +863,32 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
               <EditInput label="Nome do Clube" value={userData.clube} name="clube" onChange={handleInputChange} />
               <EditSelect label="Cargo / Função" value={userData.cargo} name="cargo" options={cargosList} onChange={handleInputChange} />
               <EditInput label="Telefone" value={userData.telefone} name="telefone" onChange={handleInputChange} />
+
+              {/* Data de Nascimento com indicador de idade em tempo real */}
+              <div className="space-y-1.5 text-left">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] ml-1 flex items-center gap-1.5">
+                    <Calendar size={13} className="text-emerald-500" />
+                    <span>Data de Nascimento</span>
+                  </label>
+                  {calculateAge(userData.data_nascimento) !== null && (
+                    <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/50">
+                      {calculateAge(userData.data_nascimento)} anos
+                    </span>
+                  )}
+                </div>
+                <input 
+                  type="date"
+                  value={userData.data_nascimento || ""}
+                  name="data_nascimento"
+                  onChange={handleInputChange}
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-3.5 px-5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500 transition-all shadow-sm font-bold"
+                />
+                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 ml-1">
+                  A sua idade define as classes e distintivos que você pode condecorar no uniforme oficial.
+                </p>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <EditInput label="Cidade" value={userData.cidade || ""} name="cidade" onChange={handleInputChange} />
                 <EditInput label="Estado" value={userData.estado || ""} name="estado" onChange={handleInputChange} />
@@ -809,492 +962,651 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
           </button>
         </div>
 
-        {/* Header Visual do Perfil com Avatar e Banner */}
+        {/* Header Visual do Perfil com Foto, Nome e Função na Esquerda, Demais Informações ao Lado */}
         <div 
-          className="relative w-full flex flex-col items-center justify-start rounded-b-[48px] shadow-lg transition-all duration-500 flex-shrink-0 pt-16 pb-10"
+          className="relative w-full rounded-b-[40px] shadow-lg transition-all duration-500 flex-shrink-0 pt-16 pb-7 px-4 sm:px-8 overflow-hidden"
           style={{ 
             backgroundColor: currentThemeColor,
-            backgroundImage: `radial-gradient(at 0% 0%, rgba(255,255,255,0.18) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(0,0,0,0.12) 0px, transparent 50%)`
+            backgroundImage: `radial-gradient(at 0% 0%, rgba(255,255,255,0.22) 0px, transparent 55%), radial-gradient(at 100% 100%, rgba(0,0,0,0.2) 0px, transparent 50%)`
           }}
         >
-          {/* Efeitos de luz no fundo do banner */}
-          <div className="absolute top-0 left-0 w-full h-full opacity-15 pointer-events-none overflow-hidden rounded-b-[48px]">
-            <div className="absolute top-10 right-10 w-36 h-36 bg-white rounded-full blur-3xl"></div>
-            <div className="absolute bottom-10 left-10 w-44 h-44 bg-black rounded-full blur-3xl"></div>
+          {/* Efeitos de iluminação de fundo */}
+          <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none overflow-hidden rounded-b-[40px]">
+            <div className="absolute top-10 right-10 w-48 h-48 bg-white rounded-full blur-3xl"></div>
+            <div className="absolute bottom-10 left-10 w-52 h-52 bg-black rounded-full blur-3xl"></div>
           </div>
 
-          {/* Foto de Perfil Centralizada */}
-          <div className="relative z-10">
-            <div className="relative group">
-              <div className="w-32 h-32 rounded-[40px] border-[6px] border-white dark:border-slate-800 shadow-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 transition-all flex items-center justify-center">
-                {userData.avatar ? (
-                  <img src={userData.avatar} className="w-full h-full object-cover" alt="Avatar" />
-                ) : (
-                  <User size={52} className="text-slate-300 dark:text-slate-600" />
+          <div className="relative z-10 max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            {/* LADO ESQUERDO: Foto, Nome e Função */}
+            <div className="flex items-center gap-4 sm:gap-5 min-w-0">
+              {/* Foto de Perfil com Botão de Editar */}
+              <div className="relative shrink-0">
+                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-[28px] border-4 border-white/90 dark:border-slate-800 shadow-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 transition-all flex items-center justify-center">
+                  {userData.avatar ? (
+                    <img src={userData.avatar} className="w-full h-full object-cover" alt="Avatar" />
+                  ) : (
+                    <User size={44} className="text-slate-300 dark:text-slate-600" />
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="absolute -bottom-1 -right-1 w-8 h-8 sm:w-9 sm:h-9 rounded-xl border-2 border-white dark:border-slate-800 shadow-md transition-all flex items-center justify-center bg-amber-500 text-white hover:bg-amber-600 active:scale-90"
+                  title="Editar Foto ou Perfil"
+                >
+                  <Camera size={15} />
+                </button>
+              </div>
+
+              {/* Nome e Função */}
+              <div className="min-w-0 flex-1 text-white">
+                <h2 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-white leading-tight drop-shadow-sm uppercase truncate">
+                  {userData.name}
+                </h2>
+                
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  {/* Função / Cargo */}
+                  <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[11px] font-black uppercase tracking-wider text-white border border-white/25 inline-flex items-center gap-1.5 shadow-xs">
+                    <Briefcase size={12} strokeWidth={2.5} />
+                    <span>{userData.cargo || 'Membro'}</span>
+                  </span>
+
+                  {/* Ministério / Tipo */}
+                  <span className="px-2.5 py-1 bg-black/25 backdrop-blur-md rounded-full text-[10px] font-bold uppercase tracking-wider text-white/90 border border-white/10">
+                    {userData.tipo}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* DEMAIS INFORMAÇÕES AO LADO (LADO DIREITO) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5 md:w-[480px] lg:w-[540px] shrink-0">
+              {/* Clube */}
+              <div className="bg-white/15 dark:bg-black/25 backdrop-blur-md border border-white/20 dark:border-white/10 rounded-2xl p-2.5 sm:p-3 flex items-center gap-2.5 text-white shadow-xs">
+                <div className="w-8 h-8 rounded-xl bg-white/20 text-white flex items-center justify-center shrink-0">
+                  <Shield size={16} strokeWidth={2.5} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-white/70">Clube</p>
+                  <p className="text-xs font-black truncate text-white">{userData.clube || 'Não informado'}</p>
+                </div>
+              </div>
+
+              {/* Telefone */}
+              <div className="bg-white/15 dark:bg-black/25 backdrop-blur-md border border-white/20 dark:border-white/10 rounded-2xl p-2.5 sm:p-3 flex items-center gap-2.5 text-white shadow-xs">
+                <div className="w-8 h-8 rounded-xl bg-white/20 text-white flex items-center justify-center shrink-0">
+                  <Phone size={16} strokeWidth={2.5} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-white/70">Telefone</p>
+                  <p className="text-xs font-black truncate text-white">{userData.telefone || 'Não informado'}</p>
+                </div>
+              </div>
+
+              {/* Cidade / UF */}
+              <div className="bg-white/15 dark:bg-black/25 backdrop-blur-md border border-white/20 dark:border-white/10 rounded-2xl p-2.5 sm:p-3 flex items-center gap-2.5 text-white shadow-xs">
+                <div className="w-8 h-8 rounded-xl bg-white/20 text-white flex items-center justify-center shrink-0">
+                  <MapPin size={16} strokeWidth={2.5} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-white/70">Cidade / UF</p>
+                  <p className="text-xs font-black truncate text-white">
+                    {userData.cidade ? `${userData.cidade}${userData.estado ? ` - ${userData.estado}` : ''}` : 'Não informado'}
+                  </p>
+                </div>
+              </div>
+
+              {/* E-mail */}
+              <div className="bg-white/15 dark:bg-black/25 backdrop-blur-md border border-white/20 dark:border-white/10 rounded-2xl p-2.5 sm:p-3 flex items-center gap-2.5 text-white shadow-xs">
+                <div className="w-8 h-8 rounded-xl bg-white/20 text-white flex items-center justify-center shrink-0">
+                  <Mail size={16} strokeWidth={2.5} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-white/70">E-mail</p>
+                  <p className="text-xs font-black truncate text-white">{userData.email || 'Não informado'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Botões de Ação */}
+        <div className="px-4 sm:px-8 mt-5 flex flex-col space-y-3 max-w-7xl mx-auto">
+          <div className="grid grid-cols-2 gap-3">
+            <button 
+              onClick={() => setIsEditing(true)} 
+              style={{ backgroundColor: currentThemeColor }} 
+              className="py-3.5 px-3 rounded-2xl text-white font-black uppercase text-xs tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2 border border-white/10"
+            >
+              <Settings size={18} />
+              <span>Editar Perfil</span>
+            </button>
+            <button 
+              onClick={() => setIsSashView(true)}
+              className="py-3.5 px-3 bg-emerald-600 hover:bg-emerald-700 rounded-2xl text-white font-black uppercase text-xs tracking-wider shadow-lg shadow-emerald-600/20 active:scale-95 transition-all flex items-center justify-center space-x-2 border border-emerald-500/20"
+            >
+              <Award size={18} />
+              <span>Minha Faixa</span>
+              {likedIds.length > 0 && (
+                <span className="bg-white/20 text-white text-[10px] px-1.5 py-0.5 rounded-full font-black ml-1">
+                  {likedIds.length}
+                </span>
+              )}
+            </button>
+          </div>
+          
+          {isAdmin && onOpenAdmin && (
+            <button 
+              onClick={onOpenAdmin}
+              className="w-full py-3.5 bg-slate-900 dark:bg-slate-800 hover:bg-slate-950 text-white rounded-2xl font-black uppercase text-xs tracking-wider shadow-lg border border-slate-700 active:scale-95 transition-all flex items-center justify-center space-x-2.5"
+            >
+              <Shield size={18} className="text-indigo-400" />
+              <span>Painel Administrativo</span>
+            </button>
+          )}
+        </div>
+
+        <div className="mt-8 px-4 sm:px-8 pb-10 animate-slide-up max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            {/* Card 1: Conquistas & Distintivos (Simulação do Bolso Esquerdo do Uniforme de Gala) */}
+            <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/80 rounded-[32px] p-5 sm:p-6 shadow-sm space-y-6">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700/80">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                    <Trophy size={18} strokeWidth={2.5} />
+                  </div>
+                  <div>
+                    <h3 className="font-black uppercase text-xs text-slate-800 dark:text-white tracking-wider">
+                      Conquistas & Distintivos
+                    </h3>
+                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
+                      Simulação do bolso esquerdo do uniforme de gala
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/40 px-2.5 py-1 rounded-full">
+                  {userAchievements.length} ativas
+                </span>
+              </div>
+
+              {/* Simulação Têxtil do Uniforme de Gala */}
+              <div className="w-full flex flex-col items-center">
+                <div className="w-full max-w-[340px] sm:max-w-[360px] bg-[#d7c5a3] dark:bg-[#2b2318] border border-[#beaa82] dark:border-[#4b3c29] rounded-[28px] p-4 sm:p-6 flex flex-col items-center relative overflow-hidden shadow-inner">
+                  {/* Textura sutil e costuras de alfaiataria */}
+                  <div className="absolute inset-0 opacity-15 pointer-events-none bg-[radial-gradient(#8f764a_1px,transparent_1px)] [background-size:12px_12px]" />
+                  <div className="absolute top-2 left-4 right-4 border-b border-dashed border-[#b1986e]/40 dark:border-[#635038]/50 pointer-events-none" />
+
+                  {/* 1. ACIMA DO BOLSO: Insígnia de Excelência */}
+                  <div className="relative z-10 flex flex-col items-center mb-2.5">
+                    {allConquistas.filter(c => c.tipo === 'INSIGNIA').map(con => (
+                      <button
+                        key={con.id}
+                        onClick={() => toggleAchievement(con.id)}
+                        className="w-32 h-6 sm:w-36 sm:h-7 relative transition-all active:scale-95 group hover:brightness-105"
+                        title={`${con.nome} • Insígnia de Excelência (Toque para alternar)`}
+                      >
+                        <img
+                          src={userAchievements.includes(con.id) ? con.imagem_colorida : con.imagem_cinza}
+                          className={`w-full h-full object-contain filter drop-shadow-sm transition-opacity ${
+                            userAchievements.includes(con.id) ? 'opacity-100' : 'opacity-40 grayscale'
+                          }`}
+                          alt={con.nome}
+                        />
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* 2. ACIMA DO BOLSO: Classes Avançadas (Barretas em Pirâmide) */}
+                  <div className="relative z-10 flex flex-col items-center mb-1">
+                    {/* Fileira Superior das Classes Avançadas (Pioneiro, Excursionista, Guia) */}
+                    <div className="flex items-center justify-center gap-0.5 mb-0.5">
+                      {allConquistas
+                        .filter(c => c.tipo === 'CLASSE_AVANCADA')
+                        .sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
+                        .slice(3, 6)
+                        .map(con => (
+                          <button
+                            key={con.id}
+                            onClick={() => toggleAchievement(con.id)}
+                            className="w-10 h-3.5 sm:w-11 sm:h-4 relative transition-all active:scale-95 group hover:brightness-105 rounded-xs overflow-hidden"
+                            title={`${con.nome} • Classe Avançada (Toque para alternar)`}
+                          >
+                            <img
+                              src={userAchievements.includes(con.id) ? con.imagem_colorida : con.imagem_cinza}
+                              className={`w-full h-full object-contain filter drop-shadow-2xs ${
+                                userAchievements.includes(con.id) ? 'opacity-100' : 'opacity-35 grayscale'
+                              }`}
+                              alt={con.nome}
+                            />
+                          </button>
+                        ))}
+                    </div>
+
+                    {/* Fileira Inferior das Classes Avançadas (Amigo, Companheiro, Pesquisador) - Encostada no bolso */}
+                    <div className="flex items-center justify-center gap-0.5">
+                      {allConquistas
+                        .filter(c => c.tipo === 'CLASSE_AVANCADA')
+                        .sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
+                        .slice(0, 3)
+                        .map(con => (
+                          <button
+                            key={con.id}
+                            onClick={() => toggleAchievement(con.id)}
+                            className="w-10 h-3.5 sm:w-11 sm:h-4 relative transition-all active:scale-95 group hover:brightness-105 rounded-xs overflow-hidden"
+                            title={`${con.nome} • Classe Avançada (Toque para alternar)`}
+                          >
+                            <img
+                              src={userAchievements.includes(con.id) ? con.imagem_colorida : con.imagem_cinza}
+                              className={`w-full h-full object-contain filter drop-shadow-2xs ${
+                                userAchievements.includes(con.id) ? 'opacity-100' : 'opacity-35 grayscale'
+                              }`}
+                              alt={con.nome}
+                            />
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+
+                  {/* 3. SIMULAÇÃO DO BOLSO ESQUERDO */}
+                  <div className="w-[268px] sm:w-[286px] relative flex flex-col items-center">
+                    {/* LAPELA / PORTINHOLA DO BOLSO */}
+                    <div className="w-full h-14 sm:h-16 bg-[#ceb991] dark:bg-[#382e20] border-2 border-[#b8a074] dark:border-[#57462e] rounded-t-lg relative shadow-sm flex items-center justify-center px-2 z-10">
+                      {/* Pesponto decorativo na lapela */}
+                      <div className="absolute inset-1 border border-dashed border-[#b29769]/50 dark:border-[#5a4830]/60 pointer-events-none rounded-t-sm" />
+
+                      {/* Botão de fechamento central da lapela (costura militar) */}
+                      <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-[#a38758] dark:bg-[#463622] border border-[#7a643f] dark:border-[#2f2415] shadow-xs flex items-center justify-center pointer-events-none z-20">
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#beaa81]/60" />
+                      </div>
+
+                      {/* DISTINTIVOS DAS CLASSES REGULARES (CIRCULARES NA LAPELA) */}
+                      <div className="relative z-10 flex items-center justify-center gap-1.5 sm:gap-2">
+                        {allConquistas
+                          .filter(c => c.tipo === 'CLASSE_REGULAR')
+                          .sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
+                          .map(con => (
+                            <button
+                              key={con.id}
+                              onClick={() => toggleAchievement(con.id)}
+                              className="w-7 h-7 sm:w-8 sm:h-8 relative transition-all active:scale-90 group hover:scale-105"
+                              title={`${con.nome} • Classe Regular (Toque para alternar)`}
+                            >
+                              <img
+                                src={userAchievements.includes(con.id) ? con.imagem_colorida : con.imagem_cinza}
+                                className={`w-full h-full object-contain filter drop-shadow-sm transition-all ${
+                                  userAchievements.includes(con.id) ? 'opacity-100' : 'opacity-35 grayscale'
+                                }`}
+                                alt={con.nome}
+                              />
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+
+                    {/* CORPO DO BOLSO */}
+                    <div className="w-full h-44 sm:h-48 bg-[#ceb991] dark:bg-[#382e20] border-x-2 border-b-2 border-[#b8a074] dark:border-[#57462e] rounded-b-2xl relative shadow-md flex flex-col items-center justify-center pt-2 pb-4 overflow-hidden -mt-0.5">
+                      {/* Costura pespontada lateral e inferior */}
+                      <div className="absolute inset-1.5 border-x border-b border-dashed border-[#b29769]/50 dark:border-[#5a4830]/60 pointer-events-none rounded-b-xl" />
+
+                      {/* Prega macho central vertical com relevo */}
+                      <div className="absolute top-0 bottom-0 w-8 sm:w-9 bg-[#c1ab81]/60 dark:bg-[#2b2318]/70 border-x border-[#b09668]/80 dark:border-[#4d3d27] pointer-events-none shadow-inner" />
+
+                      {/* DISTINTIVOS DE LIDERANÇA (OVAIS NO CORPO DO BOLSO) */}
+                      <div className="relative z-10 flex items-center justify-center gap-2 sm:gap-3 flex-wrap px-2">
+                        {allConquistas
+                          .filter(c => c.tipo === 'LIDERANCA')
+                          .sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
+                          .map(con => (
+                            <button
+                              key={con.id}
+                              onClick={() => toggleAchievement(con.id)}
+                              className="w-12 h-14 sm:w-14 sm:h-16 relative transition-all active:scale-95 group hover:scale-105"
+                              title={`${con.nome} • Distintivo de Liderança (Toque para alternar)`}
+                            >
+                              <img
+                                src={userAchievements.includes(con.id) ? con.imagem_colorida : con.imagem_cinza}
+                                className={`w-full h-full object-contain filter drop-shadow-md transition-all ${
+                                  userAchievements.includes(con.id) ? 'opacity-100' : 'opacity-35 grayscale'
+                                }`}
+                                alt={con.nome}
+                              />
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Legenda Informativa */}
+                  <div className="mt-3 text-center">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-[#79633e] dark:text-[#a89069]">
+                      Bolso Esquerdo • Uniforme Oficial DSA
+                    </p>
+                    <p className="text-[9px] font-bold text-[#8c744c] dark:text-[#8e7a5c]">
+                      Toque nas insígnias, barretas ou distintivos para condecorar
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 2: Especialidades na Faixa */}
+            <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/80 rounded-[32px] p-5 sm:p-6 shadow-sm space-y-6">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700/80">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                    <Award size={18} strokeWidth={2.5} />
+                  </div>
+                  <div>
+                    <h3 className="font-black uppercase text-xs text-slate-800 dark:text-white tracking-wider">
+                      Especialidades na Faixa
+                    </h3>
+                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
+                      {likedIds.length > 0 ? `${likedIds.length} na faixa oficial` : 'Nenhuma na faixa'}
+                    </p>
+                  </div>
+                </div>
+                {likedIds.length > 0 && (
+                  <button
+                    onClick={() => setShowResetConfirm(true)}
+                    className="text-[9px] font-black text-rose-500 hover:text-rose-600 dark:text-rose-400 uppercase tracking-wider flex items-center space-x-1 px-2.5 py-1 rounded-full bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/40 active:scale-95 transition-all shadow-xs"
+                  >
+                    <RotateCcw size={11} />
+                    <span>Resetar</span>
+                  </button>
                 )}
               </div>
-              <div className="absolute -bottom-1 -right-1 w-9 h-9 rounded-2xl border-4 border-white dark:border-slate-800 shadow-lg transition-colors flex items-center justify-center bg-emerald-500">
-                <Check size={14} className="text-white" />
-              </div>
-            </div>
-          </div>
 
-          <div className="text-center text-white mt-4 z-10 px-6">
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-none drop-shadow-sm">
-              {userData.name}
-            </h2>
-            <p className="text-white/80 font-bold text-xs mt-1.5 uppercase tracking-widest opacity-90">
-              {userData.email}
-            </p>
-          </div>
-        </div>
-
-      <div className="px-8 mt-6 border-t border-slate-100 dark:border-slate-800 pt-5">
-        <div className="grid grid-cols-2 gap-2">
-          {[
-            { label: 'Tipo', value: userData.tipo },
-            { label: 'Clube', value: userData.clube },
-            { label: 'Cargo', value: userData.cargo },
-            { label: 'Telefone', value: userData.telefone },
-            { label: 'Cidade', value: userData.cidade || '-' },
-            { label: 'Estado', value: userData.estado || '-' }
-          ].map((item, i) => (
-            <div key={i} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-3 shadow-sm flex flex-col items-center text-center group hover:border-slate-200 dark:hover:border-slate-600 transition-all">
-              <p className="text-[7px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-[0.2em] mb-0.5">{item.label}</p>
-              <p className="text-[11px] font-black text-slate-700 dark:text-slate-200 leading-tight line-clamp-1">{item.value}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="px-8 mt-6 flex flex-col space-y-4">
-        <div className="flex space-x-4">
-          <button 
-            onClick={() => setIsEditing(true)} 
-            style={{ backgroundColor: currentThemeColor }} 
-            className="flex-1 py-5 rounded-[28px] text-white font-black uppercase text-[11px] tracking-[0.2em] shadow-xl active:scale-95 transition-all flex items-center justify-center space-x-3"
-          >
-            <Settings size={18} />
-            <span>Editar Perfil</span>
-          </button>
-          <button 
-            onClick={() => setIsSashView(true)}
-            className="flex-1 py-5 bg-emerald-600 rounded-[28px] text-white font-black uppercase text-[11px] tracking-[0.2em] shadow-xl active:scale-95 transition-all flex items-center justify-center space-x-3"
-          >
-            <Award size={18} />
-            <span>Minha Faixa</span>
-          </button>
-        </div>
-        
-        {isAdmin && onOpenAdmin && (
-          <button 
-            onClick={onOpenAdmin}
-            className="w-full py-5 bg-slate-900 dark:bg-slate-800 text-white rounded-[28px] font-black uppercase text-[11px] tracking-[0.2em] shadow-xl border border-slate-900 dark:border-slate-500/60 active:scale-95 transition-all flex items-center justify-center space-x-3"
-          >
-            <Shield size={18} className="text-indigo-400" />
-            <span>Painel Administrativo</span>
-          </button>
-        )}
-      </div>
-
-      <div className="mt-10 px-8 pb-10 animate-slide-up">
-        <div className="flex items-center justify-between mb-6">
-          <div className="h-[1px] flex-grow bg-slate-100 dark:bg-slate-800"></div>
-          <h3 className="px-6 font-black uppercase text-[10px] text-slate-500 dark:text-slate-400 tracking-[0.3em]">Conquistas</h3>
-          <div className="h-[1px] flex-grow bg-slate-100 dark:bg-slate-800"></div>
-        </div>
-        
-        <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[40px] p-6 shadow-sm flex flex-col items-center space-y-8">
-          <div className="flex flex-col items-center space-y-8 w-full">
-            {/* Top: Insígnia de Excelência */}
-            {allConquistas.filter(c => c.tipo === 'INSIGNIA').map(con => (
-              <button 
-                key={con.id}
-                onClick={() => toggleAchievement(con.id)}
-                className="w-40 h-10 relative group transition-all active:scale-95"
-              >
-                <img 
-                  src={userAchievements.includes(con.id) ? con.imagem_colorida : con.imagem_cinza} 
-                  className="w-full h-full object-contain" 
-                  alt={con.nome}
-                />
-              </button>
-            ))}
-
-            {/* Row 2: Classes Avançadas (Retangulares) - Grid 3x2 ou similar */}
-            <div className="grid grid-cols-3 gap-x-3 gap-y-0 w-full max-w-[280px]">
-              {allConquistas.filter(c => c.tipo === 'CLASSE_AVANCADA').map(con => (
-                <button 
-                  key={con.id}
-                  onClick={() => toggleAchievement(con.id)}
-                  className="aspect-[5/3] w-full relative group transition-all active:scale-95 flex items-center justify-center bg-slate-50 dark:bg-slate-800/50 rounded-lg overflow-hidden"
-                >
-                  {userAchievements.includes(con.id) ? (
-                    <img 
-                      src={con.imagem_colorida} 
-                      className="w-full h-full object-contain" 
-                      alt={con.nome}
-                    />
-                  ) : con.imagem_cinza ? (
-                    <img 
-                      src={con.imagem_cinza} 
-                      className="w-full h-full object-contain opacity-40 grayscale" 
-                      alt={con.nome}
-                    />
-                  ) : (
-                    <Award size={20} className="text-slate-200 dark:text-slate-700" />
-                  )}
-                </button>
-              ))}
-            </div>
-
-            {/* Row 3: Liderança (Ovais) */}
-            <div className="flex justify-center flex-wrap gap-4 w-full">
-              {allConquistas.filter(c => c.tipo === 'LIDERANCA').map(con => (
-                <button 
-                  key={con.id}
-                  onClick={() => toggleAchievement(con.id)}
-                  className="w-16 h-12 relative group transition-all active:scale-95 flex items-center justify-center bg-slate-50 dark:bg-slate-800/50 rounded-xl overflow-hidden"
-                >
-                  {userAchievements.includes(con.id) ? (
-                    <img 
-                      src={con.imagem_colorida} 
-                      className="w-full h-full object-contain" 
-                      alt={con.nome}
-                    />
-                  ) : con.imagem_cinza ? (
-                    <img 
-                      src={con.imagem_cinza} 
-                      className="w-full h-full object-contain opacity-40 grayscale" 
-                      alt={con.nome}
-                    />
-                  ) : (
-                    <Trophy size={18} className="text-slate-200 dark:text-slate-700" />
-                  )}
-                </button>
-              ))}
-            </div>
-
-            {/* Row 4: Classes Regulares (Circulares) */}
-            <div className="grid grid-cols-6 gap-2 w-full">
-              {allConquistas.filter(c => c.tipo === 'CLASSE_REGULAR').map(con => (
-                <button 
-                  key={con.id}
-                  onClick={() => toggleAchievement(con.id)}
-                  className="aspect-square w-full relative group transition-all active:scale-95 flex items-center justify-center bg-slate-50 dark:bg-slate-800/50 rounded-full overflow-hidden"
-                >
-                  {userAchievements.includes(con.id) ? (
-                    <img 
-                      src={con.imagem_colorida} 
-                      className="w-full h-full object-contain" 
-                      alt={con.nome}
-                    />
-                  ) : con.imagem_cinza ? (
-                    <img 
-                      src={con.imagem_cinza} 
-                      className="w-full h-full object-contain opacity-40 grayscale" 
-                      alt={con.nome}
-                    />
-                  ) : (
-                    <Check size={14} className="text-slate-200 dark:text-slate-700" />
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Especialidades Curtidas (Minha Faixa) */}
-          {likedIds.length > 0 && (
-            <div className="w-full pt-6 border-t border-slate-50 dark:border-slate-700">
-              <div className="flex items-center justify-between mb-4 px-1">
-                <p className="text-[9px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-[0.2em]">
-                  Especialidades na Faixa ({likedIds.length})
-                </p>
-                <button
-                  onClick={() => setShowResetConfirm(true)}
-                  className="text-[9px] font-black text-rose-500 hover:text-rose-600 dark:text-rose-400 uppercase tracking-wider flex items-center space-x-1 px-2.5 py-1 rounded-full bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/40 active:scale-95 transition-all shadow-xs"
-                >
-                  <RotateCcw size={11} />
-                  <span>Resetar</span>
-                </button>
-              </div>
-              
-              <div className="space-y-12">
-                {isLoading && allSpecialties.length === 0 ? (
-                  <div className="py-8 flex flex-col items-center justify-center space-y-2 text-slate-400">
-                    <div className="w-6 h-6 border-2 border-slate-200 dark:border-slate-700 border-t-indigo-500 rounded-full animate-spin"></div>
-                    <span className="text-[10px] font-bold uppercase tracking-widest">Carregando especialidades da faixa...</span>
+              {likedIds.length === 0 ? (
+                <div className="py-12 flex flex-col items-center justify-center text-center px-4 space-y-4">
+                  <div className="w-16 h-16 rounded-3xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-500 flex items-center justify-center border border-emerald-100 dark:border-emerald-900/40 shadow-inner">
+                    <Award size={28} strokeWidth={2} />
                   </div>
-                ) : (
-                  (() => {
-                    const likedSpecialties = allSpecialties.filter(s => likedIds.includes(s.id.toString()));
-                    const allMasterySpecialties = allSpecialties.filter(s => s.nome.toLowerCase().includes('mestrado'));
-                    const ordinarySpecialties = likedSpecialties.filter(s => !s.nome.toLowerCase().includes('mestrado'));
-                    
-                    // Track which ordinary specialties have been assigned to an activated mastery group
-                    const assignedIds = new Set<string>();
-
-                    const normalize = (txt: string) => 
-                      (txt || "")
-                         .toLowerCase()
-                         .normalize("NFD")
-                         .replace(/[\u0300-\u036f]/g, "")
-                         .replace('mestrado em ', '')
-                         .replace('mestrado de ', '')
-                         .replace('campreste', 'campestre')
-                         .replace('tecinologia', 'tecnologia')
-                         .trim();
-
-                    // Helper para encontrar o objeto de especialidade oficial do Mestrado em allSpecialties (para obter seu logo/insígnia)
-                    const findMasteryItem = (ruleName: string, category: string): Especialidade | undefined => {
-                      const normRule = normalize(ruleName);
-                      const normCat = normalize(category);
+                  <div className="space-y-1 max-w-xs">
+                    <p className="text-xs font-black uppercase text-slate-700 dark:text-slate-200">
+                      Nenhuma especialidade na faixa
+                    </p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 font-bold leading-relaxed">
+                      Favorite especialidades na aba de Especialidades ou use o botão Minha Faixa para montar sua faixa oficial.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsSashView(true)}
+                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 rounded-xl text-white font-black text-xs uppercase tracking-wider shadow-md transition-all active:scale-95"
+                  >
+                    Abrir Minha Faixa
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {isLoading && allSpecialties.length === 0 ? (
+                    <div className="py-8 flex flex-col items-center justify-center space-y-2 text-slate-400">
+                      <div className="w-6 h-6 border-2 border-slate-200 dark:border-slate-700 border-t-indigo-500 rounded-full animate-spin"></div>
+                      <span className="text-[10px] font-bold uppercase tracking-widest">Carregando especialidades da faixa...</span>
+                    </div>
+                  ) : (
+                    (() => {
+                      const likedSpecialties = allSpecialties.filter(s => likedIds.includes(s.id.toString()));
+                      const allMasterySpecialties = allSpecialties.filter(s => s.nome.toLowerCase().includes('mestrado'));
+                      const ordinarySpecialties = likedSpecialties.filter(s => !s.nome.toLowerCase().includes('mestrado'));
                       
-                      // 1. Tentar por nome direto do mestrado
-                      let found = allMasterySpecialties.find(s => {
-                        const sNorm = normalize(s.nome);
-                        return sNorm === normRule || sNorm.includes(normRule) || normRule.includes(sNorm);
-                      });
-                      
-                      // 2. Tentar por categoria/área
-                      if (!found) {
-                        found = allMasterySpecialties.find(s => {
+                      // Track which ordinary specialties have been assigned to an activated mastery group
+                      const assignedIds = new Set<string>();
+
+                      const normalize = (txt: string) => 
+                        (txt || "")
+                           .toLowerCase()
+                           .normalize("NFD")
+                           .replace(/[\u0300-\u036f]/g, "")
+                           .replace('mestrado em ', '')
+                           .replace('mestrado de ', '')
+                           .replace('campreste', 'campestre')
+                           .replace('tecinologia', 'tecnologia')
+                           .trim();
+
+                      // Helper para encontrar o objeto de especialidade oficial do Mestrado em allSpecialties (para obter seu logo/insígnia)
+                      const findMasteryItem = (ruleName: string, category: string): Especialidade | undefined => {
+                        const normRule = normalize(ruleName);
+                        const normCat = normalize(category);
+                        
+                        // 1. Tentar por nome direto do mestrado
+                        let found = allMasterySpecialties.find(s => {
                           const sNorm = normalize(s.nome);
-                          return sNorm === normCat || sNorm.includes(normCat) || normCat.includes(sNorm);
+                          return sNorm === normRule || sNorm.includes(normRule) || normRule.includes(sNorm);
                         });
-                      }
-
-                      // 3. Fallback em allSpecialties completo
-                      if (!found) {
-                        found = allSpecialties.find(s => {
-                          const sNorm = normalize(s.nome);
-                          return sNorm.includes(normRule) || (normCat && sNorm.includes(normCat));
-                        });
-                      }
-                      return found;
-                    };
-
-                    // Helper para normalizar strings de comparação
-                    const cleanStr = (txt: string) => 
-                      (txt || "")
-                        .toLowerCase()
-                        .normalize("NFD")
-                        .replace(/[\u0300-\u036f]/g, "")
-                        .replace(/[-–—_]/g, " ")
-                        .replace(/\s+/g, " ")
-                        .trim();
-
-                    // Helper para filtrar especialidades que pertencem a uma regra de mestrado
-                    const getSpecialtiesForRule = (rule: typeof MASTERY_RULES[0], pool: Especialidade[], masteryItem?: Especialidade) => {
-                      const dbReqs = masteryItem?.requisitos?.map(r => cleanStr(r)) || [];
-
-                      return pool.filter(s => {
-                        const sClean = cleanStr(s.nome);
-                        const sCat = cleanStr(s.area);
-                        const sSigla = s.sigla || '';
-
-                        // 1. Se a regra for de área global irrestrita (ADRA, Artes Manuais, Agrícolas, Domésticas, Ensinos Bíblicos)
-                        if (rule.isGlobalArea) {
-                          if (sCat && (sCat === cleanStr(rule.category) || sCat.includes(cleanStr(rule.category)))) return true;
-                          if (sSigla && rule.siglas && rule.siglas.includes(sSigla)) return true;
-                          return false;
-                        }
-
-                        // 2. Checagem contra a lista de especialidades oficiais do Mestrado
-                        const isInRuleList = rule.specialties.some(rs => {
-                          const rsClean = cleanStr(rs);
-                          if (sClean === rsClean) return true;
-                          if ((rsClean === "bacterias" && sClean === "bacteria") || (rsClean === "bacteria" && sClean === "bacterias")) return true;
-                          return false;
-                        });
-
-                        const isInDbReqs = dbReqs.length > 0 && dbReqs.some(req => {
-                          if (req.length < 3) return false;
-                          if (req === sClean) return true;
-                          const parts = req.split(';').map(p => p.trim());
-                          return parts.some(p => p === sClean);
-                        });
-
-                        if (!isInRuleList && !isInDbReqs) return false;
-
-                        // 3. Proteções contra colisão de nomes parecidos entre áreas diferentes
-                        if (rule.name === "Mestrado em Atividades Profissionais") {
-                          return sSigla === "AP";
-                        }
-
-                        if (rule.name === "Mestrado em Testificação") {
-                          return sSigla === "AM" || sSigla === "MA";
-                        }
-
-                        if (rule.name === "Mestrado em Zoologia") {
-                          return sSigla === "EN" || sClean === "zoonoses";
-                        }
-
-                        if (rule.name === "Mestrado em Botânica" || rule.name === "Mestrado em Ecologia") {
-                          return sSigla === "EN" || sSigla === "AG";
-                        }
-
-                        return true;
-                      });
-                    };
-
-                    // 1. Processar Mestrados (Ativados por seleção manual OU automaticamente pela quantidade mínima de especialidades)
-                    interface ActiveMasteryGroup {
-                      id: string | number;
-                      name: string;
-                      logo?: string;
-                      items: Especialidade[];
-                      isManual?: boolean;
-                      requirementsCount: number;
-                    }
-
-                    const activeMasteryGroups: ActiveMasteryGroup[] = [];
-
-                    // Avaliar cada regra oficial de Mestrado
-                    MASTERY_RULES.forEach(rule => {
-                      const masteryItem = findMasteryItem(rule.name, rule.category);
-                      const isManuallyLiked = masteryItem && likedIds.includes(masteryItem.id.toString());
-                      const matchingItems = getSpecialtiesForRule(rule, ordinarySpecialties, masteryItem);
-                      const reqCount = rule.requirementsCount || 7;
-                      const hasMetRequirements = matchingItems.length >= reqCount;
-
-                      // Se o usuário selecionou a quantidade mínima OU curtiu o mestrado diretamente
-                      if (hasMetRequirements || isManuallyLiked) {
-                        matchingItems.forEach(s => assignedIds.add(s.id.toString()));
-                        activeMasteryGroups.push({
-                          id: masteryItem ? masteryItem.id : rule.name,
-                          name: masteryItem ? masteryItem.nome.replace(/campreste/gi, 'Campestre') : rule.name,
-                          logo: masteryItem?.logo,
-                          items: matchingItems,
-                          isManual: !!isManuallyLiked,
-                          requirementsCount: reqCount
-                        });
-                      }
-                    });
-
-                    // Também verificar se o usuário curtiu algum mestrado do banco que não estava nas regras explícitas
-                    allMasterySpecialties.forEach(mastery => {
-                      if (likedIds.includes(mastery.id.toString())) {
-                        const alreadyAdded = activeMasteryGroups.some(g => String(g.id) === String(mastery.id));
-                        if (!alreadyAdded) {
-                          const mName = normalize(mastery.nome);
-                          const unassigned = ordinarySpecialties.filter(s => !assignedIds.has(s.id.toString()));
-                          const matching = unassigned.filter(s => {
-                            const area = s.area ? normalize(s.area) : '';
-                            return area && (mName.includes(area) || area.includes(mName));
+                        
+                        // 2. Tentar por categoria/área
+                        if (!found) {
+                          found = allMasterySpecialties.find(s => {
+                            const sNorm = normalize(s.nome);
+                            return sNorm === normCat || sNorm.includes(normCat) || normCat.includes(sNorm);
                           });
-                          matching.forEach(s => assignedIds.add(s.id.toString()));
+                        }
+
+                        // 3. Fallback em allSpecialties completo
+                        if (!found) {
+                          found = allSpecialties.find(s => {
+                            const sNorm = normalize(s.nome);
+                            return sNorm.includes(normRule) || (normCat && sNorm.includes(normCat));
+                          });
+                        }
+                        return found;
+                      };
+
+                      // Helper para normalizar strings de comparação
+                      const cleanStr = (txt: string) => 
+                        (txt || "")
+                          .toLowerCase()
+                          .normalize("NFD")
+                          .replace(/[\u0300-\u036f]/g, "")
+                          .replace(/[-–—_]/g, " ")
+                          .replace(/\s+/g, " ")
+                          .trim();
+
+                      // Helper para filtrar especialidades que pertencem a uma regra de mestrado
+                      const getSpecialtiesForRule = (rule: typeof MASTERY_RULES[0], pool: Especialidade[], masteryItem?: Especialidade) => {
+                        const dbReqs = masteryItem?.requisitos?.map(r => cleanStr(r)) || [];
+
+                        return pool.filter(s => {
+                          const sClean = cleanStr(s.nome);
+                          const sCat = cleanStr(s.area);
+                          const sSigla = s.sigla || '';
+
+                          // 1. Se a regra for de área global irrestrita (ADRA, Artes Manuais, Agrícolas, Domésticas, Ensinos Bíblicos)
+                          if (rule.isGlobalArea) {
+                            if (sCat && (sCat === cleanStr(rule.category) || sCat.includes(cleanStr(rule.category)))) return true;
+                            if (sSigla && rule.siglas && rule.siglas.includes(sSigla)) return true;
+                            return false;
+                          }
+
+                          // 2. Checagem contra a lista de especialidades oficiais do Mestrado
+                          const isInRuleList = rule.specialties.some(rs => {
+                            const rsClean = cleanStr(rs);
+                            if (sClean === rsClean) return true;
+                            if ((rsClean === "bacterias" && sClean === "bacteria") || (rsClean === "bacteria" && sClean === "bacterias")) return true;
+                            return false;
+                          });
+
+                          const isInDbReqs = dbReqs.length > 0 && dbReqs.some(req => {
+                            if (req.length < 3) return false;
+                            if (req === sClean) return true;
+                            const parts = req.split(';').map(p => p.trim());
+                            return parts.some(p => p === sClean);
+                          });
+
+                          if (!isInRuleList && !isInDbReqs) return false;
+
+                          // 3. Proteções contra colisão de nomes parecidos entre áreas diferentes
+                          if (rule.name === "Mestrado em Atividades Profissionais") {
+                            return sSigla === "AP";
+                          }
+
+                          if (rule.name === "Mestrado em Testificação") {
+                            return sSigla === "AM" || sSigla === "MA";
+                          }
+
+                          if (rule.name === "Mestrado em Zoologia") {
+                            return sSigla === "EN" || sClean === "zoonoses";
+                          }
+
+                          if (rule.name === "Mestrado em Botânica" || rule.name === "Mestrado em Ecologia") {
+                            return sSigla === "EN" || sSigla === "AG";
+                          }
+
+                          return true;
+                        });
+                      };
+
+                      // 1. Processar Mestrados (Ativados por seleção manual OU automaticamente pela quantidade mínima de especialidades)
+                      interface ActiveMasteryGroup {
+                        id: string | number;
+                        name: string;
+                        logo?: string;
+                        items: Especialidade[];
+                        isManual?: boolean;
+                        requirementsCount: number;
+                      }
+
+                      const activeMasteryGroups: ActiveMasteryGroup[] = [];
+
+                      // Avaliar cada regra oficial de Mestrado
+                      MASTERY_RULES.forEach(rule => {
+                        const masteryItem = findMasteryItem(rule.name, rule.category);
+                        const isManuallyLiked = masteryItem && likedIds.includes(masteryItem.id.toString());
+                        const matchingItems = getSpecialtiesForRule(rule, ordinarySpecialties, masteryItem);
+                        const reqCount = rule.requirementsCount || 7;
+                        const hasMetRequirements = matchingItems.length >= reqCount;
+
+                        // Se o usuário selecionou a quantidade mínima OU curtiu o mestrado diretamente
+                        if (hasMetRequirements || isManuallyLiked) {
+                          matchingItems.forEach(s => assignedIds.add(s.id.toString()));
                           activeMasteryGroups.push({
-                            id: mastery.id,
-                            name: mastery.nome.replace(/campreste/gi, 'Campestre'),
-                            logo: mastery.logo,
-                            items: matching,
-                            isManual: true,
-                            requirementsCount: 7
+                            id: masteryItem ? masteryItem.id : rule.name,
+                            name: masteryItem ? masteryItem.nome.replace(/campreste/gi, 'Campestre') : rule.name,
+                            logo: masteryItem?.logo,
+                            items: matchingItems,
+                            isManual: !!isManuallyLiked,
+                            requirementsCount: reqCount
                           });
                         }
-                      }
-                    });
+                      });
 
-                    // 2. Agrupar as especialidades restantes (que ainda não completaram mestrado) por Área
-                    const remainingSpecialties = ordinarySpecialties.filter(s => !assignedIds.has(s.id.toString()));
-                    const remainingGroups = Object.entries(
-                      remainingSpecialties.reduce((acc, esp) => {
-                        const area = esp.area || 'Outras';
-                        if (!acc[area]) acc[area] = [];
-                        acc[area].push(esp);
-                        return acc;
-                      }, {} as Record<string, Especialidade[]>)
-                    ).map(([area, items]): { id: string; area: string; items: Especialidade[]; } => ({
-                      id: area,
-                      area,
-                      items: items as Especialidade[]
-                    }));
+                      // Também verificar se o usuário curtiu algum mestrado do banco que não estava nas regras explícitas
+                      allMasterySpecialties.forEach(mastery => {
+                        if (likedIds.includes(mastery.id.toString())) {
+                          const alreadyAdded = activeMasteryGroups.some(g => String(g.id) === String(mastery.id));
+                          if (!alreadyAdded) {
+                            const mName = normalize(mastery.nome);
+                            const unassigned = ordinarySpecialties.filter(s => !assignedIds.has(s.id.toString()));
+                            const matching = unassigned.filter(s => {
+                              const area = s.area ? normalize(s.area) : '';
+                              return area && (mName.includes(area) || area.includes(mName));
+                            });
+                            matching.forEach(s => assignedIds.add(s.id.toString()));
+                            activeMasteryGroups.push({
+                              id: mastery.id,
+                              name: mastery.nome.replace(/campreste/gi, 'Campestre'),
+                              logo: mastery.logo,
+                              items: matching,
+                              isManual: true,
+                              requirementsCount: 7
+                            });
+                          }
+                        }
+                      });
 
-                    return (
-                      <>
-                        {/* Grupos de Mestrado Conquistados / Ativos com Insígnia Automática */}
-                        {activeMasteryGroups.map(group => (
-                          <div key={group.id} className="space-y-6">
-                            <div className="flex flex-col items-center space-y-3">
-                              <div className="relative group">
-                                <div className="w-24 h-24 sm:w-28 sm:h-28 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent dark:from-amber-500/20 dark:via-amber-500/10 dark:to-transparent rounded-[32px] border-2 border-amber-400/60 dark:border-amber-500/50 p-3.5 shadow-xl shadow-amber-500/10 flex items-center justify-center transition-transform hover:scale-105">
-                                  {group.logo ? (
-                                    <img src={group.logo} className="w-full h-full object-contain drop-shadow-md" alt={group.name} />
-                                  ) : (
-                                    <Trophy size={48} className="text-amber-500" />
-                                  )}
+                      // 2. Agrupar as especialidades restantes por Área
+                      const remainingSpecialties = ordinarySpecialties.filter(s => !assignedIds.has(s.id.toString()));
+                      const remainingGroups = Object.entries(
+                        remainingSpecialties.reduce((acc, esp) => {
+                          const area = esp.area || 'Outras';
+                          if (!acc[area]) acc[area] = [];
+                          acc[area].push(esp);
+                          return acc;
+                        }, {} as Record<string, Especialidade[]>)
+                      ).map(([area, items]): { id: string; area: string; items: Especialidade[]; } => ({
+                        id: area,
+                        area,
+                        items: items as Especialidade[]
+                      }));
+
+                      return (
+                        <>
+                          {/* Grupos de Mestrado Conquistados / Ativos com Insígnia Automática */}
+                          {activeMasteryGroups.map(group => (
+                            <div key={group.id} className="space-y-4">
+                              <div className="flex flex-col items-center space-y-2">
+                                <div className="relative group">
+                                  <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent dark:from-amber-500/20 dark:via-amber-500/10 dark:to-transparent rounded-2xl border-2 border-amber-400/60 dark:border-amber-500/50 p-2.5 shadow-md flex items-center justify-center transition-transform hover:scale-105">
+                                    {group.logo ? (
+                                      <img src={group.logo} className="w-full h-full object-contain drop-shadow-sm" alt={group.name} />
+                                    ) : (
+                                      <Trophy size={36} className="text-amber-500" />
+                                    )}
+                                  </div>
+                                  <div className="absolute -top-1.5 -right-1.5 w-6 h-6 bg-amber-500 text-white rounded-full flex items-center justify-center shadow-md border-2 border-white dark:border-slate-900" title="Insígnia de Mestrado Conquistada">
+                                    <Trophy size={11} />
+                                  </div>
                                 </div>
-                                <div className="absolute -top-1.5 -right-1.5 w-7 h-7 bg-amber-500 text-white rounded-full flex items-center justify-center shadow-md border-2 border-white dark:border-slate-900" title="Insígnia de Mestrado Conquistada">
-                                  <Trophy size={13} />
+                                <div className="text-center px-2">
+                                  <h4 className="text-[11px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-tight leading-tight">
+                                    {group.name}
+                                  </h4>
+                                  <p className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">
+                                    {group.items.length} {group.items.length === 1 ? 'Especialidade Concluída' : 'Especialidades Concluídas'}
+                                  </p>
                                 </div>
                               </div>
-                              <div className="text-center px-4">
-                                <h4 className="text-[12px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-tight leading-tight">
-                                  {group.name}
-                                </h4>
-                                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">
-                                  {group.items.length} {group.items.length === 1 ? 'Especialidade Concluída' : 'Especialidades Concluídas'}
-                                </p>
+                              <div className="grid grid-cols-4 sm:grid-cols-5 gap-2.5 px-1">
+                                {group.items.sort((a, b) => a.nome.localeCompare(b.nome)).map(esp => (
+                                  <div key={esp.id} className="flex flex-col items-center">
+                                    <div className="w-14 h-14 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-100 dark:border-slate-700/80 flex items-center justify-center p-1.5 shadow-2xs hover:scale-105 transition-transform" title={esp.nome}>
+                                      {esp.logo ? (
+                                        <img src={esp.logo} className="w-full h-full object-contain" alt={esp.nome} />
+                                      ) : (
+                                        <Award size={20} className="text-slate-300 dark:text-slate-500" />
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
-                              <div className="flex items-center space-x-3 w-full px-2">
+                            </div>
+                          ))}
+
+                          {/* Especialidades Restantes Agrupadas por Área */}
+                          {remainingGroups.map(group => (
+                            <div key={group.id} className="space-y-3">
+                              <div className="flex items-center space-x-2 px-1">
                                 <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800" />
-                                <span className="text-[8px] font-black text-amber-500/80 uppercase tracking-widest">
-                                  Insígnia de Mestrado
+                                <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                                  {group.area} ({group.items.length})
                                 </span>
                                 <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800" />
                               </div>
-                            </div>
-                            <div className="grid grid-cols-4 gap-3 px-2">
-                              {group.items.sort((a, b) => a.nome.localeCompare(b.nome)).map(esp => (
-                                <div key={esp.id} className="flex flex-col items-center">
-                                  <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-100 dark:border-slate-700/80 flex items-center justify-center p-2 shadow-sm hover:scale-105 transition-transform" title={esp.nome}>
-                                    {esp.logo ? (
-                                      <img src={esp.logo} className="w-full h-full object-contain" alt={esp.nome} />
-                                    ) : (
-                                      <Award size={24} className="text-slate-300 dark:text-slate-500" />
-                                    )}
+                              <div className="grid grid-cols-4 sm:grid-cols-5 gap-2.5 px-1">
+                                {group.items.sort((a, b) => a.nome.localeCompare(b.nome)).map(esp => (
+                                  <div key={esp.id} className="flex flex-col items-center">
+                                    <div className="w-14 h-14 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-100 dark:border-slate-700/80 flex items-center justify-center p-1.5 shadow-2xs hover:scale-105 transition-transform" title={esp.nome}>
+                                      {esp.logo ? (
+                                        <img src={esp.logo} className="w-full h-full object-contain" alt={esp.nome} />
+                                      ) : (
+                                        <Award size={20} className="text-slate-300 dark:text-slate-500" />
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        ))}
-
-                        {/* Especialidades Restantes Agrupadas por Área */}
-                        {remainingGroups.map(group => (
-                          <div key={group.id} className="space-y-6">
-                            <div className="flex items-center space-x-3 px-2">
-                              <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800" />
-                              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                                {group.area} ({group.items.length})
-                              </span>
-                              <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800" />
-                            </div>
-                            <div className="grid grid-cols-4 gap-3 px-2">
-                              {group.items.sort((a, b) => a.nome.localeCompare(b.nome)).map(esp => (
-                                <div key={esp.id} className="flex flex-col items-center">
-                                  <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-100 dark:border-slate-700/80 flex items-center justify-center p-2 shadow-sm hover:scale-105 transition-transform" title={esp.nome}>
-                                    {esp.logo ? (
-                                      <img src={esp.logo} className="w-full h-full object-contain" alt={esp.nome} />
-                                    ) : (
-                                      <Award size={24} className="text-slate-300 dark:text-slate-500" />
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </>
-                    );
-                  })()
-                )}
-              </div>
+                          ))}
+                        </>
+                      );
+                    })()
+                  )}
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
-      </div>
       </div>
 
       {/* Botão Voltar ao Topo */}

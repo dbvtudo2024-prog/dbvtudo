@@ -20,11 +20,12 @@ import {
 } from '../services/supabaseService';
 import { PROFILE_KEY } from '../constants';
 import { MASTERY_RULES } from '../masteryRules';
+import { APP_VERSION } from '../versionConfig';
 import { 
   Shield, Award, User, Layers, Sparkles, Home as HomeIcon, Search,
   ChevronRight, ChevronLeft, ChevronDown, Info, Book, Settings, Zap, Music, Flag, Shirt, Globe, Key, FileText, Library, CreditCard, MapPin, Video, Folder, BookOpen, Heart, ArrowUp, ArrowDown,
   Trash2, Plus, Save, Share2, Calendar, X, Image as ImageIcon, Download, ArrowLeft, ExternalLink, Filter, Edit2, Edit3, Check,
-  AlignLeft, AlignCenter, AlignRight, ZoomIn, ZoomOut, Minus, Trophy
+  AlignLeft, AlignCenter, AlignRight, ZoomIn, ZoomOut, Minus, Trophy, PanelLeftClose, PanelLeftOpen, Menu
 } from 'lucide-react';
 
 
@@ -1738,16 +1739,31 @@ export type SubViewType =
 
 interface ClubManagementProps {
   club: ClubType;
+  pinSidebar?: boolean;
+  onTogglePinSidebar?: () => void;
   onBack: () => void;
   onSwitchClub: (club: ClubType) => void;
   onOpenProfile?: () => void;
+  onOpenSettings?: () => void;
   isGuest?: boolean;
   initialSubView?: SubViewType;
   onSubViewChange?: (view: any) => void;
   onClearSubView?: () => void;
 }
 
-const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchClub, onOpenProfile, isGuest, initialSubView, onSubViewChange, onClearSubView }) => {
+const ClubManagement: React.FC<ClubManagementProps> = ({ 
+  club, 
+  pinSidebar, 
+  onTogglePinSidebar, 
+  onBack, 
+  onSwitchClub, 
+  onOpenProfile, 
+  onOpenSettings, 
+  isGuest, 
+  initialSubView, 
+  onSubViewChange, 
+  onClearSubView 
+}) => {
   const [activeSubView, setActiveSubView] = useState<SubViewType>(initialSubView || 'MAIN');
   const [classes, setClasses] = useState<ClubClass[]>([]);
   const [selectedClass, setSelectedClass] = useState<ClubClass | null>(null);
@@ -1866,7 +1882,35 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   const [classRequirements, setClassRequirements] = useState<string[]>([]);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() => {
+    return pinSidebar || false;
+  });
+
+  // Manter sincronizado caso a configuração de fixação mude
+  useEffect(() => {
+    if (pinSidebar) {
+      setIsSidebarOpen(true);
+    }
+  }, [pinSidebar]);
+
+  const sidebarRef = useRef<HTMLElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Fecha o menu lateral do PC ao clicar fora da área do menu (apenas se não estiver fixado)
+  useEffect(() => {
+    if (!isSidebarOpen || pinSidebar) return;
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
+        setIsSidebarOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isSidebarOpen, pinSidebar]);
   const [lastRead, setLastRead] = useState<{ book: BibleBook, chapter: number } | null>(() => {
     const saved = localStorage.getItem('dbv_tudo_bible_last_read');
     return saved ? JSON.parse(saved) : null;
@@ -2584,51 +2628,25 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
     return (
       <div className="animate-slide-in space-y-4 pt-1 pb-28">
-        {/* Barra Sticky com Botão Voltar */}
-        <div className={`sticky top-0 z-30 flex items-center justify-between py-2 -mx-3.5 sm:-mx-5 px-3.5 sm:px-5 transition-all duration-300 ${
-          isHeaderScrolled 
-            ? 'bg-[#F8FAFC]/95 dark:bg-slate-900/95 backdrop-blur-md shadow-sm border-b border-slate-100 dark:border-slate-800' 
-            : 'bg-transparent -mb-[64px] pointer-events-none'
-        }`}>
-          <button 
-            onClick={() => setActiveSubView('CLASSES')}
-            className={`w-11 h-11 rounded-2xl active:scale-90 transition-all flex items-center justify-center pointer-events-auto ${
-              isHeaderScrolled
-                ? 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-200 border border-slate-100 dark:border-slate-700 shadow-sm ml-0'
-                : 'bg-white/20 hover:bg-white/30 text-white backdrop-blur-md border border-white/25 shadow-sm ml-3 sm:ml-4'
-            }`}
-            title="Voltar para Classes"
-            aria-label="Voltar para Classes"
-          >
-            <ChevronLeft size={22} strokeWidth={3} />
-          </button>
-          <div className={`text-center flex-1 px-3 truncate transition-all duration-300 ${isHeaderScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'}`}>
-            <h4 className="font-black text-slate-800 dark:text-white text-xs sm:text-sm uppercase tracking-tight truncate">
-              {selectedClass.titulo}
-            </h4>
-          </div>
-          <div className="w-11 h-11" />
-        </div>
-
         <div id="class-details-content" className="space-y-6">
-          {/* Header da Classe */}
-          <div id="class-header" className="relative overflow-hidden rounded-[40px] p-8 pt-16 shadow-xl" style={{ backgroundColor: classColor }}>
+          {/* Header da Classe Compacto */}
+          <div id="class-header" className="relative overflow-hidden rounded-[28px] sm:rounded-[36px] p-5 sm:p-6 shadow-xl" style={{ backgroundColor: classColor }}>
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
             <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full -ml-12 -mb-12 blur-xl"></div>
 
             <div className="relative z-10 flex flex-col items-center text-center">
-              <div className="w-28 h-28 flex items-center justify-center mb-4">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center mb-2">
                 {selectedClass.imagem ? (
                   <img src={selectedClass.imagem} className="w-full h-full object-contain filter drop-shadow-md" alt={selectedClass.titulo} referrerPolicy="no-referrer" />
                 ) : (
-                  <Layers size={48} className="text-white" />
+                  <Layers size={36} className="text-white" />
                 )}
               </div>
-              <h3 className="text-2xl font-black text-white uppercase tracking-tight leading-tight">
+              <h3 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight leading-tight">
                 {selectedClass.titulo}
               </h3>
               {selectedClass.subtitulo && (
-                <p className="text-white/80 text-xs font-bold uppercase tracking-widest mt-2 px-4">
+                <p className="text-white/85 text-[11px] sm:text-xs font-bold uppercase tracking-widest mt-1 px-4">
                   {selectedClass.subtitulo}
                 </p>
               )}
@@ -3038,99 +3056,58 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
     return (
       <div className="animate-slide-in space-y-4 pt-1 pb-28">
-        {/* Barra de Voltar e Favorito Fixa no Topo */}
-        <div className={`sticky top-0 z-30 flex items-center justify-between py-2 -mx-3.5 sm:-mx-5 px-3.5 sm:px-5 transition-all duration-300 ${
-          isHeaderScrolled 
-            ? 'bg-[#F8FAFC]/95 dark:bg-slate-900/95 backdrop-blur-md shadow-sm border-b border-slate-100 dark:border-slate-800' 
-            : 'bg-transparent -mb-[64px] pointer-events-none'
-        }`}>
-          <button 
-            onClick={() => {
-              if (specialtyNavStack.length > 0) {
-                const prev = specialtyNavStack[specialtyNavStack.length - 1];
-                setSpecialtyNavStack(prevStack => prevStack.slice(0, prevStack.length - 1));
-                setSelectedSpecialty(prev);
-                if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
-              } else if (selectedCategory) {
-                setActiveSubView('SPECIALTIES_LIST');
-              } else {
-                setActiveSubView('SPECIALTIES');
-              }
-            }}
-            className={`w-11 h-11 rounded-2xl active:scale-90 transition-all flex items-center justify-center pointer-events-auto ${
-              isHeaderScrolled
-                ? 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-200 border border-slate-100 dark:border-slate-700 shadow-sm ml-0'
-                : 'bg-slate-100/90 dark:bg-slate-700/90 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-600/60 shadow-sm ml-3 sm:ml-4'
-            }`}
-            title="Voltar"
-            aria-label="Voltar"
-          >
-            <ChevronLeft size={22} strokeWidth={3} />
-          </button>
-          <div className={`text-center flex-1 px-3 truncate transition-all duration-300 ${isHeaderScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'}`}>
-            <h4 className="font-black text-slate-800 dark:text-white text-xs sm:text-sm uppercase tracking-tight truncate">
-              {selectedSpecialty.nome}
-            </h4>
-          </div>
-          <button 
-            onClick={() => toggleSpecialty(selectedSpecialty.id.toString())}
-            className={`w-11 h-11 rounded-2xl transition-all active:scale-90 flex items-center justify-center pointer-events-auto shadow-sm ${
-              isCompleted 
-                ? 'text-red-500 bg-red-50 dark:bg-red-950/40 border border-red-200/50 dark:border-red-900/50' 
-                : isHeaderScrolled 
-                  ? 'text-slate-400 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700' 
-                  : 'text-slate-400 dark:text-slate-300 bg-slate-100/90 dark:bg-slate-700/90 border border-slate-200/60 dark:border-slate-600/60'
-            } ${!isHeaderScrolled ? 'mr-3 sm:mr-4' : 'mr-0'}`}
-            title={isCompleted ? "Remover dos favoritos" : "Adicionar aos favoritos"}
-          >
-            <Heart size={20} fill={isCompleted ? "currentColor" : "none"} />
-          </button>
-        </div>
-
         <div id="specialty-details-content" className="space-y-6">
-          <div id="specialty-header" className="bg-white dark:bg-slate-800 rounded-[40px] p-8 pt-16 shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center text-center relative">
-            <div className="w-36 h-36 bg-transparent rounded-[32px] flex items-center justify-center mb-6">
-              {selectedSpecialty.logo ? (
-                <img src={getImageUrl(selectedSpecialty.logo)} className="w-32 h-32 object-contain filter drop-shadow-sm" alt={selectedSpecialty.nome} referrerPolicy="no-referrer" />
-              ) : (
-                <Award size={48} className="text-slate-200 dark:text-slate-600" />
-              )}
-            </div>
-            <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight leading-tight mb-2">
-              {selectedSpecialty.nome}
-            </h3>
-            <div className="flex flex-wrap justify-center gap-2">
-              <div className="px-3 py-1 bg-slate-100 dark:bg-slate-700 rounded-full">
-                <span className="text-[9px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-widest">
-                  {selectedSpecialty.area}
-                </span>
+          {/* Header da Especialidade Compacto: Imagem à Esquerda e Textos à Direita */}
+          <div id="specialty-header" className="bg-white dark:bg-slate-800 rounded-[28px] sm:rounded-[36px] p-4 sm:p-6 shadow-sm border border-slate-100 dark:border-slate-700 relative">
+            <div className="flex flex-row items-center gap-4 sm:gap-6 text-left w-full">
+              {/* Imagem da Especialidade à Esquerda (Sem Container) */}
+              <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 shrink-0 flex items-center justify-center">
+                {selectedSpecialty.logo ? (
+                  <img src={getImageUrl(selectedSpecialty.logo)} className="w-full h-full object-contain filter drop-shadow-sm" alt={selectedSpecialty.nome} referrerPolicy="no-referrer" />
+                ) : (
+                  <Award size={40} className="text-slate-200 dark:text-slate-600" />
+                )}
               </div>
-              <div className="px-3 py-1 bg-indigo-50 dark:bg-indigo-950/50 rounded-full">
-                <span className="text-[9px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest">
-                  {selectedSpecialty.codigo || `${selectedSpecialty.sigla}${String(selectedSpecialty.id).padStart(3, '0')}`}
-                </span>
+
+              {/* Textos ao lado direito da imagem */}
+              <div className="flex-1 min-w-0 flex flex-col justify-center items-start text-left">
+                <h3 className="text-lg sm:text-xl md:text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight leading-tight mb-2">
+                  {selectedSpecialty.nome}
+                </h3>
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <div className="px-2.5 py-0.5 sm:px-3 sm:py-1 bg-slate-100 dark:bg-slate-700 rounded-full">
+                    <span className="text-[9px] sm:text-[10px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-widest">
+                      {selectedSpecialty.area}
+                    </span>
+                  </div>
+                  <div className="px-2.5 py-0.5 sm:px-3 sm:py-1 bg-indigo-50 dark:bg-indigo-950/50 rounded-full">
+                    <span className="text-[9px] sm:text-[10px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest">
+                      {selectedSpecialty.codigo || `${selectedSpecialty.sigla}${String(selectedSpecialty.id).padStart(3, '0')}`}
+                    </span>
+                  </div>
+                  {selectedSpecialty.nivel && (
+                    <div className="px-2.5 py-0.5 sm:px-3 sm:py-1 bg-slate-50 dark:bg-slate-700/50 rounded-full border border-slate-100 dark:border-slate-600">
+                      <span className="text-[9px] sm:text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest">
+                        Nível {selectedSpecialty.nivel.toUpperCase().replace('NÍVEL', '').replace('NIVEL', '').trim()}
+                      </span>
+                    </div>
+                  )}
+                  {selectedSpecialty.ano && (
+                    <div className="px-2.5 py-0.5 sm:px-3 sm:py-1 bg-slate-50 dark:bg-slate-700/50 rounded-full border border-slate-100 dark:border-slate-600">
+                      <span className="text-[9px] sm:text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest">
+                        {selectedSpecialty.ano}
+                      </span>
+                    </div>
+                  )}
+                  {selectedSpecialty.origem && (
+                    <div className="px-2.5 py-0.5 sm:px-3 sm:py-1 bg-slate-50 dark:bg-slate-700/50 rounded-full border border-slate-100 dark:border-slate-600">
+                      <span className="text-[9px] sm:text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest">
+                        {selectedSpecialty.origem}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
-              {selectedSpecialty.nivel && (
-                <div className="px-3 py-1 bg-slate-50 dark:bg-slate-700/50 rounded-full border border-slate-100 dark:border-slate-600">
-                  <span className="text-[9px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest">
-                    Nível {selectedSpecialty.nivel.toUpperCase().replace('NÍVEL', '').replace('NIVEL', '').trim()}
-                  </span>
-                </div>
-              )}
-              {selectedSpecialty.ano && (
-                <div className="px-3 py-1 bg-slate-50 dark:bg-slate-700/50 rounded-full border border-slate-100 dark:border-slate-600">
-                  <span className="text-[9px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest">
-                    {selectedSpecialty.ano}
-                  </span>
-                </div>
-              )}
-              {selectedSpecialty.origem && (
-                <div className="px-3 py-1 bg-slate-50 dark:bg-slate-700/50 rounded-full border border-slate-100 dark:border-slate-600">
-                  <span className="text-[9px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest">
-                    {selectedSpecialty.origem}
-                  </span>
-                </div>
-              )}
             </div>
           </div>
 
@@ -4058,9 +4035,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         <div className="p-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shadow-sm">
           <button 
             onClick={() => setActiveSubView('LIBRARY')}
-            className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 transition-all active:scale-90"
+            className="w-11 h-11 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-600 dark:text-slate-200 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-700"
+            title="Voltar"
+            aria-label="Voltar"
           >
-            <ChevronLeft size={24} strokeWidth={3} />
+            <ChevronLeft size={22} strokeWidth={2.5} />
           </button>
           
           <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight truncate max-w-[200px]">
@@ -4437,9 +4416,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           <div className="p-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shadow-sm">
             <button 
               onClick={() => setActiveSubView('DESBRAVA_PLUS')}
-              className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 transition-all active:scale-90"
+              className="w-11 h-11 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-600 dark:text-slate-200 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-700"
+              title="Voltar"
+              aria-label="Voltar"
             >
-              <ChevronLeft size={24} strokeWidth={3} />
+              <ChevronLeft size={22} strokeWidth={2.5} />
             </button>
             <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight truncate max-w-[200px]">
               {selectedDesbravaPlusItem.Nome}
@@ -4489,34 +4470,20 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
     return (
       <div className="animate-slide-in space-y-4 pt-1 pb-10">
-        {/* Barra de Voltar Fixa no Topo */}
-        <div className="sticky top-0 z-30 flex items-center justify-between py-2 -mx-3.5 sm:-mx-5 px-3.5 sm:px-5 bg-[#F8FAFC]/90 dark:bg-slate-900/90 backdrop-blur-md transition-all">
-          <button 
-            onClick={() => setActiveSubView('MAIN')}
-            className="w-11 h-11 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-600 dark:text-slate-200 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center"
-            title="Voltar"
-          >
-            <ChevronLeft size={22} strokeWidth={3} />
-          </button>
-          <div className={`text-center transition-all duration-300 ${isHeaderScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'}`}>
-            <h4 className="font-black text-slate-800 dark:text-white text-xs uppercase tracking-tight">Bíblia Sagrada</h4>
-            <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest">ARC</p>
-          </div>
-          <div className="w-11 h-11" />
-        </div>
-
         {/* Header Bíblia Sagrada */}
-        <div className="bg-[#0f172a] rounded-[40px] p-8 shadow-xl text-center relative overflow-hidden">
+        <div className="bg-[#0f172a] rounded-[28px] sm:rounded-[36px] p-5 sm:p-6 shadow-xl relative overflow-hidden text-center">
           <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
             <div className="absolute top-[-20%] right-[-10%] w-64 h-64 bg-indigo-500 rounded-full blur-3xl"></div>
             <div className="absolute bottom-[-20%] left-[-10%] w-64 h-64 bg-blue-500 rounded-full blur-3xl"></div>
           </div>
           
-          <h3 className="text-2xl font-black text-white uppercase tracking-tight mb-1 relative z-10 mt-2">Bíblia Sagrada</h3>
-          <p className="text-indigo-300 text-[10px] font-black uppercase tracking-[0.2em] mb-8 relative z-10">Versão Almeida Revista e Corrigida</p>
+          <div className="relative z-10">
+            <h3 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight mb-0.5">Bíblia Sagrada</h3>
+            <p className="text-indigo-300 text-[10px] font-black uppercase tracking-[0.2em] mb-4 sm:mb-5">Versão Almeida Revista e Corrigida</p>
+          </div>
           
           {/* Versículo do Dia */}
-          <div className="bg-white dark:bg-slate-800 rounded-[32px] p-6 text-left shadow-inner relative z-10 border border-white/10 dark:border-slate-700">
+          <div className="bg-white dark:bg-slate-800 rounded-[24px] sm:rounded-[28px] p-5 sm:p-6 text-left shadow-inner relative z-10 border border-white/10 dark:border-slate-700">
             <div className="flex justify-between items-start mb-3">
               <h4 className="text-amber-500 text-[10px] font-black uppercase tracking-widest">Versículo do Dia</h4>
               <button 
@@ -4626,9 +4593,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             <div className="flex items-center space-x-4">
               <button 
                 onClick={() => setActiveSubView('BIBLE')}
-                className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center text-white transition-all active:scale-90"
+                className="w-11 h-11 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center justify-center text-white transition-all active:scale-90 border border-white/15"
+                title="Voltar"
+                aria-label="Voltar"
               >
-                <ChevronLeft size={20} strokeWidth={3} />
+                <ChevronLeft size={22} strokeWidth={2.5} />
               </button>
               <div>
                 <h3 className="text-xl font-black uppercase tracking-tight">BÍBLIA SAGRADA</h3>
@@ -4747,9 +4716,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             <div className="flex items-center space-x-4">
               <button 
                 onClick={() => setActiveSubView('BIBLE_BOOKS')}
-                className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center text-white transition-all active:scale-90"
+                className="w-11 h-11 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center justify-center text-white transition-all active:scale-90 border border-white/15"
+                title="Voltar"
+                aria-label="Voltar"
               >
-                <ChevronLeft size={20} strokeWidth={3} />
+                <ChevronLeft size={22} strokeWidth={2.5} />
               </button>
               <div>
                 <h3 className="text-xl font-black uppercase tracking-tight">{selectedBibleBook.book_name}</h3>
@@ -4759,8 +4730,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           </div>
         </div>
 
-        {/* Grid de Capítulos */}
-        <div className="grid grid-cols-4 gap-3">
+        {/* Grid de Capítulos Compacto */}
+        <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2.5 sm:gap-3">
           {chapters.map((chapter) => (
             <button 
               key={chapter}
@@ -4768,10 +4739,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 setSelectedBibleChapter(chapter);
                 setActiveSubView('BIBLE_VERSES');
               }}
-              className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl aspect-square flex items-center justify-center shadow-sm active:scale-90 transition-all group relative overflow-hidden"
+              className="h-12 sm:h-13 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 hover:border-blue-500/50 dark:hover:border-blue-500/50 hover:bg-blue-50/40 dark:hover:bg-slate-700/60 rounded-2xl flex items-center justify-center shadow-xs active:scale-90 transition-all group"
             >
-              <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500"></div>
-              <span className="font-black text-slate-700 dark:text-white text-lg">{chapter}</span>
+              <span className="font-black text-slate-700 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 text-sm sm:text-base">{chapter}</span>
             </button>
           ))}
         </div>
@@ -4783,22 +4753,49 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
     if (!selectedBibleBook || selectedBibleChapter === null) return null;
 
     return (
-      <div className="animate-slide-in space-y-6 pt-2 pb-28">
-        {/* Header Bíblia Sagrada Compacto Fixo no Topo */}
-        <div className="sticky top-0 z-30 bg-[#1e40af] rounded-[32px] p-5 shadow-lg text-white relative overflow-hidden">
-          <div className="flex items-center justify-between relative z-10">
-            <div className="flex items-center space-x-4">
+      <div className="animate-slide-in space-y-6 pt-2 pb-32">
+        {/* Header Bíblia Sagrada Compacto Fixo no Topo com Controle de Fonte */}
+        <div className="sticky top-0 z-30 bg-[#1e40af] rounded-[32px] p-4 sm:p-5 shadow-lg text-white relative overflow-hidden">
+          <div className="flex items-center justify-between relative z-10 gap-2">
+            <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
               <button 
                 onClick={() => setActiveSubView('BIBLE_CHAPTERS')}
-                className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center text-white transition-all active:scale-90"
+                className="w-11 h-11 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center justify-center text-white transition-all active:scale-90 border border-white/15 shrink-0"
+                title="Voltar"
+                aria-label="Voltar"
               >
-                <ChevronLeft size={20} strokeWidth={3} />
+                <ChevronLeft size={22} strokeWidth={2.5} />
               </button>
-              <div>
-                <h3 className="text-xl font-black uppercase tracking-tight">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base sm:text-xl font-black uppercase tracking-tight truncate">
                   {bibleSettings.chapterStyle === 'Capítulo N' ? 'Capítulo ' : ''}{selectedBibleChapter} - {selectedBibleBook.book_name}
                 </h3>
               </div>
+            </div>
+
+            {/* Controles de Aumentar / Diminuir Letra */}
+            <div className="flex items-center space-x-1 bg-white/10 p-1 rounded-2xl border border-white/15 shrink-0">
+              <button
+                type="button"
+                onClick={() => setBibleSettings(prev => ({ ...prev, fontSize: Math.max(12, prev.fontSize - 2) }))}
+                className="w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs hover:bg-white/20 active:scale-90 transition-all text-white"
+                title="Diminuir tamanho da letra (A-)"
+                aria-label="Diminuir tamanho da letra"
+              >
+                A-
+              </button>
+              <span className="text-[10px] font-black text-blue-100 px-1 select-none min-w-[28px] text-center">
+                {bibleSettings.fontSize}
+              </span>
+              <button
+                type="button"
+                onClick={() => setBibleSettings(prev => ({ ...prev, fontSize: Math.min(32, prev.fontSize + 2) }))}
+                className="w-8 h-8 rounded-xl flex items-center justify-center font-black text-sm hover:bg-white/20 active:scale-90 transition-all text-white"
+                title="Aumentar tamanho da letra (A+)"
+                aria-label="Aumentar tamanho da letra"
+              >
+                A+
+              </button>
             </div>
           </div>
         </div>
@@ -4849,9 +4846,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             <div className="flex items-center space-x-4">
               <button 
                 onClick={() => setActiveSubView('BIBLE_MORE')}
-                className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center text-white transition-all active:scale-90"
+                className="w-11 h-11 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center justify-center text-white transition-all active:scale-90 border border-white/15"
+                title="Voltar"
+                aria-label="Voltar"
               >
-                <ChevronLeft size={20} strokeWidth={3} />
+                <ChevronLeft size={22} strokeWidth={2.5} />
               </button>
               <div>
                 <h3 className="text-xl font-black uppercase tracking-tight">MARCADOS</h3>
@@ -4912,9 +4911,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             <div className="flex items-center space-x-4">
               <button 
                 onClick={() => setActiveSubView('BIBLE_MORE')}
-                className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center text-white transition-all active:scale-90"
+                className="w-11 h-11 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center justify-center text-white transition-all active:scale-90 border border-white/15"
+                title="Voltar"
+                aria-label="Voltar"
               >
-                <ChevronLeft size={20} strokeWidth={3} />
+                <ChevronLeft size={22} strokeWidth={2.5} />
               </button>
               <div>
                 <h3 className="text-xl font-black uppercase tracking-tight">DICIONÁRIO</h3>
@@ -4993,9 +4994,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             <div className="flex items-center space-x-4">
               <button 
                 onClick={() => setActiveSubView('BIBLE')}
-                className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center text-white transition-all active:scale-90"
+                className="w-11 h-11 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center justify-center text-white transition-all active:scale-90 border border-white/15"
+                title="Voltar"
+                aria-label="Voltar"
               >
-                <ChevronLeft size={20} strokeWidth={3} />
+                <ChevronLeft size={22} strokeWidth={2.5} />
               </button>
               <div>
                 <h3 className="text-xl font-black uppercase tracking-tight">MAIS OPÇÕES</h3>
@@ -5470,9 +5473,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-10">
         <button 
           onClick={() => setActiveSubView('MAIN')}
-          className="p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full transition-colors"
+          className="w-11 h-11 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-600 dark:text-slate-200 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-700"
+          title="Voltar"
+          aria-label="Voltar"
         >
-          <ArrowLeft size={24} className="text-slate-600 dark:text-slate-200" />
+          <ChevronLeft size={22} strokeWidth={2.5} />
         </button>
         <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight truncate max-w-[200px]">
           {webTitle}
@@ -6101,9 +6106,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                 setActiveSubView('BIBLE');
               }
             }}
-            className="p-2.5 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 text-slate-500 dark:text-slate-300 active:scale-95 transition-all"
+            className="w-11 h-11 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-600 dark:text-slate-200 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-700"
+            title="Voltar"
+            aria-label="Voltar"
           >
-            <ChevronLeft size={20} strokeWidth={3} />
+            <ChevronLeft size={22} strokeWidth={2.5} />
           </button>
           <div className="text-center">
             <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Meditação</h3>
@@ -6212,9 +6219,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             <div className="flex items-center space-x-4">
               <button 
                 onClick={() => setActiveSubView('BIBLE_MORE')}
-                className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center text-white transition-all active:scale-90"
+                className="w-11 h-11 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center justify-center text-white transition-all active:scale-90 border border-white/15"
+                title="Voltar"
+                aria-label="Voltar"
               >
-                <ChevronLeft size={20} strokeWidth={3} />
+                <ChevronLeft size={22} strokeWidth={2.5} />
               </button>
               <div>
                 <h3 className="text-xl font-black uppercase tracking-tight">CONFIGURAÇÕES</h3>
@@ -6345,9 +6354,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
             <div className="flex items-center space-x-4">
               <button 
                 onClick={() => setActiveSubView('BIBLE_MORE')}
-                className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center text-white transition-all active:scale-90"
+                className="w-11 h-11 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center justify-center text-white transition-all active:scale-90 border border-white/15"
+                title="Voltar"
+                aria-label="Voltar"
               >
-                <ChevronLeft size={20} strokeWidth={3} />
+                <ChevronLeft size={22} strokeWidth={2.5} />
               </button>
               <div>
                 <h3 className="text-xl font-black uppercase tracking-tight">ANOTAÇÕES</h3>
@@ -7150,26 +7161,27 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   );
 
   const renderDashboard = () => (
-    <div className="space-y-8 landscape:space-y-3 animate-slide-up pt-2 pb-24 landscape:pb-16">
-      <div className="relative w-full px-1">
-        <button 
-          onClick={() => setActiveSubView('BIBLE')}
-          className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-full py-4 landscape:py-2.5 px-6 landscape:px-4 flex items-center justify-between shadow-sm active:scale-[0.98] transition-all group"
-        >
-          <div className="flex items-center space-x-4 landscape:space-x-3">
-            <div className="w-10 h-10 landscape:w-8 landscape:h-8 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center text-indigo-500 dark:text-indigo-400">
-              <Book size={20} className="landscape:w-4 landscape:h-4" strokeWidth={2.5} />
+    <div className="space-y-8 landscape:space-y-3 md:space-y-10 lg:space-y-12 animate-slide-up pt-2 md:pt-4 lg:pt-6 pb-24 landscape:pb-16">
+      {/* Visualização para Mobile: Barras verticais */}
+      <div className="md:hidden space-y-3.5 landscape:space-y-2">
+        <div className="relative w-full px-1">
+          <button 
+            onClick={() => setActiveSubView('BIBLE')}
+            className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-full py-4 landscape:py-2.5 px-6 landscape:px-4 flex items-center justify-between shadow-sm active:scale-[0.98] transition-all group"
+          >
+            <div className="flex items-center space-x-4 landscape:space-x-3">
+              <div className="w-10 h-10 landscape:w-8 landscape:h-8 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center text-indigo-500 dark:text-indigo-400">
+                <Book size={20} className="landscape:w-4 landscape:h-4" strokeWidth={2.5} />
+              </div>
+              <span className="text-[13px] landscape:text-xs font-black text-slate-800 dark:text-white uppercase tracking-tight">Bíblia Sagrada</span>
             </div>
-            <span className="text-[13px] landscape:text-xs font-black text-slate-800 dark:text-white uppercase tracking-tight">Bíblia Sagrada</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-[10px] landscape:text-[9px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest">Acessar</span>
-            <ChevronRight size={16} className="text-slate-400 dark:text-slate-400 group-hover:translate-x-1 transition-transform" />
-          </div>
-        </button>
-      </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-[10px] landscape:text-[9px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest">Acessar</span>
+              <ChevronRight size={16} className="text-slate-400 dark:text-slate-400 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </button>
+        </div>
 
-      <div className="space-y-3.5 landscape:space-y-2">
         <button 
           onClick={() => setActiveSubView('CLASSES')}
           style={{ backgroundColor: themeColor }}
@@ -7202,7 +7214,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           </div>
           <ChevronRight size={18} />
         </button>
-        {/* Botão Gestão (Apenas se for admin) */}
+
+        {/* Botão Gestão Mobile (Apenas se for admin) */}
         {isUserAdmin && (
           <button 
             onClick={() => setActiveSubView('BIBLE_ADMIN')}
@@ -7222,7 +7235,108 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         )}
       </div>
 
-      <div className="pt-4">
+      {/* Visualização para PC / Desktop: Lado a lado horizontalmente com retângulos grandes */}
+      <div className="hidden md:block w-full max-w-5xl lg:max-w-6xl mx-auto px-4 md:pt-2 lg:pt-4">
+        <div className="grid grid-cols-3 gap-5 lg:gap-7">
+          {/* Retângulo Grande: Bíblia Sagrada */}
+          <button 
+            onClick={() => setActiveSubView('BIBLE')}
+            className="bg-gradient-to-br from-[#1e40af] to-[#1e3a8a] hover:from-blue-700 hover:to-indigo-900 rounded-[32px] p-6 lg:p-8 min-h-[175px] lg:min-h-[200px] shadow-lg hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98] transition-all group flex flex-col justify-between text-white text-left relative overflow-hidden"
+          >
+            <div className="flex items-center justify-between w-full">
+              <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center text-white shadow-inner group-hover:scale-110 transition-transform">
+                <Book size={28} strokeWidth={2.4} />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-white/15 text-blue-100">
+                  Acessar
+                </span>
+                <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center group-hover:translate-x-1 transition-transform">
+                  <ChevronRight size={18} strokeWidth={3} />
+                </div>
+              </div>
+            </div>
+            <div className="mt-4">
+              <h3 className="font-black text-xl lg:text-2xl uppercase tracking-tight leading-tight">
+                Bíblia Sagrada
+              </h3>
+              <p className="text-[10px] lg:text-[11px] font-bold opacity-80 uppercase tracking-widest mt-1">
+                Almeida Revista e Corrigida
+              </p>
+            </div>
+          </button>
+
+          {/* Retângulo Grande: Classes */}
+          <button 
+            onClick={() => setActiveSubView('CLASSES')}
+            style={{ backgroundColor: themeColor }}
+            className="rounded-[32px] p-6 lg:p-8 min-h-[175px] lg:min-h-[200px] shadow-lg hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98] transition-all group flex flex-col justify-between text-white text-left relative overflow-hidden"
+          >
+            <div className="flex items-center justify-between w-full">
+              <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center text-white shadow-inner group-hover:scale-110 transition-transform">
+                <Layers size={28} strokeWidth={2.4} />
+              </div>
+              <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center group-hover:translate-x-1 transition-transform">
+                <ChevronRight size={18} strokeWidth={3} />
+              </div>
+            </div>
+            <div className="mt-4">
+              <h3 className="font-black text-xl lg:text-2xl uppercase tracking-tight leading-tight">
+                Classes
+              </h3>
+              <p className="text-[10px] lg:text-[11px] font-bold opacity-80 uppercase tracking-widest mt-1">
+                Requisitos e Progresso
+              </p>
+            </div>
+          </button>
+
+          {/* Retângulo Grande: Especialidades */}
+          <button 
+            onClick={() => setActiveSubView('SPECIALTIES')}
+            className="bg-amber-500 hover:bg-amber-500/90 dark:bg-amber-600/90 dark:hover:bg-amber-600 rounded-[32px] p-6 lg:p-8 min-h-[175px] lg:min-h-[200px] shadow-lg hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98] transition-all group flex flex-col justify-between text-white text-left relative overflow-hidden"
+          >
+            <div className="flex items-center justify-between w-full">
+              <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center text-white shadow-inner group-hover:scale-110 transition-transform">
+                <Award size={28} strokeWidth={2.4} />
+              </div>
+              <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center group-hover:translate-x-1 transition-transform">
+                <ChevronRight size={18} strokeWidth={3} />
+              </div>
+            </div>
+            <div className="mt-4">
+              <h3 className="font-black text-xl lg:text-2xl uppercase tracking-tight leading-tight">
+                Especialidades
+              </h3>
+              <p className="text-[10px] lg:text-[11px] font-bold opacity-80 uppercase tracking-widest mt-1">
+                Manual, Áreas e Requisitos
+              </p>
+            </div>
+          </button>
+        </div>
+
+        {/* Painel Administrativo no PC (se for admin) */}
+        {isUserAdmin && (
+          <div className="mt-4">
+            <button 
+              onClick={() => setActiveSubView('BIBLE_ADMIN')}
+              className="w-full bg-slate-900 dark:bg-slate-800 p-5 rounded-[28px] shadow-sm border border-slate-900 dark:border-slate-700 flex items-center justify-between active:scale-[0.98] hover:border-slate-600 transition-all group"
+            >
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-slate-800 dark:bg-slate-700 rounded-2xl flex items-center justify-center text-white">
+                  <Settings size={24} strokeWidth={2.5} />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-black text-base text-white uppercase tracking-tight">Painel Administrativo</h3>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Administração do Clube</p>
+                </div>
+              </div>
+              <ChevronRight size={18} className="text-slate-400 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="pt-4 md:pt-6 lg:pt-8">
         {/* Botões de Acesso Rápido com nomes dentro do container */}
         <div className="w-full max-w-sm sm:max-w-2xl md:max-w-3xl lg:max-w-4xl mx-auto px-2 mb-8">
           {/* Visualização para Tablet e PC: Todos na mesma linha */}
@@ -7337,16 +7451,359 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   );
 
   return (
-    <div className="flex flex-col h-full bg-[#F8FAFC] dark:bg-slate-900 animate-slide-in overflow-hidden relative transition-colors duration-500">
-      {activeSubView !== 'BIBLE' && activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && activeSubView !== 'CLASS_DETAILS' && activeSubView !== 'SPECIALTY_DETAILS' && !selectedTrunfoModal && (
-        <div className="px-3.5 sm:px-6 pt-3 sm:pt-4 pb-2 sm:pb-3 landscape:py-1.5 landscape:px-4 flex items-center justify-between z-10 bg-[#F8FAFC] dark:bg-slate-900 transition-colors duration-500">
-          <div className="w-11 h-11 landscape:w-9 landscape:h-9 flex items-center justify-center flex-shrink-0">
-            {activeSubView === 'MAIN' ? (
-              <img src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/logo%20app.PNG" className="w-full h-full object-contain" />
-            ) : (
+    <div className="flex flex-row h-full w-full bg-[#F8FAFC] dark:bg-slate-900 animate-slide-in overflow-hidden relative transition-colors duration-500">
+      {/* MENU LATERAL ESQUERDO PARA PC (MD+) */}
+      <aside 
+        ref={sidebarRef}
+        onClick={() => {
+          if (!isSidebarOpen) {
+            setIsSidebarOpen(true);
+          }
+        }}
+        className={`hidden md:flex flex-col h-full bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 shrink-0 z-30 select-none shadow-sm transition-all duration-300 ease-in-out justify-between overflow-y-auto scrollbar-hide ${
+          isSidebarOpen 
+            ? 'w-64 lg:w-72 p-5 lg:p-6 cursor-default' 
+            : 'w-[78px] lg:w-[84px] px-2.5 py-4 cursor-pointer'
+        }`}
+        title={!isSidebarOpen ? "Clique em qualquer lugar para expandir o menu" : undefined}
+      >
+        {isSidebarOpen ? (
+          /* ========================================================
+             MENU EXPANDIDO (ABERTO)
+             ======================================================== */
+          <div className="flex flex-col animate-fade-in" onClick={(e) => e.stopPropagation()}>
+            {/* 1. Topo do Menu: Logo do App Limpa e Direta (sem container em volta) */}
+            <div 
+              onClick={() => {
+                if (activeSubView !== 'MAIN') setActiveSubView('MAIN');
+              }}
+              className="w-full flex flex-col items-center text-center cursor-pointer group transition-transform duration-300 py-1"
+              title="DBV Tudo - Ir para Início"
+            >
+              <div className="relative w-20 h-20 lg:w-22 lg:h-22 flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300">
+                <img 
+                  src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/logo%20app.PNG" 
+                  alt="Logo DBV Tudo" 
+                  className="w-full h-full object-contain drop-shadow-md group-hover:drop-shadow-lg transition-all"
+                />
+              </div>
+              <h1 className="mt-2 font-black text-slate-800 dark:text-white text-lg lg:text-xl tracking-tight uppercase leading-none">
+                DBV Tudo
+              </h1>
+              <span className="text-[9px] lg:text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.25em] mt-1">
+                Gestão Digital
+              </span>
+            </div>
+
+            {/* 2. Logo Abaixo: Foto de Perfil */}
+            <div className="mt-4 w-full">
+              <button
+                onClick={onOpenProfile}
+                className="w-full p-3 rounded-2xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/60 dark:hover:bg-slate-800 border border-slate-200/70 dark:border-slate-700/60 flex items-center space-x-3.5 transition-all group active:scale-[0.98] shadow-sm hover:shadow text-left"
+                title="Acessar Perfil"
+              >
+                <div className="relative shrink-0">
+                  <div className="w-13 h-13 lg:w-14 lg:h-14 rounded-full overflow-hidden ring-2 ring-indigo-500/30 dark:ring-indigo-400/30 shadow-sm flex items-center justify-center bg-slate-200 dark:bg-slate-700 text-slate-400 group-hover:ring-indigo-500 transition-all">
+                    {userAvatar ? (
+                      <img src={userAvatar} alt="Foto de Perfil" className="w-full h-full object-cover" />
+                    ) : (
+                      <User size={26} className="text-slate-400 dark:text-slate-300" />
+                    )}
+                  </div>
+                  <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-800 flex items-center justify-center shadow-xs" title="Conectado">
+                    <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                  </div>
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <span className="block font-black text-xs lg:text-sm text-slate-800 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                    {userProfile?.nome || (isGuest ? 'Convidado' : 'Meu Perfil')}
+                  </span>
+                  <span className="block text-[9px] lg:text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider truncate mt-0.5">
+                    {userProfile?.funçao || (isPathfinder ? 'Desbravador' : 'Aventureiro')}
+                  </span>
+                  <span className="inline-flex items-center text-[8px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest mt-1">
+                    Ver Perfil →
+                  </span>
+                </div>
+              </button>
+            </div>
+
+            <div className="my-5 h-[1px] w-full bg-slate-200/70 dark:bg-slate-800/80" />
+
+            {/* 3. Navegação: Início, Desbravadores e Aventureiros com Destaque apenas por cor */}
+            <nav className="w-full space-y-2.5">
+              <div className="px-1 text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-2">
+                Menu Principal
+              </div>
+
+              {/* Botão Início (Ação de navegação para a Home geral) */}
+              <button
+                onClick={() => onBack()}
+                className="w-full flex items-center px-4 py-3.5 rounded-2xl font-black text-xs lg:text-sm uppercase tracking-wider transition-all text-left group active:scale-[0.98] bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60"
+                title="Voltar para a página inicial"
+              >
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors shrink-0 bg-slate-200/70 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 group-hover:bg-indigo-50 group-hover:text-indigo-600 dark:group-hover:bg-indigo-950/60 dark:group-hover:text-indigo-400">
+                    <HomeIcon size={18} strokeWidth={2.4} />
+                  </div>
+                  <span className="truncate">Início</span>
+                </div>
+              </button>
+
+              {/* Botão Desbravadores (com brasão oficial) */}
+              <button
+                onClick={() => {
+                  onSwitchClub(ClubType.PATHFINDER);
+                  if (activeSubView !== 'MAIN') setActiveSubView('MAIN');
+                }}
+                className={`w-full flex items-center px-4 py-3.5 rounded-2xl font-black text-xs lg:text-sm uppercase tracking-wider transition-all text-left group active:scale-[0.98] ${
+                  isPathfinder
+                    ? 'bg-[#dc371b] text-white shadow-lg shadow-red-600/35 ring-2 ring-red-400 scale-[1.02]'
+                    : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60'
+                }`}
+                title="Área de Desbravadores"
+              >
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors shrink-0 p-1 ${
+                    isPathfinder ? 'bg-white/25' : 'bg-red-500/10'
+                  }`}>
+                    <img 
+                      src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png" 
+                      alt="Brasão Desbravadores" 
+                      className="w-full h-full object-contain drop-shadow-xs"
+                    />
+                  </div>
+                  <span className="truncate">Desbravadores</span>
+                </div>
+              </button>
+
+              {/* Botão Aventureiros (com brasão oficial) */}
+              <button
+                onClick={() => {
+                  onSwitchClub(ClubType.ADVENTURER);
+                  if (activeSubView !== 'MAIN') setActiveSubView('MAIN');
+                }}
+                className={`w-full flex items-center px-4 py-3.5 rounded-2xl font-black text-xs lg:text-sm uppercase tracking-wider transition-all text-left group active:scale-[0.98] ${
+                  !isPathfinder
+                    ? 'bg-[#800000] text-white shadow-lg shadow-red-950/45 ring-2 ring-amber-400/80 scale-[1.02]'
+                    : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60'
+                }`}
+                title="Área de Aventureiros"
+              >
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors shrink-0 p-1 ${
+                    !isPathfinder ? 'bg-white/25' : 'bg-amber-500/10'
+                  }`}>
+                    <img 
+                      src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png" 
+                      alt="Brasão Aventureiros" 
+                      className="w-full h-full object-contain drop-shadow-xs"
+                    />
+                  </div>
+                  <span className="truncate">Aventureiros</span>
+                </div>
+              </button>
+            </nav>
+          </div>
+        ) : (
+          /* ========================================================
+             MENU COMPACTO (FECHADO - APENAS ÍCONES)
+             ======================================================== */
+          <div className="flex flex-col items-center w-full animate-fade-in">
+            {/* 1. Topo do Menu: Logo do App Limpa e Direta (sem container em volta) */}
+            <div 
+              onClick={() => setIsSidebarOpen(true)}
+              className="w-14 h-14 lg:w-16 lg:h-16 flex items-center justify-center cursor-pointer group transition-transform duration-300 hover:scale-110 active:scale-95"
+              title="Clique para expandir o menu"
+              aria-label="Expandir menu lateral"
+            >
+              <img 
+                src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/logo%20app.PNG" 
+                alt="Logo DBV Tudo" 
+                className="w-full h-full object-contain drop-shadow-md group-hover:drop-shadow-lg transition-all"
+              />
+            </div>
+
+            {/* 2. Logo Abaixo: Foto de Perfil Compacta (com bolinha de status sem cortes) */}
+            <div className="mt-3.5 relative">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenProfile?.();
+                }}
+                className="w-12 h-12 lg:w-13 lg:h-13 rounded-full overflow-hidden ring-2 ring-indigo-500/20 hover:ring-indigo-500/70 shadow-sm flex items-center justify-center bg-slate-200 dark:bg-slate-700 text-slate-400 active:scale-95 transition-all group"
+                title={`Perfil: ${userProfile?.nome || 'Meu Perfil'}`}
+                aria-label="Acessar Perfil"
+              >
+                {userAvatar ? (
+                  <img src={userAvatar} alt="Foto de Perfil" className="w-full h-full object-cover" />
+                ) : (
+                  <User size={22} className="text-slate-400 dark:text-slate-300" />
+                )}
+              </button>
+              {/* Bolinha de status posicionada fora do overflow-hidden para não ser cortada */}
+              <div 
+                className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 pointer-events-none z-10 shadow-xs" 
+                title="Conectado"
+              />
+            </div>
+
+            <div className="my-3.5 h-[1px] w-8 bg-slate-200/70 dark:bg-slate-800/80" />
+
+            {/* 3. Navegação Compacta: Início, Desbravadores e Aventureiros com Destaque */}
+            <nav className="w-full flex flex-col items-center space-y-3">
+              {/* Botão Início (Modo Ícone com escrita) */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onBack();
+                }}
+                className="w-12 h-12 lg:w-13 lg:h-13 rounded-2xl flex flex-col items-center justify-center transition-all relative group active:scale-90 bg-slate-100 dark:bg-slate-800/70 hover:bg-slate-200/70 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-300 border border-slate-200/50 dark:border-slate-700/50 shadow-xs"
+                title="Voltar ao Início"
+                aria-label="Ir para Início"
+              >
+                <HomeIcon size={18} strokeWidth={2.4} />
+                <span className="text-[8px] font-black uppercase leading-none mt-1 text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-white">
+                  Início
+                </span>
+              </button>
+
+              {/* Botão Desbravadores (Modo Ícone com Brasão) */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSwitchClub(ClubType.PATHFINDER);
+                  if (activeSubView !== 'MAIN') setActiveSubView('MAIN');
+                }}
+                className={`w-12 h-12 lg:w-13 lg:h-13 rounded-2xl flex flex-col items-center justify-center transition-all relative group active:scale-90 ${
+                  isPathfinder
+                    ? 'bg-[#dc371b] text-white shadow-lg shadow-red-600/40 ring-2 ring-red-400 scale-105'
+                    : 'bg-slate-100 dark:bg-slate-800/70 hover:bg-red-50 dark:hover:bg-red-950/40 text-slate-500 hover:text-[#dc371b] dark:text-slate-300 border border-slate-200/50 dark:border-slate-700/50'
+                }`}
+                title="Desbravadores (DBV)"
+                aria-label="Selecionar Desbravadores"
+              >
+                <img 
+                  src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png" 
+                  alt="Brasão Desbravadores" 
+                  className="w-5 h-5 lg:w-6 lg:h-6 object-contain drop-shadow-xs"
+                />
+                <span className={`text-[8px] font-black uppercase leading-none mt-1 ${
+                  isPathfinder ? 'text-white' : 'text-slate-400 dark:text-slate-500 group-hover:text-[#dc371b]'
+                }`}>
+                  DBV
+                </span>
+              </button>
+
+              {/* Botão Aventureiros (Modo Ícone com Brasão) */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSwitchClub(ClubType.ADVENTURER);
+                  if (activeSubView !== 'MAIN') setActiveSubView('MAIN');
+                }}
+                className={`w-12 h-12 lg:w-13 lg:h-13 rounded-2xl flex flex-col items-center justify-center transition-all relative group active:scale-90 ${
+                  !isPathfinder
+                    ? 'bg-[#800000] text-white shadow-lg shadow-red-950/50 ring-2 ring-amber-400/90 scale-105'
+                    : 'bg-slate-100 dark:bg-slate-800/70 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-slate-500 hover:text-[#800000] dark:text-slate-300 border border-slate-200/50 dark:border-slate-700/50'
+                }`}
+                title="Aventureiros (AVT)"
+                aria-label="Selecionar Aventureiros"
+              >
+                <img 
+                  src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png" 
+                  alt="Brasão Aventureiros" 
+                  className="w-5 h-5 lg:w-6 lg:h-6 object-contain drop-shadow-xs"
+                />
+                <span className={`text-[8px] font-black uppercase leading-none mt-1 ${
+                  !isPathfinder ? 'text-white' : 'text-slate-400 dark:text-slate-500 group-hover:text-[#800000]'
+                }`}>
+                  AVT
+                </span>
+              </button>
+            </nav>
+          </div>
+        )}
+
+        {/* Rodapé da Barra Lateral: Botão de Ajustes + Versão e Ano */}
+        <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex flex-col items-center w-full">
+          {isSidebarOpen ? (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenSettings?.();
+                }}
+                className="w-full py-2.5 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-all active:scale-95 flex items-center gap-2.5 text-xs font-bold shadow-xs group"
+                title="Ajustes"
+                aria-label="Ajustes"
+              >
+                <Settings size={18} className="text-slate-500 dark:text-slate-400 group-hover:rotate-45 transition-transform duration-300" />
+                <span>Ajustes</span>
+              </button>
+              <div className="flex flex-col items-center text-center mt-3 select-none text-slate-400 dark:text-slate-500 leading-tight">
+                <span className="text-[10px] font-black tracking-wider text-slate-600 dark:text-slate-300">
+                  v{APP_VERSION}
+                </span>
+                <span className="text-[8.5px] font-extrabold uppercase tracking-widest mt-0.5">
+                  DBV TUDO • 2024 - 2026
+                </span>
+              </div>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenSettings?.();
+                }}
+                className="w-11 h-11 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all active:scale-95 group"
+                title="Ajustes"
+                aria-label="Ajustes"
+              >
+                <Settings size={18} className="group-hover:rotate-45 transition-transform duration-300" />
+              </button>
+              <div className="flex flex-col items-center text-center mt-2 select-none text-slate-400 dark:text-slate-500 leading-tight">
+                <span className="text-[9px] font-black tracking-wider text-slate-500 dark:text-slate-400">
+                  v{APP_VERSION}
+                </span>
+                <span className="text-[7.5px] font-extrabold uppercase tracking-wider">
+                  2024-2026
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+      </aside>
+
+      {/* ÁREA DE CONTEÚDO PRINCIPAL (À DIREITA DO MENU NO PC) */}
+      <div className="flex flex-col flex-1 h-full min-w-0 overflow-hidden relative">
+        {activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && !selectedTrunfoModal && (
+          <div className="px-3.5 sm:px-6 md:px-10 lg:px-12 pt-3 sm:pt-4 md:pt-8 lg:pt-9 pb-2 sm:pb-3 md:pb-5 landscape:py-1.5 landscape:px-4 flex items-center justify-between z-10 bg-[#F8FAFC] dark:bg-slate-900 transition-colors duration-500">
+            <div className="w-11 h-11 md:w-12 md:h-12 landscape:w-9 landscape:h-9 flex items-center justify-center flex-shrink-0">
+              {activeSubView === 'MAIN' ? (
+                /* No PC, o logo já está em destaque na barra lateral esquerda */
+                <img src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/logo%20app.PNG" className="w-full h-full object-contain md:hidden" />
+              ) : (
               <button 
                 onClick={() => {
-                  if (activeSubView === 'SPECIALTIES_LIST') {
+                  if (activeSubView === 'CLASS_DETAILS') {
+                    setActiveSubView('CLASSES');
+                  } else if (activeSubView === 'SPECIALTY_DETAILS') {
+                    if (specialtyNavStack.length > 0) {
+                      const prev = specialtyNavStack[specialtyNavStack.length - 1];
+                      setSpecialtyNavStack(prevStack => prevStack.slice(0, prevStack.length - 1));
+                      setSelectedSpecialty(prev);
+                      if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
+                    } else if (selectedCategory) {
+                      setActiveSubView('SPECIALTIES_LIST');
+                    } else {
+                      setActiveSubView('SPECIALTIES');
+                    }
+                  } else if (activeSubView === 'BIBLE') {
+                    setActiveSubView('MAIN');
+                  } else if (activeSubView === 'SPECIALTIES_LIST') {
                     setActiveSubView('SPECIALTIES');
                   } else if (activeSubView === 'DESBRAVA_PLUS_DETAILS') {
                     setActiveSubView('DESBRAVA_PLUS');
@@ -7410,21 +7867,26 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                     setActiveSubView('MAIN');
                   }
                 }} 
-                className="w-11 h-11 landscape:w-9 landscape:h-9 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-400 dark:text-slate-300 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center"
+                className="w-11 h-11 md:w-12 md:h-12 landscape:w-9 landscape:h-9 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-600 dark:text-slate-200 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-700"
+                title="Voltar"
+                aria-label="Voltar"
               >
-                <ChevronLeft size={22} strokeWidth={3} className="landscape:w-4 landscape:h-4" />
+                <ChevronLeft size={22} strokeWidth={2.5} className="landscape:w-4 landscape:h-4" />
               </button>
             )}
           </div>
           <div className="text-center">
-            <h2 className="font-black text-slate-800 dark:text-white text-base sm:text-lg landscape:text-sm tracking-tight uppercase leading-none">
+            <h2 className="font-black text-slate-800 dark:text-white text-base sm:text-lg md:text-xl landscape:text-sm tracking-tight uppercase leading-none">
               {isPathfinder ? 'Desbravadores' : 'Aventureiros'}
             </h2>
-            <p className="text-[10px] landscape:text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em] mt-1 landscape:mt-0.5">
+            <p className="text-[10px] sm:text-[11px] landscape:text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em] mt-1.5 landscape:mt-0.5">
               {activeSubView === 'MAIN' ? 'Área de Gestão' : 
                activeSubView === 'CLASSES' ? 'Classes Progressivas' :
+               activeSubView === 'CLASS_DETAILS' ? selectedClass?.titulo :
                activeSubView === 'SPECIALTIES' ? 'Especialidades' :
                activeSubView === 'SPECIALTIES_LIST' ? selectedCategory?.nome :
+               activeSubView === 'SPECIALTY_DETAILS' ? selectedSpecialty?.nome :
+               activeSubView === 'BIBLE' ? 'Bíblia Sagrada' :
                activeSubView === 'CULTURE' ? 'Cultura e Tradição' :
                activeSubView === 'IDEALS_ANTHEM' ? 'Ideais e Hino' :
                activeSubView === 'IDEALS' ? 'Ideais' :
@@ -7470,20 +7932,34 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                activeSubView}
             </p>
           </div>
-          <div className="w-11 h-11 landscape:w-9 landscape:h-9 flex items-center justify-center flex-shrink-0">
+          <div className="w-11 h-11 md:w-12 md:h-12 landscape:w-9 landscape:h-9 flex items-center justify-center flex-shrink-0">
             {activeSubView === 'MAIN' && (
-              <button onClick={onOpenProfile} className="w-11 h-11 landscape:w-9 landscape:h-9 bg-white dark:bg-slate-800 rounded-full shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-300 overflow-hidden active:scale-90 transition-all">
+              <button onClick={onOpenProfile} className="w-11 h-11 md:w-12 md:h-12 landscape:w-9 landscape:h-9 bg-white dark:bg-slate-800 rounded-full shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-300 overflow-hidden active:scale-90 transition-all md:hidden">
                 {userAvatar ? <img src={userAvatar} className="w-full h-full object-cover" /> : <User size={22} className="landscape:w-4 landscape:h-4" />}
               </button>
             )}
             {(activeSubView === 'SPECIALTIES' || activeSubView === 'SPECIALTIES_LIST') && (
               <button 
                 onClick={openSpecialtySearch}
-                className="w-11 h-11 landscape:w-9 landscape:h-9 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-500 dark:text-slate-300 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-200 dark:hover:border-indigo-800"
+                className="w-11 h-11 md:w-12 md:h-12 landscape:w-9 landscape:h-9 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-500 dark:text-slate-300 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-200 dark:hover:border-indigo-800"
                 title="Pesquisar Especialidades"
                 aria-label="Pesquisar Especialidades"
               >
                 <Search size={20} strokeWidth={2.5} className="landscape:w-4 landscape:h-4" />
+              </button>
+            )}
+            {activeSubView === 'SPECIALTY_DETAILS' && selectedSpecialty && (
+              <button 
+                onClick={() => toggleSpecialty(selectedSpecialty.id.toString())}
+                className={`w-11 h-11 md:w-12 md:h-12 landscape:w-9 landscape:h-9 rounded-2xl transition-all active:scale-90 flex items-center justify-center shadow-sm border ${
+                  completedSpecialties.includes(selectedSpecialty.id.toString())
+                    ? 'text-red-500 bg-red-50 dark:bg-red-950/40 border-red-200/50 dark:border-red-900/50' 
+                    : 'text-slate-400 dark:text-slate-300 bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700'
+                }`}
+                title={completedSpecialties.includes(selectedSpecialty.id.toString()) ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+                aria-label="Favoritar Especialidade"
+              >
+                <Heart size={20} fill={completedSpecialties.includes(selectedSpecialty.id.toString()) ? "currentColor" : "none"} />
               </button>
             )}
           </div>
@@ -7493,7 +7969,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       <div 
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className={`flex-grow overflow-y-auto scrollbar-hide ${activeSubView === 'DESBRAVA_PLUS_PDF' ? 'p-1.5' : activeSubView === 'BIBLE' ? 'p-3' : (activeSubView === 'CLASS_DETAILS' || activeSubView === 'SPECIALTY_DETAILS') ? 'px-3.5 pt-4 pb-4' : 'px-3.5 sm:px-5 py-1'}`}
+        className={`flex-grow overflow-y-auto scrollbar-hide ${activeSubView === 'DESBRAVA_PLUS_PDF' ? 'p-1.5' : 'px-3.5 sm:px-5 md:px-8 lg:px-10 py-1.5 md:py-4'}`}
       >
         {activeSubView === 'MAIN' && renderDashboard()}
         {activeSubView === 'CLASSES' && renderClassesMenu()}
@@ -7565,38 +8041,49 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         </button>
       )}
 
-      {/* Barra de Navegação Fixa da Bíblia */}
+      {/* Botões Flutuantes de Navegação de Capítulos no Rodapé */}
       {activeSubView === 'BIBLE_VERSES' && !isLoading && (
-        <div className="absolute bottom-0 left-0 right-0 bg-white dark:bg-slate-800 rounded-t-[32px] p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] z-50 animate-slide-up border-t border-slate-100 dark:border-slate-700">
-          <div className="flex items-center space-x-4">
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 animate-slide-up pointer-events-auto">
+          <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md rounded-full px-2.5 py-1.5 shadow-2xl border border-slate-200/80 dark:border-slate-700/80 flex items-center space-x-2">
             <button 
               onClick={goToPreviousChapter}
-              className={`flex-1 py-4 rounded-[20px] font-black uppercase tracking-widest text-xs flex items-center justify-center space-x-2 active:scale-95 transition-all ${
+              disabled={selectedBibleBook && selectedBibleChapter === 1 && bibleBooks.findIndex(b => b.book_name === selectedBibleBook.book_name) === 0}
+              className={`px-3.5 py-2 rounded-full font-black uppercase tracking-wider text-[11px] flex items-center space-x-1.5 active:scale-90 transition-all ${
                 selectedBibleBook && selectedBibleChapter === 1 && bibleBooks.findIndex(b => b.book_name === selectedBibleBook.book_name) === 0
-                  ? 'bg-slate-50 dark:bg-slate-900 text-slate-300 dark:text-slate-600'
-                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200'
+                  ? 'opacity-30 cursor-not-allowed text-slate-400 dark:text-slate-500'
+                  : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'
               }`}
+              title="Capítulo Anterior"
+              aria-label="Capítulo Anterior"
             >
-              <ChevronLeft size={18} />
+              <ChevronLeft size={16} strokeWidth={2.5} />
               <span>Anterior</span>
             </button>
+
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest px-1 select-none whitespace-nowrap">
+              Cap. {selectedBibleChapter}
+            </span>
+
             <button 
               onClick={goToNextChapter}
-              className={`flex-1 py-4 rounded-[20px] font-black uppercase tracking-widest text-xs flex items-center justify-center space-x-2 shadow-lg active:scale-95 transition-all ${
+              disabled={selectedBibleBook && selectedBibleChapter === selectedBibleBook.total_chapters && bibleBooks.findIndex(b => b.book_name === selectedBibleBook.book_name) === bibleBooks.length - 1}
+              className={`px-4 py-2 rounded-full font-black uppercase tracking-wider text-[11px] flex items-center space-x-1.5 active:scale-90 transition-all shadow-md ${
                 selectedBibleBook && selectedBibleChapter === selectedBibleBook.total_chapters && bibleBooks.findIndex(b => b.book_name === selectedBibleBook.book_name) === bibleBooks.length - 1
-                  ? 'bg-slate-50 dark:bg-slate-900 text-slate-300 dark:text-slate-600 shadow-none'
-                  : 'bg-blue-600 text-white shadow-blue-200 dark:shadow-none'
+                  ? 'opacity-30 cursor-not-allowed bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 shadow-none'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'
               }`}
+              title="Próximo Capítulo"
+              aria-label="Próximo Capítulo"
             >
               <span>Próximo</span>
-              <ChevronRight size={18} />
+              <ChevronRight size={16} strokeWidth={2.5} />
             </button>
           </div>
         </div>
       )}
 
       {activeSubView !== 'DESBRAVA_PLUS_PDF' && activeSubView !== 'PDF_VIEWER' && activeSubView !== 'BIBLE' && activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && !selectedTrunfoModal && (
-        <div className="absolute bottom-2 sm:bottom-3 landscape:bottom-1 left-0 right-0 px-8 landscape:px-4 flex justify-center z-50 pointer-events-none">
+        <div className="absolute bottom-2 sm:bottom-3 landscape:bottom-1 left-0 right-0 px-8 landscape:px-4 flex justify-center z-50 pointer-events-none md:hidden">
           <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md h-16 landscape:h-11 w-full max-w-[320px] landscape:max-w-[270px] rounded-full shadow-2xl flex p-2 landscape:p-1.5 items-center border border-white dark:border-slate-700 space-x-2 pointer-events-auto">
             <button 
               onClick={() => onSwitchClub(ClubType.PATHFINDER)} 
@@ -7616,6 +8103,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
           </div>
         </div>
       )}
+
+      {/* Fim da Área de Conteúdo Principal */}
+      </div>
 
       {/* Modal de Detalhes da Cultura */}
       {selectedCultureDetail && (

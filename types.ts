@@ -198,6 +198,7 @@ export interface UserProfile {
   clube_de?: string;
   cidade?: string;
   estado?: string;
+  data_nascimento?: string;
   ADM?: boolean;
   fundo?: string;
   clube?: string;

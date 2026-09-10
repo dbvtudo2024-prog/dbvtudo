@@ -16,10 +16,12 @@ export const VERSION_HISTORY: VersionRelease[] = [
     tag: 'ATUAL',
     title: 'Modal de Ajustes, Modo Paisagem e Sistema de Versões',
     changes: [
+      'Menu lateral retrátil para PC: inicia fechado, logo limpa sem containers, fecha ao clicar fora e botão de Ajustes no rodapé.',
+      'Destaque dos botões da página ativa por cor pura, sem tags de status ou abreviações no modo expandido.',
+      'Layout exclusivo para PC com Bíblia Sagrada, Classes e Especialidades em retângulos grandes lado a lado e espaçamento superior ampliado.',
       'Tela de Ajustes reformulada em formato de Modal flutuante com backdrop blur.',
       'Suporte completo a modo Paisagem (Landscape) e tela cheia contínua (100dvh).',
       'Painel de Controle de Versões e Histórico de Atualizações integrado aos Ajustes.',
-      'Notificação de atualizações aprimorada com identificação da versão e novidades.',
       'Otimização da navegação entre Desbravadores e Aventureiros.'
     ]
   },

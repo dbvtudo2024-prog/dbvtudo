@@ -6,7 +6,7 @@ import ClubManagement, { SubViewType } from './components/ClubManagement';
 import Auth from './components/Auth';
 import Profile from './components/Profile';
 import UpdateNotification from './components/UpdateNotification';
-import { Settings, X, ChevronLeft, Moon, Sun, Bell, BellOff, LogOut, Sparkles, History, ChevronDown, ChevronUp, CheckCircle2, RefreshCw, Layers } from 'lucide-react';
+import { Settings, X, ChevronLeft, Moon, Sun, Bell, BellOff, LogOut, Sparkles, History, ChevronDown, ChevronUp, CheckCircle2, RefreshCw, Layers, PanelLeft } from 'lucide-react';
 import { APP_VERSION, APP_BUILD_DATE, VERSION_HISTORY } from './versionConfig';
 
 import { PROFILE_KEY } from './constants';
@@ -277,6 +277,22 @@ const App: React.FC = () => {
     }
   };
 
+  const [pinSidebar, setPinSidebar] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('dbv_pin_sidebar') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleTogglePinSidebar = () => {
+    const next = !pinSidebar;
+    setPinSidebar(next);
+    try {
+      localStorage.setItem('dbv_pin_sidebar', String(next));
+    } catch (e) {}
+  };
+
   const [pendingPrompt, setPendingPrompt] = useState<string | undefined>(undefined);
   const [pendingSubView, setPendingSubView] = useState<SubViewType | undefined>(undefined);
 
@@ -415,6 +431,8 @@ const App: React.FC = () => {
         return (
           <ClubManagement 
             club={selectedClub || ClubType.PATHFINDER} 
+            pinSidebar={pinSidebar}
+            onTogglePinSidebar={handleTogglePinSidebar}
             onBack={() => {
               if (activeSubView) {
                 setActiveSubView(undefined);
@@ -424,6 +442,7 @@ const App: React.FC = () => {
             }}
             onSwitchClub={(club) => setSelectedClub(club)}
             onOpenProfile={handleOpenProfile}
+            onOpenSettings={() => setIsSettingsModalOpen(true)}
             isGuest={isGuest}
             initialSubView={pendingSubView || activeSubView}
             onSubViewChange={(sub) => {
@@ -473,13 +492,13 @@ const App: React.FC = () => {
     <div className={`app-root-wrapper h-[100dvh] h-screen w-screen flex flex-col p-0 m-0 overflow-hidden transition-colors duration-500 ${darkMode ? 'bg-slate-950' : 'bg-[#f8fafc]'}`}>
       <style>{styles}</style>
       <UpdateNotification />
-      <div className={`app-card-wrapper h-full w-full max-w-7xl mx-auto relative overflow-hidden rounded-none border-0 shadow-none flex flex-col flex-1 transition-colors duration-500 ${darkMode ? 'bg-slate-900' : 'bg-white'}`}>
+      <div className={`app-card-wrapper h-full w-full max-w-7xl lg:max-w-[1550px] mx-auto relative overflow-hidden rounded-none border-0 shadow-none flex flex-col flex-1 transition-colors duration-500 ${darkMode ? 'bg-slate-900' : 'bg-white'}`}>
         <main className={`flex-1 w-full overflow-hidden flex flex-col transition-colors duration-500 ${darkMode ? 'bg-slate-900' : 'bg-mesh'}`}>
           {renderContent()}
         </main>
 
-        {/* Rodapé Global */}
-        <footer className="app-footer py-1.5 sm:py-2 px-4 text-center select-none shrink-0 pointer-events-none z-20 transition-colors duration-500">
+        {/* Rodapé Global (no PC o rodapé está integrado à barra lateral) */}
+        <footer className="app-footer py-1.5 sm:py-2 px-4 text-center select-none shrink-0 pointer-events-none z-20 transition-colors duration-500 md:hidden">
           <p className="text-[10px] sm:text-[11px] font-black text-blue-500 dark:text-blue-400 uppercase tracking-[0.25em]">
             DBV TUDO 2024 - 2026
           </p>
@@ -523,73 +542,76 @@ const App: React.FC = () => {
 
             {/* Corpo do Modal com Opções */}
             <div className="p-6 space-y-3.5 overflow-y-auto scrollbar-hide flex-1">
-              {/* Botão Tema Escuro */}
-              <button 
-                onClick={() => setDarkMode(!darkMode)}
-                className={`w-full p-4 rounded-2xl flex items-center justify-between border transition-all text-left group active:scale-[0.98] ${
-                  darkMode 
-                    ? 'bg-slate-800/80 border-slate-700 hover:border-slate-600' 
-                    : 'bg-slate-50 border-slate-200/80 hover:border-slate-300'
-                }`}
-              >
-                <div className="flex items-center space-x-3.5">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                    darkMode ? 'bg-indigo-500/20 text-indigo-400' : 'bg-amber-500/10 text-amber-600'
-                  }`}>
-                    {darkMode ? <Moon size={18} /> : <Sun size={18} />}
-                  </div>
-                  <div>
-                    <span className={`block text-sm font-bold ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
-                      Tema Escuro
-                    </span>
-                    <span className="text-[11px] text-slate-400 dark:text-slate-400">
-                      {darkMode ? 'Modo escuro ativado' : 'Modo claro ativado'}
-                    </span>
-                  </div>
-                </div>
-                <div className={`w-12 h-6 rounded-full p-0.5 transition-colors duration-300 shrink-0 ${
-                  darkMode ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-700'
-                }`}>
-                  <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ${
-                    darkMode ? 'translate-x-6' : ''
-                  }`} />
-                </div>
-              </button>
-
-              {/* Botão Notificações */}
-              <button 
-                onClick={handleToggleNotifications}
-                className={`w-full p-4 rounded-2xl flex items-center justify-between border transition-all text-left group active:scale-[0.98] ${
-                  darkMode 
-                    ? 'bg-slate-800/80 border-slate-700 hover:border-slate-600' 
-                    : 'bg-slate-50 border-slate-200/80 hover:border-slate-300'
-                }`}
-              >
-                <div className="flex items-center space-x-3.5">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                    notificationsEnabled ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'
-                  }`}>
-                    {notificationsEnabled ? <Bell size={18} /> : <BellOff size={18} />}
-                  </div>
-                  <div>
-                    <span className={`block text-sm font-bold ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
-                      Notificações
-                    </span>
-                    <span className={`text-[11px] font-medium ${
-                      notificationsEnabled ? (darkMode ? 'text-indigo-400' : 'text-indigo-600') : 'text-slate-400'
+              {/* Tema Escuro e Notificações Lado a Lado */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Botão Tema Escuro */}
+                <button 
+                  onClick={() => setDarkMode(!darkMode)}
+                  className={`p-3.5 rounded-2xl flex items-center justify-between border transition-all text-left group active:scale-[0.98] ${
+                    darkMode 
+                      ? 'bg-slate-800/80 border-slate-700 hover:border-slate-600' 
+                      : 'bg-slate-50 border-slate-200/80 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2.5 min-w-0 pr-2">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                      darkMode ? 'bg-indigo-500/20 text-indigo-400' : 'bg-amber-500/10 text-amber-600'
                     }`}>
-                      {notificationsEnabled ? 'Ativadas no dispositivo' : 'Desativadas'}
-                    </span>
+                      {darkMode ? <Moon size={18} /> : <Sun size={18} />}
+                    </div>
+                    <div className="truncate">
+                      <span className={`block text-xs sm:text-sm font-bold truncate ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
+                        Tema Escuro
+                      </span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-400 block truncate">
+                        {darkMode ? 'Modo escuro' : 'Modo claro'}
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <div className={`w-12 h-6 rounded-full p-0.5 transition-colors duration-300 shrink-0 ${
-                  notificationsEnabled ? 'bg-indigo-500' : (darkMode ? 'bg-slate-700' : 'bg-slate-300')
-                }`}>
-                  <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ${
-                    notificationsEnabled ? 'translate-x-6' : ''
-                  }`} />
-                </div>
-              </button>
+                  <div className={`w-10 h-5 sm:w-11 sm:h-5.5 rounded-full p-0.5 transition-colors duration-300 shrink-0 ${
+                    darkMode ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-700'
+                  }`}>
+                    <div className={`w-4 h-4 sm:w-4.5 sm:h-4.5 bg-white rounded-full shadow-sm transition-transform duration-300 ${
+                      darkMode ? 'translate-x-5 sm:translate-x-5.5' : ''
+                    }`} />
+                  </div>
+                </button>
+
+                {/* Botão Notificações */}
+                <button 
+                  onClick={handleToggleNotifications}
+                  className={`p-3.5 rounded-2xl flex items-center justify-between border transition-all text-left group active:scale-[0.98] ${
+                    darkMode 
+                      ? 'bg-slate-800/80 border-slate-700 hover:border-slate-600' 
+                      : 'bg-slate-50 border-slate-200/80 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2.5 min-w-0 pr-2">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                      notificationsEnabled ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'
+                    }`}>
+                      {notificationsEnabled ? <Bell size={18} /> : <BellOff size={18} />}
+                    </div>
+                    <div className="truncate">
+                      <span className={`block text-xs sm:text-sm font-bold truncate ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
+                        Notificações
+                      </span>
+                      <span className={`text-[10px] font-medium block truncate ${
+                        notificationsEnabled ? (darkMode ? 'text-indigo-400' : 'text-indigo-600') : 'text-slate-400'
+                      }`}>
+                        {notificationsEnabled ? 'Ativadas' : 'Desativadas'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className={`w-10 h-5 sm:w-11 sm:h-5.5 rounded-full p-0.5 transition-colors duration-300 shrink-0 ${
+                    notificationsEnabled ? 'bg-indigo-500' : (darkMode ? 'bg-slate-700' : 'bg-slate-300')
+                  }`}>
+                    <div className={`w-4 h-4 sm:w-4.5 sm:h-4.5 bg-white rounded-full shadow-sm transition-transform duration-300 ${
+                      notificationsEnabled ? 'translate-x-5 sm:translate-x-5.5' : ''
+                    }`} />
+                  </div>
+                </button>
+              </div>
 
               {notificationStatusMsg && (
                 <div className={`text-xs px-4 py-2.5 rounded-xl text-center animate-slide-up transition-all ${
@@ -598,6 +620,39 @@ const App: React.FC = () => {
                   {notificationStatusMsg}
                 </div>
               )}
+
+              {/* Botão Fixar Menu Lateral (PC) */}
+              <button 
+                onClick={handleTogglePinSidebar}
+                className={`w-full p-4 rounded-2xl flex items-center justify-between border transition-all text-left group active:scale-[0.98] ${
+                  darkMode 
+                    ? 'bg-slate-800/80 border-slate-700 hover:border-slate-600' 
+                    : 'bg-slate-50 border-slate-200/80 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center space-x-3.5">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                    pinSidebar ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'
+                  }`}>
+                    <PanelLeft size={18} />
+                  </div>
+                  <div>
+                    <span className={`block text-sm font-bold ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
+                      Fixar Menu Lateral
+                    </span>
+                    <span className="text-[11px] text-slate-400 dark:text-slate-400">
+                      {pinSidebar ? 'Menu fixo sempre aberto no computador' : 'Menu retrátil (abre ao clicar e fecha ao clicar fora)'}
+                    </span>
+                  </div>
+                </div>
+                <div className={`w-12 h-6 rounded-full p-0.5 transition-colors duration-300 shrink-0 ${
+                  pinSidebar ? 'bg-indigo-500' : (darkMode ? 'bg-slate-700' : 'bg-slate-300')
+                }`}>
+                  <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ${
+                    pinSidebar ? 'translate-x-6' : ''
+                  }`} />
+                </div>
+              </button>
 
               {/* Seção de Versão do Aplicativo */}
               <div className={`rounded-2xl border p-4 transition-all ${
