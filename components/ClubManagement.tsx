@@ -7150,38 +7150,38 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   );
 
   const renderDashboard = () => (
-    <div className="space-y-8 animate-slide-up pt-2 pb-24">
+    <div className="space-y-8 landscape:space-y-3 animate-slide-up pt-2 pb-24 landscape:pb-16">
       <div className="relative w-full px-1">
         <button 
           onClick={() => setActiveSubView('BIBLE')}
-          className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-full py-4 px-6 flex items-center justify-between shadow-sm active:scale-[0.98] transition-all group"
+          className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-full py-4 landscape:py-2.5 px-6 landscape:px-4 flex items-center justify-between shadow-sm active:scale-[0.98] transition-all group"
         >
-          <div className="flex items-center space-x-4">
-            <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center text-indigo-500 dark:text-indigo-400">
-              <Book size={20} strokeWidth={2.5} />
+          <div className="flex items-center space-x-4 landscape:space-x-3">
+            <div className="w-10 h-10 landscape:w-8 landscape:h-8 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center text-indigo-500 dark:text-indigo-400">
+              <Book size={20} className="landscape:w-4 landscape:h-4" strokeWidth={2.5} />
             </div>
-            <span className="text-[13px] font-black text-slate-800 dark:text-white uppercase tracking-tight">Bíblia Sagrada</span>
+            <span className="text-[13px] landscape:text-xs font-black text-slate-800 dark:text-white uppercase tracking-tight">Bíblia Sagrada</span>
           </div>
           <div className="flex items-center space-x-2">
-            <span className="text-[10px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest">Acessar</span>
+            <span className="text-[10px] landscape:text-[9px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest">Acessar</span>
             <ChevronRight size={16} className="text-slate-400 dark:text-slate-400 group-hover:translate-x-1 transition-transform" />
           </div>
         </button>
       </div>
 
-      <div className="space-y-3.5">
+      <div className="space-y-3.5 landscape:space-y-2">
         <button 
           onClick={() => setActiveSubView('CLASSES')}
           style={{ backgroundColor: themeColor }}
-          className="w-full p-5 rounded-[36px] shadow-lg flex items-center justify-between text-white active:scale-[0.98] transition-all group"
+          className="w-full p-5 landscape:p-3 rounded-[36px] landscape:rounded-2xl shadow-lg flex items-center justify-between text-white active:scale-[0.98] transition-all group"
         >
-          <div className="flex items-center space-x-4">
-            <div className="w-14 h-14 bg-white/20 rounded-[22px] flex items-center justify-center">
-              <Layers size={28} strokeWidth={2.5} />
+          <div className="flex items-center space-x-4 landscape:space-x-3">
+            <div className="w-14 h-14 landscape:w-10 landscape:h-10 bg-white/20 rounded-[22px] landscape:rounded-xl flex items-center justify-center">
+              <Layers size={28} className="landscape:w-5 landscape:h-5" strokeWidth={2.5} />
             </div>
             <div className="text-left">
-              <h3 className="font-black text-lg uppercase tracking-tight">Classes</h3>
-              <p className="text-[9px] font-bold opacity-80 uppercase tracking-widest">Requisitos e Progresso</p>
+              <h3 className="font-black text-lg landscape:text-sm uppercase tracking-tight">Classes</h3>
+              <p className="text-[9px] landscape:text-[8px] font-bold opacity-80 uppercase tracking-widest">Requisitos e Progresso</p>
             </div>
           </div>
           <ChevronRight size={18} />
@@ -7189,15 +7189,15 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
 
         <button 
           onClick={() => setActiveSubView('SPECIALTIES')}
-          className="w-full p-5 rounded-[36px] shadow-md flex items-center justify-between text-white active:scale-[0.98] transition-all group bg-amber-500 hover:bg-amber-500/90 dark:bg-amber-600/90 dark:hover:bg-amber-600"
+          className="w-full p-5 landscape:p-3 rounded-[36px] landscape:rounded-2xl shadow-md flex items-center justify-between text-white active:scale-[0.98] transition-all group bg-amber-500 hover:bg-amber-500/90 dark:bg-amber-600/90 dark:hover:bg-amber-600"
         >
-          <div className="flex items-center space-x-4">
-            <div className="w-14 h-14 bg-white/20 rounded-[22px] flex items-center justify-center">
-              <Award size={28} strokeWidth={2.5} />
+          <div className="flex items-center space-x-4 landscape:space-x-3">
+            <div className="w-14 h-14 landscape:w-10 landscape:h-10 bg-white/20 rounded-[22px] landscape:rounded-xl flex items-center justify-center">
+              <Award size={28} className="landscape:w-5 landscape:h-5" strokeWidth={2.5} />
             </div>
             <div className="text-left">
-              <h3 className="font-black text-lg uppercase tracking-tight">Especialidades</h3>
-              <p className="text-[9px] font-bold opacity-80 uppercase tracking-widest">Manual, Áreas e Requisitos</p>
+              <h3 className="font-black text-lg landscape:text-sm uppercase tracking-tight">Especialidades</h3>
+              <p className="text-[9px] landscape:text-[8px] font-bold opacity-80 uppercase tracking-widest">Manual, Áreas e Requisitos</p>
             </div>
           </div>
           <ChevronRight size={18} />
@@ -7206,15 +7206,15 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
         {isUserAdmin && (
           <button 
             onClick={() => setActiveSubView('BIBLE_ADMIN')}
-            className="w-full bg-slate-900 dark:bg-slate-800 p-5 rounded-[36px] shadow-sm border border-slate-900 dark:border-slate-500/60 flex items-center justify-between active:scale-[0.98] transition-all group"
+            className="w-full bg-slate-900 dark:bg-slate-800 p-5 landscape:p-3 rounded-[36px] landscape:rounded-2xl shadow-sm border border-slate-900 dark:border-slate-500/60 flex items-center justify-between active:scale-[0.98] transition-all group"
           >
-            <div className="flex items-center space-x-4">
-              <div className="w-14 h-14 bg-slate-800 dark:bg-slate-700 rounded-[22px] flex items-center justify-center text-white">
-                <Settings size={28} strokeWidth={2.5} />
+            <div className="flex items-center space-x-4 landscape:space-x-3">
+              <div className="w-14 h-14 landscape:w-10 landscape:h-10 bg-slate-800 dark:bg-slate-700 rounded-[22px] landscape:rounded-xl flex items-center justify-center text-white">
+                <Settings size={28} className="landscape:w-5 landscape:h-5" strokeWidth={2.5} />
               </div>
               <div className="text-left">
-                <h3 className="font-black text-lg text-white uppercase tracking-tight">Painel Administrativo</h3>
-                <p className="text-[9px] font-bold text-slate-300 dark:text-slate-300 uppercase tracking-widest">Administração do Clube</p>
+                <h3 className="font-black text-lg landscape:text-sm text-white uppercase tracking-tight">Painel Administrativo</h3>
+                <p className="text-[9px] landscape:text-[8px] font-bold text-slate-300 dark:text-slate-300 uppercase tracking-widest">Administração do Clube</p>
               </div>
             </div>
             <ChevronRight size={18} className="text-slate-300 dark:text-slate-400" />
@@ -7339,8 +7339,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
   return (
     <div className="flex flex-col h-full bg-[#F8FAFC] dark:bg-slate-900 animate-slide-in overflow-hidden relative transition-colors duration-500">
       {activeSubView !== 'BIBLE' && activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && activeSubView !== 'CLASS_DETAILS' && activeSubView !== 'SPECIALTY_DETAILS' && !selectedTrunfoModal && (
-        <div className="px-3.5 sm:px-6 pt-3 sm:pt-4 pb-2 sm:pb-3 flex items-center justify-between z-10 bg-[#F8FAFC] dark:bg-slate-900 transition-colors duration-500">
-          <div className="w-11 h-11 flex items-center justify-center flex-shrink-0">
+        <div className="px-3.5 sm:px-6 pt-3 sm:pt-4 pb-2 sm:pb-3 landscape:py-1.5 landscape:px-4 flex items-center justify-between z-10 bg-[#F8FAFC] dark:bg-slate-900 transition-colors duration-500">
+          <div className="w-11 h-11 landscape:w-9 landscape:h-9 flex items-center justify-center flex-shrink-0">
             {activeSubView === 'MAIN' ? (
               <img src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/logo%20app.PNG" className="w-full h-full object-contain" />
             ) : (
@@ -7410,17 +7410,17 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                     setActiveSubView('MAIN');
                   }
                 }} 
-                className="w-11 h-11 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-400 dark:text-slate-300 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center"
+                className="w-11 h-11 landscape:w-9 landscape:h-9 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-400 dark:text-slate-300 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center"
               >
-                <ChevronLeft size={22} strokeWidth={3} />
+                <ChevronLeft size={22} strokeWidth={3} className="landscape:w-4 landscape:h-4" />
               </button>
             )}
           </div>
           <div className="text-center">
-            <h2 className="font-black text-slate-800 dark:text-white text-base sm:text-lg tracking-tight uppercase leading-none">
+            <h2 className="font-black text-slate-800 dark:text-white text-base sm:text-lg landscape:text-sm tracking-tight uppercase leading-none">
               {isPathfinder ? 'Desbravadores' : 'Aventureiros'}
             </h2>
-            <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em] mt-1">
+            <p className="text-[10px] landscape:text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em] mt-1 landscape:mt-0.5">
               {activeSubView === 'MAIN' ? 'Área de Gestão' : 
                activeSubView === 'CLASSES' ? 'Classes Progressivas' :
                activeSubView === 'SPECIALTIES' ? 'Especialidades' :
@@ -7470,20 +7470,20 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
                activeSubView}
             </p>
           </div>
-          <div className="w-11 h-11 flex items-center justify-center flex-shrink-0">
+          <div className="w-11 h-11 landscape:w-9 landscape:h-9 flex items-center justify-center flex-shrink-0">
             {activeSubView === 'MAIN' && (
-              <button onClick={onOpenProfile} className="w-11 h-11 bg-white dark:bg-slate-800 rounded-full shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-300 overflow-hidden active:scale-90 transition-all">
-                {userAvatar ? <img src={userAvatar} className="w-full h-full object-cover" /> : <User size={22} />}
+              <button onClick={onOpenProfile} className="w-11 h-11 landscape:w-9 landscape:h-9 bg-white dark:bg-slate-800 rounded-full shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-300 overflow-hidden active:scale-90 transition-all">
+                {userAvatar ? <img src={userAvatar} className="w-full h-full object-cover" /> : <User size={22} className="landscape:w-4 landscape:h-4" />}
               </button>
             )}
             {(activeSubView === 'SPECIALTIES' || activeSubView === 'SPECIALTIES_LIST') && (
               <button 
                 onClick={openSpecialtySearch}
-                className="w-11 h-11 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-500 dark:text-slate-300 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-200 dark:hover:border-indigo-800"
+                className="w-11 h-11 landscape:w-9 landscape:h-9 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-500 dark:text-slate-300 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-200 dark:hover:border-indigo-800"
                 title="Pesquisar Especialidades"
                 aria-label="Pesquisar Especialidades"
               >
-                <Search size={20} strokeWidth={2.5} />
+                <Search size={20} strokeWidth={2.5} className="landscape:w-4 landscape:h-4" />
               </button>
             )}
           </div>
@@ -7596,20 +7596,20 @@ const ClubManagement: React.FC<ClubManagementProps> = ({ club, onBack, onSwitchC
       )}
 
       {activeSubView !== 'DESBRAVA_PLUS_PDF' && activeSubView !== 'PDF_VIEWER' && activeSubView !== 'BIBLE' && activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && !selectedTrunfoModal && (
-        <div className="absolute bottom-2 sm:bottom-3 left-0 right-0 px-8 flex justify-center z-50 pointer-events-none">
-          <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md h-16 w-full max-w-[320px] rounded-full shadow-2xl flex p-2 items-center border border-white dark:border-slate-700 space-x-2 pointer-events-auto">
+        <div className="absolute bottom-2 sm:bottom-3 landscape:bottom-1 left-0 right-0 px-8 landscape:px-4 flex justify-center z-50 pointer-events-none">
+          <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md h-16 landscape:h-11 w-full max-w-[320px] landscape:max-w-[270px] rounded-full shadow-2xl flex p-2 landscape:p-1.5 items-center border border-white dark:border-slate-700 space-x-2 pointer-events-auto">
             <button 
               onClick={() => onSwitchClub(ClubType.PATHFINDER)} 
-              className={`flex-1 h-full rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${isPathfinder ? 'bg-[#dc371b] text-white shadow-lg' : 'text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'}`}
+              className={`flex-1 h-full rounded-full text-[11px] landscape:text-[10px] font-black uppercase tracking-widest transition-all ${isPathfinder ? 'bg-[#dc371b] text-white shadow-lg' : 'text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'}`}
             >
               DBV
             </button>
-            <button onClick={onBack} className="w-12 h-12 flex-shrink-0 rounded-full bg-slate-50 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300">
-              <HomeIcon size={20} />
+            <button onClick={onBack} className="w-12 h-12 landscape:w-8 landscape:h-8 flex-shrink-0 rounded-full bg-slate-50 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300">
+              <HomeIcon size={20} className="landscape:w-4 landscape:h-4" />
             </button>
             <button 
               onClick={() => onSwitchClub(ClubType.ADVENTURER)} 
-              className={`flex-1 h-full rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${!isPathfinder ? 'bg-[#800000] text-white shadow-lg' : 'text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'}`}
+              className={`flex-1 h-full rounded-full text-[11px] landscape:text-[10px] font-black uppercase tracking-widest transition-all ${!isPathfinder ? 'bg-[#800000] text-white shadow-lg' : 'text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'}`}
             >
               AVT
             </button>

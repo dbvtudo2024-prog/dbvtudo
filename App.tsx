@@ -6,7 +6,7 @@ import ClubManagement, { SubViewType } from './components/ClubManagement';
 import Auth from './components/Auth';
 import Profile from './components/Profile';
 import UpdateNotification from './components/UpdateNotification';
-import { Settings, X, ChevronLeft } from 'lucide-react';
+import { Settings, X, ChevronLeft, Moon, Sun, Bell, BellOff, LogOut } from 'lucide-react';
 
 import { PROFILE_KEY } from './constants';
 import { supabase } from './services/supabaseService';
@@ -24,9 +24,19 @@ const styles = `
     0%, 100% { transform: translateY(0px); }
     50% { transform: translateY(-10px); }
   }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes scaleUp {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
   .animate-slide-up { animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
   .animate-slide-in { animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
   .animate-float { animation: float 5s ease-in-out infinite; }
+  .animate-fade-in { animation: fadeIn 0.2s ease-out forwards; }
+  .animate-scale-up { animation: scaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
   
   .glass {
     background: rgba(255, 255, 255, 0.7);
@@ -66,6 +76,7 @@ const App: React.FC = () => {
   const [activeSubView, setActiveSubView] = useState<SubViewType | undefined>(undefined);
   const [selectedClub, setSelectedClub] = useState<ClubType | null>(null);
   const [isGuest, setIsGuest] = useState<boolean>(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
 
   // Verificar se há sessão ativa no Supabase e perfil salvo
   useEffect(() => {
@@ -76,6 +87,25 @@ const App: React.FC = () => {
       }
     }).catch(() => {});
   }, [isGuest]);
+
+  // Se por acaso a rota for 'SETTINGS', abre o modal e mantém na HOME
+  useEffect(() => {
+    if (currentView === 'SETTINGS') {
+      setIsSettingsModalOpen(true);
+      setCurrentView('HOME');
+    }
+  }, [currentView]);
+
+  // Fechar modal ao pressionar ESC
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isSettingsModalOpen) {
+        setIsSettingsModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSettingsModalOpen]);
 
   // Manter apenas a preferência de Tema Escuro salva no dispositivo
   const [darkMode, setDarkMode] = useState<boolean>(() => {
@@ -117,7 +147,7 @@ const App: React.FC = () => {
         setNotificationsEnabled(false);
       }
     }
-  }, [currentView]);
+  }, [currentView, isSettingsModalOpen]);
 
   const handleToggleNotifications = async () => {
     if (notificationsEnabled) {
@@ -341,7 +371,7 @@ const App: React.FC = () => {
       case 'HOME':
         return <Home 
           onSelectClub={navigateToClub} 
-          onOpenSettings={() => setCurrentView('SETTINGS')} 
+          onOpenSettings={() => setIsSettingsModalOpen(true)} 
           onOpenProfile={handleOpenProfile}
           isGuest={isGuest}
         />;
@@ -387,82 +417,190 @@ const App: React.FC = () => {
           />
         );
       case 'SETTINGS':
-        return (
-          <div className={`p-8 animate-slide-up h-full flex flex-col relative transition-colors duration-500 ${darkMode ? 'bg-slate-900' : 'bg-slate-50'}`}>
-            <button 
-              onClick={() => setCurrentView('HOME')}
-              className={`absolute top-6 right-6 p-2 rounded-full shadow-md transition-colors ${darkMode ? 'bg-slate-800 text-slate-400' : 'bg-white text-slate-400'}`}
-            >
-              <X size={20} />
-            </button>
-            <div className="mt-12">
-              <h2 className={`text-3xl font-black mb-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>Ajustes</h2>
-              <p className={`mb-10 text-lg ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Personalize sua experiência.</p>
-              
-              <div className="space-y-4">
-                <button 
-                  onClick={() => setDarkMode(!darkMode)}
-                  className={`w-full p-5 rounded-3xl flex justify-between items-center shadow-sm border transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
-                >
-                  <span className={`font-semibold ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>Tema Escuro</span>
-                  <div className={`w-14 h-7 rounded-full p-1 transition-colors duration-300 ${darkMode ? 'bg-indigo-500' : 'bg-slate-200'}`}>
-                    <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ${darkMode ? 'translate-x-7' : ''}`}></div>
-                  </div>
-                </button>
-
-                <button 
-                  onClick={handleToggleNotifications}
-                  className={`w-full p-5 rounded-3xl flex justify-between items-center shadow-sm border transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
-                >
-                  <div className="flex flex-col items-start text-left">
-                    <span className={`font-semibold ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>Notificações</span>
-                    <span className={`text-xs mt-0.5 ${notificationsEnabled ? (darkMode ? 'text-indigo-400' : 'text-indigo-600 font-medium') : (darkMode ? 'text-slate-400' : 'text-slate-400')}`}>
-                      {notificationsEnabled ? 'Ativadas' : 'Desativadas'}
-                    </span>
-                  </div>
-                  <div className={`w-14 h-7 rounded-full p-1 transition-colors duration-300 shrink-0 ${notificationsEnabled ? 'bg-indigo-500' : (darkMode ? 'bg-slate-700' : 'bg-slate-200')}`}>
-                    <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ${notificationsEnabled ? 'translate-x-7' : ''}`}></div>
-                  </div>
-                </button>
-
-                {notificationStatusMsg && (
-                  <div className={`text-xs px-4 py-2.5 rounded-2xl text-center animate-slide-up transition-all ${darkMode ? 'bg-slate-800/90 text-indigo-300 border border-slate-700' : 'bg-indigo-50/80 text-indigo-900 border border-indigo-100'}`}>
-                    {notificationStatusMsg}
-                  </div>
-                )}
-
-                <button 
-                  onClick={handleLogout}
-                  className={`w-full p-5 rounded-3xl flex justify-between items-center shadow-sm border transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
-                >
-                  <span className={`font-semibold ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>Sair da Conta</span>
-                  <ChevronLeft className="rotate-180 text-slate-300" size={18} />
-                </button>
-              </div>
-            </div>
-          </div>
-        );
+        return <Home 
+          onSelectClub={navigateToClub} 
+          onOpenSettings={() => setIsSettingsModalOpen(true)} 
+          onOpenProfile={handleOpenProfile} 
+          isGuest={isGuest} 
+        />;
       default:
-        return <Home onSelectClub={navigateToClub} onOpenSettings={() => setCurrentView('SETTINGS')} onOpenProfile={handleOpenProfile} isGuest={isGuest} />;
+        return <Home 
+          onSelectClub={navigateToClub} 
+          onOpenSettings={() => setIsSettingsModalOpen(true)} 
+          onOpenProfile={handleOpenProfile} 
+          isGuest={isGuest} 
+        />;
     }
   };
 
   return (
-    <div className={`h-screen w-screen flex items-center justify-center p-0 sm:p-4 md:p-8 overflow-hidden transition-colors duration-500 ${darkMode ? 'bg-slate-950' : 'bg-[#f8fafc]'}`}>
+    <div className={`app-root-wrapper h-[100dvh] h-screen w-screen flex flex-col p-0 m-0 overflow-hidden transition-colors duration-500 ${darkMode ? 'bg-slate-950' : 'bg-[#f8fafc]'}`}>
       <style>{styles}</style>
       <UpdateNotification />
-      <div className={`h-full w-full max-w-7xl shadow-2xl relative overflow-hidden sm:rounded-[48px] sm:border-[8px] flex flex-col transition-colors duration-500 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+      <div className={`app-card-wrapper h-full w-full max-w-7xl mx-auto relative overflow-hidden rounded-none border-0 shadow-none flex flex-col flex-1 transition-colors duration-500 ${darkMode ? 'bg-slate-900' : 'bg-white'}`}>
         <main className={`flex-1 w-full overflow-hidden flex flex-col transition-colors duration-500 ${darkMode ? 'bg-slate-900' : 'bg-mesh'}`}>
           {renderContent()}
         </main>
 
         {/* Rodapé Global */}
-        <footer className="py-2.5 px-4 text-center select-none shrink-0 pointer-events-none z-20 transition-colors duration-500">
+        <footer className="app-footer py-1.5 sm:py-2 px-4 text-center select-none shrink-0 pointer-events-none z-20 transition-colors duration-500">
           <p className="text-[10px] sm:text-[11px] font-black text-blue-500 dark:text-blue-400 uppercase tracking-[0.25em]">
             DBV TUDO 2024 - 2026
           </p>
         </footer>
       </div>
+
+      {/* Modal de Ajustes */}
+      {isSettingsModalOpen && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-fade-in"
+          onClick={() => setIsSettingsModalOpen(false)}
+        >
+          <div 
+            className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[92vh] landscape:max-h-[88vh] animate-scale-up transition-colors duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header do Modal */}
+            <div className="p-6 pb-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 shrink-0">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 dark:border-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                  <Settings size={20} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-slate-800 dark:text-white leading-tight">
+                    Ajustes
+                  </h2>
+                  <p className="text-xs text-slate-400 dark:text-slate-400 font-medium mt-0.5">
+                    Personalize sua experiência
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsSettingsModalOpen(false)}
+                className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white transition-all active:scale-90"
+                title="Fechar"
+                aria-label="Fechar"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Corpo do Modal com Opções */}
+            <div className="p-6 space-y-3.5 overflow-y-auto scrollbar-hide flex-1">
+              {/* Botão Tema Escuro */}
+              <button 
+                onClick={() => setDarkMode(!darkMode)}
+                className={`w-full p-4 rounded-2xl flex items-center justify-between border transition-all text-left group active:scale-[0.98] ${
+                  darkMode 
+                    ? 'bg-slate-800/80 border-slate-700 hover:border-slate-600' 
+                    : 'bg-slate-50 border-slate-200/80 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center space-x-3.5">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                    darkMode ? 'bg-indigo-500/20 text-indigo-400' : 'bg-amber-500/10 text-amber-600'
+                  }`}>
+                    {darkMode ? <Moon size={18} /> : <Sun size={18} />}
+                  </div>
+                  <div>
+                    <span className={`block text-sm font-bold ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
+                      Tema Escuro
+                    </span>
+                    <span className="text-[11px] text-slate-400 dark:text-slate-400">
+                      {darkMode ? 'Modo escuro ativado' : 'Modo claro ativado'}
+                    </span>
+                  </div>
+                </div>
+                <div className={`w-12 h-6 rounded-full p-0.5 transition-colors duration-300 shrink-0 ${
+                  darkMode ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-700'
+                }`}>
+                  <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ${
+                    darkMode ? 'translate-x-6' : ''
+                  }`} />
+                </div>
+              </button>
+
+              {/* Botão Notificações */}
+              <button 
+                onClick={handleToggleNotifications}
+                className={`w-full p-4 rounded-2xl flex items-center justify-between border transition-all text-left group active:scale-[0.98] ${
+                  darkMode 
+                    ? 'bg-slate-800/80 border-slate-700 hover:border-slate-600' 
+                    : 'bg-slate-50 border-slate-200/80 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center space-x-3.5">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                    notificationsEnabled ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'
+                  }`}>
+                    {notificationsEnabled ? <Bell size={18} /> : <BellOff size={18} />}
+                  </div>
+                  <div>
+                    <span className={`block text-sm font-bold ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
+                      Notificações
+                    </span>
+                    <span className={`text-[11px] font-medium ${
+                      notificationsEnabled ? (darkMode ? 'text-indigo-400' : 'text-indigo-600') : 'text-slate-400'
+                    }`}>
+                      {notificationsEnabled ? 'Ativadas no dispositivo' : 'Desativadas'}
+                    </span>
+                  </div>
+                </div>
+                <div className={`w-12 h-6 rounded-full p-0.5 transition-colors duration-300 shrink-0 ${
+                  notificationsEnabled ? 'bg-indigo-500' : (darkMode ? 'bg-slate-700' : 'bg-slate-300')
+                }`}>
+                  <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ${
+                    notificationsEnabled ? 'translate-x-6' : ''
+                  }`} />
+                </div>
+              </button>
+
+              {notificationStatusMsg && (
+                <div className={`text-xs px-4 py-2.5 rounded-xl text-center animate-slide-up transition-all ${
+                  darkMode ? 'bg-slate-800 text-indigo-300 border border-slate-700' : 'bg-indigo-50 text-indigo-900 border border-indigo-100'
+                }`}>
+                  {notificationStatusMsg}
+                </div>
+              )}
+
+              {/* Separador */}
+              <div className="pt-1">
+                <div className="h-px w-full bg-slate-100 dark:bg-slate-800" />
+              </div>
+
+              {/* Botão Sair da Conta */}
+              <button 
+                onClick={() => {
+                  setIsSettingsModalOpen(false);
+                  handleLogout();
+                }}
+                className={`w-full p-4 rounded-2xl flex items-center justify-between border transition-all text-left active:scale-[0.98] ${
+                  darkMode 
+                    ? 'bg-red-500/10 border-red-500/20 hover:bg-red-500/15 text-red-300' 
+                    : 'bg-red-50/70 border-red-100 hover:bg-red-50 text-red-600'
+                }`}
+              >
+                <div className="flex items-center space-x-3.5">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                    darkMode ? 'bg-red-500/20 text-red-400' : 'bg-red-100 text-red-600'
+                  }`}>
+                    <LogOut size={18} />
+                  </div>
+                  <div>
+                    <span className="block text-sm font-bold">
+                      Sair da Conta
+                    </span>
+                    <span className="text-[11px] opacity-75">
+                      Desconectar usuário deste dispositivo
+                    </span>
+                  </div>
+                </div>
+                <ChevronLeft className="rotate-180 opacity-50" size={18} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
