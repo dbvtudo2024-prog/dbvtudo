@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Sparkles, RefreshCw, X, Bell, BellRing } from 'lucide-react';
+import { Sparkles, RefreshCw, X, Bell, BellRing, CheckCircle2 } from 'lucide-react';
 import { getLocalUserSpecialties, saveLocalUserSpecialties } from '../services/supabaseService';
+import { APP_VERSION } from '../versionConfig';
 
 declare const __APP_BUILD_TIME__: number | string | undefined;
 
 export const UpdateNotification: React.FC = () => {
   const [hasUpdate, setHasUpdate] = useState(false);
+  const [newVersionName, setNewVersionName] = useState<string>('');
+  const [updateHighlights, setUpdateHighlights] = useState<string[]>([]);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
@@ -38,7 +41,7 @@ export const UpdateNotification: React.FC = () => {
   };
 
   // Disparar notificação nativa no celular/computador
-  const triggerNativeNotification = useCallback(async () => {
+  const triggerNativeNotification = useCallback(async (versionLabel?: string) => {
     if (notifiedRef.current) return;
     notifiedRef.current = true;
 
@@ -57,9 +60,10 @@ export const UpdateNotification: React.FC = () => {
         return;
       }
       if ('Notification' in window && Notification.permission === 'granted') {
-        const title = '✨ Nova Atualização Disponível!';
+        const vText = versionLabel ? ` v${versionLabel}` : '';
+        const title = `✨ Nova Versão${vText} Disponível!`;
         const options: NotificationOptions & { renotify?: boolean } = {
-          body: 'Uma nova versão do DBV Tudo foi publicada. Toque para atualizar.',
+          body: `A versão${vText} do DBV Tudo foi publicada com novas melhorias. Toque para atualizar.`,
           icon: '/favicon.ico',
           badge: '/favicon.ico',
           tag: 'dbv-tudo-update',
@@ -82,10 +86,12 @@ export const UpdateNotification: React.FC = () => {
     }
   }, []);
 
-  const triggerUpdateFound = useCallback(() => {
+  const triggerUpdateFound = useCallback((versionLabel?: string, highlights?: string[]) => {
     setHasUpdate(true);
+    if (versionLabel) setNewVersionName(versionLabel);
+    if (highlights && highlights.length > 0) setUpdateHighlights(highlights);
     setIsDismissed(false);
-    triggerNativeNotification();
+    triggerNativeNotification(versionLabel);
   }, [triggerNativeNotification]);
 
   // Verificar atualizações via arquivo version.json
@@ -103,10 +109,12 @@ export const UpdateNotification: React.FC = () => {
 
       const data = await res.json();
       const serverVersion = Number(data?.version || data?.timestamp);
+      const serverVersionName = data?.versionName || '';
+      const highlights = Array.isArray(data?.highlights) ? data.highlights : [];
       const localVersion = getInitialVersion();
 
       if (serverVersion && localVersion && serverVersion > localVersion) {
-        triggerUpdateFound();
+        triggerUpdateFound(serverVersionName, highlights);
       }
     } catch {
       // Falha silenciosa
@@ -281,24 +289,39 @@ export const UpdateNotification: React.FC = () => {
       {/* Alerta de Nova Versão Disponível */}
       {hasUpdate && !isDismissed && (
         <div className="fixed top-4 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-md z-[9999] animate-slide-up pointer-events-auto">
-          <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md rounded-2xl shadow-2xl border-2 border-indigo-500/30 dark:border-indigo-500/40 p-4 text-slate-800 dark:text-slate-100 flex flex-col gap-3">
+          <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md rounded-2xl shadow-2xl border-2 border-indigo-500/40 dark:border-indigo-500/50 p-4 text-slate-800 dark:text-slate-100 flex flex-col gap-3">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-indigo-600 flex items-center justify-center text-white shrink-0 shadow-md">
                   <Sparkles size={20} className="animate-pulse" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">
-                      Nova versão disponível!
+                      {newVersionName ? `Nova versão v${newVersionName}` : 'Nova versão disponível!'}
                     </h4>
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400">
-                      Update
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                      v{newVersionName || 'NOVA'}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
-                    Uma nova versão acabou de ser publicada. Atualize agora para carregar as alterações mais recentes.
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                    A versão atual instalada é <strong className="text-slate-700 dark:text-slate-200 font-semibold">v{APP_VERSION}</strong>. Atualize agora para carregar as alterações mais recentes.
                   </p>
+
+                  {/* Lista de novidades caso disponível */}
+                  {updateHighlights.length > 0 && (
+                    <div className="mt-2.5 p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-700/60 text-[11px] space-y-1">
+                      <p className="font-bold text-slate-700 dark:text-slate-300 text-[10px] uppercase tracking-wider">
+                        O que há de novo:
+                      </p>
+                      {updateHighlights.map((item, idx) => (
+                        <div key={idx} className="flex items-start gap-1.5 text-slate-600 dark:text-slate-400">
+                          <CheckCircle2 size={12} className="text-emerald-500 mt-0.5 shrink-0" />
+                          <span>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
               
@@ -322,7 +345,7 @@ export const UpdateNotification: React.FC = () => {
                   Ativar no celular
                 </button>
               ) : (
-                <span className="text-[10px] text-slate-400">Pronto para atualizar</span>
+                <span className="text-[10px] text-slate-400 font-medium">Instalada: v{APP_VERSION}</span>
               )}
 
               <div className="flex items-center gap-2">

@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
+const appVersion = '2.5.0';
 
 function versionPlugin(): Plugin {
   return {
@@ -14,8 +15,14 @@ function versionPlugin(): Plugin {
         fileName: 'version.json',
         source: JSON.stringify({
           version: buildTime,
+          versionName: appVersion,
           buildDate: new Date(buildTime).toISOString(),
-          timestamp: buildTime
+          timestamp: buildTime,
+          highlights: [
+            "Tela de Ajustes agora em modal flutuante",
+            "Painel de Versões e Changelog integrado",
+            "Melhorias de tela cheia no modo Paisagem"
+          ]
         }, null, 2)
       });
     },
@@ -26,8 +33,14 @@ function versionPlugin(): Plugin {
           res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
           res.end(JSON.stringify({
             version: buildTime,
+            versionName: appVersion,
             buildDate: new Date(buildTime).toISOString(),
-            timestamp: buildTime
+            timestamp: buildTime,
+            highlights: [
+              "Tela de Ajustes agora em modal flutuante",
+              "Painel de Versões e Changelog integrado",
+              "Melhorias de tela cheia no modo Paisagem"
+            ]
           }));
           return;
         }
@@ -51,6 +64,7 @@ export default defineConfig(({ mode }) => {
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || ''),
         'global': 'globalThis',
         '__APP_BUILD_TIME__': JSON.stringify(buildTime),
+        '__APP_VERSION__': JSON.stringify(appVersion),
       },
       resolve: {
         alias: {

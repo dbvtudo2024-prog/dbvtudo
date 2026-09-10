@@ -6,7 +6,8 @@ import ClubManagement, { SubViewType } from './components/ClubManagement';
 import Auth from './components/Auth';
 import Profile from './components/Profile';
 import UpdateNotification from './components/UpdateNotification';
-import { Settings, X, ChevronLeft, Moon, Sun, Bell, BellOff, LogOut } from 'lucide-react';
+import { Settings, X, ChevronLeft, Moon, Sun, Bell, BellOff, LogOut, Sparkles, History, ChevronDown, ChevronUp, CheckCircle2, RefreshCw, Layers } from 'lucide-react';
+import { APP_VERSION, APP_BUILD_DATE, VERSION_HISTORY } from './versionConfig';
 
 import { PROFILE_KEY } from './constants';
 import { supabase } from './services/supabaseService';
@@ -77,6 +78,41 @@ const App: React.FC = () => {
   const [selectedClub, setSelectedClub] = useState<ClubType | null>(null);
   const [isGuest, setIsGuest] = useState<boolean>(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
+  const [showVersionHistory, setShowVersionHistory] = useState<boolean>(false);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState<boolean>(false);
+  const [updateCheckMessage, setUpdateCheckMessage] = useState<string | null>(null);
+
+  const handleManualCheckUpdate = async () => {
+    setIsCheckingUpdate(true);
+    setUpdateCheckMessage(null);
+    try {
+      const res = await fetch(`/version.json?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const serverVersion = Number(data?.version || data?.timestamp);
+        const storedTime = Number(sessionStorage.getItem('dbv_current_build_time') || 0);
+
+        if (serverVersion && storedTime && serverVersion > storedTime) {
+          setUpdateCheckMessage(`Nova versão v${data?.versionName || ''} encontrada! Recarregando...`);
+          setTimeout(() => {
+            window.location.reload();
+          }, 1200);
+          return;
+        }
+      }
+      setUpdateCheckMessage(`Você já está na versão mais recente (v${APP_VERSION})!`);
+    } catch {
+      setUpdateCheckMessage(`Versão instalada: v${APP_VERSION}. Aplicativo atualizado.`);
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
 
   // Verificar se há sessão ativa no Supabase e perfil salvo
   useEffect(() => {
@@ -563,6 +599,113 @@ const App: React.FC = () => {
                 </div>
               )}
 
+              {/* Seção de Versão do Aplicativo */}
+              <div className={`rounded-2xl border p-4 transition-all ${
+                darkMode ? 'bg-slate-800/60 border-slate-700/80' : 'bg-slate-50 border-slate-200/80'
+              }`}>
+                <div className="flex items-start justify-between gap-2 mb-2.5">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      darkMode ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-100 text-indigo-600'
+                    }`}>
+                      <Sparkles size={18} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-bold ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
+                          Versão do App
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                          v{APP_VERSION}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-400 dark:text-slate-400">
+                        {APP_BUILD_DATE}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleManualCheckUpdate}
+                    disabled={isCheckingUpdate}
+                    className="p-2 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all active:scale-95 shrink-0"
+                    title="Verificar se há atualizações"
+                  >
+                    <RefreshCw size={15} className={isCheckingUpdate ? "animate-spin text-indigo-500" : ""} />
+                  </button>
+                </div>
+
+                {updateCheckMessage && (
+                  <div className={`mb-3 text-[11px] font-medium p-2.5 rounded-xl flex items-center gap-2 animate-fade-in ${
+                    updateCheckMessage.includes('recuperando') || updateCheckMessage.includes('encontrada')
+                      ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                      : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                  }`}>
+                    <CheckCircle2 size={14} className="shrink-0" />
+                    <span>{updateCheckMessage}</span>
+                  </div>
+                )}
+
+                {/* Botão de Expansão do Histórico de Versões */}
+                <button
+                  onClick={() => setShowVersionHistory(!showVersionHistory)}
+                  className={`w-full py-2.5 px-3 rounded-xl flex items-center justify-between text-xs font-bold transition-all ${
+                    darkMode 
+                      ? 'bg-slate-700/60 hover:bg-slate-700 text-slate-300' 
+                      : 'bg-white hover:bg-slate-100 border border-slate-200/80 text-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2">
+                    <History size={14} className="text-indigo-500" />
+                    <span>Histórico de Versões & Modificações</span>
+                  </div>
+                  {showVersionHistory ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                </button>
+
+                {/* Lista Expansível de Changelog */}
+                {showVersionHistory && (
+                  <div className="mt-3 space-y-3 pt-2 border-t border-slate-200 dark:border-slate-700/60 animate-fade-in max-h-56 overflow-y-auto pr-1">
+                    {VERSION_HISTORY.map((rel, i) => (
+                      <div 
+                        key={rel.version}
+                        className={`p-3 rounded-xl border text-left text-xs ${
+                          i === 0 
+                            ? (darkMode ? 'bg-indigo-950/30 border-indigo-500/40' : 'bg-indigo-50/70 border-indigo-200')
+                            : (darkMode ? 'bg-slate-900/50 border-slate-700/50' : 'bg-white border-slate-100')
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-extrabold text-indigo-600 dark:text-indigo-400 text-xs">
+                              v{rel.version}
+                            </span>
+                            {rel.tag && (
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase tracking-wider bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300">
+                                {rel.tag}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-slate-400">
+                            {rel.date}
+                          </span>
+                        </div>
+                        <p className={`font-semibold mb-1.5 ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                          {rel.title}
+                        </p>
+                        <ul className="space-y-1 text-[11px] text-slate-500 dark:text-slate-400 pl-1">
+                          {rel.changes.map((change, cIdx) => (
+                            <li key={cIdx} className="flex items-start gap-1.5 leading-relaxed">
+                              <span className="text-indigo-500 font-bold">•</span>
+                              <span>{change}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Separador */}
               <div className="pt-1">
                 <div className="h-px w-full bg-slate-100 dark:bg-slate-800" />
@@ -597,6 +740,13 @@ const App: React.FC = () => {
                 </div>
                 <ChevronLeft className="rotate-180 opacity-50" size={18} />
               </button>
+
+              {/* Identificação de Rodapé do Modal */}
+              <div className="text-center pt-2 pb-1">
+                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest">
+                  DBV Tudo • v{APP_VERSION} (2024 - 2026)
+                </p>
+              </div>
             </div>
           </div>
         </div>

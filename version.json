@@ -1,5 +1,11 @@
 {
-  "version": 1741246700000,
-  "buildDate": "2026-09-05T07:39:00.000Z",
-  "timestamp": 1741246700000
+  "version": 1741632300000,
+  "versionName": "2.5.0",
+  "buildDate": "2026-09-10T18:46:00.000Z",
+  "timestamp": 1741632300000,
+  "highlights": [
+    "Tela de Ajustes agora em modal flutuante",
+    "Painel de Versões e Changelog integrado",
+    "Melhorias de tela cheia no modo Paisagem"
+  ]
 }
