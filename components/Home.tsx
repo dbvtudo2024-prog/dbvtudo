@@ -40,30 +40,32 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
 
   return (
     <div className="flex flex-col h-full overflow-y-auto scrollbar-hide animate-slide-up bg-[#F8FAFC] dark:bg-slate-900 transition-colors duration-500">
-      {/* Top Header Fixo no Topo: Ações (Ajustes e Perfil) + Hero Branding Aumentado */}
-      <header className="sticky top-0 z-20 w-full bg-[#F8FAFC]/95 dark:bg-slate-900/95 backdrop-blur-md pt-3 sm:pt-6 pb-3 sm:pb-4 px-4 sm:px-8 shrink-0 transition-colors border-b border-slate-200/40 dark:border-slate-800/40">
-        <div className="max-w-4xl mx-auto w-full relative flex flex-col items-center">
-          {/* Botões de Ação nas Laterais do Topo */}
-          <button 
-            onClick={onOpenSettings} 
-            title="Configurações"
-            aria-label="Configurações"
-            className="absolute left-0 top-0 p-2.5 sm:p-3 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700 text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white active:scale-90 transition-all z-10"
-          >
-            <Settings size={20} />
-          </button>
-          
-          <button 
-            onClick={onOpenProfile} 
-            title="Perfil"
-            aria-label="Perfil"
-            className="absolute right-0 top-0 w-10 h-10 sm:w-12 sm:h-12 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white overflow-hidden active:scale-90 transition-all z-10"
-          >
-            {userAvatar ? <img src={userAvatar} className="w-full h-full object-cover" alt="Perfil" /> : <User size={22} />}
-          </button>
+      {/* Top Header Fixo no Topo: Barra com Ajustes e Perfil + Hero Branding Posicionado Abaixo da Linha do Perfil */}
+      <header className="sticky top-0 z-20 w-full bg-[#F8FAFC]/95 dark:bg-slate-900/95 backdrop-blur-md pt-3 sm:pt-4 pb-2.5 sm:pb-3 px-4 sm:px-8 shrink-0 transition-colors border-b border-slate-200/40 dark:border-slate-800/40">
+        <div className="max-w-4xl mx-auto w-full flex flex-col items-center">
+          {/* Linha Superior com Botões de Ação (Ajustes e Perfil) */}
+          <div className="w-full flex justify-between items-center z-10 shrink-0">
+            <button 
+              onClick={onOpenSettings} 
+              title="Configurações"
+              aria-label="Configurações"
+              className="p-2.5 sm:p-3 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700 text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white active:scale-90 transition-all"
+            >
+              <Settings size={20} />
+            </button>
+            
+            <button 
+              onClick={onOpenProfile} 
+              title="Perfil"
+              aria-label="Perfil"
+              className="w-10 h-10 sm:w-12 sm:h-12 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white overflow-hidden active:scale-90 transition-all"
+            >
+              {userAvatar ? <img src={userAvatar} className="w-full h-full object-cover" alt="Perfil" /> : <User size={22} />}
+            </button>
+          </div>
 
-          {/* Hero Branding com Logo e Nome Aumentados */}
-          <div className="flex flex-col items-center justify-center shrink-0 pt-1 sm:pt-0">
+          {/* Hero Branding com Logo Posicionada Pouco Abaixo da Linha da Foto do Perfil */}
+          <div className="flex flex-col items-center justify-center shrink-0 mt-1 sm:mt-2">
             <div className="relative animate-float">
               <div className="relative w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 landscape:w-20 landscape:h-20 flex items-center justify-center transform hover:scale-105 transition-transform duration-700">
                 <img 
