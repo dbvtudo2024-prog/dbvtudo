@@ -975,6 +975,16 @@ export async function updateUserProfile(profile: Partial<UserProfile>) {
     if (profile.fundo !== undefined) cleanProfile.fundo = profile.fundo;
     if (profile.Especialidades !== undefined) cleanProfile.Especialidades = profile.Especialidades;
     if (profile.Conquistas !== undefined) cleanProfile.Conquistas = profile.Conquistas;
+    if (profile.data_nascimento !== undefined) {
+      try {
+        let meta: Record<string, any> = {};
+        if (cleanProfile.fundo) {
+          try { meta = JSON.parse(cleanProfile.fundo); } catch { meta = { raw: cleanProfile.fundo }; }
+        }
+        meta.data_nascimento = profile.data_nascimento;
+        cleanProfile.fundo = JSON.stringify(meta);
+      } catch {}
+    }
 
     const { error } = await supabase
       .from('Usuarios')
