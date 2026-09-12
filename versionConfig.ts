@@ -6,14 +6,29 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '2.5.0';
-export const APP_BUILD_DATE = '10 de Março de 2026';
+export const APP_VERSION = '2.6.0';
+export const APP_BUILD_DATE = '13 de Setembro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '2.6.0',
+    date: '13/09/2026',
+    tag: 'ATUAL',
+    title: 'Uniforme Oficial, Condecorações Militares e Escala Real da Faixa',
+    changes: [
+      'Cor cáqui da camisa de gala oficial dos Desbravadores ajustada com fidelidade cromática e textura têxtil refinada.',
+      'Condecorações de Classes Regulares unidas em suporte metálico dourado horizontal contínuo, idêntico ao modelo oficial.',
+      'Porta-barretas metálico dourado duplo para as Classes Avançadas com divisões esmaltadas e brilho vitrificado.',
+      'Insígnia de Excelência com moldura dourada polida e acabamento esmaltado vitrificado.',
+      'Distintivos de Liderança separados na lapela, preservando espaçamento e relevo independente.',
+      'Faixa de Especialidades e Mestrados em escala real de 100%, preenchendo a largura total de costura a costura.',
+      'Sistema de histórico de versões e numeração sincronizado com o pacote do aplicativo.'
+    ]
+  },
+  {
     version: '2.5.0',
     date: '10/03/2026',
-    tag: 'ATUAL',
+    tag: 'ESTÁVEL',
     title: 'Modal de Ajustes, Modo Paisagem e Sistema de Versões',
     changes: [
       'Menu lateral retrátil para PC: inicia fechado, logo limpa sem containers, fecha ao clicar fora e botão de Ajustes no rodapé.',

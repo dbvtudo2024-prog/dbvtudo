@@ -3057,11 +3057,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     return (
       <div className="animate-slide-in space-y-4 pt-1 pb-28">
         <div id="specialty-details-content" className="space-y-6">
-          {/* Header da Especialidade Compacto: Imagem à Esquerda e Textos à Direita */}
-          <div id="specialty-header" className="bg-white dark:bg-slate-800 rounded-[28px] sm:rounded-[36px] p-4 sm:p-6 shadow-sm border border-slate-100 dark:border-slate-700 relative">
-            <div className="flex flex-row items-center gap-4 sm:gap-6 text-left w-full">
-              {/* Imagem da Especialidade à Esquerda (Sem Container) */}
-              <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 shrink-0 flex items-center justify-center">
+          {/* Header da Especialidade: No Celular (Imagem no Topo e Textos Abaixo) / No PC (Imagem à Esquerda e Textos à Direita) */}
+          <div id="specialty-header" className="bg-white dark:bg-slate-800 rounded-[28px] sm:rounded-[36px] p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-slate-700 relative">
+            <div className="flex flex-col md:flex-row items-center gap-3 sm:gap-4 md:gap-6 text-center md:text-left w-full">
+              {/* Imagem da Especialidade (Centralizada no topo no celular, à esquerda no PC) */}
+              <div className="w-24 h-24 sm:w-28 sm:h-28 md:w-28 md:h-28 shrink-0 flex items-center justify-center mb-1 md:mb-0">
                 {selectedSpecialty.logo ? (
                   <img src={getImageUrl(selectedSpecialty.logo)} className="w-full h-full object-contain filter drop-shadow-sm" alt={selectedSpecialty.nome} referrerPolicy="no-referrer" />
                 ) : (
@@ -3069,12 +3069,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                 )}
               </div>
 
-              {/* Textos ao lado direito da imagem */}
-              <div className="flex-1 min-w-0 flex flex-col justify-center items-start text-left">
-                <h3 className="text-lg sm:text-xl md:text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight leading-tight mb-2">
+              {/* Textos (Centralizados abaixo da imagem no celular, à direita no PC) */}
+              <div className="flex-1 min-w-0 flex flex-col justify-center items-center md:items-start text-center md:text-left w-full">
+                <h3 className="text-xl sm:text-2xl md:text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight leading-tight mb-2.5">
                   {selectedSpecialty.nome}
                 </h3>
-                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-1.5 sm:gap-2">
                   <div className="px-2.5 py-0.5 sm:px-3 sm:py-1 bg-slate-100 dark:bg-slate-700 rounded-full">
                     <span className="text-[9px] sm:text-[10px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-widest">
                       {selectedSpecialty.area}
@@ -7881,11 +7881,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             </h2>
             <p className="text-[10px] sm:text-[11px] landscape:text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em] mt-1.5 landscape:mt-0.5">
               {activeSubView === 'MAIN' ? 'Área de Gestão' : 
-               activeSubView === 'CLASSES' ? 'Classes Progressivas' :
-               activeSubView === 'CLASS_DETAILS' ? selectedClass?.titulo :
+               activeSubView === 'CLASSES' ? (isPathfinder ? 'Classes Progressivas' : 'Classes Regulares') :
+               activeSubView === 'CLASS_DETAILS' ? (isPathfinder ? 'Classes Progressivas' : 'Classes Regulares') :
                activeSubView === 'SPECIALTIES' ? 'Especialidades' :
-               activeSubView === 'SPECIALTIES_LIST' ? selectedCategory?.nome :
-               activeSubView === 'SPECIALTY_DETAILS' ? selectedSpecialty?.nome :
+               activeSubView === 'SPECIALTIES_LIST' ? (selectedCategory?.nome || 'Especialidades') :
+               activeSubView === 'SPECIALTY_DETAILS' ? (selectedSpecialty?.area === 'Mestrados' || selectedSpecialty?.nome?.toLowerCase().includes('mestrado') ? 'Mestrados' : (selectedCategory?.nome || 'Especialidades')) :
                activeSubView === 'BIBLE' ? 'Bíblia Sagrada' :
                activeSubView === 'CULTURE' ? 'Cultura e Tradição' :
                activeSubView === 'IDEALS_ANTHEM' ? 'Ideais e Hino' :

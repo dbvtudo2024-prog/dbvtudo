@@ -610,9 +610,10 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
               birthDate = userData.data_nascimento || currentLocal.data_nascimento || "";
             }
 
+            const effectiveEmail = profile.email || (profile as any)['e - mail'] || user.email || userData.email;
             const mappedData = {
               name: profile.nome || userData.name,
-              email: profile.email || (profile as any)['e - mail'] || user.email || userData.email,
+              email: effectiveEmail,
               tipo: profile.clubes === "Aventureiro" ? "Aventureiro" : "Desbravador",
               clube: profile.clube || profile.clube_de || (profile as any)['clube de'] || userData.clube,
               cargo: profile.funçao || userData.cargo,
@@ -627,6 +628,22 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
             try {
               localStorage.setItem(storageKey, JSON.stringify(mappedData));
             } catch (e) {}
+
+            // Carrega e sincroniza imediatamente as especialidades da faixa do Supabase
+            const userClub = mappedData.tipo === "Aventureiro" ? ClubType.ADVENTURER : ClubType.PATHFINDER;
+            const dbSpecialtiesRaw = profile.Especialidades !== undefined ? profile.Especialidades : (profile as any).especialidades;
+            if (dbSpecialtiesRaw !== undefined && dbSpecialtiesRaw !== null) {
+              let parsedIds: string[] = [];
+              if (typeof dbSpecialtiesRaw === 'string') {
+                parsedIds = dbSpecialtiesRaw.split(',').map((id: string) => id.trim()).filter((id: string) => id.length > 0);
+              } else if (Array.isArray(dbSpecialtiesRaw)) {
+                parsedIds = dbSpecialtiesRaw.map((id: any) => String(id).trim()).filter((id: string) => id.length > 0);
+              }
+              if (parsedIds.length > 0) {
+                setLikedIds(parsedIds);
+                saveLocalFaixaSpecialties(parsedIds, effectiveEmail, userClub);
+              }
+            }
           } else if (user.user_metadata?.data_nascimento) {
             setUserData(prev => ({ ...prev, data_nascimento: user.user_metadata.data_nascimento }));
           }
@@ -1424,7 +1441,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                   isAdultUniform ? 'border-slate-300' : 'border-[#947450]/50 dark:border-[#856541]/60'
                 } pointer-events-none`} />
 
-                {/* 1. ACIMA DO BOLSO: Insígnia de Excelência (Moldura dourada retangular idêntica à Imagem 3) */}
+                {/* 1. ACIMA DO BOLSO: Insígnia de Excelência (Comprimento proporcional, sem ficar excessivamente longa) */}
                 <div className="relative z-10 flex flex-col items-center mb-2.5">
                   {allConquistas
                     .filter(c => c.tipo === 'INSIGNIA' && c.id !== 18 && !c.nome.toLowerCase().includes('batismo'))
@@ -1434,7 +1451,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                         <button
                           key={con.id}
                           onClick={() => toggleAchievement(con.id)}
-                          className={`w-32 sm:w-36 h-6 sm:h-6.5 relative transition-all active:scale-95 group hover:brightness-105 cursor-pointer rounded-[3px] p-[1.5px] bg-gradient-to-b from-[#fae596] via-[#caa048] to-[#806019] shadow-[0_1.5px_4px_rgba(0,0,0,0.4)] ${
+                          className={`w-24 sm:w-28 h-6 sm:h-7 relative transition-all active:scale-95 group hover:brightness-105 cursor-pointer rounded-[3px] p-[1.5px] bg-gradient-to-b from-[#fae596] via-[#caa048] to-[#806019] shadow-[0_2px_5px_rgba(0,0,0,0.45)] ${
                             !eligibility.isEligible ? 'opacity-40 cursor-not-allowed' : ''
                           }`}
                           title={!eligibility.isEligible ? eligibility.msg : `${con.nome} • Insígnia de Excelência (Toque para alternar)`}
@@ -1442,7 +1459,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                           <div className="w-full h-full relative rounded-[1.5px] overflow-hidden bg-slate-900/10 flex items-center justify-center">
                             <img
                               src={userAchievements.includes(con.id) ? con.imagem_colorida : con.imagem_cinza}
-                              className={`w-full h-full object-cover transition-opacity ${
+                              className={`w-full h-full object-fill transition-opacity ${
                                 userAchievements.includes(con.id) ? 'opacity-100' : 'opacity-40 grayscale'
                               }`}
                               alt={con.nome}
@@ -1458,12 +1475,12 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                         </button>
                       );
                     })}
-                  </div>
+                </div>
 
-                  {/* 2. ACIMA DO BOLSO: Classes Avançadas (Régua de barretas unidas em porta-barretas metálico dourado, idêntica à Imagem 2) */}
-                  <div className="relative z-10 flex flex-col items-center mb-1.5">
-                    <div className="p-[1.5px] bg-gradient-to-b from-[#fae596] via-[#caa048] to-[#806019] rounded-[3px] shadow-[0_1.5px_4px_rgba(0,0,0,0.4)]">
-                      <div className="flex flex-col border border-[#b58b2d] bg-[#caa048] rounded-[1.5px] overflow-hidden shadow-inner">
+                  {/* 2. ACIMA DO BOLSO: Classes Avançadas (Régua metálica dourada dupla ampliada e esmaltada) */}
+                  <div className="relative z-10 flex flex-col items-center mb-2">
+                    <div className="p-[2px] bg-gradient-to-b from-[#fae596] via-[#caa048] to-[#806019] rounded-[4px] shadow-[0_2px_5px_rgba(0,0,0,0.45)]">
+                      <div className="flex flex-col border border-[#b58b2d] bg-[#caa048] rounded-[2px] overflow-hidden shadow-inner">
                         {/* Fileira Superior (Pioneiro, Excursionista, Guia - ordens 4, 5, 6) */}
                         <div className="flex items-center divide-x divide-[#9a7420] border-b border-[#9a7420]">
                           {allConquistas
@@ -1476,7 +1493,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                                 <button
                                   key={con.id}
                                   onClick={() => toggleAchievement(con.id)}
-                                  className={`w-14 sm:w-16 h-4.5 sm:h-5 relative transition-all active:scale-95 group hover:brightness-105 cursor-pointer flex items-center justify-center overflow-hidden bg-black/10 ${
+                                  className={`w-16 sm:w-18 h-5 sm:h-5.5 relative transition-all active:scale-95 group hover:brightness-105 cursor-pointer flex items-center justify-center overflow-hidden bg-black/10 ${
                                     !eligibility.isEligible ? 'opacity-35 cursor-not-allowed' : ''
                                   }`}
                                   title={!eligibility.isEligible ? eligibility.msg : `${con.nome} • Classe Avançada (Toque para alternar)`}
@@ -1512,7 +1529,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                                 <button
                                   key={con.id}
                                   onClick={() => toggleAchievement(con.id)}
-                                  className={`w-14 sm:w-16 h-4.5 sm:h-5 relative transition-all active:scale-95 group hover:brightness-105 cursor-pointer flex items-center justify-center overflow-hidden bg-black/10 ${
+                                  className={`w-16 sm:w-18 h-5 sm:h-5.5 relative transition-all active:scale-95 group hover:brightness-105 cursor-pointer flex items-center justify-center overflow-hidden bg-black/10 ${
                                     !eligibility.isEligible ? 'opacity-35 cursor-not-allowed' : ''
                                   }`}
                                   title={!eligibility.isEligible ? eligibility.msg : `${con.nome} • Classe Avançada (Toque para alternar)`}
@@ -1524,7 +1541,6 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                                     }`}
                                     alt={con.nome}
                                   />
-                                  {/* Brilho esmaltado vitrificado característico da Imagem 2 */}
                                   <div className="absolute inset-0 bg-gradient-to-b from-white/25 via-transparent to-black/10 pointer-events-none" />
                                   {!eligibility.isEligible && (
                                     <span className="absolute top-0 right-0 bg-black/80 text-amber-300 p-0.5 rounded-xs leading-none z-20">
@@ -1539,14 +1555,14 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                     </div>
                   </div>
 
-                  {/* 3. SIMULAÇÃO DO BOLSO ESQUERDO (Proporções reais de uniforme militar de gala: Imagem 1) */}
-                  <div className="w-full max-w-[280px] sm:max-w-[320px] relative flex flex-col items-center">
+                  {/* 3. SIMULAÇÃO DO BOLSO ESQUERDO (Aumentado e proporcional no celular) */}
+                  <div className="w-full max-w-[310px] sm:max-w-[350px] relative flex flex-col items-center">
                     {/* LAPELA / PORTINHOLA DO BOLSO */}
-                    <div className={`w-full h-24 sm:h-26 ${
+                    <div className={`w-full h-28 sm:h-30 ${
                       isAdultUniform 
                         ? 'bg-white border-2 border-slate-300' 
                         : 'bg-[#be9d77] dark:bg-[#b08f6b] border-2 border-[#9e7f5b] dark:border-[#91724f]'
-                    } rounded-t-lg relative shadow-sm flex flex-col items-center justify-center pt-2 pb-2 px-2 z-10 transition-colors duration-500`}>
+                    } rounded-t-lg relative shadow-sm flex flex-col items-center justify-center pt-2.5 pb-2.5 px-2 z-10 transition-colors duration-500`}>
                       {/* Pesponto decorativo na lapela */}
                       <div className={`absolute inset-1 border border-dashed ${
                         isAdultUniform ? 'border-slate-300/80' : 'border-[#8f6f4b]/50 dark:border-[#7d5f3d]/60'
@@ -1561,8 +1577,8 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                         <div className={`w-1.5 h-1.5 rounded-full ${isAdultUniform ? 'bg-slate-300' : 'bg-[#dfcbb2]/70'}`} />
                       </div>
 
-                      {/* 1. DISTINTIVOS DE LIDERANÇA (Sem união, com drop-shadow sutil natural) */}
-                      <div className="relative z-10 flex items-center justify-center gap-2 sm:gap-2.5 mb-1.5">
+                      {/* 1. DISTINTIVOS DE LIDERANÇA (Aumentados e com relevo nítido no celular) */}
+                      <div className="relative z-10 flex items-center justify-center gap-3 sm:gap-4 mb-2.5">
                         {allConquistas
                           .filter(c => c.tipo === 'LIDERANCA')
                           .sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
@@ -1570,8 +1586,8 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                             const eligibility = checkConquistaEligibility(con, userAge);
                             const sizeClasses = 
                               con.id === 9 
-                                ? 'w-5.5 h-5.5 sm:w-6.5 sm:h-6.5' // Líder (menor)
-                                : 'w-7 h-7 sm:w-8 sm:h-8'; // Master e Master Avançado (mesmo tamanho)
+                                ? 'w-7 h-7 sm:w-8 sm:h-8' // Líder
+                                : 'w-8 h-8 sm:w-9 sm:h-9'; // Master e Master Avançado
 
                             return (
                               <button
@@ -1584,14 +1600,14 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                               >
                                 <img
                                   src={userAchievements.includes(con.id) ? con.imagem_colorida : con.imagem_cinza}
-                                  className={`w-full h-full object-contain filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)] transition-all ${
+                                  className={`w-full h-full object-contain filter drop-shadow-[0_2px_3.5px_rgba(0,0,0,0.5)] transition-all ${
                                     userAchievements.includes(con.id) ? 'opacity-100' : 'opacity-35 grayscale'
                                   }`}
                                   alt={con.nome}
                                 />
                                 {!eligibility.isEligible && (
                                   <span className="absolute -top-0.5 -right-0.5 bg-black/80 text-amber-300 p-0.5 rounded-full leading-none z-20">
-                                    <Lock size={6} />
+                                    <Lock size={7} />
                                   </span>
                                 )}
                               </button>
@@ -1599,38 +1615,51 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                           })}
                       </div>
 
-                      {/* 2. DISTINTIVOS DAS CLASSES REGULARES (Unidos diretamente lado a lado como a barra real de condecoração) */}
-                      <div className="relative z-10 flex items-center justify-center">
-                        <div className="inline-flex items-center justify-center -space-x-1">
-                          {allConquistas
-                            .filter(c => c.tipo === 'CLASSE_REGULAR')
-                            .sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
-                            .map(con => {
-                              const eligibility = checkConquistaEligibility(con, userAge);
-                              return (
-                                <button
-                                  key={con.id}
-                                  onClick={() => toggleAchievement(con.id)}
-                                  className={`w-7 h-7 sm:w-8 sm:h-8 relative transition-all active:scale-90 group hover:scale-110 cursor-pointer flex items-center justify-center hover:z-20 ${
-                                    !eligibility.isEligible ? 'opacity-35 cursor-not-allowed' : ''
-                                  }`}
-                                  title={!eligibility.isEligible ? eligibility.msg : `${con.nome} • Classe Regular (Toque para alternar)`}
-                                >
-                                  <img
-                                    src={userAchievements.includes(con.id) ? con.imagem_colorida : con.imagem_cinza}
-                                    className={`w-full h-full object-contain filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] transition-all ${
-                                      userAchievements.includes(con.id) ? 'opacity-100' : 'opacity-35 grayscale'
+                      {/* 2. DISTINTIVOS DAS CLASSES REGULARES (Barrete metálico dourado contido estritamente atrás das medalhas, sem sobrar pontas externas) */}
+                      <div className="relative z-10 flex items-center justify-center w-full">
+                        <div className="relative inline-flex items-center justify-center">
+                          {/* Barra de suporte metálico que começa atrás do centro do primeiro distintivo e termina atrás do centro do último distintivo (sem sobrar pontas visíveis para fora) */}
+                          <div className="absolute top-1/2 left-4 right-4 -translate-y-1/2 h-2 sm:h-2.5 bg-gradient-to-b from-[#fae8a4] via-[#d4af37] to-[#7c5b16] shadow-[0_1.5px_4px_rgba(0,0,0,0.45)] border-y border-[#b58b2d] pointer-events-none z-0" />
+                          
+                          {/* As 6 medalhas circulares ampliadas em linha com aro dourado e resina vitrificada */}
+                          <div className="relative z-10 flex items-center gap-1 sm:gap-1.5">
+                            {allConquistas
+                              .filter(c => c.tipo === 'CLASSE_REGULAR')
+                              .sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
+                              .map(con => {
+                                const eligibility = checkConquistaEligibility(con, userAge);
+                                const isUnlocked = userAchievements.includes(con.id);
+                                return (
+                                  <button
+                                    key={con.id}
+                                    onClick={() => toggleAchievement(con.id)}
+                                    className={`w-8 h-8 sm:w-9 sm:h-9 relative transition-all active:scale-90 group hover:scale-110 cursor-pointer flex items-center justify-center rounded-full p-[2px] bg-gradient-to-b from-[#fce99f] via-[#cfa038] to-[#735112] shadow-[0_2px_5px_rgba(0,0,0,0.65)] ${
+                                      !eligibility.isEligible ? 'opacity-35 cursor-not-allowed' : ''
                                     }`}
-                                    alt={con.nome}
-                                  />
-                                  {!eligibility.isEligible && (
-                                    <span className="absolute -top-0.5 -right-0.5 bg-black/80 text-amber-300 p-0.5 rounded-full leading-none z-20">
-                                      <Lock size={6} />
-                                    </span>
-                                  )}
-                                </button>
-                              );
-                            })}
+                                    title={!eligibility.isEligible ? eligibility.msg : `${con.nome} • Classe Regular (Toque para alternar)`}
+                                  >
+                                    {/* Miolo circular esmaltado com aro interno fino e efeito de resina vitrificada */}
+                                    <div className="w-full h-full rounded-full overflow-hidden relative flex items-center justify-center border border-[#9b7621] bg-black/10">
+                                      <img
+                                        src={isUnlocked ? con.imagem_colorida : con.imagem_cinza}
+                                        className={`w-full h-full object-cover transition-all ${
+                                          isUnlocked ? 'opacity-100 brightness-105' : 'opacity-35 grayscale'
+                                        }`}
+                                        alt={con.nome}
+                                      />
+                                      {/* Brilho esmaltado de resina vitrificada (cúpula abaulada de condecoração militar) */}
+                                      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/35 to-transparent pointer-events-none rounded-full" />
+                                      <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent pointer-events-none rounded-t-full" />
+                                    </div>
+                                    {!eligibility.isEligible && (
+                                      <span className="absolute -top-1 -right-1 bg-black/80 text-amber-300 p-0.5 rounded-full leading-none z-20 shadow-xs">
+                                        <Lock size={6} />
+                                      </span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1887,84 +1916,149 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                           }
                         });
 
-                        const remainingSpecialties = ordinarySpecialties.filter(s => !assignedIds.has(s.id.toString()));
-                        const remainingGroups = Object.entries(
-                          remainingSpecialties.reduce((acc, esp) => {
+                        // Estrutura de blocos na faixa solicitada pelo usuário:
+                        // Para cada mestrado ativo:
+                        //   1. Patch oval do Mestrado
+                        //   2. Especialidades que compõem aquele mestrado
+                        //   3. Especialidades da mesma área/cor que NÃO estão no mestrado
+                        // Em seguida, os demais blocos de especialidades de outras áreas que não possuem mestrado ativo.
+
+                        interface SashBlock {
+                          mastery?: ActiveMasteryGroup;
+                          specialties: Especialidade[];
+                          areaName?: string;
+                        }
+
+                        const sashBlocks: SashBlock[] = [];
+                        const usedMasteryIds = new Set<string>();
+                        const usedSpecialtyIds = new Set<string>();
+
+                        // 1. Processa cada grupo de mestrado ativo
+                        activeMasteryGroups.forEach(mGroup => {
+                          usedMasteryIds.add(String(mGroup.id));
+
+                          // Especialidades que cumprem o mestrado (ordenadas)
+                          const mSpecialties = [...mGroup.items]
+                            .filter(s => !usedSpecialtyIds.has(String(s.id)))
+                            .sort((a, b) => a.nome.localeCompare(b.nome));
+
+                          mSpecialties.forEach(s => usedSpecialtyIds.add(String(s.id)));
+
+                          // Área correspondente ao mestrado para encontrar as especialidades daquela mesma cor/área
+                          const normMName = normalize(mGroup.name);
+                          const matchingRule = MASTERY_RULES.find(r => {
+                            const rNorm = normalize(r.name);
+                            return rNorm === normMName || normMName.includes(rNorm) || rNorm.includes(normMName);
+                          });
+
+                          const targetCategory = matchingRule?.category ? cleanStr(matchingRule.category) : '';
+                          const targetSiglas = matchingRule?.siglas || [];
+
+                          // Especialidades da mesma área/cor que NÃO estão no mestrado
+                          const sameAreaSpecialties = ordinarySpecialties
+                            .filter(s => !usedSpecialtyIds.has(String(s.id)))
+                            .filter(s => {
+                              const sCat = cleanStr(s.area);
+                              const sSigla = s.sigla || '';
+                              if (targetCategory && (sCat === targetCategory || sCat.includes(targetCategory) || targetCategory.includes(sCat))) {
+                                return true;
+                              }
+                              if (targetSiglas.length > 0 && targetSiglas.includes(sSigla)) {
+                                return true;
+                              }
+                              // Correspondência por palavras-chave conhecidas (ex: zoologia -> Estudo da Natureza)
+                              if (normMName.includes('zoologia') || normMName.includes('botanica') || normMName.includes('ecologia')) {
+                                return sCat.includes('natureza') || sSigla === 'EN';
+                              }
+                              if (normMName.includes('campestre')) {
+                                return sCat.includes('campestre') || sCat.includes('recreativas') || sSigla === 'VC' || sSigla === 'AR';
+                              }
+                              return false;
+                            })
+                            .sort((a, b) => a.nome.localeCompare(b.nome));
+
+                          sameAreaSpecialties.forEach(s => usedSpecialtyIds.add(String(s.id)));
+
+                          // Especialidades totais deste bloco (as do mestrado + as da mesma cor logo a seguir)
+                          const combined = [...mSpecialties, ...sameAreaSpecialties];
+
+                          sashBlocks.push({
+                            mastery: mGroup,
+                            specialties: combined,
+                            areaName: matchingRule?.category || mGroup.name
+                          });
+                        });
+
+                        // 2. Especialidades restantes (de áreas sem mestrado ativo conquistado), agrupadas por área/cor
+                        const leftoverSpecialties = ordinarySpecialties.filter(s => !usedSpecialtyIds.has(String(s.id)));
+                        const leftoverByArea = Object.entries(
+                          leftoverSpecialties.reduce((acc, esp) => {
                             const area = esp.area || 'Outras';
                             if (!acc[area]) acc[area] = [];
                             acc[area].push(esp);
                             return acc;
                           }, {} as Record<string, Especialidade[]>)
-                        ).map(([area, items]): { id: string; area: string; items: Especialidade[]; } => ({
-                          id: area,
-                          area,
-                          items: items as Especialidade[]
-                        }));
+                        );
 
-                        // Lista ordenada: primeiro as especialidades dos mestrados ativos, depois as demais por área
-                        const orderedSpecialties: Especialidade[] = [];
-                        
-                        // 1. Especialidades dos mestrados ativos primeiro
-                        activeMasteryGroups.forEach(g => {
-                          const sortedItems = [...g.items].sort((a, b) => a.nome.localeCompare(b.nome));
-                          sortedItems.forEach(item => {
-                            if (!orderedSpecialties.some(s => String(s.id) === String(item.id))) {
-                              orderedSpecialties.push(item);
-                            }
-                          });
-                        });
+                        // Ordena as áreas restantes
+                        leftoverByArea.sort(([a], [b]) => a.localeCompare(b));
 
-                        // 2. Especialidades restantes agrupadas por área
-                        remainingGroups.forEach(g => {
-                          const sortedItems = [...g.items].sort((a, b) => a.nome.localeCompare(b.nome));
-                          sortedItems.forEach(item => {
-                            if (!orderedSpecialties.some(s => String(s.id) === String(item.id))) {
-                              orderedSpecialties.push(item);
-                            }
+                        leftoverByArea.forEach(([area, items]) => {
+                          const sortedItems = [...items].sort((a, b) => a.nome.localeCompare(b.nome));
+                          sashBlocks.push({
+                            specialties: sortedItems,
+                            areaName: area
                           });
                         });
 
                         return (
-                          <div className="w-full space-y-1 sm:space-y-1.5">
-                            {/* Insígnias dos Mestrados Conquistados (Escala real: grande, oval, bordado com relevo sobre a faixa) */}
-                            {activeMasteryGroups.length > 0 && (
-                              <div className="flex items-center justify-center gap-2 flex-wrap pt-0.5 pb-0.5">
-                                {activeMasteryGroups.map(group => (
-                                  <div 
-                                    key={group.id} 
-                                    className="w-28 h-20 sm:w-32 sm:h-22 flex items-center justify-center relative transition-transform active:scale-95 hover:scale-105 select-none cursor-pointer"
-                                    title={`Mestrado: ${group.name}`}
-                                  >
-                                    {group.logo ? (
-                                      <img src={group.logo} className="w-full h-full object-contain filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.7)]" alt={group.name} />
-                                    ) : (
-                                      <Trophy size={40} className="text-amber-400 filter drop-shadow" />
-                                    )}
+                          <div className="w-full space-y-4 sm:space-y-5">
+                            {sashBlocks.map((block, idx) => (
+                              <div key={idx} className="w-full space-y-1.5 sm:space-y-2">
+                                {/* Se o bloco tem Mestrado: exibe o emblema oval do Mestrado centralizado logo acima */}
+                                {block.mastery && (
+                                  <div className="flex flex-col items-center justify-center pt-1 pb-1">
+                                    <div 
+                                      className="w-32 h-22 sm:w-36 sm:h-24 flex items-center justify-center relative select-none pointer-events-none"
+                                      title={`Mestrado: ${block.mastery.name}`}
+                                    >
+                                      {block.mastery.logo ? (
+                                        <img 
+                                          src={block.mastery.logo} 
+                                          className="w-full h-full object-contain filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.75)]" 
+                                          alt={block.mastery.name} 
+                                        />
+                                      ) : (
+                                        <Trophy size={44} className="text-amber-400 filter drop-shadow" />
+                                      )}
+                                    </div>
                                   </div>
-                                ))}
-                              </div>
-                            )}
+                                )}
 
-                            {/* ESPECIALIDADES REAIS DA FAIXA: 4 colunas com toque quase contíguo entre emblemas redondos bordados */}
-                            <div className="grid grid-cols-4 gap-0.5 sm:gap-1 w-full justify-items-center">
-                              {orderedSpecialties.map(esp => (
-                                <div 
-                                  key={esp.id} 
-                                  className="w-[74px] h-[74px] sm:w-[82px] sm:h-[82px] flex items-center justify-center transition-transform active:scale-90 hover:scale-110 select-none cursor-pointer p-0"
-                                  title={esp.nome}
-                                >
-                                  {esp.logo ? (
-                                    <img 
-                                      src={esp.logo} 
-                                      className="w-full h-full object-contain filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.65)]" 
-                                      alt={esp.nome} 
-                                    />
-                                  ) : (
-                                    <Award size={34} className="text-emerald-200" />
-                                  )}
-                                </div>
-                              ))}
-                            </div>
+                                {/* Especialidades correspondentes logo abaixo (primeiro as do mestrado, depois as da mesma cor) */}
+                                {block.specialties.length > 0 && (
+                                  <div className="grid grid-cols-4 gap-0.5 sm:gap-1 w-full justify-items-center">
+                                    {block.specialties.map(esp => (
+                                      <div 
+                                        key={esp.id} 
+                                        className="w-[74px] h-[74px] sm:w-[82px] sm:h-[82px] flex items-center justify-center select-none pointer-events-none p-0"
+                                        title={esp.nome}
+                                      >
+                                        {esp.logo ? (
+                                          <img 
+                                            src={esp.logo} 
+                                            className="w-full h-full object-contain filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.65)]" 
+                                            alt={esp.nome} 
+                                          />
+                                        ) : (
+                                          <Award size={34} className="text-emerald-200" />
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
                           </div>
                         );
                       })()

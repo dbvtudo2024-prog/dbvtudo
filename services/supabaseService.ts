@@ -520,24 +520,25 @@ export async function fetchUserFaixaSpecialties(email?: string | null, userId?: 
           .select('Especialidades, especialidades')
           .eq('user_id', effectiveUserId)
           .maybeSingle();
-        if (data) rawData = data.Especialidades || data.especialidades;
+        if (data) {
+          rawData = data.Especialidades !== undefined ? data.Especialidades : data.especialidades;
+        }
       } catch {}
     }
 
-    if (!rawData) {
-      return getLocalFaixaSpecialties(email, clubType);
-    }
+    if (rawData !== null && rawData !== undefined) {
+      if (typeof rawData === 'string') {
+        const parsed = rawData.split(',').map(id => id.trim()).filter(id => id.length > 0);
+        // Retorna mesmo que vazio (ex: usuário removeu tudo) ou com especialidades
+        return parsed;
+      }
 
-    if (typeof rawData === 'string') {
-      const parsed = rawData.split(',').map(id => id.trim()).filter(id => id.length > 0);
-      if (parsed.length > 0) return parsed;
-    }
-
-    if (Array.isArray(rawData)) {
-      const parsed = rawData
-        .map(id => (id !== null && id !== undefined ? id.toString().trim() : ''))
-        .filter(id => id.length > 0);
-      if (parsed.length > 0) return parsed;
+      if (Array.isArray(rawData)) {
+        const parsed = rawData
+          .map(id => (id !== null && id !== undefined ? id.toString().trim() : ''))
+          .filter(id => id.length > 0);
+        return parsed;
+      }
     }
 
     return getLocalFaixaSpecialties(email, clubType);
@@ -573,12 +574,28 @@ export async function updateUserFaixa(email?: string | null, specialties: string
       updated_at: new Date().toISOString()
     };
 
-    const { data, error } = await supabase
+    // Tentar update na coluna Especialidades
+    let res = await supabase
       .from('Usuarios')
       .update(updatePayload)
       .eq('user_id', effectiveUserId);
 
-    return { data, error };
+    // Se falhar ou se a linha não existir, tentar upsert
+    if (res.error) {
+      const upsertRes = await supabase
+        .from('Usuarios')
+        .upsert({
+          user_id: effectiveUserId,
+          Especialidades: espString,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id' });
+      if (!upsertRes.error) {
+        return { data: upsertRes.data, error: null };
+      }
+      return { data: null, error: res.error || upsertRes.error };
+    }
+
+    return { data: res.data, error: res.error };
   } catch (err: any) {
     return { data: null, error: err };
   }
