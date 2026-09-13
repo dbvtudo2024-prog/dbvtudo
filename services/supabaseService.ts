@@ -2419,3 +2419,115 @@ export async function deleteTrunfo(id: number) {
   }
 }
 
+export interface FaixaConfig {
+  globo_desbravador: string; // Até 15 anos fundo cáqui
+  globo_lideranca: string;   // 16 acima fundo branco
+  globo_lider: string;       // Pin de líder, master e master avançado
+}
+
+export const DEFAULT_FAIXA_CONFIG: FaixaConfig = {
+  globo_desbravador: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/insignias/D4_b%20Desbravador.png',
+  globo_lideranca: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/insignias/D4_a%20Lideranca.png',
+  globo_lider: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/insignias/L1%20Lider.png',
+};
+
+export async function fetchFaixaConfig(): Promise<FaixaConfig> {
+  let localConfig: FaixaConfig | null = null;
+  try {
+    const raw = localStorage.getItem('dbv_tudo_faixa_config');
+    if (raw) localConfig = JSON.parse(raw);
+  } catch {}
+
+  try {
+    const { data, error } = await supabase
+      .from('Cultura')
+      .select('insignias_tiras')
+      .eq('club_type', 'PATHFINDER')
+      .single();
+
+    if (!error && data?.insignias_tiras) {
+      let parsed = typeof data.insignias_tiras === 'string'
+        ? JSON.parse(data.insignias_tiras)
+        : data.insignias_tiras;
+
+      if (parsed && (parsed.globo_desbravador || parsed.globo_lideranca || parsed.globo_lider)) {
+        const merged: FaixaConfig = {
+          globo_desbravador: parsed.globo_desbravador || DEFAULT_FAIXA_CONFIG.globo_desbravador,
+          globo_lideranca: parsed.globo_lideranca || DEFAULT_FAIXA_CONFIG.globo_lideranca,
+          globo_lider: parsed.globo_lider || DEFAULT_FAIXA_CONFIG.globo_lider,
+        };
+        try {
+          localStorage.setItem('dbv_tudo_faixa_config', JSON.stringify(merged));
+        } catch {}
+        return merged;
+      }
+    }
+  } catch (err) {
+    console.warn("Erro ao buscar configurações da faixa:", err);
+  }
+
+  return localConfig || DEFAULT_FAIXA_CONFIG;
+}
+
+export async function updateFaixaConfig(config: FaixaConfig): Promise<{ error: any }> {
+  try {
+    localStorage.setItem('dbv_tudo_faixa_config', JSON.stringify(config));
+    try {
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new CustomEvent('dbv_faixa_config_updated', { detail: config }));
+    } catch {}
+
+    const jsonStr = JSON.stringify(config);
+    const { error } = await supabase
+      .from('Cultura')
+      .update({ insignias_tiras: jsonStr })
+      .eq('club_type', 'PATHFINDER');
+
+    return { error };
+  } catch (err) {
+    return { error: err };
+  }
+}
+
+export async function uploadFaixaImage(file: File, filenameKey: string): Promise<{ url: string | null; error: any }> {
+  try {
+    const ext = file.name.split('.').pop() || 'png';
+    const cleanFileName = `faixa_${filenameKey}_${Date.now()}.${ext}`;
+    const path = `insignias/${cleanFileName}`;
+
+    const { error } = await supabase.storage
+      .from('App DBV Tudo')
+      .upload(path, file, {
+        cacheControl: '3600',
+        upsert: true
+      });
+
+    if (error) {
+      console.warn("Upload no Supabase falhou, utilizando base64:", error);
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          resolve({ url: reader.result as string, error: null });
+        };
+        reader.onerror = (e) => resolve({ url: null, error: e });
+        reader.readAsDataURL(file);
+      });
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('App DBV Tudo')
+      .getPublicUrl(path);
+
+    return { url: publicUrlData.publicUrl, error: null };
+  } catch (err) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        resolve({ url: reader.result as string, error: null });
+      };
+      reader.onerror = (e) => resolve({ url: null, error: e });
+      reader.readAsDataURL(file);
+    });
+  }
+}
+

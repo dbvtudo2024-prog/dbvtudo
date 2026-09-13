@@ -1,12 +1,11 @@
 {
-  "version": 1757769600000,
-  "versionName": "2.8.0",
-  "buildDate": "2026-09-13T12:00:00.000Z",
-  "timestamp": 1757769600000,
+  "version": 1757860000000,
+  "versionName": "2.9.4",
+  "buildDate": "2026-09-14T14:15:00.000Z",
+  "timestamp": 1757860000000,
   "highlights": [
-    "Mestrados com especialidades compartilhadas agora posicionados lado a lado na Faixa",
-    "Agrupamento e exibição precisa das especialidades de Vida Campestre junto ao seu mestrado",
-    "Agrupamento e exibição precisa das especialidades de Botânica junto ao seu mestrado",
-    "Preservação e ordenação harmoniosa das especialidades correspondentes a cada área"
+    "Ordem estrita de mestrados e especialidades na faixa conforme regras e divisão oficial de áreas da DSA",
+    "Ordenação canônica das especialidades dentro de cada mestrado",
+    "Refinamento visual da ponta da faixa verde-petróleo e simulador administrativo"
   ]
 }

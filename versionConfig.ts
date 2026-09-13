@@ -6,14 +6,74 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '2.8.0';
-export const APP_BUILD_DATE = '13 de Setembro de 2026';
+export const APP_VERSION = '2.9.4';
+export const APP_BUILD_DATE = '14 de Setembro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '2.9.4',
+    date: '14/09/2026',
+    tag: 'NOVO',
+    title: 'Alinhamento Fiel da Faixa: Sequência Oficial de Mestrados e Especialidades e Ponta Realista',
+    changes: [
+      'Alinhamento estrito da ordem de mestrados e especialidades conforme as diretrizes oficiais e imagem de referência: mestrados e suas respectivas especialidades no topo por ordem de regras oficiais, seguidos pelas especialidades agrupadas por áreas na ordem oficial da DSA (ADRA, Artes Manuais, Agrícolas, Espiritual, Profissional/Tecnologia, Recreativas/Campestre, Saúde, Natureza e Domésticas).',
+      'Ordenação canônica das especialidades dentro de cada mestrado conforme os requisitos e matriz da regra oficial.',
+      'Refinamento da ponta da faixa verde-petróleo com proporção e acabamento fiéis ao uniforme real e emblema do globo dinâmico perfeitamente emoldurado.',
+      'Ajuste simultâneo no simulador interativo de globos no Painel Administrativo.'
+    ]
+  },
+  {
+    version: '2.9.3',
+    date: '14/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Ponta da Faixa com Corte Diagonal Oficial, Globo Dinâmico por Idade/Liderança e Painel Admin de Imagens',
+    changes: [
+      'Ponta da faixa com extremidade inferior em corte diagonal autêntico (64px) e pesponto estilizado em conformidade com o Manual de Uniformes da DSA e referência fotográfica oficial.',
+      'Globo dinâmico na ponta da faixa: até 15 anos exibe o Globo Desbravador (fundo cáqui), a partir de 16 anos exibe o Globo Liderança (fundo branco), e com pin de Líder, Master ou Master Avançado ativo exibe o Globo de Líder (L1 com estrela dourada ao centro).',
+      'Gestão dos Globos da Faixa no Painel Administrativo: tela dedicada com visualização prévia, campos de URL, upload direto de imagens locais e restauração rápida para os padrões oficiais.',
+      'Simulador Interativo da Ponta da Faixa no Admin com alternância em tempo real entre os três modos (Até 15 anos, 16+ anos e Líder Ativo).',
+      'Modal informativo no perfil do usuário ao clicar no globo da faixa, detalhando as regras oficiais da DSA e o status do usuário.'
+    ]
+  },
+  {
+    version: '2.9.2',
+    date: '14/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Ordenação Sequencial de Mestrados e Agrupamento Preciso de Especialidades na Faixa',
+    changes: [
+      'Estrutura sequencial em áreas com mais de um mestrado independente: exibe o primeiro mestrado seguido de suas especialidades, depois o segundo mestrado seguido de suas especialidades, e ao final as especialidades que não completam um mestrado.',
+      'Mestrados que compartilham a mesma especialidade (ex: Atividades Profissionais e Ciência e Tecnologia): posicionados lado a lado no topo do bloco, acima de suas especialidades em comum.',
+      'Especialidades de outras áreas atribuídas a mestrados (ex: Bactérias, Citologia, Protozoários, Vírus na área de Natureza atribuídos a Mestrado em Saúde): agrupadas e exibidas diretamente junto ao mestrado conquistado a que pertencem, sem irem para as sobras da outra área.'
+    ]
+  },
+  {
+    version: '2.9.1',
+    date: '14/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Mestrados que Dividem Especialidades Lado a Lado e Especialidades de Outras Áreas Agrupadas ao Mestrado',
+    changes: [
+      'Posicionamento lado a lado de mestrados que compartilham especialidades (ex: Ciência e Tecnologia e Atividades Profissionais): ambos os emblemas ovais agora são exibidos juntos acima de suas especialidades unificadas na Faixa.',
+      'Agrupamento de especialidades de outras áreas junto ao mestrado: especialidades que pertencem a um mestrado ativo (mesmo cadastradas sob outra categoria no banco) agora são reunidas diretamente sob o mestrado correspondente.',
+      'Reconhecimento ampliado de especialidades compartilhadas de tecnologia e computação para os mestrados em Atividades Profissionais e Ciência e Tecnologia.',
+      'Exibição das especialidades avulsas restantes da área logo após o bloco dos mestrados e suas especialidades.'
+    ]
+  },
+  {
+    version: '2.9.0',
+    date: '14/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Sincronização Celular/PC e Sequência de Mestrados e Especialidades na Faixa',
+    changes: [
+      'Correção da sincronização em tempo real da faixa: eliminada falha de escrita no Supabase (coluna inexistente updated_at), garantindo persistência imediata das especialidades salvas no celular.',
+      'Sincronização bidirecional completa: ao logar ou abrir o perfil no PC, as especialidades da faixa são baixadas do Supabase e sincronizadas automaticamente.',
+      'Nova regra de disposição na Faixa: cada mestrado é seguido diretamente por suas especialidades correspondentes. Se houver 2 mestrados na mesma área, é exibido o primeiro com suas especialidades, depois o segundo com as suas, e por fim as especialidades restantes que não pertencem a nenhum dos 2 mestrados daquela área.',
+      'Sincronização imediata das especialidades da faixa logo após o login no Auth.'
+    ]
+  },
+  {
     version: '2.8.0',
     date: '13/09/2026',
-    tag: 'NOVO',
+    tag: 'ESTÁVEL',
     title: 'Mestrados Lado a Lado e Agrupamento Preciso de Vida Campestre e Botânica',
     changes: [
       'Mestrados com especialidades compartilhadas (ex: Atividades Profissionais e Ciência e Tecnologia) agora são posicionados lado a lado acima das especialidades na Faixa.',

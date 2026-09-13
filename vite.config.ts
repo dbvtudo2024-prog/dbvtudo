@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '2.8.0';
+const appVersion = '2.9.4';
 
 function versionPlugin(): Plugin {
   return {
@@ -19,10 +19,9 @@ function versionPlugin(): Plugin {
           buildDate: new Date(buildTime).toISOString(),
           timestamp: buildTime,
           highlights: [
-            "Mestrados com especialidades compartilhadas agora posicionados lado a lado na Faixa",
-            "Agrupamento e exibição precisa das especialidades de Vida Campestre junto ao seu mestrado",
-            "Agrupamento e exibição precisa das especialidades de Botânica junto ao seu mestrado",
-            "Preservação e ordenação harmoniosa das especialidades correspondentes a cada área"
+            "Ordem estrita de mestrados e especialidades na faixa conforme regras e divisão oficial de áreas da DSA",
+            "Ordenação canônica das especialidades dentro de cada mestrado",
+            "Refinamento visual da ponta da faixa verde-petróleo e simulador administrativo"
           ]
         }, null, 2)
       });

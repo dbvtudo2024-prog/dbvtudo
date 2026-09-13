@@ -16,7 +16,8 @@ import {
   createVideo, updateVideo, deleteVideo, createVideoCategory, updateVideoCategory, deleteVideoCategory,
   fetchLivrosAVT, fetchManuaisAVT, fetchAppLinks, updateAppLink, deleteAppLink,
   fetchConquistas, updateConquista, deleteConquista,
-  fetchTrunfos, updateTrunfo, deleteTrunfo
+  fetchTrunfos, updateTrunfo, deleteTrunfo,
+  fetchFaixaConfig, updateFaixaConfig, uploadFaixaImage, FaixaConfig, DEFAULT_FAIXA_CONFIG
 } from '../services/supabaseService';
 import { PROFILE_KEY } from '../constants';
 import { MASTERY_RULES } from '../masteryRules';
@@ -1735,7 +1736,7 @@ export type SubViewType =
   | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' 
   | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' 
   | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS' | 'PDF_VIEWER' | 'LIBRARY_BOOKS_MENU' 
-  | 'VIDEOS' | 'VIDEO_ADMIN' | 'FORM_ADMIN' | 'VIDEO_PLAYER' | 'LINKS_ADMIN' | 'ACHIEVEMENTS_ADMIN' | 'TRUNFOS' | 'TRUNFOS_ADMIN' | 'WEB_VIEWER';
+  | 'VIDEOS' | 'VIDEO_ADMIN' | 'FORM_ADMIN' | 'VIDEO_PLAYER' | 'LINKS_ADMIN' | 'ACHIEVEMENTS_ADMIN' | 'TRUNFOS' | 'TRUNFOS_ADMIN' | 'WEB_VIEWER' | 'FAIXA_ADMIN';
 
 interface ClubManagementProps {
   club: ClubType;
@@ -1954,6 +1955,16 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   const [isSavingTrunfo, setIsSavingTrunfo] = useState(false);
   const [trunfoSearchQuery, setTrunfoSearchQuery] = useState('');
 
+  // Estados e controle da Gestão da Faixa
+  const [faixaAdminConfig, setFaixaAdminConfig] = useState<FaixaConfig>(DEFAULT_FAIXA_CONFIG);
+  const [isSavingFaixaConfig, setIsSavingFaixaConfig] = useState(false);
+  const [faixaConfigSavedSuccess, setFaixaConfigSavedSuccess] = useState(false);
+  const [faixaSimulationMode, setFaixaSimulationMode] = useState<'DESBRAVADOR' | 'LIDERANCA' | 'LIDER'>('DESBRAVADOR');
+  const [isUploadingFaixaImg, setIsUploadingFaixaImg] = useState<string | null>(null);
+  const fileInputDesbravadorRef = useRef<HTMLInputElement>(null);
+  const fileInputLiderancaRef = useRef<HTMLInputElement>(null);
+  const fileInputLiderRef = useRef<HTMLInputElement>(null);
+
   const isPathfinder = club === ClubType.PATHFINDER;
   const themeColor = isPathfinder ? '#dc371b' : '#800000';
   const themeBgLight = isPathfinder ? 'bg-[#dc371b]/5' : 'bg-[#800000]/5';
@@ -1963,6 +1974,51 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     setNewVideoCategory(prev => ({ ...prev, club: club }));
     setNewTrunfo(prev => ({ ...prev, club: club }));
   }, [club]);
+
+  // Carregar configurações de imagens dos globos da faixa
+  useEffect(() => {
+    fetchFaixaConfig().then(cfg => {
+      if (cfg) setFaixaAdminConfig(cfg);
+    }).catch(err => console.warn("Erro ao carregar faixaConfig no admin:", err));
+  }, []);
+
+  const handleSaveFaixaAdmin = async () => {
+    setIsSavingFaixaConfig(true);
+    const { error } = await updateFaixaConfig(faixaAdminConfig);
+    setIsSavingFaixaConfig(false);
+    if (error) {
+      alert("Erro ao salvar configurações da faixa: " + (error.message || error));
+    } else {
+      setFaixaConfigSavedSuccess(true);
+      setTimeout(() => setFaixaConfigSavedSuccess(false), 3000);
+    }
+  };
+
+  const handleUploadFaixaFile = async (key: 'globo_desbravador' | 'globo_lideranca' | 'globo_lider', file: File) => {
+    setIsUploadingFaixaImg(key);
+    try {
+      const { url, error } = await uploadFaixaImage(file, key);
+      if (url) {
+        setFaixaAdminConfig(prev => ({ ...prev, [key]: url }));
+      } else if (error) {
+        alert("Erro no upload da imagem: " + (error.message || error));
+      }
+    } catch (e: any) {
+      alert("Erro ao processar imagem: " + e.message);
+    } finally {
+      setIsUploadingFaixaImg(null);
+    }
+  };
+
+  const handleResetSingleFaixaGlobe = (key: 'globo_desbravador' | 'globo_lideranca' | 'globo_lider') => {
+    setFaixaAdminConfig(prev => ({ ...prev, [key]: DEFAULT_FAIXA_CONFIG[key] }));
+  };
+
+  const handleResetAllFaixaGlobes = () => {
+    if (confirm("Deseja restaurar as 3 imagens dos globos para os padrões oficiais da DSA?")) {
+      setFaixaAdminConfig({ ...DEFAULT_FAIXA_CONFIG });
+    }
+  };
 
   useEffect(() => {
     if (newVideo.link && (newVideo.link.includes('youtube.com') || newVideo.link.includes('youtu.be'))) {
@@ -5104,6 +5160,27 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
     return (
       <div className="animate-slide-in space-y-6 pt-2 pb-28 px-4">
+        {/* Banner de atalho para configuração dos Globos da Faixa */}
+        <div className="bg-[#0c3c31] text-white p-5 rounded-[28px] shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4 border border-[#092d25] relative overflow-hidden">
+          <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:8px_8px]" />
+          <div className="flex items-center space-x-3 relative z-10">
+            <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center border border-white/20 flex-shrink-0">
+              <Shield size={24} className="text-emerald-300" />
+            </div>
+            <div>
+              <h4 className="font-black text-sm uppercase tracking-tight">Globos da Ponta da Faixa</h4>
+              <p className="text-emerald-200/80 text-[11px] font-medium">Configure as imagens oficiais dos globos da faixa (Desbravador, Liderança e Líder).</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveSubView('FAIXA_ADMIN')}
+            className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 whitespace-nowrap relative z-10"
+          >
+            Configurar Globos
+          </button>
+        </div>
+
         <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-6 rounded-[32px] shadow-sm space-y-4">
           <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-tight">
             {conquistaEditId ? 'Editar Conquista' : 'Nova Conquista'}
@@ -5331,6 +5408,19 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             <div className="text-left">
               <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-tight">Gestão de Trunfos</h4>
               <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Trunfos, Eventos e Histórias</p>
+            </div>
+          </button>
+
+          <button 
+            onClick={() => setActiveSubView('FAIXA_ADMIN')}
+            className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-6 rounded-[32px] flex items-center space-x-4 shadow-sm active:scale-95 transition-all group"
+          >
+            <div className="w-14 h-14 bg-[#0c3c31] rounded-2xl flex items-center justify-center text-white group-hover:opacity-90 transition-opacity shadow-lg shadow-emerald-950/20">
+              <Shield size={28} className="text-emerald-300" />
+            </div>
+            <div className="text-left">
+              <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-tight">Gestão da Faixa</h4>
+              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Globos e Imagens da Ponta da Faixa</p>
             </div>
           </button>
         </div>
@@ -5923,6 +6013,290 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               </div>
             ))
           )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderFaixaAdmin = () => {
+    return (
+      <div className="animate-slide-in space-y-6 pt-2 pb-28 px-4 max-w-3xl mx-auto">
+        {/* Cabeçalho da Seção */}
+        <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-6 rounded-[32px] shadow-sm">
+          <div className="flex items-center space-x-4">
+            <div className="w-14 h-14 bg-[#0c3c31] rounded-2xl flex items-center justify-center text-white shadow-lg">
+              <Shield size={28} className="text-emerald-300" />
+            </div>
+            <div>
+              <h3 className="text-lg sm:text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">
+                Gestão dos Globos da Faixa
+              </h3>
+              <p className="text-slate-400 text-xs font-medium">
+                Configure as imagens dos emblemas que aparecem na extremidade inferior da faixa
+              </p>
+            </div>
+          </div>
+
+          {/* Regras Oficiais do Manual da DSA */}
+          <div className="mt-5 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 space-y-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              Regras do Manual de Uniformes da DSA
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-xs">
+              <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40">
+                <span className="font-bold text-amber-800 dark:text-amber-300 block">🏕️ Até 15 anos</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">Fundo cáqui ("Globo Desbravador")</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                <span className="font-bold text-slate-800 dark:text-slate-200 block">👔 16 anos acima</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">Fundo branco ("Globo Liderança")</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800/60">
+                <span className="font-bold text-amber-900 dark:text-amber-200 block">🌟 Pins de Líder</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">Globo de Líder (L1 com estrela dourada)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Simulador em Tempo Real da Ponta da Faixa */}
+        <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-6 rounded-[32px] shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-tight text-sm">
+                Pré-visualização da Ponta da Faixa
+              </h4>
+              <p className="text-slate-400 text-xs">
+                Veja em tempo real como o emblema aparece no corte diagonal oficial da faixa
+              </p>
+            </div>
+
+            {/* Alternador de Simulação */}
+            <div className="inline-flex p-1 bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setFaixaSimulationMode('DESBRAVADOR')}
+                className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${faixaSimulationMode === 'DESBRAVADOR' ? 'bg-[#bba882] text-white shadow' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
+              >
+                Até 15 anos
+              </button>
+              <button
+                type="button"
+                onClick={() => setFaixaSimulationMode('LIDERANCA')}
+                className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${faixaSimulationMode === 'LIDERANCA' ? 'bg-white text-slate-900 shadow' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
+              >
+                16+ anos
+              </button>
+              <button
+                type="button"
+                onClick={() => setFaixaSimulationMode('LIDER')}
+                className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${faixaSimulationMode === 'LIDER' ? 'bg-amber-400 text-slate-900 shadow' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
+              >
+                Líder Ativo
+              </button>
+            </div>
+          </div>
+
+          {/* Maquete da Ponta da Faixa Verde Fiel à Faixa Real */}
+          <div className="w-full flex justify-center py-4">
+            <div className="w-64 filter drop-shadow-[0_16px_20px_rgba(0,0,0,0.4)]">
+              <div 
+                className="w-full bg-[#0c3c31] border-2 border-[#092d25] rounded-2xl pt-6 pb-6 px-4 flex flex-col items-center relative overflow-hidden text-white"
+              >
+                <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:10px_10px]" />
+                <div className="absolute top-2 bottom-2 left-2 w-px border-l border-dashed border-emerald-300/25 pointer-events-none" />
+                <div className="absolute top-2 bottom-2 right-2 w-px border-r border-dashed border-emerald-300/25 pointer-events-none" />
+                <div className="absolute bottom-2 left-2 right-2 h-px border-b border-dashed border-emerald-300/25 pointer-events-none" />
+
+                {/* Imagem do Globo Simulado */}
+                <div className="w-24 h-24 relative flex items-center justify-center my-2">
+                  <img 
+                    src={
+                      faixaSimulationMode === 'LIDER' ? (faixaAdminConfig.globo_lider || DEFAULT_FAIXA_CONFIG.globo_lider) :
+                      faixaSimulationMode === 'LIDERANCA' ? (faixaAdminConfig.globo_lideranca || DEFAULT_FAIXA_CONFIG.globo_lideranca) :
+                      (faixaAdminConfig.globo_desbravador || DEFAULT_FAIXA_CONFIG.globo_desbravador)
+                    } 
+                    alt="Globo Simulado"
+                    className="w-full h-full object-contain filter drop-shadow-[0_6px_10px_rgba(0,0,0,0.65)]" 
+                  />
+                </div>
+
+                <div className="mt-1 px-2.5 py-0.5 bg-black/60 rounded-full border border-emerald-400/30 text-[9px] font-black uppercase tracking-wider text-emerald-100">
+                  {
+                    faixaSimulationMode === 'LIDER' ? 'Globo de Líder (L1)' :
+                    faixaSimulationMode === 'LIDERANCA' ? 'Globo Liderança (16+)' :
+                    'Globo Desbravador (Até 15)'
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Formulários de Configuração dos 3 Globos */}
+        <div className="space-y-4">
+          {/* Inputs ocultos de upload */}
+          <input 
+            type="file" 
+            ref={fileInputDesbravadorRef} 
+            accept="image/*" 
+            className="hidden" 
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleUploadFaixaFile('globo_desbravador', file);
+            }} 
+          />
+          <input 
+            type="file" 
+            ref={fileInputLiderancaRef} 
+            accept="image/*" 
+            className="hidden" 
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleUploadFaixaFile('globo_lideranca', file);
+            }} 
+          />
+          <input 
+            type="file" 
+            ref={fileInputLiderRef} 
+            accept="image/*" 
+            className="hidden" 
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleUploadFaixaFile('globo_lider', file);
+            }} 
+          />
+
+          {[
+            {
+              key: 'globo_desbravador' as const,
+              title: '1. Globo Desbravador',
+              badge: 'Até 15 anos • Fundo Cáqui',
+              badgeColor: 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+              desc: 'Emblema D4 bordado em tecido cáqui. Exibido na ponta da faixa para desbravadores de 10 a 15 anos.',
+              fileRef: fileInputDesbravadorRef
+            },
+            {
+              key: 'globo_lideranca' as const,
+              title: '2. Globo Liderança',
+              badge: '16 anos acima • Fundo Branco',
+              badgeColor: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700',
+              desc: 'Emblema D4 bordado em tecido branco da liderança. Exibido na ponta da faixa para membros com 16 anos ou mais.',
+              fileRef: fileInputLiderancaRef
+            },
+            {
+              key: 'globo_lider' as const,
+              title: '3. Globo de Líder',
+              badge: 'Pins Líder / Master / Avançado',
+              badgeColor: 'bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200 border-amber-300 dark:border-amber-700',
+              desc: 'Emblema L1 com a estrela de ouro ao centro. Exibido para quem ativar qualquer pin de Líder investido (Líder, Master ou Master Avançado).',
+              fileRef: fileInputLiderRef
+            }
+          ].map((item) => (
+            <div 
+              key={item.key} 
+              className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-6 rounded-[32px] shadow-sm space-y-4"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-tight text-base">
+                    {item.title}
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    {item.desc}
+                  </p>
+                </div>
+                <span className={`inline-flex px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-wider self-start sm:self-auto ${item.badgeColor}`}>
+                  {item.badge}
+                </span>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center gap-5 pt-1">
+                {/* Visualização da Imagem sobre Tecido Verde */}
+                <div className="w-24 h-24 sm:w-28 sm:h-28 bg-[#0c3c31] rounded-2xl p-2 flex items-center justify-center flex-shrink-0 border-2 border-[#092d25] shadow-md relative overflow-hidden">
+                  <div className="absolute inset-0 opacity-15 pointer-events-none bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:6px_6px]" />
+                  {isUploadingFaixaImg === item.key ? (
+                    <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin relative z-10" />
+                  ) : (
+                    <img 
+                      src={faixaAdminConfig[item.key] || DEFAULT_FAIXA_CONFIG[item.key]} 
+                      alt={item.title}
+                      className="w-full h-full object-contain filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)] relative z-10" 
+                    />
+                  )}
+                </div>
+
+                {/* Campos de URL e Upload */}
+                <div className="flex-1 space-y-3 w-full">
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block mb-1">
+                      URL da Imagem
+                    </label>
+                    <input 
+                      type="text" 
+                      placeholder="https://..."
+                      value={faixaAdminConfig[item.key] || ''}
+                      onChange={(e) => setFaixaAdminConfig({ ...faixaAdminConfig, [item.key]: e.target.value })}
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl py-3 px-4 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={isUploadingFaixaImg === item.key}
+                      onClick={() => item.fileRef.current?.click()}
+                      className="px-4 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center space-x-1.5 active:scale-95 disabled:opacity-50"
+                    >
+                      <ImageIcon size={15} />
+                      <span>{isUploadingFaixaImg === item.key ? 'Enviando...' : 'Fazer Upload de Imagem'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleResetSingleFaixaGlobe(item.key)}
+                      className="px-3.5 py-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl text-xs font-bold transition-all"
+                      title="Restaurar padrão oficial"
+                    >
+                      Restaurar Padrão
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Barra de Ações: Salvar e Restaurar */}
+        <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+          <button
+            type="button"
+            disabled={isSavingFaixaConfig}
+            onClick={handleSaveFaixaAdmin}
+            className="w-full sm:flex-1 py-4 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg shadow-emerald-600/25 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+          >
+            {isSavingFaixaConfig ? (
+              <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+            ) : faixaConfigSavedSuccess ? (
+              <>
+                <Check size={18} />
+                <span>Configurações Salvas com Sucesso!</span>
+              </>
+            ) : (
+              <>
+                <Save size={18} />
+                <span>Salvar Configurações da Faixa</span>
+              </>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleResetAllFaixaGlobes}
+            className="w-full sm:w-auto px-5 py-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs uppercase tracking-wider rounded-2xl transition-all"
+          >
+            Restaurar Todos Padrões
+          </button>
         </div>
       </div>
     );
@@ -7855,7 +8229,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     setActiveSubView('BIBLE_ADMIN');
                   } else if (activeSubView === 'BIBLE_DEVOTIONAL_LIST') {
                     setActiveSubView('BIBLE_ADMIN');
-                  } else if (activeSubView === 'VIDEO_ADMIN' || activeSubView === 'FORM_ADMIN' || activeSubView === 'LINKS_ADMIN' || activeSubView === 'ACHIEVEMENTS_ADMIN' || activeSubView === 'TRUNFOS_ADMIN') {
+                  } else if (activeSubView === 'VIDEO_ADMIN' || activeSubView === 'FORM_ADMIN' || activeSubView === 'LINKS_ADMIN' || activeSubView === 'ACHIEVEMENTS_ADMIN' || activeSubView === 'TRUNFOS_ADMIN' || activeSubView === 'FAIXA_ADMIN') {
                     setActiveSubView('BIBLE_ADMIN');
                   } else if (activeSubView === 'VIDEOS') {
                     setActiveSubView('MAIN');
@@ -7923,6 +8297,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                activeSubView === 'ACHIEVEMENTS_ADMIN' ? 'Gestão de Conquistas' :
                activeSubView === 'TRUNFOS' ? 'Trunfos' :
                activeSubView === 'TRUNFOS_ADMIN' ? 'Gestão de Trunfos' :
+               activeSubView === 'FAIXA_ADMIN' ? 'Gestão da Faixa' :
                activeSubView === 'BIBLE_ADMIN_ADD' ? 'Novo Devocional' :
                activeSubView === 'BIBLE_DEVOTIONAL_LIST' ? 'Agendados' :
                activeSubView === 'VIDEOS' ? 'Vídeos' :
@@ -8028,6 +8403,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         {activeSubView === 'ACHIEVEMENTS_ADMIN' && renderAchievementsAdmin()}
         {activeSubView === 'TRUNFOS' && renderTrunfos()}
         {activeSubView === 'TRUNFOS_ADMIN' && renderTrunfosAdmin()}
+        {activeSubView === 'FAIXA_ADMIN' && renderFaixaAdmin()}
         {activeSubView === 'WEB_VIEWER' && renderWebViewer()}
       </div>
 

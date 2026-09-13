@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Mail, Lock, User, Shield, MapPin, Briefcase, Phone, ChevronLeft, Eye, EyeOff, UserCircle } from 'lucide-react';
 import { ClubType, UserProfile } from '../types';
-import { supabase, updateUserProfile, fetchFuncoes, DEFAULT_CARGOS, getCachedFuncoes } from '../services/supabaseService';
+import { supabase, updateUserProfile, fetchFuncoes, DEFAULT_CARGOS, getCachedFuncoes, saveLocalFaixaSpecialties } from '../services/supabaseService';
 
 interface AuthProps {
   onLoginSuccess: (isGuest?: boolean) => void;
@@ -258,9 +258,12 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
           .maybeSingle();
 
         if (profile) {
+          const uClub = profile.clubes === "Aventureiro" ? ClubType.ADVENTURER : ClubType.PATHFINDER;
+          const uEmail = profile.email || (profile as any)['e - mail'] || data.user.email;
+
           localStorage.setItem(`dbv_tudo_global_user_profile`, JSON.stringify({
             name: profile.nome,
-            email: profile.email || (profile as any)['e - mail'] || data.user.email,
+            email: uEmail,
             tipo: profile.clubes,
             clube: profile.clube || profile.clube_de || (profile as any)['clube de'] || "",
             cargo: profile.funçao,
@@ -270,6 +273,19 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
             estado: profile.estado || "",
             isAdmin: profile.ADM || false
           }));
+
+          const rawEsp = profile.Especialidades !== undefined ? profile.Especialidades : (profile as any).especialidades;
+          if (rawEsp) {
+            let parsedIds: string[] = [];
+            if (typeof rawEsp === 'string') {
+              parsedIds = rawEsp.split(',').map((id: string) => id.trim()).filter((id: string) => id.length > 0);
+            } else if (Array.isArray(rawEsp)) {
+              parsedIds = rawEsp.map((id: any) => String(id).trim()).filter((id: string) => id.length > 0);
+            }
+            if (parsedIds.length > 0) {
+              saveLocalFaixaSpecialties(parsedIds, uEmail, uClub);
+            }
+          }
         }
 
         onLoginSuccess(false);

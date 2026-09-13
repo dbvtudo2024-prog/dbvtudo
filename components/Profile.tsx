@@ -9,7 +9,8 @@ import {
   fetchConquistas, fetchUserAchievements, updateUserAchievements,
   fetchFuncoes, DEFAULT_CARGOS, getCachedFuncoes,
   getLocalFaixaSpecialties, saveLocalFaixaSpecialties, clearLocalFaixaSpecialties,
-  fetchUserFaixaSpecialties, updateUserFaixa
+  fetchUserFaixaSpecialties, updateUserFaixa,
+  fetchFaixaConfig, FaixaConfig, DEFAULT_FAIXA_CONFIG
 } from '../services/supabaseService';
 
 // Helpers para Cálculo de Idade e Elegibilidade de Conquistas
@@ -534,6 +535,84 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     return isBaptized;
   }, [batismoConquista, userAchievements, isBaptized]);
 
+  // Configuração das imagens da ponta da faixa (Globos)
+  const [faixaConfig, setFaixaConfig] = useState<FaixaConfig>(DEFAULT_FAIXA_CONFIG);
+  const [showGloboModal, setShowGloboModal] = useState(false);
+
+  useEffect(() => {
+    fetchFaixaConfig().then(setFaixaConfig).catch(console.warn);
+
+    const handleFaixaConfigChange = (e: any) => {
+      if (e?.detail) {
+        setFaixaConfig(e.detail);
+      } else {
+        fetchFaixaConfig().then(setFaixaConfig).catch(console.warn);
+      }
+    };
+
+    window.addEventListener('storage', handleFaixaConfigChange);
+    window.addEventListener('dbv_faixa_config_updated', handleFaixaConfigChange as EventListener);
+    return () => {
+      window.removeEventListener('storage', handleFaixaConfigChange);
+      window.removeEventListener('dbv_faixa_config_updated', handleFaixaConfigChange as EventListener);
+    };
+  }, []);
+
+  // Verifica se o usuário tem o pin de Líder, Master ou Master Avançado ativo
+  const hasLeaderPin = useMemo(() => {
+    const leaderIds = [9, 10, 11];
+    if (userAchievements.some(id => leaderIds.includes(id))) return true;
+
+    return allConquistas.some(c => 
+      userAchievements.includes(c.id) && (
+        c.tipo === 'LIDERANCA' || 
+        (c.nome && (
+          c.nome.toLowerCase().includes('lider') || 
+          c.nome.toLowerCase().includes('líder') ||
+          c.nome.toLowerCase().includes('master')
+        ))
+      )
+    );
+  }, [userAchievements, allConquistas]);
+
+  // Determina dinamicamente o Globo a ser exibido na ponta da faixa:
+  // 1. Quem ativar o pin de líder, master e master avançado -> "globo lider"
+  // 2. 16 anos acima -> "globo liderança" (fundo branco)
+  // 3. Até 15 anos -> "globo desbravador" (fundo cáqui)
+  const sashGlobeInfo = useMemo(() => {
+    if (hasLeaderPin) {
+      return {
+        type: 'LIDER' as const,
+        url: faixaConfig.globo_lider || DEFAULT_FAIXA_CONFIG.globo_lider,
+        label: 'Globo de Líder',
+        sublabel: 'Pin de Líder / Master Ativo',
+        description: 'Emblema L1 oficial de liderança com a estrela de ouro ao centro. Exibido na ponta da faixa para quem conquistou e ativou o pin de Líder, Líder Master ou Líder Master Avançado.',
+        badgeColor: 'bg-amber-400 text-slate-900 border-amber-300'
+      };
+    }
+
+    const is16OrAbove = userAge !== null ? userAge >= 16 : isAdultUniform;
+    if (is16OrAbove) {
+      return {
+        type: 'LIDERANCA' as const,
+        url: faixaConfig.globo_lideranca || DEFAULT_FAIXA_CONFIG.globo_lideranca,
+        label: 'Globo Liderança (16+ anos)',
+        sublabel: 'Fundo Branco Oficial',
+        description: 'Emblema D4 bordado sobre fundo branco oficial da liderança dos Desbravadores para membros a partir de 16 anos.',
+        badgeColor: 'bg-white text-slate-800 border-slate-200'
+      };
+    }
+
+    return {
+      type: 'DESBRAVADOR' as const,
+      url: faixaConfig.globo_desbravador || DEFAULT_FAIXA_CONFIG.globo_desbravador,
+      label: 'Globo Desbravador (Até 15 anos)',
+      sublabel: 'Fundo Cáqui Oficial',
+      description: 'Emblema D4 bordado sobre fundo cáqui oficial dos Desbravadores para membros de até 15 anos de idade.',
+      badgeColor: 'bg-[#bba882] text-white border-[#9b8862]'
+    };
+  }, [hasLeaderPin, userAge, isAdultUniform, faixaConfig]);
+
   const toggleBaptism = () => {
     const next = !isBaptizedEffective;
     setIsBaptized(next);
@@ -674,18 +753,25 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
       if (userData.email && userData.email !== "email@exemplo.com") {
         try {
           const dbIds = await fetchUserFaixaSpecialties(userData.email, userId, userClubType);
+          const currentLocal = getLocalFaixaSpecialties(userData.email, userClubType);
+
           if (dbIds && dbIds.length > 0) {
             setLikedIds(prev => {
-              const combined = Array.from(new Set([...prev, ...dbIds]));
+              const combined = Array.from(new Set([...prev, ...dbIds, ...currentLocal]));
               if (prev.length === combined.length && prev.every((id, idx) => id === combined[idx])) {
                 return prev;
               }
               saveLocalFaixaSpecialties(combined, userData.email, userClubType);
               return combined;
             });
+
+            // Se o dispositivo local tiver especialidades que ainda não estão no banco (ex: salvas no celular), envia agora
+            if (currentLocal.some(id => !dbIds.includes(id))) {
+              const merged = Array.from(new Set([...dbIds, ...currentLocal]));
+              await updateUserFaixa(userData.email, merged, userId, userClubType);
+            }
           } else {
             // Se o banco retornou vazio mas temos especialidades locais da faixa, restaura no banco
-            const currentLocal = getLocalFaixaSpecialties(userData.email, userClubType);
             if (currentLocal.length > 0) {
               await updateUserFaixa(userData.email, currentLocal, userId, userClubType);
             }
@@ -989,6 +1075,115 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   return (
     <div className="flex flex-col h-full bg-[#F8FAFC] dark:bg-slate-900 overflow-hidden relative transition-colors duration-500">
       <input type="file" ref={fileInputRef} onChange={handlePhotoUpload} accept="image/*" className="hidden" />
+
+      {/* Modal Informativo do Globo da Faixa */}
+      {showGloboModal && (
+        <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={() => setShowGloboModal(false)} />
+          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[36px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-100 dark:border-slate-800">
+            {/* Header com tecido verde da faixa */}
+            <div className="bg-[#0c3c31] px-6 pt-6 pb-5 text-white flex items-center justify-between relative overflow-hidden">
+              <div className="absolute inset-0 opacity-15 pointer-events-none bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:10px_10px]" />
+              <div className="relative z-10 flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
+                  <Shield size={22} className="text-emerald-300" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black uppercase tracking-tight">Ponta da Faixa Oficial</h3>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-200/80">Extremidade Inferior & Globo</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowGloboModal(false)}
+                className="relative z-10 w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-white active:scale-90 transition-all"
+              >
+                <X size={16} strokeWidth={2.5} />
+              </button>
+            </div>
+
+            {/* Conteúdo com visual do globo em destaque */}
+            <div className="p-6 space-y-5">
+              <div className="flex flex-col items-center">
+                <div className="w-28 h-28 bg-[#0c3c31] rounded-3xl p-2.5 flex items-center justify-center shadow-lg relative border-2 border-[#092d25]">
+                  <div className="absolute inset-0 opacity-15 rounded-3xl pointer-events-none bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:8px_8px]" />
+                  <img 
+                    src={sashGlobeInfo.url} 
+                    alt={sashGlobeInfo.label}
+                    className="w-full h-full object-contain filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)] relative z-10" 
+                  />
+                </div>
+                <div className="mt-3 text-center">
+                  <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full border text-[11px] font-black uppercase tracking-wider shadow-sm"
+                    style={{
+                      backgroundColor: sashGlobeInfo.type === 'LIDER' ? '#fef3c7' : sashGlobeInfo.type === 'LIDERANCA' ? '#f8fafc' : '#fef3c7',
+                      color: sashGlobeInfo.type === 'LIDER' ? '#92400e' : sashGlobeInfo.type === 'LIDERANCA' ? '#0f172a' : '#78350f',
+                      borderColor: sashGlobeInfo.type === 'LIDER' ? '#fcd34d' : sashGlobeInfo.type === 'LIDERANCA' ? '#cbd5e1' : '#fde68a'
+                    }}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
+                    <span>{sashGlobeInfo.label}</span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 max-w-xs font-medium leading-relaxed">
+                    {sashGlobeInfo.description}
+                  </p>
+                </div>
+              </div>
+
+              {/* Critérios Oficiais do Manual de Uniformes */}
+              <div className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 space-y-2.5 text-left">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Regras Oficiais do Uniforme (DSA)</span>
+                
+                <div className="space-y-2 text-xs">
+                  <div className={`flex items-start space-x-2 p-2.5 rounded-xl transition-all ${sashGlobeInfo.type === 'DESBRAVADOR' ? 'bg-amber-100/70 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700/60 font-bold text-amber-900 dark:text-amber-200' : 'opacity-70'}`}>
+                    <span className="text-base leading-none">🏕️</span>
+                    <div>
+                      <strong className="block">Até 15 anos: Globo Desbravador</strong>
+                      <span className="text-[11px] opacity-80">Fundo cáqui oficial na extremidade da faixa.</span>
+                    </div>
+                  </div>
+
+                  <div className={`flex items-start space-x-2 p-2.5 rounded-xl transition-all ${sashGlobeInfo.type === 'LIDERANCA' ? 'bg-emerald-100/70 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-700/60 font-bold text-emerald-900 dark:text-emerald-200' : 'opacity-70'}`}>
+                    <span className="text-base leading-none">👔</span>
+                    <div>
+                      <strong className="block">A partir de 16 anos: Globo Liderança</strong>
+                      <span className="text-[11px] opacity-80">Fundo branco oficial da liderança.</span>
+                    </div>
+                  </div>
+
+                  <div className={`flex items-start space-x-2 p-2.5 rounded-xl transition-all ${sashGlobeInfo.type === 'LIDER' ? 'bg-amber-100/70 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700/60 font-bold text-amber-900 dark:text-amber-200' : 'opacity-70'}`}>
+                    <span className="text-base leading-none">🌟</span>
+                    <div>
+                      <strong className="block">Pins Líder / Master / Master Avançado</strong>
+                      <span className="text-[11px] opacity-80">Globo de Líder (L1) com a estrela dourada de ouro ao centro.</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status Atual do Usuário */}
+              <div className="flex items-center justify-between px-2 text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                <span>Idade: <strong className="text-slate-800 dark:text-slate-200">{userAge !== null ? `${userAge} anos` : 'Não informada'}</strong></span>
+                <span>Pin Líder: <strong className={hasLeaderPin ? "text-amber-600 dark:text-amber-400" : "text-slate-500"}>{hasLeaderPin ? "Ativo" : "Inativo"}</strong></span>
+              </div>
+
+              {/* Botão Admin para Gerenciar Imagens */}
+              {userData.isAdmin && onOpenAdmin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowGloboModal(false);
+                    onOpenAdmin();
+                  }}
+                  className="w-full py-3 bg-[#0c3c31] hover:bg-[#092d25] active:scale-95 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-md transition-all flex items-center justify-center space-x-2"
+                >
+                  <Settings size={15} />
+                  <span>Configurar Imagens no Painel Admin</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Minha Faixa */}
       {isSashView && (
@@ -1702,13 +1897,16 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                 </div>
               </div>
 
-              {/* LADO 2: FAIXA VERDE-PETRÓLEO OFICIAL (Sem container externo, proporção real de faixa militar) */}
-              <div className="w-full flex flex-col items-center">
-                <div className="w-full max-w-[340px] sm:max-w-[380px] bg-[#0c3c31] dark:bg-[#07241d] border-2 border-[#092d25] dark:border-[#041612] rounded-[28px] shadow-2xl px-3 sm:px-4 py-4 sm:py-5 flex flex-col items-center relative overflow-hidden text-white transition-all duration-300">
+              {/* LADO 2: FAIXA VERDE-PETRÓLEO OFICIAL (Conforme uniforme e faixa real) */}
+              <div className="w-full flex flex-col items-center filter drop-shadow-[0_20px_25px_rgba(0,0,0,0.5)] drop-shadow-[0_8px_10px_rgba(0,0,0,0.3)]">
+                <div 
+                  className="w-full max-w-[340px] sm:max-w-[380px] bg-[#0c3c31] dark:bg-[#07241d] border-2 border-[#092d25] dark:border-[#041612] rounded-[28px] px-3 sm:px-4 pt-4 sm:pt-5 pb-8 flex flex-col items-center relative overflow-hidden text-white transition-all duration-300"
+                >
                   {/* Textura e costuras pespontadas oficiais da faixa */}
                   <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:10px_10px]" />
-                  <div className="absolute top-0 bottom-0 left-2 sm:left-2.5 w-px border-l border-dashed border-emerald-300/25 pointer-events-none" />
-                  <div className="absolute top-0 bottom-0 right-2 sm:right-2.5 w-px border-r border-dashed border-emerald-300/25 pointer-events-none" />
+                  <div className="absolute top-2 bottom-3 left-2 sm:left-2.5 w-px border-l border-dashed border-emerald-300/25 pointer-events-none" />
+                  <div className="absolute top-2 bottom-3 right-2 sm:right-2.5 w-px border-r border-dashed border-emerald-300/25 pointer-events-none" />
+                  <div className="absolute bottom-2.5 left-3 right-3 h-px border-b border-dashed border-emerald-300/25 pointer-events-none" />
 
                   {/* TOPO DA FAIXA: A ~6cm do topo */}
                   <div className="pt-8 sm:pt-9 pb-2 flex flex-col items-center w-full relative z-10 space-y-3">
@@ -1838,13 +2036,16 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                             const isInRuleList = rule.specialties.some(rs => {
                               const rsClean = cleanStr(rs);
                               if (sClean === rsClean) return true;
+                              if (rsClean.length >= 6 && (sClean.includes(rsClean) || rsClean.includes(sClean))) return true;
                               if ((rsClean === "bacterias" && sClean === "bacteria") || (rsClean === "bacteria" && sClean === "bacterias")) return true;
                               return false;
                             });
 
-                            const isInDbReqs = dbReqs.length > 0 && dbReqs.some(req => req === sClean);
+                            const isInDbReqs = dbReqs.length > 0 && dbReqs.some(req => req === sClean || (req.length >= 6 && (sClean.includes(req) || req.includes(sClean))));
 
-                            return isInRuleList || isInDbReqs;
+                            const isInRuleSigla = !!(rule.siglas && rule.siglas.length > 0 && rule.siglas.map(sig => sig.toUpperCase()).includes(sSigla));
+
+                            return isInRuleList || isInDbReqs || (isInRuleSigla && sCat.includes(cleanStr(rule.category)));
                           });
                         };
 
@@ -1890,11 +2091,22 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                           requirementsCount: number;
                           familyKey: string;
                           category: string;
+                          canonicalOrder: number;
+                          rule?: any;
                         }
+
+                        const getMasteryCanonicalIndex = (name: string): number => {
+                          const n = normalize(name);
+                          const idx = MASTERY_RULES.findIndex(r => {
+                            const rNorm = normalize(r.name);
+                            return rNorm === n || n.includes(rNorm) || rNorm.includes(n);
+                          });
+                          return idx !== -1 ? idx : 999;
+                        };
 
                         const activeMasteryGroups: ActiveMasteryGroup[] = [];
 
-                        MASTERY_RULES.forEach(rule => {
+                        MASTERY_RULES.forEach((rule, ruleIdx) => {
                           const masteryItem = findMasteryItem(rule.name, rule.category);
                           const isManuallyLiked = masteryItem && likedIds.includes(masteryItem.id.toString());
                           const matchingItems = getSpecialtiesForRule(rule, ordinarySpecialties, masteryItem);
@@ -1910,7 +2122,9 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                               isManual: !!isManuallyLiked,
                               requirementsCount: reqCount,
                               familyKey: getFamilyKey(rule.name, rule.category),
-                              category: rule.category
+                              category: rule.category,
+                              canonicalOrder: ruleIdx,
+                              rule: rule
                             });
                           }
                         });
@@ -1941,17 +2155,21 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                                 isManual: true,
                                 requirementsCount: 7,
                                 familyKey: getFamilyKey(mastery.nome, mastery.area || ''),
-                                category: mastery.area || ''
+                                category: mastery.area || '',
+                                canonicalOrder: getMasteryCanonicalIndex(mastery.nome),
+                                rule: matchingRule
                               });
                             }
                           }
                         });
 
-                        // Estrutura de blocos na faixa conforme regra do usuário:
+                        // Estrutura de blocos na faixa conforme regra oficial e referência:
                         // "mestrado seguida de suas especialidades, se tem 2 mestrados, coloque o primeiro e suas especialidade,
                         // depois o segundo e suas especialidade e após isso as especialidades que não esta em nenhum dos 2 mestrados daquela área."
+                        // "se houver um mestrado que compartilhe de mesma especialidade colocar os dois mestrados juntos lado a lado acima das especialidades."
+                        // "primeiro as que têm mestrado, depois agrupadas por área"
                         interface SashBlock {
-                          mastery?: ActiveMasteryGroup;
+                          masteries?: ActiveMasteryGroup[];
                           specialties: Especialidade[];
                           areaName?: string;
                           isLeftoverFromMasteryArea?: boolean;
@@ -1960,17 +2178,23 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                         const sashBlocks: SashBlock[] = [];
                         const usedSpecialtyIds = new Set<string>();
 
+                        // Todas as especialidades que pertencem a qualquer mestrado ativo são reservadas para o seu mestrado!
+                        const allActiveMasterySpecialtyIds = new Set<string>();
+                        activeMasteryGroups.forEach(mGroup => {
+                          mGroup.items.forEach(s => allActiveMasterySpecialtyIds.add(String(s.id)));
+                        });
+
                         const getFamilyDisplayName = (fKey: string): string => {
                           switch (fKey) {
-                            case 'tecnologia_profissoes': return 'Ciência, Tecnologia e Atividades Profissionais';
-                            case 'recreativas_campestre': return 'Atividades Recreativas e Vida Campestre';
-                            case 'estudo_da_natureza': return 'Estudo da Natureza';
-                            case 'espiritual': return 'Atividades Missionárias';
+                            case 'adra': return 'ADRA';
                             case 'artes_manuais': return 'Artes e Habilidades Manuais';
                             case 'agricolas': return 'Atividades Agrícolas';
-                            case 'saude': return 'Saúde e Ciência';
+                            case 'espiritual': return 'Atividades Missionárias e Ensinos Bíblicos';
+                            case 'tecnologia_profissoes': return 'Ciência, Tecnologia e Atividades Profissionais';
+                            case 'recreativas_campestre': return 'Atividades Recreativas e Vida Campestre';
+                            case 'saude': return 'Ciência e Saúde';
+                            case 'estudo_da_natureza': return 'Estudo da Natureza';
                             case 'domesticas': return 'Habilidades Domésticas';
-                            case 'adra': return 'ADRA';
                             default: return 'Outras Especialidades';
                           }
                         };
@@ -1979,17 +2203,8 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                           const sCat = cleanStr(s.area);
                           const sSigla = (s.sigla || '').toUpperCase();
 
-                          if (fKey === 'tecnologia_profissoes') {
-                            return sCat.includes('profissional') || sCat.includes('tecnologia') || sSigla === 'AP' || sSigla === 'CT';
-                          }
-                          if (fKey === 'estudo_da_natureza') {
-                            return sCat.includes('natureza') || sSigla === 'EN';
-                          }
-                          if (fKey === 'recreativas_campestre') {
-                            return sCat.includes('campestre') || sCat.includes('recreativas') || sSigla === 'VC' || sSigla === 'AR' || sSigla === 'ES';
-                          }
-                          if (fKey === 'espiritual') {
-                            return sCat.includes('missionaria') || sCat.includes('biblico') || sSigla === 'AM' || sSigla === 'MA' || sSigla === 'AM-EB';
+                          if (fKey === 'adra') {
+                            return sCat.includes('adra') || sSigla === 'AD';
                           }
                           if (fKey === 'artes_manuais') {
                             return sCat.includes('manuais') || sCat.includes('artes') || sSigla === 'HM';
@@ -1997,15 +2212,62 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                           if (fKey === 'agricolas') {
                             return sCat.includes('agricola') || sSigla === 'AA' || sSigla === 'AG';
                           }
-                          if (fKey === 'saude') {
-                            return sCat.includes('saude') || sSigla === 'CS' || sSigla === 'SA';
+                          if (fKey === 'espiritual') {
+                            return sCat.includes('missionaria') || sCat.includes('biblico') || sSigla === 'AM' || sSigla === 'MA' || sSigla === 'AM-EB';
                           }
-                          if (fKey === 'adra') {
-                            return sCat.includes('adra') || sSigla === 'AD';
+                          if (fKey === 'tecnologia_profissoes') {
+                            return sCat.includes('profissional') || sCat.includes('tecnologia') || sSigla === 'AP' || sSigla === 'CT';
+                          }
+                          if (fKey === 'recreativas_campestre') {
+                            return sCat.includes('campestre') || sCat.includes('recreativa') || sSigla === 'VC' || sSigla === 'AR' || sSigla === 'ES' || sSigla === 'AQ';
+                          }
+                          if (fKey === 'saude') {
+                            return sCat.includes('saude') || sCat.includes('ciencia') || sSigla === 'CS' || sSigla === 'SA';
+                          }
+                          if (fKey === 'estudo_da_natureza') {
+                            return sCat.includes('natureza') || sSigla === 'EN';
                           }
                           if (fKey === 'domesticas') {
                             return sCat.includes('domestica') || sSigla === 'HD';
                           }
+                          return false;
+                        };
+
+                        // Ordena especialidades conforme o rol canônico de requisitos do mestrado quando existir
+                        const sortSpecialtiesForRule = (items: Especialidade[], rule?: any): Especialidade[] => {
+                          if (!rule || !rule.specialties || rule.specialties.length === 0) {
+                            return [...items].sort((a, b) => a.nome.localeCompare(b.nome));
+                          }
+                          const ruleNorms = rule.specialties.map((sName: string) => normalize(sName));
+                          return [...items].sort((a, b) => {
+                            const aNorm = normalize(a.nome);
+                            const bNorm = normalize(b.nome);
+                            const idxA = ruleNorms.findIndex((rn: string) => rn === aNorm || aNorm.includes(rn) || rn.includes(aNorm));
+                            const idxB = ruleNorms.findIndex((rn: string) => rn === bNorm || bNorm.includes(rn) || rn.includes(bNorm));
+                            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                            if (idxA !== -1) return -1;
+                            if (idxB !== -1) return 1;
+                            return a.nome.localeCompare(b.nome);
+                          });
+                        };
+
+                        // Verifica se dois mestrados compartilham de mesma especialidade
+                        const masteriesShareSpecialty = (m1: ActiveMasteryGroup, m2: ActiveMasteryGroup): boolean => {
+                          // 1. Compartilham especialidades concluídas pelo usuário
+                          const m1Ids = new Set(m1.items.map(s => String(s.id)));
+                          const sharesUserItems = m2.items.some(s => m1Ids.has(String(s.id)));
+                          if (sharesUserItems) return true;
+
+                          // 2. Ambos pertencem à família Ciência e Tecnologia / Atividades Profissionais que compartilham campo de computação
+                          const isAP1 = cleanStr(m1.name).includes('profissional') || cleanStr(m1.category).includes('profissional');
+                          const isCT1 = cleanStr(m1.name).includes('tecnologia') || cleanStr(m1.category).includes('tecnologia');
+                          const isAP2 = cleanStr(m2.name).includes('profissional') || cleanStr(m2.category).includes('profissional');
+                          const isCT2 = cleanStr(m2.name).includes('tecnologia') || cleanStr(m2.category).includes('tecnologia');
+
+                          if ((isAP1 && isCT2) || (isCT1 && isAP2)) {
+                            return true;
+                          }
+
                           return false;
                         };
 
@@ -2019,16 +2281,26 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                           familyGroups.get(fKey)!.push(mGroup);
                         });
 
+                        // Ordem canônica oficial das 9 áreas da Divisão Sul-Americana (DSA):
+                        // 1. ADRA
+                        // 2. Artes e Habilidades Manuais
+                        // 3. Atividades Agrícolas
+                        // 4. Atividades Missionárias e Comunitárias / Ensinos Bíblicos
+                        // 5. Atividades Profissionais & Ciência e Tecnologia
+                        // 6. Atividades Recreativas (Aquática, Esportes, Vida Campestre, Atividades Recreativas)
+                        // 7. Ciência e Saúde
+                        // 8. Estudo da Natureza (Zoologia, Ecologia, Botânica)
+                        // 9. Habilidades Domésticas
                         const familiesOrder = [
-                          'tecnologia_profissoes',
-                          'recreativas_campestre',
-                          'estudo_da_natureza',
-                          'espiritual',
+                          'adra',
                           'artes_manuais',
                           'agricolas',
+                          'espiritual',
+                          'tecnologia_profissoes',
+                          'recreativas_campestre',
                           'saude',
-                          'domesticas',
-                          'adra'
+                          'estudo_da_natureza',
+                          'domesticas'
                         ];
 
                         const processedFamilies = new Set<string>();
@@ -2036,26 +2308,94 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                         const processFamily = (fKey: string, masteriesInFamily: ActiveMasteryGroup[]) => {
                           processedFamilies.add(fKey);
 
-                          // Se houver 2 mestrados ou mais na mesma área, ordenamos por nome para estabilidade
-                          const sortedMasteries = [...masteriesInFamily].sort((a, b) => a.name.localeCompare(b.name));
-
-                          // Para cada mestrado: Coloca o mestrado e suas especialidades!
-                          sortedMasteries.forEach(mGroup => {
-                            const mSpecialties = mGroup.items
-                              .filter(s => !usedSpecialtyIds.has(String(s.id)))
-                              .sort((a, b) => a.nome.localeCompare(b.nome));
-
-                            mSpecialties.forEach(s => usedSpecialtyIds.add(String(s.id)));
-
-                            sashBlocks.push({
-                              mastery: mGroup,
-                              specialties: mSpecialties,
-                              areaName: mGroup.name
-                            });
+                          // Ordena mestrados pela sequência canônica de regras oficiais da DSA
+                          const sortedMasteries = [...masteriesInFamily].sort((a, b) => {
+                            if (a.canonicalOrder !== b.canonicalOrder) {
+                              return a.canonicalOrder - b.canonicalOrder;
+                            }
+                            return a.name.localeCompare(b.name);
                           });
 
-                          // E após isso as especialidades que NÃO estão em nenhum dos mestrados daquela área!
+                          // Agrupa os mestrados da área em clusters com base em especialidades compartilhadas:
+                          // - Mestrados que compartilham de mesma especialidade ficam no mesmo cluster
+                          // - Mestrados que NÃO compartilham especialidades ficam em clusters separados
+                          const clusters: ActiveMasteryGroup[][] = [];
+                          const visited = new Set<string>();
+
+                          for (const m of sortedMasteries) {
+                            const mId = String(m.id);
+                            if (visited.has(mId)) continue;
+
+                            const cluster: ActiveMasteryGroup[] = [];
+                            const queue: ActiveMasteryGroup[] = [m];
+                            visited.add(mId);
+
+                            while (queue.length > 0) {
+                              const curr = queue.shift()!;
+                              cluster.push(curr);
+
+                              for (const other of sortedMasteries) {
+                                const otherId = String(other.id);
+                                if (!visited.has(otherId) && masteriesShareSpecialty(curr, other)) {
+                                  visited.add(otherId);
+                                  queue.push(other);
+                                }
+                              }
+                            }
+
+                            cluster.sort((a, b) => a.canonicalOrder - b.canonicalOrder);
+                            clusters.push(cluster);
+                          }
+
+                          // Processa cada cluster na ordem:
+                          // Se não compartilham especialidades: "colocar o primeiro mestrado seguido de suas especialidades, depois o segundo mestrado e suas especialidades"
+                          // Se compartilham especialidades: "se houver um mestrado que compartilhe de mesma especialidade colocar os dois mestrados juntos lado a lado acima das especialidades."
+                          clusters.forEach(cluster => {
+                            if (cluster.length === 1) {
+                              // Mestrado individual: emblema centralizado seguido de suas especialidades
+                              const mGroup = cluster[0];
+                              const mSpecialties = sortSpecialtiesForRule(
+                                mGroup.items.filter(s => !usedSpecialtyIds.has(String(s.id))),
+                                mGroup.rule
+                              );
+
+                              mSpecialties.forEach(s => usedSpecialtyIds.add(String(s.id)));
+
+                              sashBlocks.push({
+                                masteries: [mGroup],
+                                specialties: mSpecialties,
+                                areaName: mGroup.name
+                              });
+                            } else {
+                              // Dois ou mais mestrados que COMPARTILHAM a mesma especialidade:
+                              // Coloca os mestrados juntos lado a lado acima das especialidades!
+                              const clusterSpecialties: Especialidade[] = [];
+                              const seenClusterSpecialtyIds = new Set<string>();
+
+                              cluster.forEach(mGroup => {
+                                const orderedItems = sortSpecialtiesForRule(mGroup.items, mGroup.rule);
+                                orderedItems.forEach(s => {
+                                  const sId = String(s.id);
+                                  if (!seenClusterSpecialtyIds.has(sId) && !usedSpecialtyIds.has(sId)) {
+                                    seenClusterSpecialtyIds.add(sId);
+                                    usedSpecialtyIds.add(sId);
+                                    clusterSpecialties.push(s);
+                                  }
+                                });
+                              });
+
+                              sashBlocks.push({
+                                masteries: cluster,
+                                specialties: clusterSpecialties,
+                                areaName: getFamilyDisplayName(fKey)
+                              });
+                            }
+                          });
+
+                          // "depois as especialidades que não completam um mestrado" daquela área:
+                          // Filtra apenas especialidades da área que NÃO pertencem a nenhum mestrado ativo
                           const remainingInFamily = ordinarySpecialties
+                            .filter(s => !allActiveMasterySpecialtyIds.has(String(s.id)))
                             .filter(s => !usedSpecialtyIds.has(String(s.id)))
                             .filter(s => isSpecialtyInFamily(s, fKey))
                             .sort((a, b) => a.nome.localeCompare(b.nome));
@@ -2070,63 +2410,89 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                           }
                         };
 
-                        // Processa primeiro as famílias oficiais ordenadas
+                        // FASE 1: Processa PRIMEIRO todas as famílias oficiais que POSSUEM mestrados ativos
+                        // Garantindo que mestrados e suas respectivas especialidades venham no topo da faixa
                         familiesOrder.forEach(fKey => {
                           if (familyGroups.has(fKey)) {
                             processFamily(fKey, familyGroups.get(fKey)!);
                           }
                         });
 
-                        // Qualquer outra família com mestrado ativo não contemplada na lista fixa
+                        // Qualquer outra família fora das 9 oficiais com mestrado ativo
                         familyGroups.forEach((mList, fKey) => {
                           if (!processedFamilies.has(fKey)) {
                             processFamily(fKey, mList);
                           }
                         });
 
-                        // 2. Especialidades restantes (de áreas sem mestrado conquistado), agrupadas por área/cor
-                        const leftoverSpecialties = ordinarySpecialties.filter(s => !usedSpecialtyIds.has(String(s.id)));
-                        const leftoverByArea = Object.entries(
-                          leftoverSpecialties.reduce((acc, esp) => {
-                            const area = esp.area || 'Outras';
-                            if (!acc[area]) acc[area] = [];
-                            acc[area].push(esp);
-                            return acc;
-                          }, {} as Record<string, Especialidade[]>)
-                        );
+                        // FASE 2: Processa as famílias que NÃO possuem mestrado ativo (especialidades agrupadas por área na ordem oficial)
+                        familiesOrder.forEach(fKey => {
+                          const ordinaryInFamily = ordinarySpecialties
+                            .filter(s => !allActiveMasterySpecialtyIds.has(String(s.id)))
+                            .filter(s => !usedSpecialtyIds.has(String(s.id)))
+                            .filter(s => isSpecialtyInFamily(s, fKey))
+                            .sort((a, b) => a.nome.localeCompare(b.nome));
 
-                        // Ordena as áreas restantes
-                        leftoverByArea.sort(([a], [b]) => a.localeCompare(b));
-
-                        leftoverByArea.forEach(([area, items]) => {
-                          const sortedItems = [...items].sort((a, b) => a.nome.localeCompare(b.nome));
-                          sashBlocks.push({
-                            specialties: sortedItems,
-                            areaName: area
-                          });
+                          if (ordinaryInFamily.length > 0) {
+                            ordinaryInFamily.forEach(s => usedSpecialtyIds.add(String(s.id)));
+                            sashBlocks.push({
+                              specialties: ordinaryInFamily,
+                              areaName: getFamilyDisplayName(fKey)
+                            });
+                          }
                         });
+
+                        // FASE 3: Especialidades restantes que não caíram em nenhuma família conhecida
+                        const leftoverSpecialties = ordinarySpecialties
+                          .filter(s => !allActiveMasterySpecialtyIds.has(String(s.id)))
+                          .filter(s => !usedSpecialtyIds.has(String(s.id)));
+
+                        if (leftoverSpecialties.length > 0) {
+                          const leftoverByArea = Object.entries(
+                            leftoverSpecialties.reduce((acc, esp) => {
+                              const area = esp.area || 'Outras';
+                              if (!acc[area]) acc[area] = [];
+                              acc[area].push(esp);
+                              return acc;
+                            }, {} as Record<string, Especialidade[]>)
+                          );
+
+                          leftoverByArea.sort(([a], [b]) => a.localeCompare(b));
+
+                          leftoverByArea.forEach(([area, items]) => {
+                            const sortedItems = [...items].sort((a, b) => a.nome.localeCompare(b.nome));
+                            sortedItems.forEach(s => usedSpecialtyIds.add(String(s.id)));
+                            sashBlocks.push({
+                              specialties: sortedItems,
+                              areaName: area
+                            });
+                          });
+                        }
 
                         return (
                           <div className="w-full space-y-4 sm:space-y-5">
                             {sashBlocks.map((block, idx) => (
                               <div key={idx} className="w-full space-y-1.5 sm:space-y-2">
-                                {/* Mestrado do bloco: emblema oval do mestrado centralizado */}
-                                {block.mastery && (
-                                  <div className="flex flex-col items-center justify-center pt-1 pb-1">
-                                    <div 
-                                      className="w-32 h-22 sm:w-36 sm:h-24 flex items-center justify-center relative select-none pointer-events-none transition-transform"
-                                      title={`Mestrado: ${block.mastery.name}`}
-                                    >
-                                      {block.mastery.logo ? (
-                                        <img 
-                                          src={block.mastery.logo} 
-                                          className="w-full h-full object-contain filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.75)]" 
-                                          alt={block.mastery.name} 
-                                        />
-                                      ) : (
-                                        <Trophy size={44} className="text-amber-400 filter drop-shadow" />
-                                      )}
-                                    </div>
+                                {/* Mestrados do bloco: se tiver 2 ou mais mestrados que dividem especialidades, coloca-os juntos lado a lado acima das especialidades */}
+                                {block.masteries && block.masteries.length > 0 && (
+                                  <div className="flex flex-row flex-wrap items-center justify-center gap-3 sm:gap-4 pt-1 pb-1">
+                                    {block.masteries.map(mGroup => (
+                                      <div 
+                                        key={mGroup.id}
+                                        className="w-32 h-22 sm:w-36 sm:h-24 flex items-center justify-center relative select-none pointer-events-none transition-transform"
+                                        title={`Mestrado: ${mGroup.name}`}
+                                      >
+                                        {mGroup.logo ? (
+                                          <img 
+                                            src={mGroup.logo} 
+                                            className="w-full h-full object-contain filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.75)]" 
+                                            alt={mGroup.name} 
+                                          />
+                                        ) : (
+                                          <Trophy size={44} className="text-amber-400 filter drop-shadow" />
+                                        )}
+                                      </div>
+                                    ))}
                                   </div>
                                 )}
 
@@ -2158,6 +2524,23 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                         );
                       })()
                     )}
+                  </div>
+
+                  {/* 5. PONTA DA FAIXA: GLOBO OFICIAL (Até 15 anos fundo cáqui, 16+ fundo branco, Líder/Master/Master Avançado globo de líder) */}
+                  <div className="w-full relative z-20 pt-6 pb-4 sm:pb-5 flex flex-col items-center">
+                    <div 
+                      onClick={() => setShowGloboModal(true)}
+                      className="relative group cursor-pointer transition-transform duration-300 hover:scale-105 active:scale-95 flex flex-col items-center"
+                      title={`${sashGlobeInfo.label} • Toque para ver detalhes`}
+                    >
+                      <div className="w-28 h-28 sm:w-34 sm:h-34 relative flex items-center justify-center">
+                        <img 
+                          src={sashGlobeInfo.url} 
+                          alt={sashGlobeInfo.label}
+                          className="w-full h-full object-contain filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.75)] transition-all" 
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
