@@ -1,11 +1,12 @@
 {
-  "version": 1757754000000,
-  "versionName": "2.6.0",
-  "buildDate": "2026-09-13T11:00:00.000Z",
-  "timestamp": 1757754000000,
+  "version": 1757769600000,
+  "versionName": "2.8.0",
+  "buildDate": "2026-09-13T12:00:00.000Z",
+  "timestamp": 1757769600000,
   "highlights": [
-    "Uniforme oficial dos Desbravadores com cor cáqui fiel",
-    "Condecorações de Classes unidas em barras metálicas douradas",
-    "Faixa em escala real 100% preenchendo de costura a costura"
+    "Mestrados com especialidades compartilhadas agora posicionados lado a lado na Faixa",
+    "Agrupamento e exibição precisa das especialidades de Vida Campestre junto ao seu mestrado",
+    "Agrupamento e exibição precisa das especialidades de Botânica junto ao seu mestrado",
+    "Preservação e ordenação harmoniosa das especialidades correspondentes a cada área"
   ]
 }

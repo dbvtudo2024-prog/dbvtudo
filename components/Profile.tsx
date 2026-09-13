@@ -1762,11 +1762,15 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                     ) : (
                       (() => {
                         const likedSpecialties = allSpecialties.filter(s => likedIds.includes(s.id.toString()));
-                        const allMasterySpecialties = allSpecialties.filter(s => s.nome.toLowerCase().includes('mestrado'));
-                        const ordinarySpecialties = likedSpecialties.filter(s => !s.nome.toLowerCase().includes('mestrado'));
+                        const isMastery = (s: Especialidade) => {
+                          const n = (s.nome || '').toLowerCase();
+                          const a = (s.area || '').toLowerCase();
+                          const sig = (s.sigla || '').toUpperCase();
+                          return n.includes('mestrado') || n.includes('mestre em') || a === 'mestrados' || sig === 'ME';
+                        };
+                        const allMasterySpecialties = allSpecialties.filter(isMastery);
+                        const ordinarySpecialties = likedSpecialties.filter(s => !isMastery(s));
                         
-                        const assignedIds = new Set<string>();
-
                         const normalize = (txt: string) => 
                           (txt || "")
                              .toLowerCase()
@@ -1774,9 +1778,21 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                              .replace(/[\u0300-\u036f]/g, "")
                              .replace('mestrado em ', '')
                              .replace('mestrado de ', '')
+                             .replace('mestre em ', '')
+                             .replace('mestre de ', '')
                              .replace('campreste', 'campestre')
                              .replace('tecinologia', 'tecnologia')
                              .trim();
+
+                        const cleanStr = (txt: string) => 
+                          (txt || "")
+                            .toLowerCase()
+                            .normalize("NFD")
+                            .replace(/[\u0300-\u036f]/g, "")
+                            .replace(/[;:,.]/g, " ")
+                            .replace(/[-–—_]/g, " ")
+                            .replace(/\s+/g, " ")
+                            .trim();
 
                         const findMasteryItem = (ruleName: string, category: string): Especialidade | undefined => {
                           const normRule = normalize(ruleName);
@@ -1803,26 +1819,19 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                           return found;
                         };
 
-                        const cleanStr = (txt: string) => 
-                          (txt || "")
-                            .toLowerCase()
-                            .normalize("NFD")
-                            .replace(/[\u0300-\u036f]/g, "")
-                            .replace(/[-–—_]/g, " ")
-                            .replace(/\s+/g, " ")
-                            .trim();
-
                         const getSpecialtiesForRule = (rule: typeof MASTERY_RULES[0], pool: Especialidade[], masteryItem?: Especialidade) => {
-                          const dbReqs = masteryItem?.requisitos?.map(r => cleanStr(r)) || [];
+                          const dbReqs = (masteryItem?.requisitos || []).flatMap(r => {
+                            return r.split(/\r?\n|;/).map(part => cleanStr(part)).filter(p => p.length >= 3);
+                          });
 
                           return pool.filter(s => {
                             const sClean = cleanStr(s.nome);
                             const sCat = cleanStr(s.area);
-                            const sSigla = s.sigla || '';
+                            const sSigla = (s.sigla || '').toUpperCase();
 
                             if (rule.isGlobalArea) {
                               if (sCat && (sCat === cleanStr(rule.category) || sCat.includes(cleanStr(rule.category)))) return true;
-                              if (sSigla && rule.siglas && rule.siglas.includes(sSigla)) return true;
+                              if (sSigla && rule.siglas && rule.siglas.map(sig => sig.toUpperCase()).includes(sSigla)) return true;
                               return false;
                             }
 
@@ -1833,33 +1842,43 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                               return false;
                             });
 
-                            const isInDbReqs = dbReqs.length > 0 && dbReqs.some(req => {
-                              if (req.length < 3) return false;
-                              if (req === sClean) return true;
-                              const parts = req.split(';').map(p => p.trim());
-                              return parts.some(p => p === sClean);
-                            });
+                            const isInDbReqs = dbReqs.length > 0 && dbReqs.some(req => req === sClean);
 
-                            if (!isInRuleList && !isInDbReqs) return false;
-
-                            if (rule.name === "Mestrado em Atividades Profissionais") {
-                              return sSigla === "AP";
-                            }
-
-                            if (rule.name === "Mestrado em Testificação") {
-                              return sSigla === "AM" || sSigla === "MA";
-                            }
-
-                            if (rule.name === "Mestrado em Zoologia") {
-                              return sSigla === "EN" || sClean === "zoonoses";
-                            }
-
-                            if (rule.name === "Mestrado em Botânica" || rule.name === "Mestrado em Ecologia") {
-                              return sSigla === "EN" || sSigla === "AG";
-                            }
-
-                            return true;
+                            return isInRuleList || isInDbReqs;
                           });
+                        };
+
+                        const getFamilyKey = (mName: string, category: string): string => {
+                          const n = normalize(mName);
+                          const c = normalize(category);
+                          if (n.includes('profissional') || n.includes('tecnologia') || c.includes('profissional') || c.includes('tecnologia')) {
+                            return 'tecnologia_profissoes'; // Vermelho: Atividades Profissionais & Ciência e Tecnologia compartilham especialidades de computação
+                          }
+                          if (n.includes('botanica') || n.includes('zoologia') || n.includes('ecologia') || c.includes('natureza')) {
+                            return 'estudo_da_natureza'; // Verde claro
+                          }
+                          if (n.includes('campestre') || n.includes('esporte') || n.includes('aquatica') || n.includes('recreativas') || c.includes('recreativas') || c.includes('campestre')) {
+                            return 'recreativas_campestre'; // Verde escuro
+                          }
+                          if (n.includes('testificacao') || n.includes('biblico') || c.includes('missionaria') || c.includes('biblico')) {
+                            return 'espiritual'; // Azul
+                          }
+                          if (n.includes('manual') || n.includes('artes') || c.includes('artes')) {
+                            return 'artes_manuais'; // Amarelo
+                          }
+                          if (n.includes('agricola') || c.includes('agricola')) {
+                            return 'agricolas';
+                          }
+                          if (n.includes('saude') || c.includes('saude')) {
+                            return 'saude';
+                          }
+                          if (n.includes('adra') || c.includes('adra')) {
+                            return 'adra';
+                          }
+                          if (n.includes('domestica') || c.includes('domestica')) {
+                            return 'domesticas';
+                          }
+                          return n;
                         };
 
                         interface ActiveMasteryGroup {
@@ -1869,6 +1888,8 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                           items: Especialidade[];
                           isManual?: boolean;
                           requirementsCount: number;
+                          familyKey: string;
+                          category: string;
                         }
 
                         const activeMasteryGroups: ActiveMasteryGroup[] = [];
@@ -1881,115 +1902,189 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                           const hasMetRequirements = matchingItems.length >= reqCount;
 
                           if (hasMetRequirements || isManuallyLiked) {
-                            matchingItems.forEach(s => assignedIds.add(s.id.toString()));
                             activeMasteryGroups.push({
                               id: masteryItem ? masteryItem.id : rule.name,
                               name: masteryItem ? masteryItem.nome.replace(/campreste/gi, 'Campestre') : rule.name,
                               logo: masteryItem?.logo,
                               items: matchingItems,
                               isManual: !!isManuallyLiked,
-                              requirementsCount: reqCount
+                              requirementsCount: reqCount,
+                              familyKey: getFamilyKey(rule.name, rule.category),
+                              category: rule.category
                             });
                           }
                         });
 
+                        // Fallback para mestrados marcados manualmente na modal Minha Faixa
                         allMasterySpecialties.forEach(mastery => {
                           if (likedIds.includes(mastery.id.toString())) {
                             const alreadyAdded = activeMasteryGroups.some(g => String(g.id) === String(mastery.id));
                             if (!alreadyAdded) {
                               const mName = normalize(mastery.nome);
-                              const unassigned = ordinarySpecialties.filter(s => !assignedIds.has(s.id.toString()));
-                              const matching = unassigned.filter(s => {
-                                const area = s.area ? normalize(s.area) : '';
-                                return area && (mName.includes(area) || area.includes(mName));
+                              const matchingRule = MASTERY_RULES.find(r => {
+                                const rNorm = normalize(r.name);
+                                return rNorm === mName || mName.includes(rNorm) || rNorm.includes(mName);
                               });
-                              matching.forEach(s => assignedIds.add(s.id.toString()));
+                              
+                              const matchingItems = matchingRule 
+                                ? getSpecialtiesForRule(matchingRule, ordinarySpecialties, mastery)
+                                : ordinarySpecialties.filter(s => {
+                                    const area = s.area ? normalize(s.area) : '';
+                                    return area && (mName.includes(area) || area.includes(mName));
+                                  });
+
                               activeMasteryGroups.push({
                                 id: mastery.id,
                                 name: mastery.nome.replace(/campreste/gi, 'Campestre'),
                                 logo: mastery.logo,
-                                items: matching,
+                                items: matchingItems,
                                 isManual: true,
-                                requirementsCount: 7
+                                requirementsCount: 7,
+                                familyKey: getFamilyKey(mastery.nome, mastery.area || ''),
+                                category: mastery.area || ''
                               });
                             }
                           }
                         });
 
-                        // Estrutura de blocos na faixa solicitada pelo usuário:
-                        // Para cada mestrado ativo:
-                        //   1. Patch oval do Mestrado
-                        //   2. Especialidades que compõem aquele mestrado
-                        //   3. Especialidades da mesma área/cor que NÃO estão no mestrado
-                        // Em seguida, os demais blocos de especialidades de outras áreas que não possuem mestrado ativo.
-
+                        // Estrutura de blocos na faixa conforme regra do usuário:
+                        // "mestrado seguida de suas especialidades, se tem 2 mestrados, coloque o primeiro e suas especialidade,
+                        // depois o segundo e suas especialidade e após isso as especialidades que não esta em nenhum dos 2 mestrados daquela área."
                         interface SashBlock {
                           mastery?: ActiveMasteryGroup;
                           specialties: Especialidade[];
                           areaName?: string;
+                          isLeftoverFromMasteryArea?: boolean;
                         }
 
                         const sashBlocks: SashBlock[] = [];
-                        const usedMasteryIds = new Set<string>();
                         const usedSpecialtyIds = new Set<string>();
 
-                        // 1. Processa cada grupo de mestrado ativo
+                        const getFamilyDisplayName = (fKey: string): string => {
+                          switch (fKey) {
+                            case 'tecnologia_profissoes': return 'Ciência, Tecnologia e Atividades Profissionais';
+                            case 'recreativas_campestre': return 'Atividades Recreativas e Vida Campestre';
+                            case 'estudo_da_natureza': return 'Estudo da Natureza';
+                            case 'espiritual': return 'Atividades Missionárias';
+                            case 'artes_manuais': return 'Artes e Habilidades Manuais';
+                            case 'agricolas': return 'Atividades Agrícolas';
+                            case 'saude': return 'Saúde e Ciência';
+                            case 'domesticas': return 'Habilidades Domésticas';
+                            case 'adra': return 'ADRA';
+                            default: return 'Outras Especialidades';
+                          }
+                        };
+
+                        const isSpecialtyInFamily = (s: Especialidade, fKey: string): boolean => {
+                          const sCat = cleanStr(s.area);
+                          const sSigla = (s.sigla || '').toUpperCase();
+
+                          if (fKey === 'tecnologia_profissoes') {
+                            return sCat.includes('profissional') || sCat.includes('tecnologia') || sSigla === 'AP' || sSigla === 'CT';
+                          }
+                          if (fKey === 'estudo_da_natureza') {
+                            return sCat.includes('natureza') || sSigla === 'EN';
+                          }
+                          if (fKey === 'recreativas_campestre') {
+                            return sCat.includes('campestre') || sCat.includes('recreativas') || sSigla === 'VC' || sSigla === 'AR' || sSigla === 'ES';
+                          }
+                          if (fKey === 'espiritual') {
+                            return sCat.includes('missionaria') || sCat.includes('biblico') || sSigla === 'AM' || sSigla === 'MA' || sSigla === 'AM-EB';
+                          }
+                          if (fKey === 'artes_manuais') {
+                            return sCat.includes('manuais') || sCat.includes('artes') || sSigla === 'HM';
+                          }
+                          if (fKey === 'agricolas') {
+                            return sCat.includes('agricola') || sSigla === 'AA' || sSigla === 'AG';
+                          }
+                          if (fKey === 'saude') {
+                            return sCat.includes('saude') || sSigla === 'CS' || sSigla === 'SA';
+                          }
+                          if (fKey === 'adra') {
+                            return sCat.includes('adra') || sSigla === 'AD';
+                          }
+                          if (fKey === 'domesticas') {
+                            return sCat.includes('domestica') || sSigla === 'HD';
+                          }
+                          return false;
+                        };
+
+                        // 1. Agrupa os mestrados ativos por família/área
+                        const familyGroups = new Map<string, ActiveMasteryGroup[]>();
                         activeMasteryGroups.forEach(mGroup => {
-                          usedMasteryIds.add(String(mGroup.id));
-
-                          // Especialidades que cumprem o mestrado (ordenadas)
-                          const mSpecialties = [...mGroup.items]
-                            .filter(s => !usedSpecialtyIds.has(String(s.id)))
-                            .sort((a, b) => a.nome.localeCompare(b.nome));
-
-                          mSpecialties.forEach(s => usedSpecialtyIds.add(String(s.id)));
-
-                          // Área correspondente ao mestrado para encontrar as especialidades daquela mesma cor/área
-                          const normMName = normalize(mGroup.name);
-                          const matchingRule = MASTERY_RULES.find(r => {
-                            const rNorm = normalize(r.name);
-                            return rNorm === normMName || normMName.includes(rNorm) || rNorm.includes(normMName);
-                          });
-
-                          const targetCategory = matchingRule?.category ? cleanStr(matchingRule.category) : '';
-                          const targetSiglas = matchingRule?.siglas || [];
-
-                          // Especialidades da mesma área/cor que NÃO estão no mestrado
-                          const sameAreaSpecialties = ordinarySpecialties
-                            .filter(s => !usedSpecialtyIds.has(String(s.id)))
-                            .filter(s => {
-                              const sCat = cleanStr(s.area);
-                              const sSigla = s.sigla || '';
-                              if (targetCategory && (sCat === targetCategory || sCat.includes(targetCategory) || targetCategory.includes(sCat))) {
-                                return true;
-                              }
-                              if (targetSiglas.length > 0 && targetSiglas.includes(sSigla)) {
-                                return true;
-                              }
-                              // Correspondência por palavras-chave conhecidas (ex: zoologia -> Estudo da Natureza)
-                              if (normMName.includes('zoologia') || normMName.includes('botanica') || normMName.includes('ecologia')) {
-                                return sCat.includes('natureza') || sSigla === 'EN';
-                              }
-                              if (normMName.includes('campestre')) {
-                                return sCat.includes('campestre') || sCat.includes('recreativas') || sSigla === 'VC' || sSigla === 'AR';
-                              }
-                              return false;
-                            })
-                            .sort((a, b) => a.nome.localeCompare(b.nome));
-
-                          sameAreaSpecialties.forEach(s => usedSpecialtyIds.add(String(s.id)));
-
-                          // Especialidades totais deste bloco (as do mestrado + as da mesma cor logo a seguir)
-                          const combined = [...mSpecialties, ...sameAreaSpecialties];
-
-                          sashBlocks.push({
-                            mastery: mGroup,
-                            specialties: combined,
-                            areaName: matchingRule?.category || mGroup.name
-                          });
+                          const fKey = mGroup.familyKey;
+                          if (!familyGroups.has(fKey)) {
+                            familyGroups.set(fKey, []);
+                          }
+                          familyGroups.get(fKey)!.push(mGroup);
                         });
 
-                        // 2. Especialidades restantes (de áreas sem mestrado ativo conquistado), agrupadas por área/cor
+                        const familiesOrder = [
+                          'tecnologia_profissoes',
+                          'recreativas_campestre',
+                          'estudo_da_natureza',
+                          'espiritual',
+                          'artes_manuais',
+                          'agricolas',
+                          'saude',
+                          'domesticas',
+                          'adra'
+                        ];
+
+                        const processedFamilies = new Set<string>();
+
+                        const processFamily = (fKey: string, masteriesInFamily: ActiveMasteryGroup[]) => {
+                          processedFamilies.add(fKey);
+
+                          // Se houver 2 mestrados ou mais na mesma área, ordenamos por nome para estabilidade
+                          const sortedMasteries = [...masteriesInFamily].sort((a, b) => a.name.localeCompare(b.name));
+
+                          // Para cada mestrado: Coloca o mestrado e suas especialidades!
+                          sortedMasteries.forEach(mGroup => {
+                            const mSpecialties = mGroup.items
+                              .filter(s => !usedSpecialtyIds.has(String(s.id)))
+                              .sort((a, b) => a.nome.localeCompare(b.nome));
+
+                            mSpecialties.forEach(s => usedSpecialtyIds.add(String(s.id)));
+
+                            sashBlocks.push({
+                              mastery: mGroup,
+                              specialties: mSpecialties,
+                              areaName: mGroup.name
+                            });
+                          });
+
+                          // E após isso as especialidades que NÃO estão em nenhum dos mestrados daquela área!
+                          const remainingInFamily = ordinarySpecialties
+                            .filter(s => !usedSpecialtyIds.has(String(s.id)))
+                            .filter(s => isSpecialtyInFamily(s, fKey))
+                            .sort((a, b) => a.nome.localeCompare(b.nome));
+
+                          if (remainingInFamily.length > 0) {
+                            remainingInFamily.forEach(s => usedSpecialtyIds.add(String(s.id)));
+                            sashBlocks.push({
+                              specialties: remainingInFamily,
+                              areaName: getFamilyDisplayName(fKey),
+                              isLeftoverFromMasteryArea: true
+                            });
+                          }
+                        };
+
+                        // Processa primeiro as famílias oficiais ordenadas
+                        familiesOrder.forEach(fKey => {
+                          if (familyGroups.has(fKey)) {
+                            processFamily(fKey, familyGroups.get(fKey)!);
+                          }
+                        });
+
+                        // Qualquer outra família com mestrado ativo não contemplada na lista fixa
+                        familyGroups.forEach((mList, fKey) => {
+                          if (!processedFamilies.has(fKey)) {
+                            processFamily(fKey, mList);
+                          }
+                        });
+
+                        // 2. Especialidades restantes (de áreas sem mestrado conquistado), agrupadas por área/cor
                         const leftoverSpecialties = ordinarySpecialties.filter(s => !usedSpecialtyIds.has(String(s.id)));
                         const leftoverByArea = Object.entries(
                           leftoverSpecialties.reduce((acc, esp) => {
@@ -2015,11 +2110,11 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                           <div className="w-full space-y-4 sm:space-y-5">
                             {sashBlocks.map((block, idx) => (
                               <div key={idx} className="w-full space-y-1.5 sm:space-y-2">
-                                {/* Se o bloco tem Mestrado: exibe o emblema oval do Mestrado centralizado logo acima */}
+                                {/* Mestrado do bloco: emblema oval do mestrado centralizado */}
                                 {block.mastery && (
                                   <div className="flex flex-col items-center justify-center pt-1 pb-1">
                                     <div 
-                                      className="w-32 h-22 sm:w-36 sm:h-24 flex items-center justify-center relative select-none pointer-events-none"
+                                      className="w-32 h-22 sm:w-36 sm:h-24 flex items-center justify-center relative select-none pointer-events-none transition-transform"
                                       title={`Mestrado: ${block.mastery.name}`}
                                     >
                                       {block.mastery.logo ? (
@@ -2035,7 +2130,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                                   </div>
                                 )}
 
-                                {/* Especialidades correspondentes logo abaixo (primeiro as do mestrado, depois as da mesma cor) */}
+                                {/* Especialidades correspondentes logo abaixo */}
                                 {block.specialties.length > 0 && (
                                   <div className="grid grid-cols-4 gap-0.5 sm:gap-1 w-full justify-items-center">
                                     {block.specialties.map(esp => (

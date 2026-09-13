@@ -6,14 +6,40 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '2.6.0';
+export const APP_VERSION = '2.8.0';
 export const APP_BUILD_DATE = '13 de Setembro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '2.8.0',
+    date: '13/09/2026',
+    tag: 'NOVO',
+    title: 'Mestrados Lado a Lado e Agrupamento Preciso de Vida Campestre e Botânica',
+    changes: [
+      'Mestrados com especialidades compartilhadas (ex: Atividades Profissionais e Ciência e Tecnologia) agora são posicionados lado a lado acima das especialidades na Faixa.',
+      'Correção do agrupamento das especialidades de Vida Campestre: acampamentos, pioneirias, fogueiras e nós agora se agrupam perfeitamente sob o Mestrado em Vida Campestre.',
+      'Correção do agrupamento das especialidades de Botânica: árvores, flores, cactos, sementes e samambaias agora se agrupam perfeitamente sob o Mestrado em Botânica.',
+      'Distribuição protegida de áreas afins: nenhum mestrado ativo rouba especialidades específicas de outro mestrado.',
+      'União harmoniosa de todas as especialidades correspondentes aos mestrados irmãos na mesma seção da faixa.'
+    ]
+  },
+  {
+    version: '2.7.0',
+    date: '13/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Layout Responsivo de Especialidades, Sincronização em Nuvem e Proteção da Faixa',
+    changes: [
+      'Cabeçalho de Especialidades responsivo: no celular imagem centralizada no topo e textos abaixo; no PC imagem à esquerda e textos à direita.',
+      'Eliminada redundância de texto na barra de navegação superior das Classes e Especialidades.',
+      'Sincronização imediata e persistente da Faixa de Especialidades com o Supabase ao adicionar ou remover pelo celular.',
+      'Distintivos de mestrado e especialidades na faixa protegidos contra cliques indesejados (gestão exclusiva na modal Minha Faixa).',
+      'Painel de atualizações e sincronização de versão aprimorados.'
+    ]
+  },
+  {
     version: '2.6.0',
     date: '13/09/2026',
-    tag: 'ATUAL',
+    tag: 'ESTÁVEL',
     title: 'Uniforme Oficial, Condecorações Militares e Escala Real da Faixa',
     changes: [
       'Cor cáqui da camisa de gala oficial dos Desbravadores ajustada com fidelidade cromática e textura têxtil refinada.',

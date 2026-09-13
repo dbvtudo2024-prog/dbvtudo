@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '2.6.0';
+const appVersion = '2.8.0';
 
 function versionPlugin(): Plugin {
   return {
@@ -19,9 +19,10 @@ function versionPlugin(): Plugin {
           buildDate: new Date(buildTime).toISOString(),
           timestamp: buildTime,
           highlights: [
-            "Uniforme oficial dos Desbravadores com cor cáqui fiel",
-            "Condecorações de Classes unidas em barras metálicas douradas",
-            "Faixa em escala real 100% preenchendo de costura a costura"
+            "Mestrados com especialidades compartilhadas agora posicionados lado a lado na Faixa",
+            "Agrupamento e exibição precisa das especialidades de Vida Campestre junto ao seu mestrado",
+            "Agrupamento e exibição precisa das especialidades de Botânica junto ao seu mestrado",
+            "Preservação e ordenação harmoniosa das especialidades correspondentes a cada área"
           ]
         }, null, 2)
       });
@@ -37,9 +38,10 @@ function versionPlugin(): Plugin {
             buildDate: new Date(buildTime).toISOString(),
             timestamp: buildTime,
             highlights: [
-              "Tela de Ajustes agora em modal flutuante",
-              "Painel de Versões e Changelog integrado",
-              "Melhorias de tela cheia no modo Paisagem"
+              "Mestrados com especialidades compartilhadas agora posicionados lado a lado na Faixa",
+              "Agrupamento e exibição precisa das especialidades de Vida Campestre junto ao seu mestrado",
+              "Agrupamento e exibição precisa das especialidades de Botânica junto ao seu mestrado",
+              "Preservação e ordenação harmoniosa das especialidades correspondentes a cada área"
             ]
           }));
           return;

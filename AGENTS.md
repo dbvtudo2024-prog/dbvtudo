@@ -1,1 +1,2 @@
 - Responda sempre em português (Brasil).
+- Mantenha sempre a versão do aplicativo atualizada a cada mudança ou nova funcionalidade, incrementando a versão em package.json, versionConfig.ts, version.json e vite.config.ts, registrando o changelog com clareza.

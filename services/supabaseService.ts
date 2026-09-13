@@ -569,31 +569,13 @@ export async function updateUserFaixa(email?: string | null, specialties: string
 
     if (!effectiveUserId) return { error: "Sem ID de usuário autenticado" };
 
-    const updatePayload: any = {
-      Especialidades: espString,
-      updated_at: new Date().toISOString()
-    };
-
-    // Tentar update na coluna Especialidades
-    let res = await supabase
+    // Tabela Usuarios no Supabase possui apenas colunas: user_id, Especialidades, nome, etc. Não possui updated_at!
+    const res = await supabase
       .from('Usuarios')
-      .update(updatePayload)
-      .eq('user_id', effectiveUserId);
-
-    // Se falhar ou se a linha não existir, tentar upsert
-    if (res.error) {
-      const upsertRes = await supabase
-        .from('Usuarios')
-        .upsert({
-          user_id: effectiveUserId,
-          Especialidades: espString,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'user_id' });
-      if (!upsertRes.error) {
-        return { data: upsertRes.data, error: null };
-      }
-      return { data: null, error: res.error || upsertRes.error };
-    }
+      .upsert({
+        user_id: effectiveUserId,
+        Especialidades: espString
+      }, { onConflict: 'user_id' });
 
     return { data: res.data, error: res.error };
   } catch (err: any) {
