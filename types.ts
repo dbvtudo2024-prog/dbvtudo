@@ -204,6 +204,8 @@ export interface UserProfile {
   clube?: string;
   Especialidades?: string;
   Conquistas?: string;
+  tipo_sanguineo?: string;
+  fator_rh?: string;
 }
 
 export interface FuncaoCargo {

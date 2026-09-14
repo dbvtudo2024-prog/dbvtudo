@@ -1,11 +1,12 @@
 {
-  "version": 1757860000000,
-  "versionName": "2.9.4",
-  "buildDate": "2026-09-14T14:15:00.000Z",
-  "timestamp": 1757860000000,
+  "version": 1757913600000,
+  "versionName": "3.0.1",
+  "buildDate": "2026-09-15T15:45:00.000Z",
+  "timestamp": 1757949900000,
   "highlights": [
-    "Ordem estrita de mestrados e especialidades na faixa conforme regras e divisão oficial de áreas da DSA",
-    "Ordenação canônica das especialidades dentro de cada mestrado",
-    "Refinamento visual da ponta da faixa verde-petróleo e simulador administrativo"
+    "Alinhamento da linha reta central (equador) do globo rigorosamente paralelo ao corte da faixa",
+    "Sincronização angular exata a 45 graus entre o corte diagonal e a rotação do globo",
+    "Harmonização da maquete do simulador da ponta da faixa no Painel Administrativo",
+    "Transparência total na área externa preservando nitidez dos elementos da faixa"
   ]
 }

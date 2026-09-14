@@ -265,9 +265,11 @@ export const PinBatismo: React.FC<PinBatismoProps> = ({
 interface TiraNomeProps {
   name: string;
   age: number | null;
+  tipoSanguineo?: string;
+  fatorRh?: string;
 }
 
-export const TiraNome: React.FC<TiraNomeProps> = ({ name, age }) => {
+export const TiraNome: React.FC<TiraNomeProps> = ({ name, age, tipoSanguineo, fatorRh }) => {
   const isAdultUniform = age !== null && age >= 16;
   const bgColor = isAdultUniform ? 'bg-[#f8f6f0] text-[#0a0a0a]' : 'bg-[#c5a57d] text-[#0a0a0a]';
   const borderColor = 'border-[#223014]';
@@ -275,15 +277,36 @@ export const TiraNome: React.FC<TiraNomeProps> = ({ name, age }) => {
   // Imagem da faixa real: Nome bordado em destaque preenchendo a altura e largura da tira
   const firstName = (name || 'DESBRAVADOR').trim().split(/\s+/)[0].toUpperCase();
 
+  // Informação de tipo sanguíneo e fator RH exclusiva da faixa (canto direito em vermelho)
+  const bloodTypeDisplay = (tipoSanguineo || fatorRh)
+    ? `${tipoSanguineo || ''}${fatorRh || ''}`.trim()
+    : '';
+
   return (
     <div className="w-full max-w-[240px] sm:max-w-[260px] my-1 relative group select-none">
       {/* Plaqueta com costura militar bordada fiel à faixa real */}
-      <div className={`w-full py-1.5 sm:py-2 px-3 rounded-xs border-[3.5px] sm:border-[4px] ${borderColor} ${bgColor} shadow-md flex items-center justify-center relative overflow-hidden`}>
+      <div className={`w-full py-1.5 sm:py-2 px-2.5 sm:px-3 rounded-xs border-[3.5px] sm:border-[4px] ${borderColor} ${bgColor} shadow-md flex items-center justify-center relative overflow-hidden min-h-[38px] sm:min-h-[42px]`}>
         {/* Textura têxtil de entretela e tecido bordado */}
         <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:3px_3px] pointer-events-none" />
-        <span className="font-black text-2xl sm:text-3xl md:text-[32px] tracking-[0.15em] sm:tracking-[0.18em] uppercase truncate text-center leading-none font-mono drop-shadow-[0_1px_1px_rgba(255,255,255,0.4)]">
+        
+        {/* Nome do desbravador centralizado */}
+        <span className={`font-black text-2xl sm:text-3xl md:text-[32px] tracking-[0.15em] sm:tracking-[0.18em] uppercase truncate text-center leading-none font-mono drop-shadow-[0_1px_1px_rgba(255,255,255,0.4)] z-0 ${
+          bloodTypeDisplay ? 'pr-9 sm:pr-11 pl-2' : ''
+        }`}>
           {firstName}
         </span>
+
+        {/* Tipo sanguíneo e Fator RH exclusivamente na faixa, do lado direito da caixa do nome em vermelho */}
+        {bloodTypeDisplay && (
+          <div 
+            className="absolute right-2 sm:right-2.5 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center pointer-events-none"
+            title={`Tipo Sanguíneo e Fator RH: ${bloodTypeDisplay}`}
+          >
+            <span className="font-black text-xs sm:text-sm md:text-base text-red-600 font-mono tracking-tight leading-none drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)] bg-red-600/10 px-1 py-0.5 rounded-xs border border-red-600/25">
+              {bloodTypeDisplay}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1900,13 +1923,30 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
               {/* LADO 2: FAIXA VERDE-PETRÓLEO OFICIAL (Conforme uniforme e faixa real) */}
               <div className="w-full flex flex-col items-center filter drop-shadow-[0_20px_25px_rgba(0,0,0,0.5)] drop-shadow-[0_8px_10px_rgba(0,0,0,0.3)]">
                 <div 
-                  className="w-full max-w-[340px] sm:max-w-[380px] bg-[#0c3c31] dark:bg-[#07241d] border-2 border-[#092d25] dark:border-[#041612] rounded-[28px] px-3 sm:px-4 pt-4 sm:pt-5 pb-8 flex flex-col items-center relative overflow-hidden text-white transition-all duration-300"
+                  className="w-[340px] sm:w-[380px] max-w-full bg-[#0c3c31] dark:bg-[#07241d] border-2 border-[#092d25] dark:border-[#041612] px-3 sm:px-4 pt-4 sm:pt-5 pb-6 flex flex-col items-center relative overflow-hidden text-white transition-all duration-300"
+                  style={{
+                    clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 340px), 0 100%)'
+                  }}
                 >
                   {/* Textura e costuras pespontadas oficiais da faixa */}
                   <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:10px_10px]" />
                   <div className="absolute top-2 bottom-3 left-2 sm:left-2.5 w-px border-l border-dashed border-emerald-300/25 pointer-events-none" />
-                  <div className="absolute top-2 bottom-3 right-2 sm:right-2.5 w-px border-r border-dashed border-emerald-300/25 pointer-events-none" />
-                  <div className="absolute bottom-2.5 left-3 right-3 h-px border-b border-dashed border-emerald-300/25 pointer-events-none" />
+                  <div 
+                    className="absolute top-2 right-2 sm:right-2.5 w-px border-r border-dashed border-emerald-300/25 pointer-events-none"
+                    style={{ bottom: '345px' }}
+                  />
+                  {/* Costura pespontada acompanhando o corte diagonal a 45° da ponta da faixa */}
+                  <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" preserveAspectRatio="none">
+                    <line 
+                      x1="10" 
+                      y1="calc(100% - 10px)" 
+                      x2="calc(100% - 10px)" 
+                      y2="calc(100% - 348px)" 
+                      stroke="rgba(110, 231, 183, 0.28)" 
+                      strokeWidth="1.5" 
+                      strokeDasharray="4,4" 
+                    />
+                  </svg>
 
                   {/* TOPO DA FAIXA: A ~6cm do topo */}
                   <div className="pt-8 sm:pt-9 pb-2 flex flex-col items-center w-full relative z-10 space-y-3">
@@ -2017,13 +2057,37 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                           return found;
                         };
 
+                        const normalizeSpecialtyStrict = (str: string) => {
+                          return (str || "")
+                            .toLowerCase()
+                            .normalize("NFD")
+                            .replace(/[\u0300-\u036f]/g, "")
+                            .replace(/[^a-z0-9]/g, "");
+                        };
+
+                        const replaceNumerals = (s: string) => s
+                          .replace(/i{1,3}$/, m => m === 'i' ? '1' : m === 'ii' ? '2' : '3')
+                          .replace(/iv$/, '4')
+                          .replace(/v$/, '5');
+
+                        const isSpecialtyMatch = (sNome: string, ruleSpecialty: string): boolean => {
+                          const normS = normalizeSpecialtyStrict(sNome);
+                          const normR = normalizeSpecialtyStrict(ruleSpecialty);
+
+                          if (!normS || !normR) return false;
+                          if (normS === normR) return true;
+                          if (replaceNumerals(normS) === replaceNumerals(normR)) return true;
+                          if (normS + 's' === normR || normR + 's' === normS) return true;
+                          if ((normR === "bacterias" && normS === "bacteria") || (normR === "bacteria" && normS === "bacterias")) return true;
+                          return false;
+                        };
+
                         const getSpecialtiesForRule = (rule: typeof MASTERY_RULES[0], pool: Especialidade[], masteryItem?: Especialidade) => {
                           const dbReqs = (masteryItem?.requisitos || []).flatMap(r => {
-                            return r.split(/\r?\n|;/).map(part => cleanStr(part)).filter(p => p.length >= 3);
+                            return r.split(/\r?\n|;/).map(part => part.trim()).filter(p => p.length >= 3);
                           });
 
                           return pool.filter(s => {
-                            const sClean = cleanStr(s.nome);
                             const sCat = cleanStr(s.area);
                             const sSigla = (s.sigla || '').toUpperCase();
 
@@ -2033,26 +2097,17 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                               return false;
                             }
 
-                            const isInRuleList = rule.specialties.some(rs => {
-                              const rsClean = cleanStr(rs);
-                              if (sClean === rsClean) return true;
-                              if (rsClean.length >= 6 && (sClean.includes(rsClean) || rsClean.includes(sClean))) return true;
-                              if ((rsClean === "bacterias" && sClean === "bacteria") || (rsClean === "bacteria" && sClean === "bacterias")) return true;
-                              return false;
-                            });
+                            const isInRuleList = rule.specialties.some(rs => isSpecialtyMatch(s.nome, rs));
+                            const isInDbReqs = dbReqs.length > 0 && dbReqs.some(req => isSpecialtyMatch(s.nome, req));
 
-                            const isInDbReqs = dbReqs.length > 0 && dbReqs.some(req => req === sClean || (req.length >= 6 && (sClean.includes(req) || req.includes(sClean))));
-
-                            const isInRuleSigla = !!(rule.siglas && rule.siglas.length > 0 && rule.siglas.map(sig => sig.toUpperCase()).includes(sSigla));
-
-                            return isInRuleList || isInDbReqs || (isInRuleSigla && sCat.includes(cleanStr(rule.category)));
+                            return isInRuleList || isInDbReqs;
                           });
                         };
 
                         const getFamilyKey = (mName: string, category: string): string => {
                           const n = normalize(mName);
                           const c = normalize(category);
-                          if (n.includes('profissional') || n.includes('tecnologia') || c.includes('profissional') || c.includes('tecnologia')) {
+                          if (n.includes('profissiona') || n.includes('tecnologia') || c.includes('profissiona') || c.includes('tecnologia')) {
                             return 'tecnologia_profissoes'; // Vermelho: Atividades Profissionais & Ciência e Tecnologia compartilham especialidades de computação
                           }
                           if (n.includes('botanica') || n.includes('zoologia') || n.includes('ecologia') || c.includes('natureza')) {
@@ -2106,20 +2161,21 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
                         const activeMasteryGroups: ActiveMasteryGroup[] = [];
 
+                        // REGRA OFICIAL E ESTRITA: É para pôr APENAS os mestrados que têm as especialidades necessárias para completá-los
                         MASTERY_RULES.forEach((rule, ruleIdx) => {
                           const masteryItem = findMasteryItem(rule.name, rule.category);
-                          const isManuallyLiked = masteryItem && likedIds.includes(masteryItem.id.toString());
                           const matchingItems = getSpecialtiesForRule(rule, ordinarySpecialties, masteryItem);
                           const reqCount = rule.requirementsCount || 7;
                           const hasMetRequirements = matchingItems.length >= reqCount;
 
-                          if (hasMetRequirements || isManuallyLiked) {
+                          // Só inclui na faixa se o usuário tiver todas as especialidades exigidas para completar o mestrado!
+                          if (hasMetRequirements) {
                             activeMasteryGroups.push({
                               id: masteryItem ? masteryItem.id : rule.name,
                               name: masteryItem ? masteryItem.nome.replace(/campreste/gi, 'Campestre') : rule.name,
                               logo: masteryItem?.logo,
                               items: matchingItems,
-                              isManual: !!isManuallyLiked,
+                              isManual: false,
                               requirementsCount: reqCount,
                               familyKey: getFamilyKey(rule.name, rule.category),
                               category: rule.category,
@@ -2129,7 +2185,8 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                           }
                         });
 
-                        // Fallback para mestrados marcados manualmente na modal Minha Faixa
+                        // Fallback para mestrados marcados manualmente na modal Minha Faixa:
+                        // Também SÓ entra se possuir as especialidades necessárias para completar!
                         allMasterySpecialties.forEach(mastery => {
                           if (likedIds.includes(mastery.id.toString())) {
                             const alreadyAdded = activeMasteryGroups.some(g => String(g.id) === String(mastery.id));
@@ -2147,18 +2204,21 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                                     return area && (mName.includes(area) || area.includes(mName));
                                   });
 
-                              activeMasteryGroups.push({
-                                id: mastery.id,
-                                name: mastery.nome.replace(/campreste/gi, 'Campestre'),
-                                logo: mastery.logo,
-                                items: matchingItems,
-                                isManual: true,
-                                requirementsCount: 7,
-                                familyKey: getFamilyKey(mastery.nome, mastery.area || ''),
-                                category: mastery.area || '',
-                                canonicalOrder: getMasteryCanonicalIndex(mastery.nome),
-                                rule: matchingRule
-                              });
+                              const reqCount = matchingRule?.requirementsCount || 7;
+                              if (matchingItems.length >= reqCount) {
+                                activeMasteryGroups.push({
+                                  id: mastery.id,
+                                  name: mastery.nome.replace(/campreste/gi, 'Campestre'),
+                                  logo: mastery.logo,
+                                  items: matchingItems,
+                                  isManual: true,
+                                  requirementsCount: reqCount,
+                                  familyKey: getFamilyKey(mastery.nome, mastery.area || ''),
+                                  category: mastery.area || '',
+                                  canonicalOrder: getMasteryCanonicalIndex(mastery.nome),
+                                  rule: matchingRule
+                                });
+                              }
                             }
                           }
                         });
@@ -2238,12 +2298,9 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                           if (!rule || !rule.specialties || rule.specialties.length === 0) {
                             return [...items].sort((a, b) => a.nome.localeCompare(b.nome));
                           }
-                          const ruleNorms = rule.specialties.map((sName: string) => normalize(sName));
                           return [...items].sort((a, b) => {
-                            const aNorm = normalize(a.nome);
-                            const bNorm = normalize(b.nome);
-                            const idxA = ruleNorms.findIndex((rn: string) => rn === aNorm || aNorm.includes(rn) || rn.includes(aNorm));
-                            const idxB = ruleNorms.findIndex((rn: string) => rn === bNorm || bNorm.includes(rn) || rn.includes(bNorm));
+                            const idxA = rule.specialties.findIndex((rs: string) => isSpecialtyMatch(a.nome, rs));
+                            const idxB = rule.specialties.findIndex((rs: string) => isSpecialtyMatch(b.nome, rs));
                             if (idxA !== -1 && idxB !== -1) return idxA - idxB;
                             if (idxA !== -1) return -1;
                             if (idxB !== -1) return 1;
@@ -2259,9 +2316,9 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                           if (sharesUserItems) return true;
 
                           // 2. Ambos pertencem à família Ciência e Tecnologia / Atividades Profissionais que compartilham campo de computação
-                          const isAP1 = cleanStr(m1.name).includes('profissional') || cleanStr(m1.category).includes('profissional');
+                          const isAP1 = cleanStr(m1.name).includes('profissiona') || cleanStr(m1.category).includes('profissiona');
                           const isCT1 = cleanStr(m1.name).includes('tecnologia') || cleanStr(m1.category).includes('tecnologia');
-                          const isAP2 = cleanStr(m2.name).includes('profissional') || cleanStr(m2.category).includes('profissional');
+                          const isAP2 = cleanStr(m2.name).includes('profissiona') || cleanStr(m2.category).includes('profissiona');
                           const isCT2 = cleanStr(m2.name).includes('tecnologia') || cleanStr(m2.category).includes('tecnologia');
 
                           if ((isAP1 && isCT2) || (isCT1 && isAP2)) {
@@ -2343,7 +2400,14 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                               }
                             }
 
-                            cluster.sort((a, b) => a.canonicalOrder - b.canonicalOrder);
+                            // Quando o cluster tem Ciência e Tecnologia e Atividades Profissionais, coloca Ciência e Tecnologia à esquerda e Atividades Profissionais à direita conforme padrão oficial de referência
+                            cluster.sort((a, b) => {
+                              const aIsCT = cleanStr(a.name).includes('tecnologia');
+                              const bIsCT = cleanStr(b.name).includes('tecnologia');
+                              if (aIsCT && !bIsCT) return -1;
+                              if (!aIsCT && bIsCT) return 1;
+                              return a.canonicalOrder - b.canonicalOrder;
+                            });
                             clusters.push(cluster);
                           }
 
@@ -2372,9 +2436,53 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                               const clusterSpecialties: Especialidade[] = [];
                               const seenClusterSpecialtyIds = new Set<string>();
 
-                              cluster.forEach(mGroup => {
-                                const orderedItems = sortSpecialtiesForRule(mGroup.items, mGroup.rule);
-                                orderedItems.forEach(s => {
+                              if (cluster.length === 2) {
+                                const mLeft = cluster[0];
+                                const mRight = cluster[1];
+
+                                const leftSorted = sortSpecialtiesForRule(
+                                  mLeft.items.filter(s => !usedSpecialtyIds.has(String(s.id))),
+                                  mLeft.rule
+                                );
+                                const leftIds = new Set(leftSorted.map(s => String(s.id)));
+
+                                const rightSorted = sortSpecialtiesForRule(
+                                  mRight.items.filter(s => !usedSpecialtyIds.has(String(s.id))),
+                                  mRight.rule
+                                );
+                                const rightOnly = rightSorted.filter(s => !leftIds.has(String(s.id)));
+
+                                // Alinha no grid de 4 colunas:
+                                // As primeiras 3 colunas sob o mestrado da esquerda, a 4ª coluna sob o mestrado da direita
+                                let leftIdx = 0;
+                                let rightIdx = 0;
+
+                                while (leftIdx < leftSorted.length || rightIdx < rightOnly.length) {
+                                  // Adiciona até 3 do mestrado da esquerda (ou compartilhadas)
+                                  for (let c = 0; c < 3 && leftIdx < leftSorted.length; c++) {
+                                    const s = leftSorted[leftIdx++];
+                                    const sId = String(s.id);
+                                    if (!seenClusterSpecialtyIds.has(sId)) {
+                                      seenClusterSpecialtyIds.add(sId);
+                                      usedSpecialtyIds.add(sId);
+                                      clusterSpecialties.push(s);
+                                    }
+                                  }
+
+                                  // Adiciona 1 do mestrado da direita na 4ª coluna
+                                  if (rightIdx < rightOnly.length) {
+                                    const s = rightOnly[rightIdx++];
+                                    const sId = String(s.id);
+                                    if (!seenClusterSpecialtyIds.has(sId)) {
+                                      seenClusterSpecialtyIds.add(sId);
+                                      usedSpecialtyIds.add(sId);
+                                      clusterSpecialties.push(s);
+                                    }
+                                  }
+                                }
+
+                                // Se restou algo não incluído de mRight:
+                                rightSorted.forEach(s => {
                                   const sId = String(s.id);
                                   if (!seenClusterSpecialtyIds.has(sId) && !usedSpecialtyIds.has(sId)) {
                                     seenClusterSpecialtyIds.add(sId);
@@ -2382,7 +2490,19 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                                     clusterSpecialties.push(s);
                                   }
                                 });
-                              });
+                              } else {
+                                cluster.forEach(mGroup => {
+                                  const orderedItems = sortSpecialtiesForRule(mGroup.items, mGroup.rule);
+                                  orderedItems.forEach(s => {
+                                    const sId = String(s.id);
+                                    if (!seenClusterSpecialtyIds.has(sId) && !usedSpecialtyIds.has(sId)) {
+                                      seenClusterSpecialtyIds.add(sId);
+                                      usedSpecialtyIds.add(sId);
+                                      clusterSpecialties.push(s);
+                                    }
+                                  });
+                                });
+                              }
 
                               sashBlocks.push({
                                 masteries: cluster,
@@ -2475,11 +2595,11 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                               <div key={idx} className="w-full space-y-1.5 sm:space-y-2">
                                 {/* Mestrados do bloco: se tiver 2 ou mais mestrados que dividem especialidades, coloca-os juntos lado a lado acima das especialidades */}
                                 {block.masteries && block.masteries.length > 0 && (
-                                  <div className="flex flex-row flex-wrap items-center justify-center gap-3 sm:gap-4 pt-1 pb-1">
+                                  <div className="flex flex-row flex-nowrap items-center justify-center gap-2 sm:gap-3.5 pt-1 pb-1.5 w-full">
                                     {block.masteries.map(mGroup => (
                                       <div 
                                         key={mGroup.id}
-                                        className="w-32 h-22 sm:w-36 sm:h-24 flex items-center justify-center relative select-none pointer-events-none transition-transform"
+                                        className="w-[136px] h-[92px] sm:w-[150px] sm:h-[102px] flex items-center justify-center relative select-none pointer-events-none transition-transform flex-shrink-0"
                                         title={`Mestrado: ${mGroup.name}`}
                                       >
                                         {mGroup.logo ? (
@@ -2498,11 +2618,11 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
                                 {/* Especialidades correspondentes logo abaixo */}
                                 {block.specialties.length > 0 && (
-                                  <div className="grid grid-cols-4 gap-0.5 sm:gap-1 w-full justify-items-center">
+                                  <div className="grid grid-cols-4 gap-1 sm:gap-1.5 w-full justify-items-center">
                                     {block.specialties.map(esp => (
                                       <div 
                                         key={esp.id} 
-                                        className="w-[74px] h-[74px] sm:w-[82px] sm:h-[82px] flex items-center justify-center select-none pointer-events-none p-0"
+                                        className="w-[70px] h-[70px] sm:w-[76px] sm:h-[76px] flex items-center justify-center select-none pointer-events-none p-0"
                                         title={esp.nome}
                                       >
                                         {esp.logo ? (
@@ -2526,14 +2646,16 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                     )}
                   </div>
 
-                  {/* 5. PONTA DA FAIXA: GLOBO OFICIAL (Até 15 anos fundo cáqui, 16+ fundo branco, Líder/Master/Master Avançado globo de líder) */}
-                  <div className="w-full relative z-20 pt-6 pb-4 sm:pb-5 flex flex-col items-center">
+                  {/* 5. PONTA DA FAIXA: GLOBO OFICIAL CORTADO NA DIAGONAL A 45° COM ROTAÇÃO ALINHADA AO CORTE */}
+                  <div className="w-full relative z-20 pt-6 pb-2 flex flex-col items-center">
                     <div 
                       onClick={() => setShowGloboModal(true)}
-                      className="relative group cursor-pointer transition-transform duration-300 hover:scale-105 active:scale-95 flex flex-col items-center"
+                      className="relative group cursor-pointer transition-transform duration-300 hover:scale-105 active:scale-95 flex flex-col items-center translate-x-1 sm:translate-x-2 -translate-y-4 sm:-translate-y-6"
                       title={`${sashGlobeInfo.label} • Toque para ver detalhes`}
                     >
-                      <div className="w-28 h-28 sm:w-34 sm:h-34 relative flex items-center justify-center">
+                      <div 
+                        className="w-[240px] h-[240px] sm:w-[280px] sm:h-[280px] relative flex items-center justify-center rotate-[45deg]"
+                      >
                         <img 
                           src={sashGlobeInfo.url} 
                           alt={sashGlobeInfo.label}

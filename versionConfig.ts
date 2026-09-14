@@ -6,14 +6,98 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '2.9.4';
-export const APP_BUILD_DATE = '14 de Setembro de 2026';
+export const APP_VERSION = '3.0.1';
+export const APP_BUILD_DATE = '15 de Setembro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '3.0.1',
+    date: '15/09/2026',
+    tag: 'NOVO',
+    title: 'Alinhamento Geométrico Perfeito: Linha Reta Central do Globo Paralela ao Corte a 45°',
+    changes: [
+      'Ajuste angular de precisão (45° exatos) garantindo que a linha reta central (equador) que passa no meio do globo atrás do triângulo esteja rigorosamente alinhada e paralela à inclinação diagonal do corte da faixa.',
+      'Sincronização matemática entre o vetor de subida da linha de corte (deltaY/W = 1.0) e a rotação horária do globo (+45°).',
+      'Harmonização idêntica na maquete de simulação da ponta da faixa no Painel Administrativo.'
+    ]
+  },
+  {
+    version: '3.0.0',
+    date: '15/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Ponta da Faixa Idêntica à Referência: Rotação Horária do Globo (+40°) e Alinhamento Preciso',
+    changes: [
+      'Inversão e correção da rotação do globo oficial para o sentido horário oficial (+40°), alinhando o vértice superior e o escudo voltados para cima e à direita exatamente como na imagem de referência.',
+      'Corte diagonal da extremidade da faixa com angulação a 45 graus iniciando na ponta inferior esquerda e transpassando o emblema com transparência total na área externa.',
+      'Preservação nítida da espada, do escudo e do triângulo D1 na área verde-petróleo da faixa.',
+      'Harmonização da maquete do simulador de ponta da faixa e globos no Painel Administrativo.'
+    ]
+  },
+  {
+    version: '2.9.9',
+    date: '15/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Ponta da Faixa Fiel ao Uniforme: Angulação Oficial a 45° e Rotação Exata do Globo',
+    changes: [
+      'Corte diagonal da extremidade da faixa corrigido para a angulação oficial de 45 graus (subida equivalente à largura total da faixa), com vértice agudo no canto inferior esquerdo subindo em direção à borda direita.',
+      'Globo oficial ampliado para escala real e rotacionado em -38°, alinhando o lado direito do triângulo D1 perfeitamente à reta diagonal do corte conforme a imagem de referência.',
+      'Corte preciso transpassando a espada e o escudo, mantendo o polo norte, curvatura amarela e a ponta do triângulo em destaque na faixa verde, com transparência total na área externa.',
+      'Costura pespontada verde-clara acompanhando rigorosamente a inclinação de 45° por toda a extremidade da faixa e do simulador administrativo.'
+    ]
+  },
+  {
+    version: '2.9.8',
+    date: '15/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Ajuste Fiel do Globo na Ponta da Faixa: Triângulo e Espada em Destaque com Corte Diagonal Realista',
+    changes: [
+      'Reposicionamento milimétrico do globo oficial na ponta da faixa verde-petróleo, garantindo que mais de 60% do emblema permaneça visível com nitidez.',
+      'Triângulo D1, escudo branco e espada azul totalmente preservados e em evidência na faixa, com a linha diagonal cortando realisticamente a extremidade inferior direita do emblema exatamente como na foto de referência.',
+      'Eliminação do deslocamento excessivo que cortava o triângulo por completo.',
+      'Harmonização das proporções do globo no simulador interativo do Painel Administrativo.'
+    ]
+  },
+  {
+    version: '2.9.7',
+    date: '15/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Ponta da Faixa Fiel à Faixa Real com Globo Cortado na Diagonal e Transparência',
+    changes: [
+      'Corte diagonal da extremidade da faixa ampliado em ângulo realista (150px), acompanhando perfeitamente a linha diagonal.',
+      'Globo oficial redimensionado e posicionado na extremidade da faixa de modo que o corte diagonal traspasse e corte o emblema ao meio, reproduzindo exatamente o padrão oficial da imagem de referência.',
+      'Área externa ao corte 100% transparente via clip-path nativo, eliminando o globo inteiro flutuando e exibindo a costura pespontada acompanhando toda a inclinação do corte.',
+      'Alinhamento do simulador de ponta da faixa e globos no Painel Administrativo com a mesma inclinação e proporção realista.'
+    ]
+  },
+  {
+    version: '2.9.6',
+    date: '15/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Agrupamento Lado a Lado dos Mestrados com Especialidades Compartilhadas e Alinhamento de Grade',
+    changes: [
+      'Correção no agrupamento da família de Ciência, Tecnologia e Atividades Profissionais, garantindo que ambos os mestrados entrem no mesmo cluster e venham posicionados no topo da faixa.',
+      'Exibição rigorosa lado a lado dos mestrados que compartilham especialidades (ex: Ciência e Tecnologia à esquerda e Atividades Profissionais à direita).',
+      'Alinhamento exato das especialidades abaixo dos mestrados: especialidades compartilhadas e de tecnologia nas colunas 1 a 3 (sob o mestrado da esquerda) e especialidades específicas nas colunas seguintes (sob o mestrado da direita), reproduzindo com fidelidade a imagem de referência.',
+      'Preservação da ordem oficial: blocos de mestrados ativos com suas especialidades no topo, seguidos das especialidades avulsas das áreas que não possuem mestrado.'
+    ]
+  },
+  {
+    version: '2.9.5',
+    date: '15/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Corte Diagonal Aberto com Globo Transpassado, Mestrados Concluídos e Exatidão de Especialidades',
+    changes: [
+      'Corte diagonal da faixa verde-petróleo ampliado e mais aberto (92px), com costura pespontada acompanhando a inclinação e emblema do globo posicionado na extremidade com corte diagonal simulando a faixa real.',
+      'Filtro estrito de mestrados na faixa: inclusão apenas de mestrados que possuem todos os requisitos de especialidades concluídos pelo desbravador.',
+      'Correspondência estrita de especialidades com normalização precisa, eliminando falsas associações (ex: Cultura Física na área recreativa isolada de Física/Ciência e Tecnologia).',
+      'Disposição lado a lado dos mestrados que compartilham especialidades no topo com grade alinhada de 4 colunas para as especialidades correspondentes.',
+      'Alinhamento do simulador de ponta da faixa e globos no Painel Administrativo com o corte diagonal aberto e pesponto estilizado.'
+    ]
+  },
+  {
     version: '2.9.4',
     date: '14/09/2026',
-    tag: 'NOVO',
+    tag: 'ESTÁVEL',
     title: 'Alinhamento Fiel da Faixa: Sequência Oficial de Mestrados e Especialidades e Ponta Realista',
     changes: [
       'Alinhamento estrito da ordem de mestrados e especialidades conforme as diretrizes oficiais e imagem de referência: mestrados e suas respectivas especialidades no topo por ordem de regras oficiais, seguidos pelas especialidades agrupadas por áreas na ordem oficial da DSA (ADRA, Artes Manuais, Agrícolas, Espiritual, Profissional/Tecnologia, Recreativas/Campestre, Saúde, Natureza e Domésticas).',

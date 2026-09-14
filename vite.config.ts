@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '2.9.4';
+const appVersion = '3.0.1';
 
 function versionPlugin(): Plugin {
   return {
@@ -19,9 +19,10 @@ function versionPlugin(): Plugin {
           buildDate: new Date(buildTime).toISOString(),
           timestamp: buildTime,
           highlights: [
-            "Ordem estrita de mestrados e especialidades na faixa conforme regras e divisão oficial de áreas da DSA",
-            "Ordenação canônica das especialidades dentro de cada mestrado",
-            "Refinamento visual da ponta da faixa verde-petróleo e simulador administrativo"
+            "Alinhamento da linha reta central (equador) do globo rigorosamente paralelo ao corte da faixa",
+            "Sincronização angular exata a 45 graus entre o corte diagonal e a rotação do globo",
+            "Harmonização da maquete do simulador da ponta da faixa no Painel Administrativo",
+            "Transparência total na área externa preservando nitidez dos elementos da faixa"
           ]
         }, null, 2)
       });
@@ -37,10 +38,10 @@ function versionPlugin(): Plugin {
             buildDate: new Date(buildTime).toISOString(),
             timestamp: buildTime,
             highlights: [
-              "Mestrados com especialidades compartilhadas agora posicionados lado a lado na Faixa",
-              "Agrupamento e exibição precisa das especialidades de Vida Campestre junto ao seu mestrado",
-              "Agrupamento e exibição precisa das especialidades de Botânica junto ao seu mestrado",
-              "Preservação e ordenação harmoniosa das especialidades correspondentes a cada área"
+              "Corte diagonal aberto da faixa verde-petróleo e globo cortado na ponta simulando a faixa real",
+              "Apenas mestrados com requisitos de especialidades concluídos exibidos na faixa",
+              "Correspondência estrita de especialidades sem associações indevidas",
+              "Mestrados que compartilham especialidades dispostos lado a lado com grade de 4 colunas"
             ]
           }));
           return;

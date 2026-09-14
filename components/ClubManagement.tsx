@@ -6101,15 +6101,31 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           <div className="w-full flex justify-center py-4">
             <div className="w-64 filter drop-shadow-[0_16px_20px_rgba(0,0,0,0.4)]">
               <div 
-                className="w-full bg-[#0c3c31] border-2 border-[#092d25] rounded-2xl pt-6 pb-6 px-4 flex flex-col items-center relative overflow-hidden text-white"
+                className="w-full bg-[#0c3c31] border-2 border-[#092d25] pt-6 pb-4 px-4 flex flex-col items-center relative overflow-hidden text-white"
+                style={{
+                  clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 256px), 0 100%)'
+                }}
               >
                 <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:10px_10px]" />
                 <div className="absolute top-2 bottom-2 left-2 w-px border-l border-dashed border-emerald-300/25 pointer-events-none" />
-                <div className="absolute top-2 bottom-2 right-2 w-px border-r border-dashed border-emerald-300/25 pointer-events-none" />
-                <div className="absolute bottom-2 left-2 right-2 h-px border-b border-dashed border-emerald-300/25 pointer-events-none" />
+                <div 
+                  className="absolute top-2 right-2 w-px border-r border-dashed border-emerald-300/25 pointer-events-none"
+                  style={{ bottom: '260px' }}
+                />
+                <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" preserveAspectRatio="none">
+                  <line 
+                    x1="8" 
+                    y1="calc(100% - 8px)" 
+                    x2="calc(100% - 8px)" 
+                    y2="calc(100% - 264px)" 
+                    stroke="rgba(110, 231, 183, 0.28)" 
+                    strokeWidth="1.5" 
+                    strokeDasharray="4,4" 
+                  />
+                </svg>
 
-                {/* Imagem do Globo Simulado */}
-                <div className="w-24 h-24 relative flex items-center justify-center my-2">
+                {/* Imagem do Globo Simulado cortado na ponta a 45° com linha reta alinhada ao corte */}
+                <div className="w-48 h-48 relative flex items-center justify-center mt-2 mb-2 translate-x-1 -translate-y-2 rotate-[45deg]">
                   <img 
                     src={
                       faixaSimulationMode === 'LIDER' ? (faixaAdminConfig.globo_lider || DEFAULT_FAIXA_CONFIG.globo_lider) :
@@ -6121,7 +6137,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                   />
                 </div>
 
-                <div className="mt-1 px-2.5 py-0.5 bg-black/60 rounded-full border border-emerald-400/30 text-[9px] font-black uppercase tracking-wider text-emerald-100">
+                <div className="mt-1 px-2.5 py-0.5 bg-black/60 rounded-full border border-emerald-400/30 text-[9px] font-black uppercase tracking-wider text-emerald-100 z-20">
                   {
                     faixaSimulationMode === 'LIDER' ? 'Globo de Líder (L1)' :
                     faixaSimulationMode === 'LIDERANCA' ? 'Globo Liderança (16+)' :
