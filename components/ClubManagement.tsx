@@ -1822,6 +1822,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   const [formularios, setFormularios] = useState<Formulario[]>([]);
   const [selectedLibraryCategory, setSelectedLibraryCategory] = useState<'CLASSES' | 'ANO' | 'OUTROS' | 'MANUAIS' | 'BOOKS_AVT' | 'MANUAIS_AVT' | 'MATERIALS' | null>(null);
   const [selectedPdfUrl, setSelectedPdfUrl] = useState<string | null>(null);
+  const [selectedPdfThumbnail, setSelectedPdfThumbnail] = useState<string | null>(null);
   const [pdfTitle, setPdfTitle] = useState<string>('');
 
   // Bible Settings State
@@ -3376,31 +3377,40 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       </div>
     );
   };
-  const renderCultureMenu = () => (
-    <div className="animate-slide-in space-y-4 pt-4 pb-28">
-      {[
-        { label: 'Ideais e Hino', icon: <Music size={24} />, color: 'bg-blue-500', action: () => setActiveSubView('IDEALS_ANTHEM') },
-        { label: 'História', icon: <Globe size={24} />, color: 'bg-amber-500', action: () => setActiveSubView('HISTORY_LIST') },
-        { label: 'Uniformes', icon: <Shirt size={24} />, color: 'bg-emerald-500', action: () => { setActiveAccordions([]); setActiveSubView('UNIFORMS'); } },
-        { label: 'Emblemas', icon: <Shield size={24} />, color: 'bg-indigo-500', action: () => { setActiveAccordions([]); setActiveSubView('EMBLEMS'); } }
-      ].map((item, i) => (
-        <button 
-          key={i}
-          onClick={item.action}
-          className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-5 flex items-center space-x-5 shadow-sm active:scale-[0.98] transition-all group"
-        >
-          <div className={`w-14 h-14 ${item.color} rounded-2xl flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform`}>
-            {item.icon}
-          </div>
-          <div className="flex-grow text-left">
-            <h4 className="font-black text-slate-800 dark:text-white text-lg uppercase tracking-tight">{item.label}</h4>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Explorar Conteúdo</p>
-          </div>
-          <ChevronRight size={20} className="text-slate-200 dark:text-slate-600" />
-        </button>
-      ))}
-    </div>
-  );
+  const renderCultureMenu = () => {
+    const cultureItems = [
+      { label: 'Ideais e Hino', subtitle: 'Voto, Lei e Música', icon: Music, gradient: 'from-[#0052D4] via-[#4364F7] to-[#6FB1FC]', action: () => setActiveSubView('IDEALS_ANTHEM') },
+      { label: 'História', subtitle: 'Origem e Pioneiros', icon: Globe, gradient: 'from-[#fd7e14] via-[#f59e0b] to-[#fbbf24]', action: () => setActiveSubView('HISTORY_LIST') },
+      { label: 'Uniformes', subtitle: 'Oficial e de Atividades', icon: Shirt, gradient: 'from-[#059669] via-[#10b981] to-[#34d399]', action: () => { setActiveAccordions([]); setActiveSubView('UNIFORMS'); } },
+      { label: 'Emblemas', subtitle: 'Insígnias e Significados', icon: Shield, gradient: 'from-[#6a11cb] via-[#7F00FF] to-[#9d4edd]', action: () => { setActiveAccordions([]); setActiveSubView('EMBLEMS'); } }
+    ];
+
+    return (
+      <div className="animate-slide-in grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 pb-28">
+        {cultureItems.map((item, i) => {
+          const IconComp = item.icon;
+          return (
+            <button 
+              key={i}
+              onClick={item.action}
+              className={`w-full relative overflow-hidden bg-gradient-to-br ${item.gradient} rounded-[28px] p-5 flex flex-col justify-between text-left text-white shadow-md hover:shadow-2xl hover:-translate-y-0.5 active:scale-[0.98] transition-all group min-h-[125px] border border-white/20`}
+            >
+              <div className="absolute -bottom-3 -right-3 text-white/15 pointer-events-none group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">
+                <IconComp className="w-28 h-28 stroke-[1.4]" />
+              </div>
+              <div className="relative z-10 w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition-transform">
+                <IconComp size={22} strokeWidth={2.4} />
+              </div>
+              <div className="relative z-10 mt-3">
+                <h4 className="text-base font-black text-white uppercase tracking-tight leading-tight drop-shadow-xs">{item.label}</h4>
+                <p className="text-[10px] font-bold text-white/80 uppercase tracking-wider mt-0.5">{item.subtitle}</p>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
 
   const renderIdealsAnthem = () => (
     <div className="animate-slide-in space-y-6 pt-4 pb-28">
@@ -3993,6 +4003,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     if (url && (url.startsWith('http') || url.includes('.pdf'))) {
                       setPdfTitle(item.Nome);
                       setSelectedPdfUrl(formatDriveUrl(url));
+                      const thumb = item.Capa || item.capa || item.Imagem || item.imagem || item.ClasseIMG || '';
+                      setSelectedPdfThumbnail(thumb ? getImageUrl(thumb) : null);
                       setActiveSubView('PDF_VIEWER');
                     }
                   }}
@@ -4086,40 +4098,51 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   );
 
   const renderPdfViewer = () => (
-    <div className="animate-slide-in h-full flex flex-col fixed inset-0 z-[100] bg-slate-200 dark:bg-slate-950">
-      <div className="flex-grow relative flex flex-col">
-        <div className="p-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shadow-sm">
-          <button 
-            onClick={() => setActiveSubView('LIBRARY')}
-            className="w-11 h-11 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-600 dark:text-slate-200 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-700"
-            title="Voltar"
-            aria-label="Voltar"
-          >
-            <ChevronLeft size={22} strokeWidth={2.5} />
-          </button>
-          
-          <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight truncate max-w-[200px]">
-            {pdfTitle}
-          </h3>
+    <div className="animate-slide-in h-full flex flex-col flex-grow w-full bg-slate-100 dark:bg-slate-950 md:rounded-3xl overflow-hidden md:border md:border-slate-200/80 md:dark:border-slate-800 md:shadow-md">
+      <div className="flex-grow flex flex-col relative h-full min-h-[500px]">
+        {/* Barra superior de ações do visualizador exibida APENAS no Mobile onde não há cabeçalho fixo com botão voltar */}
+        <div className="md:hidden p-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <button 
+              onClick={() => setActiveSubView('LIBRARY')}
+              className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl shadow-xs text-slate-600 dark:text-slate-200 active:scale-90 transition-all border border-slate-200/80 dark:border-slate-700 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-700 shrink-0"
+              title="Fechar PDF"
+              aria-label="Fechar PDF"
+            >
+              <X size={20} strokeWidth={2.5} />
+            </button>
+            <div className="min-w-0">
+              <h3 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-tight truncate max-w-[220px]">
+                {pdfTitle}
+              </h3>
+              <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-0.5">
+                Visualizador de Documento
+              </p>
+            </div>
+          </div>
 
-          <a 
-            href={selectedPdfUrl || '#'} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="w-10 h-10 bg-blue-50 dark:bg-blue-950/50 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400 transition-all active:scale-90"
-          >
-            <ExternalLink size={20} />
-          </a>
+          <div className="flex items-center gap-2 shrink-0">
+            <a 
+              href={selectedPdfUrl || '#'} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="w-10 h-10 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/70 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400 transition-all active:scale-95 border border-blue-200/60 dark:border-blue-900/50 shadow-xs"
+              title="Abrir em Nova Aba"
+            >
+              <ExternalLink size={18} strokeWidth={2.4} />
+            </a>
+          </div>
         </div>
+
         {selectedPdfUrl ? (
           <iframe 
             src={selectedPdfUrl} 
-            className="w-full h-full border-none flex-grow"
+            className="w-full h-full border-none flex-grow bg-slate-50 dark:bg-slate-900"
             title={pdfTitle}
             allow="autoplay"
           />
         ) : (
-          <div className="flex items-center justify-center h-full text-slate-400 dark:text-slate-500">
+          <div className="flex items-center justify-center h-full text-slate-400 dark:text-slate-500 font-bold text-sm">
             PDF não disponível
           </div>
         )}
@@ -4127,29 +4150,38 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     </div>
   );
 
-  const renderMaterialsMenu = () => (
-    <div className="animate-slide-in space-y-4 pt-2 pb-28">
-      {[
-        { id: 'CAMPING', label: 'Camping', icon: <MapPin size={24} />, color: 'bg-orange-500' },
-        { id: 'FORMULARIOS', label: 'Formulários', icon: <FileText size={24} />, color: 'bg-red-500' }
-      ].map((item) => (
-        <button 
-          key={item.id}
-          onClick={() => setActiveSubView(item.id as any)}
-          className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-5 flex items-center space-x-5 shadow-sm active:scale-[0.98] transition-all group"
-        >
-          <div className={`w-14 h-14 ${item.color} rounded-2xl flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform`}>
-            {item.icon}
-          </div>
-          <div className="flex-grow text-left">
-            <h4 className="font-black text-slate-800 dark:text-white text-lg uppercase tracking-tight">{item.label}</h4>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Acessar Materiais</p>
-          </div>
-          <ChevronRight size={20} className="text-slate-200 dark:text-slate-600" />
-        </button>
-      ))}
-    </div>
-  );
+  const renderMaterialsMenu = () => {
+    const materialsItems = [
+      { id: 'CAMPING', label: 'Camping', subtitle: 'Atividades e Nós', icon: MapPin, gradient: 'from-[#f12711] via-[#f5576c] to-[#f0932b]' },
+      { id: 'FORMULARIOS', label: 'Formulários', subtitle: 'Fichas e Documentos', icon: FileText, gradient: 'from-[#e11d48] via-[#f43f5e] to-[#fb7185]' }
+    ];
+
+    return (
+      <div className="animate-slide-in grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 pb-28">
+        {materialsItems.map((item) => {
+          const IconComp = item.icon;
+          return (
+            <button 
+              key={item.id}
+              onClick={() => setActiveSubView(item.id as any)}
+              className={`w-full relative overflow-hidden bg-gradient-to-br ${item.gradient} rounded-[28px] p-5 flex flex-col justify-between text-left text-white shadow-md hover:shadow-2xl hover:-translate-y-0.5 active:scale-[0.98] transition-all group min-h-[125px] border border-white/20`}
+            >
+              <div className="absolute -bottom-3 -right-3 text-white/15 pointer-events-none group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">
+                <IconComp className="w-28 h-28 stroke-[1.4]" />
+              </div>
+              <div className="relative z-10 w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition-transform">
+                <IconComp size={22} strokeWidth={2.4} />
+              </div>
+              <div className="relative z-10 mt-3">
+                <h4 className="text-base font-black text-white uppercase tracking-tight leading-tight drop-shadow-xs">{item.label}</h4>
+                <p className="text-[10px] font-bold text-white/80 uppercase tracking-wider mt-0.5">{item.subtitle}</p>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
 
   const renderCamping = () => (
     <div className="animate-slide-in space-y-4 pt-2 pb-28">
@@ -4169,6 +4201,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                 if (url && (url.startsWith('http') || url.includes('.pdf'))) {
                   setPdfTitle(item.Nome);
                   setSelectedPdfUrl(formatDriveUrl(url));
+                  const thumb = item.Capa || '';
+                  setSelectedPdfThumbnail(thumb ? getImageUrl(thumb) : null);
                   setActiveSubView('PDF_VIEWER');
                 }
               }}
@@ -4233,6 +4267,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                       if (form.link && (form.link.includes('.pdf') || form.link.includes('drive.google.com'))) {
                         setPdfTitle(form.titulo);
                         setSelectedPdfUrl(formatDriveUrl(form.link));
+                        setSelectedPdfThumbnail(null);
                         setActiveSubView('PDF_VIEWER');
                       } else {
                         window.open(form.link, '_blank');
@@ -4305,6 +4340,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               key={item.id} 
               onClick={() => {
                 setSelectedDesbravaPlusItem(item);
+                const thumb = item.Capa || (item as any).Imagem || (item as any).capa || '';
+                setSelectedPdfThumbnail(thumb ? getImageUrl(thumb) : null);
                 // Se o PDF ou o conteúdo for um link, abre o PDF viewer diretamente
                 const hasPdfLink = item.PDF && (item.PDF.startsWith('http') || item.PDF.includes('.pdf'));
                 const hasConteudoLink = item.Conteudo && (item.Conteudo.startsWith('http') || item.Conteudo.includes('.pdf'));
@@ -4413,7 +4450,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
             {selectedDesbravaPlusItem.PDF && (
               <button 
-                onClick={() => setActiveSubView('DESBRAVA_PLUS_PDF')}
+                onClick={() => {
+                  const thumb = selectedDesbravaPlusItem.Capa || (selectedDesbravaPlusItem as any).Imagem || '';
+                  setSelectedPdfThumbnail(thumb ? getImageUrl(thumb) : null);
+                  setActiveSubView('DESBRAVA_PLUS_PDF');
+                }}
                 className="w-full bg-indigo-600 text-white p-6 rounded-[32px] shadow-lg flex items-center justify-between group active:scale-[0.98] transition-all"
               >
                 <div className="flex items-center space-x-4">
@@ -4467,32 +4508,43 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     const formattedUrl = formatDriveUrl(pdfUrl);
 
     return (
-      <div className="animate-slide-in h-full flex flex-col fixed inset-0 z-[100] bg-slate-200 dark:bg-slate-950">
-        <div className="flex-grow flex flex-col relative">
-          <div className="p-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shadow-sm">
-            <button 
-              onClick={() => setActiveSubView('DESBRAVA_PLUS')}
-              className="w-11 h-11 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-600 dark:text-slate-200 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-700"
-              title="Voltar"
-              aria-label="Voltar"
-            >
-              <ChevronLeft size={22} strokeWidth={2.5} />
-            </button>
-            <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight truncate max-w-[200px]">
-              {selectedDesbravaPlusItem.Nome}
-            </h3>
-            <a 
-              href={pdfUrl} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="w-10 h-10 bg-blue-50 dark:bg-blue-950/50 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400 transition-all active:scale-90"
-            >
-              <ExternalLink size={20} />
-            </a>
+      <div className="animate-slide-in h-full flex flex-col flex-grow w-full bg-slate-100 dark:bg-slate-950 md:rounded-3xl overflow-hidden md:border md:border-slate-200/80 md:dark:border-slate-800 md:shadow-md">
+        <div className="flex-grow flex flex-col relative h-full min-h-[500px]">
+          {/* Barra superior de ações do visualizador exibida APENAS no Mobile */}
+          <div className="md:hidden p-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between shadow-xs">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <button 
+                onClick={() => setActiveSubView('DESBRAVA_PLUS')}
+                className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl shadow-xs text-slate-600 dark:text-slate-200 active:scale-90 transition-all border border-slate-200/80 dark:border-slate-700 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-700 shrink-0"
+                title="Fechar PDF"
+                aria-label="Fechar PDF"
+              >
+                <X size={20} strokeWidth={2.5} />
+              </button>
+              <div className="min-w-0">
+                <h3 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-tight truncate max-w-[220px]">
+                  {selectedDesbravaPlusItem.Nome}
+                </h3>
+                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-0.5">
+                  Desbrava + • Material Digital
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <a 
+                href={pdfUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-10 h-10 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/70 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400 transition-all active:scale-95 border border-blue-200/60 dark:border-blue-900/50 shadow-xs"
+                title="Abrir em Nova Aba"
+              >
+                <ExternalLink size={18} strokeWidth={2.4} />
+              </a>
+            </div>
           </div>
           <iframe 
             src={formattedUrl} 
-            className="w-full h-full border-none flex-grow"
+            className="w-full h-full border-none flex-grow bg-slate-50 dark:bg-slate-900"
             title={selectedDesbravaPlusItem.Nome}
             allow="autoplay"
           />
@@ -6112,17 +6164,21 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                   className="absolute top-2 right-2 w-px border-r border-dashed border-emerald-300/25 pointer-events-none"
                   style={{ bottom: '260px' }}
                 />
-                <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" preserveAspectRatio="none">
-                  <line 
-                    x1="8" 
-                    y1="calc(100% - 8px)" 
-                    x2="calc(100% - 8px)" 
-                    y2="calc(100% - 264px)" 
-                    stroke="rgba(110, 231, 183, 0.28)" 
-                    strokeWidth="1.5" 
-                    strokeDasharray="4,4" 
-                  />
-                </svg>
+                {/* Costura pespontada acompanhando o corte diagonal a 45° estritamente na ponta inferior da maquete */}
+                <div className="absolute bottom-0 left-0 right-0 h-[256px] pointer-events-none z-10 overflow-hidden">
+                  <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <line 
+                      x1="3" 
+                      y1="97" 
+                      x2="97" 
+                      y2="3" 
+                      stroke="rgba(110, 231, 183, 0.28)" 
+                      strokeWidth="1.5" 
+                      strokeDasharray="4,4" 
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  </svg>
+                </div>
 
                 {/* Imagem do Globo Simulado cortado na ponta a 45° com linha reta alinhada ao corte */}
                 <div className="w-48 h-48 relative flex items-center justify-center mt-2 mb-2 translate-x-1 -translate-y-2 rotate-[45deg]">
@@ -7550,295 +7606,360 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     </div>
   );
 
-  const renderDashboard = () => (
-    <div className="space-y-8 landscape:space-y-3 md:space-y-10 lg:space-y-12 animate-slide-up pt-2 md:pt-4 lg:pt-6 pb-24 landscape:pb-16">
-      {/* Visualização para Mobile: Barras verticais */}
-      <div className="md:hidden space-y-3.5 landscape:space-y-2">
-        <div className="relative w-full px-1">
+  const renderDashboard = () => {
+    const quickAccessButtons = [
+      { 
+        label: 'Cultura', 
+        subtitle: 'História e Ideais', 
+        icon: Info, 
+        gradient: 'from-[#0052D4] via-[#4364F7] to-[#6FB1FC]', 
+        view: 'CULTURE', 
+        show: true 
+      },
+      { 
+        label: 'Biblioteca', 
+        subtitle: 'Manuais e Livros', 
+        icon: Book, 
+        gradient: 'from-[#6a11cb] via-[#7F00FF] to-[#9d4edd]', 
+        view: 'LIBRARY', 
+        show: true 
+      },
+      { 
+        label: 'Gerenciar', 
+        subtitle: 'Administração', 
+        icon: Settings, 
+        gradient: 'from-[#fd7e14] via-[#f59e0b] to-[#fbbf24]', 
+        view: 'MANAGEMENT', 
+        show: true 
+      },
+      { 
+        label: 'Trunfos', 
+        subtitle: 'Coleção Histórica', 
+        icon: Trophy, 
+        gradient: 'from-[#e11d48] via-[#f43f5e] to-[#fb7185]', 
+        view: 'TRUNFOS', 
+        show: true 
+      },
+      { 
+        label: 'Desbrava +', 
+        subtitle: 'Materiais Extras', 
+        icon: Sparkles, 
+        gradient: 'from-[#b5179e] via-[#c026d3] to-[#e879f9]', 
+        view: 'DESBRAVA_PLUS', 
+        show: isPathfinder 
+      },
+      { 
+        label: 'Vídeos', 
+        subtitle: 'Canal e Tutoriais', 
+        icon: Video, 
+        gradient: 'from-[#059669] via-[#10b981] to-[#34d399]', 
+        view: 'VIDEOS', 
+        show: true 
+      }
+    ].filter(b => b.show);
+
+    return (
+      <div className="space-y-6 md:space-y-8 lg:space-y-10 animate-slide-up pt-2 md:pt-4 lg:pt-6 pb-24 landscape:pb-16">
+        {/* Visualização para Mobile: Botões com a nova identidade visual */}
+        <div className="md:hidden space-y-3 px-1">
+          {/* Cartão Mobile: Bíblia Sagrada */}
           <button 
             onClick={() => setActiveSubView('BIBLE')}
-            className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-full py-4 landscape:py-2.5 px-6 landscape:px-4 flex items-center justify-between shadow-sm active:scale-[0.98] transition-all group"
+            className="w-full relative overflow-hidden bg-gradient-to-br from-[#1e40af] via-[#1d4ed8] to-[#3b82f6] rounded-[26px] p-5 flex flex-col justify-between text-left text-white shadow-lg active:scale-[0.98] transition-all group min-h-[120px] border border-white/20"
           >
-            <div className="flex items-center space-x-4 landscape:space-x-3">
-              <div className="w-10 h-10 landscape:w-8 landscape:h-8 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center text-indigo-500 dark:text-indigo-400">
-                <Book size={20} className="landscape:w-4 landscape:h-4" strokeWidth={2.5} />
+            <div className="absolute -bottom-3 -right-3 text-white/15 pointer-events-none group-hover:scale-110 transition-transform">
+              <Book className="w-32 h-32 stroke-[1.4]" />
+            </div>
+            <div className="flex items-center justify-between w-full relative z-10">
+              <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shadow-xs">
+                <Book size={22} strokeWidth={2.4} />
               </div>
-              <span className="text-[13px] landscape:text-xs font-black text-slate-800 dark:text-white uppercase tracking-tight">Bíblia Sagrada</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="text-[10px] landscape:text-[9px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest">Acessar</span>
-              <ChevronRight size={16} className="text-slate-400 dark:text-slate-400 group-hover:translate-x-1 transition-transform" />
-            </div>
-          </button>
-        </div>
-
-        <button 
-          onClick={() => setActiveSubView('CLASSES')}
-          style={{ backgroundColor: themeColor }}
-          className="w-full p-5 landscape:p-3 rounded-[36px] landscape:rounded-2xl shadow-lg flex items-center justify-between text-white active:scale-[0.98] transition-all group"
-        >
-          <div className="flex items-center space-x-4 landscape:space-x-3">
-            <div className="w-14 h-14 landscape:w-10 landscape:h-10 bg-white/20 rounded-[22px] landscape:rounded-xl flex items-center justify-center">
-              <Layers size={28} className="landscape:w-5 landscape:h-5" strokeWidth={2.5} />
-            </div>
-            <div className="text-left">
-              <h3 className="font-black text-lg landscape:text-sm uppercase tracking-tight">Classes</h3>
-              <p className="text-[9px] landscape:text-[8px] font-bold opacity-80 uppercase tracking-widest">Requisitos e Progresso</p>
-            </div>
-          </div>
-          <ChevronRight size={18} />
-        </button>
-
-        <button 
-          onClick={() => setActiveSubView('SPECIALTIES')}
-          className="w-full p-5 landscape:p-3 rounded-[36px] landscape:rounded-2xl shadow-md flex items-center justify-between text-white active:scale-[0.98] transition-all group bg-amber-500 hover:bg-amber-500/90 dark:bg-amber-600/90 dark:hover:bg-amber-600"
-        >
-          <div className="flex items-center space-x-4 landscape:space-x-3">
-            <div className="w-14 h-14 landscape:w-10 landscape:h-10 bg-white/20 rounded-[22px] landscape:rounded-xl flex items-center justify-center">
-              <Award size={28} className="landscape:w-5 landscape:h-5" strokeWidth={2.5} />
-            </div>
-            <div className="text-left">
-              <h3 className="font-black text-lg landscape:text-sm uppercase tracking-tight">Especialidades</h3>
-              <p className="text-[9px] landscape:text-[8px] font-bold opacity-80 uppercase tracking-widest">Manual, Áreas e Requisitos</p>
-            </div>
-          </div>
-          <ChevronRight size={18} />
-        </button>
-
-        {/* Botão Gestão Mobile (Apenas se for admin) */}
-        {isUserAdmin && (
-          <button 
-            onClick={() => setActiveSubView('BIBLE_ADMIN')}
-            className="w-full bg-slate-900 dark:bg-slate-800 p-5 landscape:p-3 rounded-[36px] landscape:rounded-2xl shadow-sm border border-slate-900 dark:border-slate-500/60 flex items-center justify-between active:scale-[0.98] transition-all group"
-          >
-            <div className="flex items-center space-x-4 landscape:space-x-3">
-              <div className="w-14 h-14 landscape:w-10 landscape:h-10 bg-slate-800 dark:bg-slate-700 rounded-[22px] landscape:rounded-xl flex items-center justify-center text-white">
-                <Settings size={28} className="landscape:w-5 landscape:h-5" strokeWidth={2.5} />
-              </div>
-              <div className="text-left">
-                <h3 className="font-black text-lg landscape:text-sm text-white uppercase tracking-tight">Painel Administrativo</h3>
-                <p className="text-[9px] landscape:text-[8px] font-bold text-slate-300 dark:text-slate-300 uppercase tracking-widest">Administração do Clube</p>
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-[10px] font-black uppercase tracking-wider">
+                <span>Acessar</span>
+                <ChevronRight size={14} strokeWidth={2.5} />
               </div>
             </div>
-            <ChevronRight size={18} className="text-slate-300 dark:text-slate-400" />
-          </button>
-        )}
-      </div>
-
-      {/* Visualização para PC / Desktop: Lado a lado horizontalmente com retângulos grandes */}
-      <div className="hidden md:block w-full max-w-5xl lg:max-w-6xl mx-auto px-4 md:pt-2 lg:pt-4">
-        <div className="grid grid-cols-3 gap-5 lg:gap-7">
-          {/* Retângulo Grande: Bíblia Sagrada */}
-          <button 
-            onClick={() => setActiveSubView('BIBLE')}
-            className="bg-gradient-to-br from-[#1e40af] to-[#1e3a8a] hover:from-blue-700 hover:to-indigo-900 rounded-[32px] p-6 lg:p-8 min-h-[175px] lg:min-h-[200px] shadow-lg hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98] transition-all group flex flex-col justify-between text-white text-left relative overflow-hidden"
-          >
-            <div className="flex items-center justify-between w-full">
-              <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center text-white shadow-inner group-hover:scale-110 transition-transform">
-                <Book size={28} strokeWidth={2.4} />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-white/15 text-blue-100">
-                  Acessar
-                </span>
-                <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center group-hover:translate-x-1 transition-transform">
-                  <ChevronRight size={18} strokeWidth={3} />
-                </div>
-              </div>
-            </div>
-            <div className="mt-4">
-              <h3 className="font-black text-xl lg:text-2xl uppercase tracking-tight leading-tight">
-                Bíblia Sagrada
-              </h3>
-              <p className="text-[10px] lg:text-[11px] font-bold opacity-80 uppercase tracking-widest mt-1">
-                Almeida Revista e Corrigida
-              </p>
+            <div className="relative z-10 mt-3">
+              <h3 className="text-base font-black uppercase tracking-tight leading-tight">Bíblia Sagrada</h3>
+              <p className="text-[10px] font-bold text-white/80 uppercase tracking-wider mt-0.5">Almeida Revista e Corrigida</p>
             </div>
           </button>
 
-          {/* Retângulo Grande: Classes */}
+          {/* Cartão Mobile: Classes */}
           <button 
             onClick={() => setActiveSubView('CLASSES')}
-            style={{ backgroundColor: themeColor }}
-            className="rounded-[32px] p-6 lg:p-8 min-h-[175px] lg:min-h-[200px] shadow-lg hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98] transition-all group flex flex-col justify-between text-white text-left relative overflow-hidden"
+            className={`w-full relative overflow-hidden ${
+              isPathfinder 
+                ? 'bg-gradient-to-br from-[#dc2626] via-[#b91c1c] to-[#ef4444]' 
+                : 'bg-gradient-to-br from-[#0284c7] via-[#0369a1] to-[#38bdf8]'
+            } rounded-[26px] p-5 flex flex-col justify-between text-left text-white shadow-lg active:scale-[0.98] transition-all group min-h-[120px] border border-white/20`}
           >
-            <div className="flex items-center justify-between w-full">
-              <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center text-white shadow-inner group-hover:scale-110 transition-transform">
-                <Layers size={28} strokeWidth={2.4} />
+            <div className="absolute -bottom-3 -right-3 text-white/15 pointer-events-none group-hover:scale-110 transition-transform">
+              <Layers className="w-32 h-32 stroke-[1.4]" />
+            </div>
+            <div className="flex items-center justify-between w-full relative z-10">
+              <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shadow-xs">
+                <Layers size={22} strokeWidth={2.4} />
               </div>
-              <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center group-hover:translate-x-1 transition-transform">
-                <ChevronRight size={18} strokeWidth={3} />
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-[10px] font-black uppercase tracking-wider">
+                <span>Acessar</span>
+                <ChevronRight size={14} strokeWidth={2.5} />
               </div>
             </div>
-            <div className="mt-4">
-              <h3 className="font-black text-xl lg:text-2xl uppercase tracking-tight leading-tight">
-                Classes
-              </h3>
-              <p className="text-[10px] lg:text-[11px] font-bold opacity-80 uppercase tracking-widest mt-1">
-                Requisitos e Progresso
-              </p>
+            <div className="relative z-10 mt-3">
+              <h3 className="text-base font-black uppercase tracking-tight leading-tight">Classes</h3>
+              <p className="text-[10px] font-bold text-white/80 uppercase tracking-wider mt-0.5">Requisitos e Progresso</p>
             </div>
           </button>
 
-          {/* Retângulo Grande: Especialidades */}
+          {/* Cartão Mobile: Especialidades */}
           <button 
             onClick={() => setActiveSubView('SPECIALTIES')}
-            className="bg-amber-500 hover:bg-amber-500/90 dark:bg-amber-600/90 dark:hover:bg-amber-600 rounded-[32px] p-6 lg:p-8 min-h-[175px] lg:min-h-[200px] shadow-lg hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98] transition-all group flex flex-col justify-between text-white text-left relative overflow-hidden"
+            className="w-full relative overflow-hidden bg-gradient-to-br from-[#d97706] via-[#b45309] to-[#f59e0b] rounded-[26px] p-5 flex flex-col justify-between text-left text-white shadow-lg active:scale-[0.98] transition-all group min-h-[120px] border border-white/20"
           >
-            <div className="flex items-center justify-between w-full">
-              <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center text-white shadow-inner group-hover:scale-110 transition-transform">
-                <Award size={28} strokeWidth={2.4} />
+            <div className="absolute -bottom-3 -right-3 text-white/15 pointer-events-none group-hover:scale-110 transition-transform">
+              <Award className="w-32 h-32 stroke-[1.4]" />
+            </div>
+            <div className="flex items-center justify-between w-full relative z-10">
+              <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shadow-xs">
+                <Award size={22} strokeWidth={2.4} />
               </div>
-              <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center group-hover:translate-x-1 transition-transform">
-                <ChevronRight size={18} strokeWidth={3} />
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-[10px] font-black uppercase tracking-wider">
+                <span>Acessar</span>
+                <ChevronRight size={14} strokeWidth={2.5} />
               </div>
             </div>
-            <div className="mt-4">
-              <h3 className="font-black text-xl lg:text-2xl uppercase tracking-tight leading-tight">
-                Especialidades
-              </h3>
-              <p className="text-[10px] lg:text-[11px] font-bold opacity-80 uppercase tracking-widest mt-1">
-                Manual, Áreas e Requisitos
-              </p>
+            <div className="relative z-10 mt-3">
+              <h3 className="text-base font-black uppercase tracking-tight leading-tight">Especialidades</h3>
+              <p className="text-[10px] font-bold text-white/80 uppercase tracking-wider mt-0.5">Manual, Áreas e Requisitos</p>
             </div>
           </button>
-        </div>
 
-        {/* Painel Administrativo no PC (se for admin) */}
-        {isUserAdmin && (
-          <div className="mt-4">
+          {/* Botão Gestão Mobile (se for admin) */}
+          {isUserAdmin && (
             <button 
               onClick={() => setActiveSubView('BIBLE_ADMIN')}
-              className="w-full bg-slate-900 dark:bg-slate-800 p-5 rounded-[28px] shadow-sm border border-slate-900 dark:border-slate-700 flex items-center justify-between active:scale-[0.98] hover:border-slate-600 transition-all group"
+              className="w-full relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-[26px] p-5 flex flex-col justify-between text-left text-white shadow-md active:scale-[0.98] transition-all group min-h-[120px] border border-slate-700/80"
             >
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-slate-800 dark:bg-slate-700 rounded-2xl flex items-center justify-center text-white">
-                  <Settings size={24} strokeWidth={2.5} />
+              <div className="absolute -bottom-3 -right-3 text-white/10 pointer-events-none group-hover:scale-110 transition-transform">
+                <Settings className="w-32 h-32 stroke-[1.4]" />
+              </div>
+              <div className="flex items-center justify-between w-full relative z-10">
+                <div className="w-11 h-11 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-white shadow-xs">
+                  <Settings size={22} strokeWidth={2.4} />
                 </div>
-                <div className="text-left">
-                  <h3 className="font-black text-base text-white uppercase tracking-tight">Painel Administrativo</h3>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Administração do Clube</p>
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-[10px] font-black uppercase tracking-wider">
+                  <span>Gerenciar</span>
+                  <ChevronRight size={14} strokeWidth={2.5} />
                 </div>
               </div>
-              <ChevronRight size={18} className="text-slate-400 group-hover:translate-x-1 transition-transform" />
+              <div className="relative z-10 mt-3">
+                <h3 className="text-base font-black uppercase tracking-tight leading-tight">Painel Administrativo</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Administração do Clube</p>
+              </div>
+            </button>
+          )}
+        </div>
+
+        {/* Visualização para PC / Desktop: Lado a lado horizontalmente com retângulos estilizados */}
+        <div className="hidden md:block w-full max-w-5xl lg:max-w-6xl mx-auto px-4 md:pt-2 lg:pt-4">
+          <div className="grid grid-cols-3 gap-3 sm:gap-4 md:gap-4.5 lg:gap-6 xl:gap-7">
+            {/* Retângulo Grande: Bíblia Sagrada */}
+            <button 
+              onClick={() => setActiveSubView('BIBLE')}
+              className="w-full aspect-[16/10] min-h-[145px] lg:min-h-[175px] xl:min-h-[195px] bg-gradient-to-br from-[#1e40af] via-[#1d4ed8] to-[#3b82f6] rounded-[24px] lg:rounded-[30px] p-4 lg:p-6 shadow-lg hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98] transition-all group flex flex-col justify-between text-white text-left relative overflow-hidden border border-white/20"
+            >
+              <div className="absolute -bottom-4 -right-4 text-white/15 pointer-events-none group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">
+                <Book className="w-36 h-36 lg:w-44 lg:h-44 stroke-[1.4]" />
+              </div>
+              <div className="flex items-center justify-between w-full relative z-10">
+                <div className="w-11 h-11 lg:w-13 lg:h-13 bg-white/20 backdrop-blur-xs rounded-2xl border border-white/25 flex items-center justify-center text-white shadow-inner group-hover:scale-105 transition-transform shrink-0">
+                  <Book className="w-5 h-5 lg:w-6 lg:h-6" strokeWidth={2.4} />
+                </div>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/20 text-[9px] lg:text-[10px] font-black uppercase tracking-wider shrink-0">
+                  <span>Acessar</span>
+                  <ChevronRight className="w-3.5 h-3.5" strokeWidth={3} />
+                </div>
+              </div>
+              <div className="relative z-10 mt-auto pt-2">
+                <h3 className="font-black text-base lg:text-xl xl:text-2xl uppercase tracking-tight leading-tight">
+                  Bíblia Sagrada
+                </h3>
+                <p className="text-[9px] lg:text-[11px] font-bold text-white/80 uppercase tracking-wider mt-0.5">
+                  Almeida Revista e Corrigida
+                </p>
+              </div>
+            </button>
+
+            {/* Retângulo Grande: Classes */}
+            <button 
+              onClick={() => setActiveSubView('CLASSES')}
+              className={`w-full aspect-[16/10] min-h-[145px] lg:min-h-[175px] xl:min-h-[195px] ${
+                isPathfinder 
+                  ? 'bg-gradient-to-br from-[#dc2626] via-[#b91c1c] to-[#ef4444]' 
+                  : 'bg-gradient-to-br from-[#0284c7] via-[#0369a1] to-[#38bdf8]'
+              } rounded-[24px] lg:rounded-[30px] p-4 lg:p-6 shadow-lg hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98] transition-all group flex flex-col justify-between text-white text-left relative overflow-hidden border border-white/20`}
+            >
+              <div className="absolute -bottom-4 -right-4 text-white/15 pointer-events-none group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">
+                <Layers className="w-36 h-36 lg:w-44 lg:h-44 stroke-[1.4]" />
+              </div>
+              <div className="flex items-center justify-between w-full relative z-10">
+                <div className="w-11 h-11 lg:w-13 lg:h-13 bg-white/20 backdrop-blur-xs rounded-2xl border border-white/25 flex items-center justify-center text-white shadow-inner group-hover:scale-105 transition-transform shrink-0">
+                  <Layers className="w-5 h-5 lg:w-6 lg:h-6" strokeWidth={2.4} />
+                </div>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/20 text-[9px] lg:text-[10px] font-black uppercase tracking-wider shrink-0">
+                  <span>Acessar</span>
+                  <ChevronRight className="w-3.5 h-3.5" strokeWidth={3} />
+                </div>
+              </div>
+              <div className="relative z-10 mt-auto pt-2">
+                <h3 className="font-black text-base lg:text-xl xl:text-2xl uppercase tracking-tight leading-tight">
+                  Classes
+                </h3>
+                <p className="text-[9px] lg:text-[11px] font-bold text-white/80 uppercase tracking-wider mt-0.5">
+                  Requisitos e Progresso
+                </p>
+              </div>
+            </button>
+
+            {/* Retângulo Grande: Especialidades */}
+            <button 
+              onClick={() => setActiveSubView('SPECIALTIES')}
+              className="w-full aspect-[16/10] min-h-[145px] lg:min-h-[175px] xl:min-h-[195px] bg-gradient-to-br from-[#d97706] via-[#b45309] to-[#f59e0b] rounded-[24px] lg:rounded-[30px] p-4 lg:p-6 shadow-lg hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98] transition-all group flex flex-col justify-between text-white text-left relative overflow-hidden border border-white/20"
+            >
+              <div className="absolute -bottom-4 -right-4 text-white/15 pointer-events-none group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">
+                <Award className="w-36 h-36 lg:w-44 lg:h-44 stroke-[1.4]" />
+              </div>
+              <div className="flex items-center justify-between w-full relative z-10">
+                <div className="w-11 h-11 lg:w-13 lg:h-13 bg-white/20 backdrop-blur-xs rounded-2xl border border-white/25 flex items-center justify-center text-white shadow-inner group-hover:scale-105 transition-transform shrink-0">
+                  <Award className="w-5 h-5 lg:w-6 lg:h-6" strokeWidth={2.4} />
+                </div>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/20 text-[9px] lg:text-[10px] font-black uppercase tracking-wider shrink-0">
+                  <span>Acessar</span>
+                  <ChevronRight className="w-3.5 h-3.5" strokeWidth={3} />
+                </div>
+              </div>
+              <div className="relative z-10 mt-auto pt-2">
+                <h3 className="font-black text-base lg:text-xl xl:text-2xl uppercase tracking-tight leading-tight">
+                  Especialidades
+                </h3>
+                <p className="text-[9px] lg:text-[11px] font-bold text-white/80 uppercase tracking-wider mt-0.5">
+                  Manual, Áreas e Requisitos
+                </p>
+              </div>
             </button>
           </div>
-        )}
-      </div>
 
-      <div className="pt-4 md:pt-6 lg:pt-8">
-        {/* Botões de Acesso Rápido com nomes dentro do container */}
-        <div className="w-full max-w-sm sm:max-w-2xl md:max-w-3xl lg:max-w-4xl mx-auto px-2 mb-8">
-          {/* Visualização para Tablet e PC: Todos na mesma linha */}
-          <div className="hidden sm:flex items-center justify-center gap-3.5 md:gap-4 lg:gap-5 flex-nowrap">
-            {[
-              { label: 'Cultura', icon: <Info size={28} strokeWidth={2.4} />, bg: 'bg-indigo-500', view: 'CULTURE', show: true },
-              { label: 'Biblioteca', icon: <Book size={28} strokeWidth={2.4} />, bg: 'bg-emerald-500', view: 'LIBRARY', show: true },
-              { label: 'Gerenciar', icon: <Settings size={28} strokeWidth={2.4} />, bg: 'bg-amber-500', view: 'MANAGEMENT', show: true },
-              { label: 'Trunfos', icon: <Trophy size={28} strokeWidth={2.4} />, bg: 'bg-teal-600', view: 'TRUNFOS', show: true },
-              { label: 'Desbrava +', icon: <Sparkles size={28} strokeWidth={2.4} />, bg: 'bg-purple-600', view: 'DESBRAVA_PLUS', show: isPathfinder },
-              { label: 'Vídeos', icon: <Video size={28} strokeWidth={2.4} />, bg: 'bg-red-600', view: 'VIDEOS', show: true }
-            ].filter(b => b.show).map((item, i) => (
+          {/* Painel Administrativo no PC (se for admin) */}
+          {isUserAdmin && (
+            <div className="mt-4">
               <button 
-                key={i} 
-                onClick={() => setActiveSubView(item.view as any)} 
-                className={`w-24 h-24 md:w-28 md:h-28 lg:w-30 lg:h-30 ${item.bg} rounded-[26px] md:rounded-[30px] flex flex-col items-center justify-center text-white shadow-md hover:shadow-xl active:scale-90 hover:scale-105 transition-all p-2.5 text-center group`}
+                onClick={() => setActiveSubView('BIBLE_ADMIN')}
+                className="w-full relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-[24px] lg:rounded-[28px] p-5 shadow-sm border border-slate-700/80 flex items-center justify-between active:scale-[0.98] hover:border-slate-500 transition-all group"
               >
-                <div className="shrink-0 group-hover:scale-110 transition-transform mb-1.5">
-                  {item.icon}
+                <div className="absolute -bottom-3 -right-3 text-white/5 pointer-events-none group-hover:scale-110 transition-transform">
+                  <Settings className="w-28 h-28 stroke-[1.4]" />
                 </div>
-                <span className="text-[11px] md:text-xs font-black uppercase tracking-tight leading-tight w-full truncate px-1">
-                  {item.label}
-                </span>
+                <div className="flex items-center space-x-4 relative z-10">
+                  <div className="w-12 h-12 bg-slate-800 dark:bg-slate-700 rounded-2xl flex items-center justify-center text-white border border-slate-700">
+                    <Settings size={24} strokeWidth={2.4} />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-black text-base text-white uppercase tracking-tight">Painel Administrativo</h3>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Administração do Clube</p>
+                  </div>
+                </div>
+                <ChevronRight size={18} className="text-slate-400 group-hover:translate-x-1 transition-transform relative z-10" />
               </button>
-            ))}
+            </div>
+          )}
+        </div>
+
+        {/* ========================================================
+            SEÇÃO DE ACESSO RÁPIDO (EXATAMENTE COMO NA IMAGEM DE REFERÊNCIA)
+           ======================================================== */}
+        <div className="w-full max-w-5xl lg:max-w-6xl mx-auto px-4">
+          <div className="flex items-center space-x-2 px-1 mb-3.5 sm:mb-4">
+            <span className="text-[11px] sm:text-xs font-black tracking-[0.2em] text-slate-400 dark:text-slate-400 uppercase">
+              ACESSO RÁPIDO
+            </span>
           </div>
 
-          {/* Visualização Mobile: 3 na primeira linha e os demais na segunda */}
-          <div className="flex sm:hidden flex-col items-center gap-3.5">
-            <div className="flex items-center justify-center gap-3 w-full">
-              {[
-                { label: 'Cultura', icon: <Info size={26} strokeWidth={2.4} />, bg: 'bg-indigo-500', view: 'CULTURE' },
-                { label: 'Biblioteca', icon: <Book size={26} strokeWidth={2.4} />, bg: 'bg-emerald-500', view: 'LIBRARY' },
-                { label: 'Gerenciar', icon: <Settings size={26} strokeWidth={2.4} />, bg: 'bg-amber-500', view: 'MANAGEMENT' }
-              ].map((item, i) => (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
+            {quickAccessButtons.map((item, i) => {
+              const IconComp = item.icon;
+              return (
                 <button 
                   key={i} 
                   onClick={() => setActiveSubView(item.view as any)} 
-                  className={`w-24 h-24 ${item.bg} rounded-[26px] flex flex-col items-center justify-center text-white shadow-md active:scale-90 transition-all p-2 text-center`}
+                  className={`w-full relative overflow-hidden bg-gradient-to-br ${item.gradient} rounded-[24px] sm:rounded-[28px] md:rounded-[30px] p-4 sm:p-5 flex flex-col justify-between text-left text-white shadow-md hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98] transition-all group min-h-[112px] sm:min-h-[128px] md:min-h-[138px] border border-white/20`}
                 >
-                  <div className="shrink-0 mb-1.5">
-                    {item.icon}
+                  {/* Marca d'água grande vazada no fundo direito */}
+                  <div className="absolute -bottom-3 -right-3 sm:-bottom-4 sm:-right-4 text-white/15 dark:text-white/10 pointer-events-none group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">
+                    <IconComp className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 stroke-[1.4]" />
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-tight leading-tight w-full truncate px-0.5">
-                    {item.label}
-                  </span>
-                </button>
-              ))}
-            </div>
 
-            <div className="flex items-center justify-center gap-3 w-full">
-              <button 
-                onClick={() => setActiveSubView('TRUNFOS')}
-                className="w-24 h-24 bg-teal-600 rounded-[26px] flex flex-col items-center justify-center text-white shadow-md active:scale-90 transition-all p-2 text-center"
-              >
-                <div className="shrink-0 mb-1.5">
-                  <Trophy size={26} strokeWidth={2.4} />
-                </div>
-                <span className="text-[10px] font-black uppercase tracking-tight leading-tight w-full truncate px-0.5">
-                  Trunfos
-                </span>
-              </button>
-              {isPathfinder && (
-                <button 
-                  onClick={() => setActiveSubView('DESBRAVA_PLUS')}
-                  className="w-24 h-24 bg-purple-600 rounded-[26px] flex flex-col items-center justify-center text-white shadow-md active:scale-90 transition-all p-2 text-center"
-                >
-                  <div className="shrink-0 mb-1.5">
-                    <Sparkles size={26} strokeWidth={2.4} />
+                  {/* Caixinha quadrada translúcida no topo esquerdo */}
+                  <div className="relative z-10 w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition-transform">
+                    <IconComp className="w-5 h-5 sm:w-5.5 sm:h-5.5" strokeWidth={2.4} />
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-tight leading-tight w-full truncate px-0.5">
-                    Desbrava +
-                  </span>
+
+                  {/* Título e Subtítulo no canto inferior esquerdo */}
+                  <div className="relative z-10 mt-auto pt-2">
+                    <h4 className="text-sm sm:text-base md:text-lg font-black text-white uppercase tracking-tight leading-tight drop-shadow-xs">
+                      {item.label}
+                    </h4>
+                    <p className="text-[9px] sm:text-[10px] font-bold text-white/80 uppercase tracking-wider mt-0.5">
+                      {item.subtitle}
+                    </p>
+                  </div>
                 </button>
-              )}
-              <button 
-                onClick={() => setActiveSubView('VIDEOS')}
-                className="w-24 h-24 bg-red-600 rounded-[26px] flex flex-col items-center justify-center text-white shadow-md active:scale-90 transition-all p-2 text-center"
-              >
-                <div className="shrink-0 mb-1.5">
-                  <Video size={26} strokeWidth={2.4} />
-                </div>
-                <span className="text-[10px] font-black uppercase tracking-tight leading-tight w-full truncate px-0.5">
-                  Vídeos
-                </span>
-              </button>
-            </div>
+              );
+            })}
           </div>
         </div>
 
         {/* Links Dinâmicos */}
-        <div className="grid grid-cols-2 gap-3 mb-12">
-          {appLinks.map((link) => (
-            <button 
-              key={link.id}
-              onClick={() => {
-                setWebTitle(link.name);
-                setSelectedWebUrl(link.url);
-                setActiveSubView('WEB_VIEWER');
-              }}
-              className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[32px] p-4 flex flex-col items-center justify-center space-y-2 shadow-sm active:scale-[0.98] transition-all group"
-            >
-              <div className={`w-12 h-12 ${themeBgLight} dark:bg-slate-700 rounded-2xl flex items-center justify-center`}>
-                <ExternalLink size={24} style={{ color: themeColor }} />
-              </div>
-              <span className="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-tight">{link.name}</span>
-            </button>
-          ))}
-        </div>
+        {appLinks.length > 0 && (
+          <div className="w-full max-w-5xl lg:max-w-6xl mx-auto px-4 mb-12">
+            <div className="flex items-center space-x-2 px-1 mb-3.5 sm:mb-4">
+              <span className="text-[11px] sm:text-xs font-black tracking-[0.2em] text-slate-400 dark:text-slate-400 uppercase">
+                LINKS ÚTEIS
+              </span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+              {appLinks.map((link) => (
+                <button 
+                  key={link.id}
+                  onClick={() => {
+                    setWebTitle(link.name);
+                    setSelectedWebUrl(link.url);
+                    setActiveSubView('WEB_VIEWER');
+                  }}
+                  className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-600 rounded-[24px] sm:rounded-[28px] p-4 sm:p-5 flex flex-col justify-between text-left shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all group relative overflow-hidden min-h-[105px] sm:min-h-[115px]"
+                >
+                  <div className="absolute -bottom-3 -right-3 text-slate-100 dark:text-slate-700/50 pointer-events-none group-hover:scale-110 transition-transform">
+                    <ExternalLink size={72} className="stroke-[1.3]" />
+                  </div>
+                  <div className="relative z-10 w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-slate-700 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-xs group-hover:scale-105 transition-transform">
+                    <ExternalLink size={18} strokeWidth={2.4} />
+                  </div>
+                  <div className="relative z-10 mt-auto pt-2">
+                    <span className="text-xs sm:text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight line-clamp-1">
+                      {link.name}
+                    </span>
+                    <span className="text-[9px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider block mt-0.5">
+                      Abrir Conteúdo
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="flex flex-row h-full w-full bg-[#F8FAFC] dark:bg-slate-900 animate-slide-in overflow-hidden relative transition-colors duration-500">
@@ -7850,7 +7971,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             setIsSidebarOpen(true);
           }
         }}
-        className={`hidden md:flex flex-col h-full bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 shrink-0 z-30 select-none shadow-sm transition-all duration-300 ease-in-out justify-between overflow-y-auto scrollbar-hide ${
+        className={`hidden md:flex flex-col h-full bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 shrink-0 z-30 select-none shadow-sm transition-all duration-300 ease-in-out justify-between overflow-y-auto scrollbar-hide relative ${
           isSidebarOpen 
             ? 'w-64 lg:w-72 p-5 lg:p-6 cursor-default' 
             : 'w-[78px] lg:w-[84px] px-2.5 py-4 cursor-pointer'
@@ -8165,6 +8286,82 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             </>
           )}
         </div>
+
+        {/* MINIATURA DO PDF POR CIMA DO MENU LATERAL COM FUNDO ESFUMAÇADO */}
+        {(activeSubView === 'PDF_VIEWER' || activeSubView === 'DESBRAVA_PLUS_PDF') && (
+          <div 
+            className="absolute inset-0 z-40 bg-slate-950/70 dark:bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-between p-4 lg:p-5 animate-fade-in text-white text-center cursor-default select-none shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Topo do overlay da miniatura */}
+            <div className="w-full flex items-center justify-between pt-1">
+              <div className="flex items-center space-x-1.5 px-2.5 py-1 bg-white/10 border border-white/20 rounded-full shadow-xs">
+                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-[9px] font-black uppercase tracking-wider text-emerald-300">
+                  {isSidebarOpen ? 'Lendo Agora' : 'PDF'}
+                </span>
+              </div>
+              {isSidebarOpen && (
+                <button
+                  onClick={() => setIsSidebarOpen(false)}
+                  className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 hover:text-white flex items-center justify-center transition-all active:scale-95"
+                  title="Recolher Menu Lateral"
+                >
+                  <PanelLeftClose size={15} />
+                </button>
+              )}
+            </div>
+
+            {/* Centro: Imagem de Miniatura do PDF com Fundo Esfumaçado */}
+            <div className="my-auto flex flex-col items-center justify-center w-full px-1">
+              <div className={`relative transition-all duration-300 ${
+                isSidebarOpen 
+                  ? 'w-36 h-48 lg:w-44 lg:h-56' 
+                  : 'w-12 h-16'
+              } rounded-2xl overflow-hidden shadow-2xl ring-2 ring-white/30 dark:ring-white/20 bg-slate-900 flex items-center justify-center group`}>
+                {selectedPdfThumbnail ? (
+                  <img 
+                    src={selectedPdfThumbnail} 
+                    alt={pdfTitle || 'Capa do Documento'} 
+                    className="w-full h-full object-cover shadow-inner group-hover:scale-105 transition-transform duration-300"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-3 text-white/80">
+                    <BookOpen size={isSidebarOpen ? 38 : 20} className="text-white/70 mb-2" />
+                    {isSidebarOpen && (
+                      <span className="text-[10px] font-black uppercase tracking-wider text-white/60">
+                        Documento
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {isSidebarOpen && (
+                <div className="mt-4 px-1 max-w-full">
+                  <h4 className="text-xs lg:text-sm font-black text-white uppercase tracking-tight line-clamp-2 drop-shadow-md">
+                    {activeSubView === 'PDF_VIEWER' ? pdfTitle : selectedDesbravaPlusItem?.Nome}
+                  </h4>
+                  <p className="text-[9px] lg:text-[10px] font-bold text-white/70 uppercase tracking-widest mt-1">
+                    Capa do Documento
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Rodapé da miniatura */}
+            {!isSidebarOpen && (
+              <div 
+                onClick={() => setIsSidebarOpen(true)}
+                className="cursor-pointer text-[9px] font-black text-white/80 uppercase hover:text-white py-1"
+                title="Expandir menu"
+              >
+                Abrir
+              </div>
+            )}
+          </div>
+        )}
       </aside>
 
       {/* ÁREA DE CONTEÚDO PRINCIPAL (À DIREITA DO MENU NO PC) */}
@@ -8258,10 +8455,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                   }
                 }} 
                 className="w-11 h-11 md:w-12 md:h-12 landscape:w-9 landscape:h-9 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-600 dark:text-slate-200 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-700"
-                title="Voltar"
-                aria-label="Voltar"
+                title={activeSubView === 'PDF_VIEWER' || activeSubView === 'DESBRAVA_PLUS_PDF' ? "Fechar PDF" : "Voltar"}
+                aria-label={activeSubView === 'PDF_VIEWER' || activeSubView === 'DESBRAVA_PLUS_PDF' ? "Fechar PDF" : "Voltar"}
               >
-                <ChevronLeft size={22} strokeWidth={2.5} className="landscape:w-4 landscape:h-4" />
+                {activeSubView === 'PDF_VIEWER' || activeSubView === 'DESBRAVA_PLUS_PDF' ? (
+                  <X size={22} strokeWidth={2.5} className="landscape:w-4 landscape:h-4 text-slate-700 dark:text-slate-200" />
+                ) : (
+                  <ChevronLeft size={22} strokeWidth={2.5} className="landscape:w-4 landscape:h-4" />
+                )}
               </button>
             )}
           </div>
@@ -8353,6 +8554,17 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                 <Heart size={20} fill={completedSpecialties.includes(selectedSpecialty.id.toString()) ? "currentColor" : "none"} />
               </button>
             )}
+            {(activeSubView === 'PDF_VIEWER' || activeSubView === 'DESBRAVA_PLUS_PDF') && (
+              <a 
+                href={activeSubView === 'PDF_VIEWER' ? (selectedPdfUrl || '#') : (selectedDesbravaPlusItem?.PDF || selectedDesbravaPlusItem?.Conteudo || '#')} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-11 h-11 md:w-12 md:h-12 landscape:w-9 landscape:h-9 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/70 text-blue-600 dark:text-blue-400 rounded-2xl shadow-sm border border-blue-200/60 dark:border-blue-900/50 flex items-center justify-center transition-all active:scale-90"
+                title="Abrir em Nova Aba"
+              >
+                <ExternalLink size={20} strokeWidth={2.4} className="landscape:w-4 landscape:h-4" />
+              </a>
+            )}
           </div>
         </div>
       )}
@@ -8360,7 +8572,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       <div 
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className={`flex-grow overflow-y-auto scrollbar-hide ${activeSubView === 'DESBRAVA_PLUS_PDF' ? 'p-1.5' : 'px-3.5 sm:px-5 md:px-8 lg:px-10 py-1.5 md:py-4'}`}
+        className={`flex-grow overflow-y-auto scrollbar-hide ${
+          activeSubView === 'DESBRAVA_PLUS_PDF' || activeSubView === 'PDF_VIEWER' 
+            ? 'p-0 md:px-6 md:pb-6 lg:px-10 lg:pb-8 flex flex-col h-full min-h-0' 
+            : 'px-3.5 sm:px-5 md:px-8 lg:px-10 py-1.5 md:py-4'
+        }`}
       >
         {activeSubView === 'MAIN' && renderDashboard()}
         {activeSubView === 'CLASSES' && renderClassesMenu()}
@@ -8391,10 +8607,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         {activeSubView === 'EMBLEMS' && renderEmblems()}
         {activeSubView === 'LIBRARY' && renderLibraryMenu()}
         {activeSubView === 'LIBRARY_BOOKS_MENU' && renderLibraryBooksMenu()}
-        {activeSubView === 'PDF_VIEWER' && renderPdfViewer()}
         {activeSubView === 'MATERIALS' && renderMaterialsMenu()}
         {activeSubView === 'CAMPING' && renderCamping()}
         {activeSubView === 'FORMULARIOS' && renderFormularios()}
+        {activeSubView === 'PDF_VIEWER' && renderPdfViewer()}
         {activeSubView === 'DESBRAVA_PLUS' && renderDesbravaPlus()}
         {activeSubView === 'DESBRAVA_PLUS_DETAILS' && renderDesbravaPlusDetails()}
         {activeSubView === 'DESBRAVA_PLUS_PDF' && renderDesbravaPlusPdf()}

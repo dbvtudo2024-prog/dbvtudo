@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { ChevronLeft, LogOut, Shield, MapPin, Briefcase, Award, Camera, Check, X, User, Mail, Phone, ChevronDown, Heart, Search, Settings, Layers, Globe, Trophy, ArrowUp, RotateCcw, AlertTriangle, Calendar, Lock } from 'lucide-react';
+import { ChevronLeft, LogOut, Shield, MapPin, Briefcase, Award, Camera, Check, X, User, Mail, Phone, ChevronDown, Heart, Search, Settings, Layers, Globe, Trophy, ArrowUp, RotateCcw, AlertTriangle, Calendar, Lock, Droplet } from 'lucide-react';
 import { ClubType, Especialidade, UserProfile, Conquista } from '../types';
 import { MASTERY_RULES } from '../masteryRules';
 import { 
@@ -296,16 +296,14 @@ export const TiraNome: React.FC<TiraNomeProps> = ({ name, age, tipoSanguineo, fa
           {firstName}
         </span>
 
-        {/* Tipo sanguíneo e Fator RH exclusivamente na faixa, do lado direito da caixa do nome em vermelho */}
+        {/* Tipo sanguíneo e Fator RH exclusivamente na faixa, do lado direito da caixa do nome apenas a escrita em vermelho */}
         {bloodTypeDisplay && (
-          <div 
-            className="absolute right-2 sm:right-2.5 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center pointer-events-none"
+          <span 
+            className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 z-10 font-black text-sm sm:text-base md:text-lg text-red-600 font-mono tracking-tight leading-none pointer-events-none select-none drop-shadow-[0_0.5px_0.5px_rgba(0,0,0,0.2)]"
             title={`Tipo Sanguíneo e Fator RH: ${bloodTypeDisplay}`}
           >
-            <span className="font-black text-xs sm:text-sm md:text-base text-red-600 font-mono tracking-tight leading-none drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)] bg-red-600/10 px-1 py-0.5 rounded-xs border border-red-600/25">
-              {bloodTypeDisplay}
-            </span>
-          </div>
+            {bloodTypeDisplay}
+          </span>
         )}
       </div>
     </div>
@@ -517,6 +515,8 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
       cidade: "",
       estado: "",
       data_nascimento: "",
+      tipo_sanguineo: "",
+      fator_rh: "",
       isAdmin: false
     };
   };
@@ -712,6 +712,27 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
               birthDate = userData.data_nascimento || currentLocal.data_nascimento || "";
             }
 
+            // Recupera tipo sanguíneo e fator RH (banco, fundo JSON, auth metadata ou local)
+            let bloodType = profile.tipo_sanguineo || (profile as any)['tipo sanguineo'] || (profile as any)['tipo_sanguineo'] || user.user_metadata?.tipo_sanguineo;
+            let rhFactor = profile.fator_rh || (profile as any)['fator rh'] || (profile as any)['fator_rh'] || user.user_metadata?.fator_rh;
+
+            if ((!bloodType || !rhFactor) && profile.fundo) {
+              try {
+                const parsed = JSON.parse(profile.fundo);
+                if (!bloodType && parsed.tipo_sanguineo) bloodType = parsed.tipo_sanguineo;
+                if (!rhFactor && parsed.fator_rh) rhFactor = parsed.fator_rh;
+              } catch {}
+            }
+
+            if (!bloodType) {
+              const currentLocal = getInitialData();
+              bloodType = userData.tipo_sanguineo || currentLocal.tipo_sanguineo || "";
+            }
+            if (!rhFactor) {
+              const currentLocal = getInitialData();
+              rhFactor = userData.fator_rh || currentLocal.fator_rh || "";
+            }
+
             const effectiveEmail = profile.email || (profile as any)['e - mail'] || user.email || userData.email;
             const mappedData = {
               name: profile.nome || userData.name,
@@ -724,6 +745,8 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
               cidade: profile.cidade || "",
               estado: profile.estado || "",
               data_nascimento: birthDate || "",
+              tipo_sanguineo: bloodType || "",
+              fator_rh: rhFactor || "",
               isAdmin: profile.ADM || false
             };
             setUserData(mappedData);
@@ -924,11 +947,36 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
       }
     }
 
+    // Regras de progressão de Liderança:
+    // 1. Só pode selecionar Líder Master (ID 10) se Líder (ID 9) estiver selecionado
+    if (id === 10 && !userAchievements.includes(10) && !userAchievements.includes(9)) {
+      alert("⚠️ Para condecorar o distintivo de Líder Master, é necessário primeiro selecionar o distintivo de Líder.");
+      return;
+    }
+
+    // 2. Só pode selecionar Líder Master Avançado (ID 11) se Líder Master (ID 10) estiver selecionado
+    if (id === 11 && !userAchievements.includes(11) && !userAchievements.includes(10)) {
+      alert("⚠️ Para condecorar o distintivo de Líder Master Avançado, é necessário primeiro selecionar o distintivo de Líder Master.");
+      return;
+    }
+
     setUserAchievements(prev => {
       const isAcquired = prev.includes(id);
-      const newList = isAcquired 
-        ? prev.filter(i => i !== id) 
-        : [...prev, id];
+      let newList: number[];
+
+      if (isAcquired) {
+        // Ao desmarcar Líder (9), desmarca também Líder Master (10) e Líder Master Avançado (11)
+        if (id === 9) {
+          newList = prev.filter(i => i !== 9 && i !== 10 && i !== 11);
+        } else if (id === 10) {
+          // Ao desmarcar Líder Master (10), desmarca também Líder Master Avançado (11)
+          newList = prev.filter(i => i !== 10 && i !== 11);
+        } else {
+          newList = prev.filter(i => i !== id);
+        }
+      } else {
+        newList = [...prev, id];
+      }
       
       // Update Supabase in background
       if (userData.email && userData.email !== "email@exemplo.com") {
@@ -1037,15 +1085,17 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
       // Salvar no Supabase se tiver userId ou email
       if (userData.email && userData.email !== "email@exemplo.com") {
-        // Salvar data_nascimento no Supabase Auth metadata para persistência definitiva na nuvem
-        if (userData.data_nascimento) {
-          try {
-            await supabase.auth.updateUser({
-              data: { data_nascimento: userData.data_nascimento }
-            });
-          } catch (authErr) {
-            console.warn("Erro ao salvar data_nascimento no auth metadata:", authErr);
-          }
+        // Salvar data_nascimento, tipo_sanguineo e fator_rh no Supabase Auth metadata para persistência definitiva na nuvem
+        try {
+          await supabase.auth.updateUser({
+            data: { 
+              data_nascimento: userData.data_nascimento,
+              tipo_sanguineo: userData.tipo_sanguineo,
+              fator_rh: userData.fator_rh
+            }
+          });
+        } catch (authErr) {
+          console.warn("Erro ao salvar dados médicos no auth metadata:", authErr);
         }
 
         // 1. Salvar Perfil Básico
@@ -1060,7 +1110,13 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
           cidade: userData.cidade,
           estado: userData.estado,
           data_nascimento: userData.data_nascimento,
-          fundo: JSON.stringify({ data_nascimento: userData.data_nascimento }),
+          tipo_sanguineo: userData.tipo_sanguineo,
+          fator_rh: userData.fator_rh,
+          fundo: JSON.stringify({ 
+            data_nascimento: userData.data_nascimento,
+            tipo_sanguineo: userData.tipo_sanguineo,
+            fator_rh: userData.fator_rh
+          }),
           ADM: userData.isAdmin
         };
 
@@ -1387,6 +1443,52 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                 />
                 <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 ml-1">
                   A sua idade define as classes e distintivos que você pode condecorar no uniforme oficial.
+                </p>
+              </div>
+
+              {/* Tipo Sanguíneo e Fator RH (Exclusivo da Faixa) */}
+              <div className="space-y-1.5 text-left p-3.5 bg-red-50/50 dark:bg-red-950/20 rounded-2xl border border-red-100 dark:border-red-900/30">
+                <div className="flex items-center gap-1.5 ml-1">
+                  <Droplet size={13} className="text-red-500" />
+                  <label className="text-[10px] font-black text-red-700 dark:text-red-400 uppercase tracking-[0.15em]">
+                    Dados Médicos (Exclusivo da Faixa)
+                  </label>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div className="space-y-1 text-left">
+                    <label className="text-[9px] font-bold text-slate-500 dark:text-slate-400 ml-1">Tipo Sanguíneo</label>
+                    <select
+                      name="tipo_sanguineo"
+                      value={userData.tipo_sanguineo || ""}
+                      onChange={handleInputChange}
+                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-3 px-3.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500 transition-all shadow-sm font-bold cursor-pointer"
+                    >
+                      <option value="">Não informado</option>
+                      <option value="A">A</option>
+                      <option value="B">B</option>
+                      <option value="AB">AB</option>
+                      <option value="O">O</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1 text-left">
+                    <label className="text-[9px] font-bold text-slate-500 dark:text-slate-400 ml-1">Fator RH</label>
+                    <select
+                      name="fator_rh"
+                      value={userData.fator_rh || ""}
+                      onChange={handleInputChange}
+                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-3 px-3.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500 transition-all shadow-sm font-bold cursor-pointer"
+                    >
+                      <option value="">Não informado</option>
+                      <option value="+">+ (Positivo)</option>
+                      <option value="-">- (Negativo)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 ml-1 pt-0.5">
+                  Exibido em vermelho dentro da plaqueta do nome no lado direito, exclusivamente na faixa.
                 </p>
               </div>
 
@@ -1802,19 +1904,34 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                           .sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
                           .map(con => {
                             const eligibility = checkConquistaEligibility(con, userAge);
+                            const hasLeadershipPrerequisite = 
+                              con.id === 10 ? userAchievements.includes(9) :
+                              con.id === 11 ? userAchievements.includes(10) :
+                              true;
+
+                            const isAvailable = eligibility.isEligible && hasLeadershipPrerequisite;
                             const sizeClasses = 
                               con.id === 9 
                                 ? 'w-7 h-7 sm:w-8 sm:h-8' // Líder
                                 : 'w-8 h-8 sm:w-9 sm:h-9'; // Master e Master Avançado
+
+                            let tooltipText = `${con.nome} • Distintivo de Liderança (Toque para alternar)`;
+                            if (!eligibility.isEligible) {
+                              tooltipText = eligibility.msg || 'Idade mínima não atingida';
+                            } else if (!hasLeadershipPrerequisite) {
+                              tooltipText = con.id === 10 
+                                ? 'Requer distintivo de Líder selecionado' 
+                                : 'Requer distintivo de Líder Master selecionado';
+                            }
 
                             return (
                               <button
                                 key={con.id}
                                 onClick={() => toggleAchievement(con.id)}
                                 className={`${sizeClasses} relative transition-all active:scale-95 group hover:scale-105 cursor-pointer flex items-center justify-center ${
-                                  !eligibility.isEligible ? 'opacity-35 cursor-not-allowed' : ''
+                                  !isAvailable && !userAchievements.includes(con.id) ? 'opacity-35 cursor-not-allowed' : ''
                                 }`}
-                                title={!eligibility.isEligible ? eligibility.msg : `${con.nome} • Distintivo de Liderança (Toque para alternar)`}
+                                title={tooltipText}
                               >
                                 <img
                                   src={userAchievements.includes(con.id) ? con.imagem_colorida : con.imagem_cinza}
@@ -1823,7 +1940,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                                   }`}
                                   alt={con.nome}
                                 />
-                                {!eligibility.isEligible && (
+                                {(!isAvailable && !userAchievements.includes(con.id)) && (
                                   <span className="absolute -top-0.5 -right-0.5 bg-black/80 text-amber-300 p-0.5 rounded-full leading-none z-20">
                                     <Lock size={7} />
                                   </span>
@@ -1935,18 +2052,21 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                     className="absolute top-2 right-2 sm:right-2.5 w-px border-r border-dashed border-emerald-300/25 pointer-events-none"
                     style={{ bottom: '345px' }}
                   />
-                  {/* Costura pespontada acompanhando o corte diagonal a 45° da ponta da faixa */}
-                  <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" preserveAspectRatio="none">
-                    <line 
-                      x1="10" 
-                      y1="calc(100% - 10px)" 
-                      x2="calc(100% - 10px)" 
-                      y2="calc(100% - 348px)" 
-                      stroke="rgba(110, 231, 183, 0.28)" 
-                      strokeWidth="1.5" 
-                      strokeDasharray="4,4" 
-                    />
-                  </svg>
+                  {/* Costura pespontada acompanhando o corte diagonal a 45° estritamente na ponta inferior da faixa */}
+                  <div className="absolute bottom-0 left-0 right-0 h-[340px] pointer-events-none z-10 overflow-hidden">
+                    <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                      <line 
+                        x1="3" 
+                        y1="97" 
+                        x2="97" 
+                        y2="3" 
+                        stroke="rgba(110, 231, 183, 0.28)" 
+                        strokeWidth="1.5" 
+                        strokeDasharray="4,4" 
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    </svg>
+                  </div>
 
                   {/* TOPO DA FAIXA: A ~6cm do topo */}
                   <div className="pt-8 sm:pt-9 pb-2 flex flex-col items-center w-full relative z-10 space-y-3">
@@ -1965,9 +2085,14 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                       />
                     </div>
 
-                    {/* 3. Tira de Nome logo abaixo: até 15 anos fundo cáqui, de 16 acima fundo branco */}
+                    {/* 3. Tira de Nome logo abaixo: até 15 anos fundo cáqui, de 16 acima fundo branco com tipo sanguíneo e fator RH exclusivos da faixa */}
                     <div className="flex flex-col items-center w-full px-1">
-                      <TiraNome name={userData.name} age={userAge} />
+                      <TiraNome 
+                        name={userData.name} 
+                        age={userAge} 
+                        tipoSanguineo={userData.tipo_sanguineo}
+                        fatorRh={userData.fator_rh}
+                      />
                     </div>
                   </div>
 

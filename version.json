@@ -1,12 +1,10 @@
 {
-  "version": 1757913600000,
-  "versionName": "3.0.1",
-  "buildDate": "2026-09-15T15:45:00.000Z",
-  "timestamp": 1757949900000,
+  "version": 1758006000000,
+  "versionName": "3.0.12",
+  "buildDate": "2026-09-16T11:45:00.000Z",
+  "timestamp": 1758006000000,
   "highlights": [
-    "Alinhamento da linha reta central (equador) do globo rigorosamente paralelo ao corte da faixa",
-    "Sincronização angular exata a 45 graus entre o corte diagonal e a rotação do globo",
-    "Harmonização da maquete do simulador da ponta da faixa no Painel Administrativo",
-    "Transparência total na área externa preservando nitidez dos elementos da faixa"
+    "Remoção do botão redundante fechar PDF no menu lateral",
+    "Substituição do botão voltar por X de fechar no topo durante a leitura de PDFs"
   ]
 }

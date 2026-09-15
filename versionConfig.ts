@@ -6,14 +6,132 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.1';
-export const APP_BUILD_DATE = '15 de Setembro de 2026';
+export const APP_VERSION = '3.0.12';
+export const APP_BUILD_DATE = '16 de Setembro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '3.0.12',
+    date: '16/09/2026',
+    tag: 'NOVO',
+    title: 'Otimização de Navegação e Encerramento de Leitura de PDFs',
+    changes: [
+      'Remoção do botão redundante "Fechar PDF" na parte inferior do painel de miniatura lateral.',
+      'Substituição do botão voltar tradicional por um botão de ação rápida "X" (fechar) no cabeçalho superior e móvel durante a leitura.',
+      'Aproveitamento máximo e visual limpo da capa do documento sobreposta com fundo esfumaçado ao menu lateral.'
+    ]
+  },
+  {
+    version: '3.0.11',
+    date: '16/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'PDF no Corpo do App com Miniatura Sobreposta ao Menu Lateral',
+    changes: [
+      'Visualizador de PDF integrado diretamente ao corpo da aplicação para PC, mantendo a experiência no corpo do app.',
+      'Abertura simultânea da imagem de miniatura/capa do documento por cima do menu lateral com fundo esfumaçado (backdrop blur).',
+      'Atalho para abrir documento em nova aba no topo e botão dedicado para fechar o PDF.'
+    ]
+  },
+  {
+    version: '3.0.10',
+    date: '16/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Visualizador de Documentos Sobreposto com Fundo Esfumaçado',
+    changes: [
+      'Visualização de PDFs em janela de leitura com fundo esfumaçado (backdrop blur).',
+      'Sobreposição elegante sobre o menu lateral e interface principal, mesmo com a barra lateral aberta.',
+      'Controles dedicados e limpos no topo da janela com botão voltar, link para nova aba e fechar.'
+    ]
+  },
+  {
+    version: '3.0.9',
+    date: '16/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Eliminação de Redundância no Visualizador de Documentos',
+    changes: [
+      'Remoção de botões duplicados de voltar e títulos repetidos na visualização de PDFs no PC.',
+      'Unificação dos controles no cabeçalho superior do aplicativo, incluindo botão para abrir em nova aba.',
+      'Aproveitamento máximo da área de leitura do documento no corpo da aplicação sem barras internas redundantes.'
+    ]
+  },
+  {
+    version: '3.0.8',
+    date: '16/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Visualização de PDFs no Corpo do Aplicativo no PC',
+    changes: [
+      'Ajuste para que PDFs e materiais digitais abram integrados diretamente no corpo do aplicativo em telas de PC/desktop.',
+      'Fim da sobreposição fullscreen invasiva no PC: a barra lateral de navegação e o cabeçalho continuam acessíveis e visíveis.',
+      'Inclusão de atalho prático para "Abrir em Nova Aba" e manutenção da experiência imersiva em dispositivos móveis.'
+    ]
+  },
+  {
+    version: '3.0.7',
+    date: '16/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Harmonização Tipográfica e Escala de Letras dos Cartões',
+    changes: [
+      'Ajuste proporcional da tipografia de títulos e subtítulos nos cartões principais retangulares.',
+      'Impedimento de quebras de linha indesejadas e eliminação de truncamentos de texto nos subtítulos (Almeida Revista e Corrigida / Requisitos e Progresso / Manual, Áreas e Requisitos).',
+      'Balanceamento de ícones e espaçamentos internos para garantir leitura limpa em qualquer resolução.'
+    ]
+  },
+  {
+    version: '3.0.6',
+    date: '16/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Ajuste em Proporcionalidade dos Cartões Retangulares',
+    changes: [
+      'Aplicação de proporção retangular fixa (16:10) para os cartões principais (Bíblia Sagrada, Classes e Especialidades).',
+      'Escalonamento proporcional suave de altura, largura, ícones e tipografias quando em telas menores ou janelas redimensionadas, preservando o formato retangular sem achatamentos.'
+    ]
+  },
+  {
+    version: '3.0.5',
+    date: '16/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Restauração do Formato Retangular dos Cartões Principais',
+    changes: [
+      'Restauração do formato retangular amplo original dos 3 cartões principais superiores (Bíblia Sagrada, Classes e Especialidades).',
+      'Manutenção da proporção perfeita e não-achatada dos botões de acesso rápido em telas menores.'
+    ]
+  },
+  {
+    version: '3.0.4',
+    date: '16/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Ajuste Proporcional dos Botões da Tela Inicial',
+    changes: [
+      'Eliminação do achatamento horizontal dos botões em telas médias e menores.',
+      'Aplicação de proporção exata para os botões de acesso rápido (Cultura, Biblioteca, Gerenciar, Trunfos, Desbrava+, Vídeos).',
+      'Escalabilidade suave e proporcional dos ícones e textos mantendo a harmonia visual em qualquer resolução.'
+    ]
+  },
+  {
+    version: '3.0.3',
+    date: '16/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Apenas a Escrita em Vermelho do Tipo Sanguíneo/Fator RH na Faixa',
+    changes: [
+      'Remoção total de qualquer contêiner, caixa, fundo ou borda ao redor do tipo sanguíneo e fator RH.',
+      'Exibição limpa exclusivamente da escrita em vermelho bordada diretamente sobre a plaqueta do nome no lado direito.'
+    ]
+  },
+  {
+    version: '3.0.2',
+    date: '16/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Tipo Sanguíneo/Fator RH na Faixa, Costura da Ponta Corrigida e Regras de Liderança',
+    changes: [
+      'Inclusão dos campos de Tipo Sanguíneo e Fator RH na edição do perfil, com sincronização na nuvem e exibição exclusiva em vermelho na plaqueta do nome na faixa.',
+      'Correção definitiva da costura pespontada do corte da ponta da faixa (eliminando a subida indevida da linha de costura para o topo da faixa).',
+      'Implementação de regra de elegibilidade para os pins de liderança: Líder Master só pode ser selecionado se Líder estiver ativo, e Líder Master Avançado só pode ser selecionado se Líder Master estiver ativo, com desmarcação em cascata e alertas visuais de cadeado.'
+    ]
+  },
+  {
     version: '3.0.1',
     date: '15/09/2026',
-    tag: 'NOVO',
+    tag: 'ESTÁVEL',
     title: 'Alinhamento Geométrico Perfeito: Linha Reta Central do Globo Paralela ao Corte a 45°',
     changes: [
       'Ajuste angular de precisão (45° exatos) garantindo que a linha reta central (equador) que passa no meio do globo atrás do triângulo esteja rigorosamente alinhada e paralela à inclinação diagonal do corte da faixa.',
