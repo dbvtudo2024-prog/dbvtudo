@@ -6,14 +6,36 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.12';
-export const APP_BUILD_DATE = '16 de Setembro de 2026';
+export const APP_VERSION = '3.0.14';
+export const APP_BUILD_DATE = '17 de Setembro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '3.0.14',
+    date: '17/09/2026',
+    tag: 'NOVO',
+    title: 'Migração para Novo Projeto Supabase e Restauração de Conexão',
+    changes: [
+      'Configuração das credenciais do novo projeto Supabase.',
+      'Restauração da conexão com o banco de dados sem restrição de cota (HTTP 402 superado).',
+      'Validação de integridade e carregamento das tabelas Classes e Categorias no novo ambiente.'
+    ]
+  },
+  {
+    version: '3.0.13',
+    date: '17/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Diagnóstico e Alerta de Restrição de Cota do Supabase',
+    changes: [
+      'Detecção automática de erro de cota de dados excedida (HTTP 402 - exceed_cached_egress_quota) no Supabase.',
+      'Banner de alerta em tempo real no topo do app informando quando o banco/storage está restrito pelo provedor.',
+      'Modal com orientações passo a passo para restauração do serviço no painel do Supabase e botão para testar conexão novamente.'
+    ]
+  },
+  {
     version: '3.0.12',
     date: '16/09/2026',
-    tag: 'NOVO',
+    tag: 'ESTÁVEL',
     title: 'Otimização de Navegação e Encerramento de Leitura de PDFs',
     changes: [
       'Remoção do botão redundante "Fechar PDF" na parte inferior do painel de miniatura lateral.',

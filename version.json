@@ -1,10 +1,10 @@
 {
-  "version": 1758006000000,
-  "versionName": "3.0.12",
-  "buildDate": "2026-09-16T11:45:00.000Z",
-  "timestamp": 1758006000000,
+  "version": 1758112000000,
+  "versionName": "3.0.14",
+  "buildDate": "2026-09-17T15:03:00.000Z",
+  "timestamp": 1758112000000,
   "highlights": [
-    "Remoção do botão redundante fechar PDF no menu lateral",
-    "Substituição do botão voltar por X de fechar no topo durante a leitura de PDFs"
+    "Conexão restaurada com o novo projeto Supabase",
+    "Carregamento validado para Classes e Categorias de Especialidades"
   ]
 }

@@ -2,8 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, UserProfile, FuncaoCargo, Devocional, Cultura, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario, Video, VideoCategory, LivroAVT, ManualAVT, AppLink, Conquista, Trunfo } from '../types';
 
-const DEFAULT_URL = 'https://qfpyjavbncijowjvznkg.supabase.co';
-const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmcHlqYXZibmNpam93anZ6bmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NDcxMDUsImV4cCI6MjA3NDQyMzEwNX0.adxRCkobV-m_XUHp1KBXmg67VXkR-HL4QKFVtgQOmYc';
+const DEFAULT_URL = 'https://dembhtmryutggifbpuka.supabase.co';
+const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlbWJodG1yeXV0Z2dpZmJwdWthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MDQ0NjUsImV4cCI6MjA5NTM4MDQ2NX0.PVAqzmvqo4wDO2_i_MCF1lw8yxXzLxJj1Uj_gcyKTRI';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_URL.startsWith('http') 
   ? import.meta.env.VITE_SUPABASE_URL 
@@ -43,6 +43,56 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
     storage: safeSupabaseStorage
   }
 });
+
+let _isSupabaseRestricted = false;
+let _restrictionMessage = '';
+
+export function notifySupabaseError(error: any) {
+  if (!error) return;
+  const msg = typeof error === 'string' ? error : (error.message || '');
+  const code = error.code || (error.status ? String(error.status) : '');
+  
+  if (
+    code === '402' ||
+    msg.includes('exceed_cached_egress_quota') ||
+    msg.includes('restricted') ||
+    msg.includes('remove spend caps')
+  ) {
+    _isSupabaseRestricted = true;
+    _restrictionMessage = msg || 'O projeto do Supabase atingiu o limite de tráfego de dados (egress quota) e está temporariamente restrito.';
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('supabase_restricted', { 
+        detail: { 
+          message: _restrictionMessage,
+          code: code || '402',
+          isRestricted: true 
+        } 
+      }));
+    }
+  }
+}
+
+export function getSupabaseStatus() {
+  return {
+    isRestricted: _isSupabaseRestricted,
+    message: _restrictionMessage
+  };
+}
+
+export async function checkSupabaseHealth(): Promise<{ ok: boolean; message?: string }> {
+  try {
+    const { error } = await supabase.from('Cultura').select('id').limit(1);
+    if (error) {
+      notifySupabaseError(error);
+      return { ok: false, message: error.message };
+    }
+    _isSupabaseRestricted = false;
+    return { ok: true };
+  } catch (err: any) {
+    notifySupabaseError(err);
+    return { ok: false, message: err?.message || 'Erro de conexão' };
+  }
+}
 
 export async function fetchVideos(club: ClubType): Promise<Video[]> {
   try {

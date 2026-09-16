@@ -10,7 +10,8 @@ import { Settings, X, ChevronLeft, Moon, Sun, Bell, BellOff, LogOut, Sparkles, H
 import { APP_VERSION, APP_BUILD_DATE, VERSION_HISTORY } from './versionConfig';
 
 import { PROFILE_KEY } from './constants';
-import { supabase } from './services/supabaseService';
+import { supabase, checkSupabaseHealth, getSupabaseStatus } from './services/supabaseService';
+import { AlertTriangle, ExternalLink } from 'lucide-react';
 
 const styles = `
   @keyframes slideUp {
@@ -123,6 +124,33 @@ const App: React.FC = () => {
       }
     }).catch(() => {});
   }, [isGuest]);
+
+  // Detecção de restrição de cota do Supabase (HTTP 402 / exceed_cached_egress_quota)
+  const [supabaseRestrictedInfo, setSupabaseRestrictedInfo] = useState<{ isRestricted: boolean; message: string } | null>(() => {
+    const status = getSupabaseStatus();
+    return status.isRestricted ? status : null;
+  });
+  const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
+
+  useEffect(() => {
+    checkSupabaseHealth().then(res => {
+      if (!res.ok && (res.message?.includes('exceed_cached_egress_quota') || res.message?.includes('restricted') || res.message?.includes('spend caps'))) {
+        setSupabaseRestrictedInfo({ isRestricted: true, message: res.message });
+      }
+    });
+
+    const handleRestricted = (e: any) => {
+      setSupabaseRestrictedInfo({
+        isRestricted: true,
+        message: e.detail?.message || 'Cota de transferência de dados excedida no Supabase.'
+      });
+    };
+
+    window.addEventListener('supabase_restricted', handleRestricted as EventListener);
+    return () => {
+      window.removeEventListener('supabase_restricted', handleRestricted as EventListener);
+    };
+  }, []);
 
   // Se por acaso a rota for 'SETTINGS', abre o modal e mantém na HOME
   useEffect(() => {
@@ -492,6 +520,31 @@ const App: React.FC = () => {
     <div className={`app-root-wrapper h-[100dvh] h-screen w-screen flex flex-col p-0 m-0 overflow-hidden transition-colors duration-500 ${darkMode ? 'bg-slate-950' : 'bg-[#f8fafc]'}`}>
       <style>{styles}</style>
       <UpdateNotification />
+
+      {/* Banner de Restrição do Supabase (Cota de Tráfego HTTP 402) */}
+      {supabaseRestrictedInfo?.isRestricted && (
+        <aside aria-label="Alerta de Conexão com o Banco de Dados" className="w-full bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white px-4 py-2.5 flex items-center justify-between text-xs shadow-lg z-50 shrink-0 border-b border-white/10 animate-fade-in">
+          <div className="flex items-center gap-2.5 overflow-hidden">
+            <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+              <AlertTriangle size={14} className="text-white" />
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 overflow-hidden text-left">
+              <span className="font-black uppercase tracking-wider text-[11px] whitespace-nowrap">Supabase Restrito:</span>
+              <span className="text-[11px] text-amber-100 truncate">
+                Cota de tráfego excedida (HTTP 402). O banco de dados e imagens estão temporariamente pausados.
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => setIsSupabaseModalOpen(true)}
+            className="ml-3 shrink-0 px-3 py-1 bg-white text-orange-700 hover:bg-orange-50 active:scale-95 transition-all rounded-full font-black text-[10px] uppercase tracking-wider shadow-sm flex items-center gap-1 cursor-pointer"
+          >
+            <span>Como Resolver</span>
+            <ExternalLink size={11} />
+          </button>
+        </aside>
+      )}
+
       <div className={`app-card-wrapper h-full w-full max-w-7xl lg:max-w-[1550px] mx-auto relative overflow-hidden rounded-none border-0 shadow-none flex flex-col flex-1 transition-colors duration-500 ${darkMode ? 'bg-slate-900' : 'bg-white'}`}>
         <main className={`flex-1 w-full overflow-hidden flex flex-col transition-colors duration-500 ${darkMode ? 'bg-slate-900' : 'bg-mesh'}`}>
           {renderContent()}
@@ -801,6 +854,99 @@ const App: React.FC = () => {
                 <p className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest">
                   DBV Tudo • v{APP_VERSION} (2024 - 2026)
                 </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Explicativo: Restrição de Cota do Supabase */}
+      {isSupabaseModalOpen && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-fade-in"
+          onClick={() => setIsSupabaseModalOpen(false)}
+        >
+          <div 
+            className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 pb-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 shrink-0">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-900/50 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+                  <AlertTriangle size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-800 dark:text-white tracking-tight">
+                    Restrição de Cota do Supabase
+                  </h3>
+                  <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                    Erro HTTP 402 - exceed_cached_egress_quota
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsSupabaseModalOpen(false)}
+                className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-4 text-slate-700 dark:text-slate-300 text-xs">
+              <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/40 rounded-2xl">
+                <p className="font-semibold text-amber-900 dark:text-amber-200 leading-relaxed">
+                  O projeto Supabase atingiu o limite gratuito de transferência de dados (egress quota). Por isso, o Supabase bloqueou temporariamente as respostas do Banco de Dados e das Imagens/Storage.
+                </p>
+              </div>
+
+              <div>
+                <h4 className="font-black text-slate-900 dark:text-white uppercase tracking-wider text-[11px] mb-2">
+                  Como reativar o serviço no Supabase:
+                </h4>
+                <ol className="space-y-3 list-decimal list-inside text-slate-600 dark:text-slate-300 font-medium">
+                  <li className="leading-relaxed">
+                    Acesse o painel do seu projeto no Supabase:
+                    <a 
+                      href="https://supabase.com/dashboard/project/dembhtmryutggifbpuka" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-blue-600 dark:text-blue-400 font-bold underline inline-flex items-center gap-1 ml-1"
+                    >
+                      supabase.com/dashboard <ExternalLink size={11} />
+                    </a>
+                  </li>
+                  <li className="leading-relaxed">
+                    No menu lateral esquerdo, vá em <strong>Project Settings</strong> (ícone de engrenagem) e depois em <strong>Billing</strong> (ou <strong>Subscription</strong>).
+                  </li>
+                  <li className="leading-relaxed">
+                    <strong>Opção 1 (Reativação Imediata):</strong> Desative o <em>"Spend Cap"</em> (limite de gastos) ou faça upgrade para o plano <em>Pro</em>. O serviço é restabelecido em segundos.
+                  </li>
+                  <li className="leading-relaxed">
+                    <strong>Opção 2 (Novo Projeto Gratuito):</strong> Crie um novo projeto gratuito no Supabase, transfira o esquema/tabelas e atualize as variáveis de ambiente <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded font-mono">VITE_SUPABASE_URL</code> e <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded font-mono">VITE_SUPABASE_ANON_KEY</code>.
+                  </li>
+                  <li className="leading-relaxed">
+                    <strong>Opção 3 (Ciclo Mensal):</strong> Aguardar a virada do ciclo mensal de faturamento/cota do Supabase, quando o limite é renovado automaticamente.
+                  </li>
+                </ol>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  onClick={async () => {
+                    const res = await checkSupabaseHealth();
+                    if (res.ok) {
+                      setSupabaseRestrictedInfo(null);
+                      setIsSupabaseModalOpen(false);
+                      window.location.reload();
+                    } else {
+                      alert("O Supabase ainda continua restrito (" + (res.message || 'HTTP 402') + "). Verifique no painel do Supabase.");
+                    }
+                  }}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-98 cursor-pointer"
+                >
+                  <RefreshCw size={15} />
+                  <span>Testar Conexão Novamente</span>
+                </button>
               </div>
             </div>
           </div>

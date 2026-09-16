@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '3.0.12';
+const appVersion = '3.0.14';
 
 function versionPlugin(): Plugin {
   return {
@@ -19,8 +19,8 @@ function versionPlugin(): Plugin {
           buildDate: new Date(buildTime).toISOString(),
           timestamp: buildTime,
           highlights: [
-            "Remoção do botão redundante fechar PDF no menu lateral",
-            "Substituição do botão voltar por X de fechar no topo durante a leitura de PDFs"
+            "Conexão restaurada com o novo projeto Supabase",
+            "Carregamento validado para Classes e Categorias de Especialidades"
           ]
         }, null, 2)
       });
