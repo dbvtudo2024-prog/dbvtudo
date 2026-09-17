@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { jsPDF } from 'jspdf';
 import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, BibleNote, Devocional, Cultura, UserProfile, CulturaItem, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario, Video as VideoType, VideoCategory, LivroAVT, ManualAVT, AppLink, Conquista, Trunfo } from '../types';
 import { 
@@ -22,11 +23,12 @@ import {
 import { PROFILE_KEY } from '../constants';
 import { MASTERY_RULES } from '../masteryRules';
 import { APP_VERSION } from '../versionConfig';
+import { generateSpecialtyPowerPoint, parseAndNormalizeRequirements, isRequirementSubItem } from '../services/presentationService';
 import { 
   Shield, Award, User, Layers, Sparkles, Home as HomeIcon, Search,
   ChevronRight, ChevronLeft, ChevronDown, Info, Book, Settings, Zap, Music, Flag, Shirt, Globe, Key, FileText, Library, CreditCard, MapPin, Video, Folder, BookOpen, Heart, ArrowUp, ArrowDown,
   Trash2, Plus, Save, Share2, Calendar, X, Image as ImageIcon, Download, ArrowLeft, ExternalLink, Filter, Edit2, Edit3, Check,
-  AlignLeft, AlignCenter, AlignRight, ZoomIn, ZoomOut, Minus, Trophy, PanelLeftClose, PanelLeftOpen, Menu
+  AlignLeft, AlignCenter, AlignRight, ZoomIn, ZoomOut, Minus, Trophy, PanelLeftClose, PanelLeftOpen, Menu, Presentation
 } from 'lucide-react';
 
 
@@ -1881,6 +1883,15 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   const [activeAccordions, setActiveAccordions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [isGeneratingPptx, setIsGeneratingPptx] = useState(false);
+  const [isPptxModalOpen, setIsPptxModalOpen] = useState(false);
+  const [pptxInstructorName, setPptxInstructorName] = useState('');
+  const [pptxClubName, setPptxClubName] = useState('');
+  const [pptxUnitName, setPptxUnitName] = useState('');
+  const [pptxIncludeAi, setPptxIncludeAi] = useState(true);
+  const [pptxProgressMsg, setPptxProgressMsg] = useState('');
+  const [pptxProgressPercent, setPptxProgressPercent] = useState(0);
+  const [pptxError, setPptxError] = useState<string | null>(null);
   const [classRequirements, setClassRequirements] = useState<string[]>([]);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
@@ -3011,6 +3022,264 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     });
   };
 
+  // Fechar modal do PowerPoint com a tecla Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isPptxModalOpen && !isGeneratingPptx) {
+        setIsPptxModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPptxModalOpen, isGeneratingPptx]);
+
+  const handleGeneratePptx = async () => {
+    if (!selectedSpecialty || isGeneratingPptx) return;
+    setIsGeneratingPptx(true);
+    setPptxError(null);
+    setPptxProgressMsg('Iniciando...');
+    setPptxProgressPercent(5);
+
+    try {
+      await generateSpecialtyPowerPoint(selectedSpecialty, {
+        instructorName: pptxInstructorName.trim() || userProfile?.nome || '',
+        clubName: pptxClubName.trim() || '',
+        unitName: pptxUnitName.trim() || '',
+        includeAiAnswers: pptxIncludeAi,
+        onProgress: (status, percent) => {
+          setPptxProgressMsg(status);
+          setPptxProgressPercent(percent);
+        }
+      });
+      setIsPptxModalOpen(false);
+    } catch (error: any) {
+      console.error('Erro ao gerar apresentação PowerPoint:', error);
+      setPptxError(error?.message || 'Ocorreu um erro ao gerar a apresentação em PowerPoint. Tente novamente.');
+    } finally {
+      setIsGeneratingPptx(false);
+      setPptxProgressMsg('');
+      setPptxProgressPercent(0);
+    }
+  };
+
+  const renderPptxModal = () => {
+    if (!isPptxModalOpen || !selectedSpecialty) return null;
+
+    // Calcula os requisitos reais usando parseAndNormalizeRequirements para não contar sub-itens como novos requisitos
+    const parsedSpecialty = parseAndNormalizeRequirements(selectedSpecialty.requisitos || []);
+    const totalRealReqs = parsedSpecialty.items.length;
+
+    const modalContent = (
+      <div 
+        className="fixed inset-0 z-[99999] bg-slate-950/80 backdrop-blur-sm flex justify-center items-center p-2.5 sm:p-4 overflow-y-auto animate-fade-in"
+        onClick={(e) => {
+          if (e.target === e.currentTarget && !isGeneratingPptx) {
+            setIsPptxModalOpen(false);
+          }
+        }}
+      >
+        <div 
+          className="relative w-full max-w-md bg-white dark:bg-slate-800 rounded-3xl p-4 sm:p-5 shadow-2xl border border-slate-100 dark:border-slate-700/80 m-auto max-h-[92vh] overflow-y-auto flex flex-col space-y-3"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Topo do Modal */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 text-white flex items-center justify-center shadow-md shadow-orange-500/20 shrink-0">
+                <Presentation size={20} />
+              </div>
+              <div>
+                <h3 className="font-black text-slate-800 dark:text-white text-sm sm:text-base uppercase tracking-tight leading-snug">
+                  Apresentação PowerPoint
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                  Gerar slides didáticos e instrutivos (.pptx)
+                </p>
+              </div>
+            </div>
+            <button 
+              onClick={() => !isGeneratingPptx && setIsPptxModalOpen(false)}
+              disabled={isGeneratingPptx}
+              className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center justify-center text-slate-500 dark:text-slate-300 transition-colors shrink-0 disabled:opacity-40"
+              title="Fechar"
+            >
+              <X size={15} />
+            </button>
+          </div>
+
+          {/* Card Resumo da Especialidade */}
+          <div className="p-2.5 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-700/60 flex items-center space-x-3">
+            <div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl p-1 border border-slate-200/60 dark:border-slate-700 flex items-center justify-center shrink-0">
+              {selectedSpecialty.logo ? (
+                <img src={getImageUrl(selectedSpecialty.logo)} alt={selectedSpecialty.nome} className="w-full h-full object-contain" />
+              ) : (
+                <Award size={18} className="text-amber-500" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="font-black text-slate-800 dark:text-white text-xs uppercase tracking-tight truncate">
+                {selectedSpecialty.nome}
+              </h4>
+              <div className="flex items-center space-x-2 mt-0.5">
+                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase truncate">
+                  {selectedSpecialty.area}
+                </span>
+                <span className="text-slate-300 dark:text-slate-600">•</span>
+                <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 whitespace-nowrap">
+                  {totalRealReqs} Requisitos Oficiais
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Seletor de Modo de Geração Didática */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+              Modo Didático:
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setPptxIncludeAi(true)}
+                disabled={isGeneratingPptx}
+                className={`p-2.5 rounded-xl border text-left transition-all relative ${
+                  pptxIncludeAi 
+                    ? 'border-orange-500 bg-orange-50/70 dark:bg-orange-950/40 text-orange-950 dark:text-orange-200 shadow-sm ring-1 ring-orange-500' 
+                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-[11px] font-black uppercase tracking-tight flex items-center gap-1">
+                    <Sparkles size={13} className="text-amber-500 shrink-0" /> Com IA
+                  </span>
+                  <span className="text-[8px] font-black uppercase px-1.5 py-0.2 bg-amber-500 text-white rounded-full">
+                    Top
+                  </span>
+                </div>
+                <p className="text-[9.5px] leading-tight text-slate-500 dark:text-slate-400 line-clamp-2">
+                  Respostas completas e slides ilustrados para sub-itens.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPptxIncludeAi(false)}
+                disabled={isGeneratingPptx}
+                className={`p-2.5 rounded-xl border text-left transition-all relative ${
+                  !pptxIncludeAi 
+                    ? 'border-orange-500 bg-orange-50/70 dark:bg-orange-950/40 text-orange-950 dark:text-orange-200 shadow-sm ring-1 ring-orange-500' 
+                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-[11px] font-black uppercase tracking-tight flex items-center gap-1">
+                    <Zap size={13} className="text-orange-500 shrink-0" /> Rápido
+                  </span>
+                  <span className="text-[8px] font-black uppercase px-1.5 py-0.2 bg-orange-100 dark:bg-orange-900/60 text-orange-700 dark:text-orange-300 rounded-full">
+                    Guia
+                  </span>
+                </div>
+                <p className="text-[9.5px] leading-tight text-slate-500 dark:text-slate-400 line-clamp-2">
+                  Roteiro pedagógico com pontos-chave imediatos.
+                </p>
+              </button>
+            </div>
+            
+            <div className="flex items-center space-x-1.5 px-2.5 py-1.5 text-[9.5px] font-bold text-amber-800 dark:text-amber-300 bg-amber-50/80 dark:bg-amber-950/40 rounded-xl border border-amber-200/60 dark:border-amber-900/40">
+              <Sparkles size={12} className="text-amber-500 shrink-0" />
+              <span>Sub-itens contam com slides dedicados e ilustrações visuais!</span>
+            </div>
+          </div>
+
+          {/* Campos de Personalização da Apresentação */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+              Personalização dos Slides:
+            </label>
+            <div className="space-y-1.5">
+              <input 
+                type="text"
+                placeholder="Nome do Instrutor(a) / Conselheiro(a)"
+                value={pptxInstructorName}
+                onChange={(e) => setPptxInstructorName(e.target.value)}
+                disabled={isGeneratingPptx}
+                className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/40"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <input 
+                  type="text"
+                  placeholder="Nome do Clube"
+                  value={pptxClubName}
+                  onChange={(e) => setPptxClubName(e.target.value)}
+                  disabled={isGeneratingPptx}
+                  className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/40"
+                />
+                <input 
+                  type="text"
+                  placeholder="Nome da Unidade"
+                  value={pptxUnitName}
+                  onChange={(e) => setPptxUnitName(e.target.value)}
+                  disabled={isGeneratingPptx}
+                  className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/40"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Barra de Progresso durante a Geração */}
+          {isGeneratingPptx && (
+            <div className="p-2.5 bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900/60 rounded-xl space-y-1.5">
+              <div className="flex items-center justify-between text-xs font-bold text-orange-900 dark:text-orange-200">
+                <span className="flex items-center gap-1.5 truncate">
+                  <span className="inline-block w-2 h-2 rounded-full bg-orange-500 animate-ping"></span>
+                  <span className="truncate">{pptxProgressMsg || 'Processando apresentação...'}</span>
+                </span>
+                <span className="shrink-0 ml-2">{pptxProgressPercent}%</span>
+              </div>
+              <div className="w-full h-1.5 bg-orange-200/80 dark:bg-orange-900/60 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-300 rounded-full"
+                  style={{ width: `${Math.max(5, pptxProgressPercent)}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Mensagem de Erro (se houver) */}
+          {pptxError && (
+            <div className="p-2.5 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900 rounded-xl text-xs text-red-700 dark:text-red-300 font-medium">
+              {pptxError}
+            </div>
+          )}
+
+          {/* Botões do Rodapé */}
+          <div className="flex items-center justify-end space-x-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setIsPptxModalOpen(false)}
+              disabled={isGeneratingPptx}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-40"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleGeneratePptx}
+              disabled={isGeneratingPptx}
+              className="px-4 py-2 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-md hover:shadow-orange-500/20 active:scale-95 transition-all flex items-center space-x-1.5 disabled:opacity-50"
+            >
+              <Presentation size={15} />
+              <span>{isGeneratingPptx ? 'Gerando...' : 'Baixar (.pptx)'}</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+    );
+
+    return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
+  };
+
   const renderSpecialtyDetails = () => {
     if (!selectedSpecialty) return null;
     const isCompleted = completedSpecialties.includes(selectedSpecialty.id.toString());
@@ -3247,6 +3516,26 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     );
                   }
 
+                  // Se for uma nota/aviso geral oficial da especialidade
+                  const isGeneralNote = /^(?:nota|obs|observa[çc][aã]o|aten[çc][aã]o|importante|aviso|pr[eé]-requisito|instru[çc][aã]o|recomend[aã]o|dica)(?:\s*do\s*instrutor)?\s*[\:\-]/i.test(trimmedReq);
+                  if (isGeneralNote) {
+                    return (
+                      <div key={idx} className="bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-900/50 rounded-[22px] p-4 shadow-sm flex items-start space-x-3.5">
+                        <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-amber-500/20 mt-0.5">
+                          <Info size={16} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-[10px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-wider block mb-0.5">
+                            Orientação Oficial da Especialidade
+                          </span>
+                          <p className="text-xs sm:text-sm font-bold text-amber-950 dark:text-amber-200 leading-snug">
+                            {trimmedReq}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  }
+
                   // Se for uma instrução/cabeçalho de mestrado
                   const isInstruction = isMastery && (
                     trimmedReq.toLowerCase().startsWith('ter ') || 
@@ -3263,6 +3552,24 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                         </div>
                         <p className="text-xs sm:text-sm font-black text-indigo-950 dark:text-indigo-200 uppercase tracking-tight leading-snug">
                           {trimmedReq}
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  // Se for um sub-item marcado por letras, numeração romana ou traço
+                  if (isRequirementSubItem(trimmedReq)) {
+                    const letterMatch = trimmedReq.match(/^(?:\(([a-z0-9])\)|([a-z0-9])[\.\-\)\:])\s*(.*)/i);
+                    const letter = letterMatch ? (letterMatch[1] || letterMatch[2]).toUpperCase() : '•';
+                    const subText = letterMatch ? letterMatch[3] : trimmedReq.replace(/^[\-\•\*\–\—]\s*/, '');
+
+                    return (
+                      <div key={idx} className="ml-3 sm:ml-7 pl-3 sm:pl-4 border-l-2 border-indigo-200 dark:border-indigo-800/80 bg-slate-50/70 dark:bg-slate-800/40 rounded-2xl p-3.5 flex items-start space-x-3 transition-all hover:bg-slate-100/60 dark:hover:bg-slate-800/60 shadow-xs">
+                        <div className="w-5 h-5 rounded-md bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-black text-[10px] flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                          {letter}
+                        </div>
+                        <p className="text-[13px] font-medium text-slate-700 dark:text-slate-200 leading-snug">
+                          {subText}
                         </p>
                       </div>
                     );
@@ -3364,16 +3671,32 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           </div>
         </div>
 
-        <button 
-          onClick={generateSpecialtyPDF}
-          disabled={isGeneratingPDF}
-          className="w-full py-4 bg-indigo-600 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2"
-        >
-          <Download size={18} />
-          <span>{isGeneratingPDF ? 'Gerando...' : 'Gerar PDF da Especialidade'}</span>
-        </button>
+        {/* Ações de Exportação: PDF e Apresentação PowerPoint Didática */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+          <button 
+            onClick={generateSpecialtyPDF}
+            disabled={isGeneratingPDF || isGeneratingPptx}
+            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+          >
+            <Download size={18} />
+            <span>{isGeneratingPDF ? 'Gerando PDF...' : 'Gerar PDF da Especialidade'}</span>
+          </button>
 
-        {/* Botão de Ajuda da IA removido */}
+          <button 
+            onClick={() => {
+              setPptxError(null);
+              if (!pptxInstructorName && userProfile?.nome) {
+                setPptxInstructorName(userProfile.nome);
+              }
+              setIsPptxModalOpen(true);
+            }}
+            disabled={isGeneratingPDF || isGeneratingPptx}
+            className="w-full py-4 bg-gradient-to-r from-orange-600 via-amber-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-lg hover:shadow-orange-500/25 active:scale-95 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+          >
+            <Presentation size={18} />
+            <span>{isGeneratingPptx ? 'Gerando Slides...' : 'Apresentação PowerPoint (.pptx)'}</span>
+          </button>
+        </div>
       </div>
     );
   };
@@ -4100,40 +4423,6 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   const renderPdfViewer = () => (
     <div className="animate-slide-in h-full flex flex-col flex-grow w-full bg-slate-100 dark:bg-slate-950 md:rounded-3xl overflow-hidden md:border md:border-slate-200/80 md:dark:border-slate-800 md:shadow-md">
       <div className="flex-grow flex flex-col relative h-full min-h-[500px]">
-        {/* Barra superior de ações do visualizador exibida APENAS no Mobile onde não há cabeçalho fixo com botão voltar */}
-        <div className="md:hidden p-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <button 
-              onClick={() => setActiveSubView('LIBRARY')}
-              className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl shadow-xs text-slate-600 dark:text-slate-200 active:scale-90 transition-all border border-slate-200/80 dark:border-slate-700 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-700 shrink-0"
-              title="Fechar PDF"
-              aria-label="Fechar PDF"
-            >
-              <X size={20} strokeWidth={2.5} />
-            </button>
-            <div className="min-w-0">
-              <h3 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-tight truncate max-w-[220px]">
-                {pdfTitle}
-              </h3>
-              <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-0.5">
-                Visualizador de Documento
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <a 
-              href={selectedPdfUrl || '#'} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="w-10 h-10 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/70 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400 transition-all active:scale-95 border border-blue-200/60 dark:border-blue-900/50 shadow-xs"
-              title="Abrir em Nova Aba"
-            >
-              <ExternalLink size={18} strokeWidth={2.4} />
-            </a>
-          </div>
-        </div>
-
         {selectedPdfUrl ? (
           <iframe 
             src={selectedPdfUrl} 
@@ -4510,38 +4799,6 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     return (
       <div className="animate-slide-in h-full flex flex-col flex-grow w-full bg-slate-100 dark:bg-slate-950 md:rounded-3xl overflow-hidden md:border md:border-slate-200/80 md:dark:border-slate-800 md:shadow-md">
         <div className="flex-grow flex flex-col relative h-full min-h-[500px]">
-          {/* Barra superior de ações do visualizador exibida APENAS no Mobile */}
-          <div className="md:hidden p-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between shadow-xs">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <button 
-                onClick={() => setActiveSubView('DESBRAVA_PLUS')}
-                className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl shadow-xs text-slate-600 dark:text-slate-200 active:scale-90 transition-all border border-slate-200/80 dark:border-slate-700 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-700 shrink-0"
-                title="Fechar PDF"
-                aria-label="Fechar PDF"
-              >
-                <X size={20} strokeWidth={2.5} />
-              </button>
-              <div className="min-w-0">
-                <h3 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-tight truncate max-w-[220px]">
-                  {selectedDesbravaPlusItem.Nome}
-                </h3>
-                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-0.5">
-                  Desbrava + • Material Digital
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <a 
-                href={pdfUrl} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-10 h-10 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/70 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400 transition-all active:scale-95 border border-blue-200/60 dark:border-blue-900/50 shadow-xs"
-                title="Abrir em Nova Aba"
-              >
-                <ExternalLink size={18} strokeWidth={2.4} />
-              </a>
-            </div>
-          </div>
           <iframe 
             src={formattedUrl} 
             className="w-full h-full border-none flex-grow bg-slate-50 dark:bg-slate-900"
@@ -8466,11 +8723,15 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               </button>
             )}
           </div>
-          <div className="text-center">
-            <h2 className="font-black text-slate-800 dark:text-white text-base sm:text-lg md:text-xl landscape:text-sm tracking-tight uppercase leading-none">
-              {isPathfinder ? 'Desbravadores' : 'Aventureiros'}
+          <div className="text-center min-w-0 flex-1 px-2">
+            <h2 className="font-black text-slate-800 dark:text-white text-base sm:text-lg md:text-xl landscape:text-sm tracking-tight uppercase leading-none truncate">
+              {activeSubView === 'PDF_VIEWER'
+                ? (pdfTitle || 'Visualizador de Documento')
+                : activeSubView === 'DESBRAVA_PLUS_PDF'
+                ? (selectedDesbravaPlusItem?.Nome || 'Visualizador de Documento')
+                : (isPathfinder ? 'Desbravadores' : 'Aventureiros')}
             </h2>
-            <p className="text-[10px] sm:text-[11px] landscape:text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em] mt-1.5 landscape:mt-0.5">
+            <p className="text-[10px] sm:text-[11px] landscape:text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em] mt-1.5 landscape:mt-0.5 truncate">
               {activeSubView === 'MAIN' ? 'Área de Gestão' : 
                activeSubView === 'CLASSES' ? (isPathfinder ? 'Classes Progressivas' : 'Classes Regulares') :
                activeSubView === 'CLASS_DETAILS' ? (isPathfinder ? 'Classes Progressivas' : 'Classes Regulares') :
@@ -8506,10 +8767,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                activeSubView === 'MATERIALS' ? 'Materiais' :
                activeSubView === 'CAMPING' ? 'Camping' :
                activeSubView === 'FORMULARIOS' ? 'Formulários' :
-               activeSubView === 'PDF_VIEWER' ? pdfTitle :
+               activeSubView === 'PDF_VIEWER' ? 'Visualizador de Documento' :
                activeSubView === 'DESBRAVA_PLUS' ? 'Desbrava +' :
                activeSubView === 'DESBRAVA_PLUS_DETAILS' ? selectedDesbravaPlusItem?.Nome :
-               activeSubView === 'DESBRAVA_PLUS_PDF' ? selectedDesbravaPlusItem?.Nome :
+               activeSubView === 'DESBRAVA_PLUS_PDF' ? 'Desbrava + • Material Digital' :
                activeSubView === 'BIBLE_ADMIN' ? 'Painel Administrativo' :
                activeSubView === 'ACHIEVEMENTS_ADMIN' ? 'Gestão de Conquistas' :
                activeSubView === 'TRUNFOS' ? 'Trunfos' :
@@ -9219,6 +9480,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal de Configuração e Geração da Apresentação PowerPoint Didática */}
+      {renderPptxModal()}
     </div>
   );
 };

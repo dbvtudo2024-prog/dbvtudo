@@ -15,23 +15,35 @@ Mantenha as respostas concisas e use formatação Markdown para facilitar a leit
 
 export async function askAdvisor(prompt: string): Promise<string> {
   try {
-    const apiKey = (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) || (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
+    const apiKey = (typeof process !== 'undefined' && (process.env?.GEMINI_API_KEY || process.env?.API_KEY)) || (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
     if (!apiKey) {
       return "Olá! O Desbravinho está pronto. Para ativar as respostas com inteligência artificial, configure sua chave de API Gemini.";
     }
 
     const { GoogleGenAI } = await import("@google/genai");
     const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        temperature: 0.7,
-      },
-    });
+    const models = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
 
-    return response.text || "Desculpe, não consegui processar sua pergunta agora. Tente novamente.";
+    for (const modelName of models) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: prompt,
+          config: {
+            systemInstruction: SYSTEM_INSTRUCTION,
+            temperature: 0.7,
+          },
+        });
+
+        if (response && response.text) {
+          return response.text;
+        }
+      } catch (e) {
+        console.warn(`Tentativa com ${modelName} falhou no Desbravinho:`, e);
+      }
+    }
+
+    return "Desculpe, os servidores da IA estão com alta demanda momentânea. Por favor, tente novamente em instantes.";
   } catch (error) {
     console.error("Gemini API Error:", error);
     return "Ocorreu um erro ao conectar com o Desbravinho. Verifique sua conexão.";

@@ -1,10 +1,11 @@
 {
-  "version": 1758112000000,
-  "versionName": "3.0.14",
-  "buildDate": "2026-09-17T15:03:00.000Z",
-  "timestamp": 1758112000000,
+  "version": 1759187500000,
+  "versionName": "3.0.19",
+  "buildDate": "2026-09-29T23:05:00.000Z",
+  "timestamp": 1759187500000,
   "highlights": [
-    "Conexão restaurada com o novo projeto Supabase",
-    "Carregamento validado para Classes e Categorias de Especialidades"
+    "Slides individuais dedicados para cada sub-item (a, b, c...) com explicação abrangente",
+    "Ilustrações visuais fotográficas e infográficas temáticas para cada sub-item",
+    "Sincronia rigorosa de numeração e ordem oficial da especialidade"
   ]
 }

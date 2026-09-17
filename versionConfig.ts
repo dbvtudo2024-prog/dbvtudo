@@ -6,19 +6,79 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.14';
-export const APP_BUILD_DATE = '17 de Setembro de 2026';
+export const APP_VERSION = '3.0.19';
+export const APP_BUILD_DATE = '29 de Setembro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
-    version: '3.0.14',
-    date: '17/09/2026',
+    version: '3.0.19',
+    date: '29/09/2026',
     tag: 'NOVO',
-    title: 'Migração para Novo Projeto Supabase e Restauração de Conexão',
+    title: 'Slides Individuais para Sub-itens com Resolução Completa e Ilustrações Visuais',
     changes: [
-      'Configuração das credenciais do novo projeto Supabase.',
-      'Restauração da conexão com o banco de dados sem restrição de cota (HTTP 402 superado).',
-      'Validação de integridade e carregamento das tabelas Classes e Categorias no novo ambiente.'
+      'Slides individuais para sub-itens: Cada sub-item (a, b, c...) agora ganha seu próprio slide de estudo aprofundado, com explicação técnica abrangente, pontos-chave e desafio prático para a unidade.',
+      'Ilustrações visuais temáticas: Cada slide de sub-item conta com ilustração visual (fotografia em alta resolução correspondente ao tema ou banner infográfico estilizado gerado em Canvas).',
+      'Sincronia rigorosa de numeração: Cada sub-item é claramente identificado como "REQUISITO X • SUB-ITEM (LETRA)" mantendo o contador oficial "ITEM X DE TOTAL", para que a ordem da especialidade continue 100% perfeita sem nunca misturar a contagem.',
+      'Slide de visão geral do requisito: O slide pai apresenta o roteiro inicial e o resumo geral, seguido pelos slides detalhados de cada letra.'
+    ]
+  },
+  {
+    version: '3.0.18',
+    date: '29/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Agrupamento de Sub-itens (Letras) e Modal Compacto sem Cortes',
+    changes: [
+      'Agrupamento inteligente de sub-itens: Requisitos com sub-itens identificados por letras (a, b, c...), numeração romana ou traços agora pertencem estritamente ao seu respectivo requisito e não criam mais slides isolados fora de ordem no PowerPoint.',
+      'Sincronia oficial da numeração: O número do slide (ex: Requisito 1, 2, 3...) e a contagem total de questões refletem com 100% de exatidão os requisitos oficiais do manual.',
+      'Resolução didática completa de sub-itens: Cada sub-item possui sua explicação técnica e didática formulada dentro do respectivo slide do requisito.',
+      'Modal de PowerPoint compacto e sem corte: Redesenhado com altura equilibrada e centralização segura com margem automática, eliminando o corte de tela no topo e a necessidade de rolar para acessar opções e botões.',
+      'Hierarquia visual no app: Na tela de detalhes da especialidade, os sub-itens agora aparecem indentados com marcadores de letras dedicados.'
+    ]
+  },
+  {
+    version: '3.0.17',
+    date: '29/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Correção de Posicionamento do Modal de PowerPoint em Todas as Resoluções',
+    changes: [
+      'Correção do corte do modal do PowerPoint: o modal agora é renderizado via Portal nativo no nível raiz da tela (document.body), eliminando qualquer deslocamento ou corte causado pelo scroll e transform da página.',
+      'Centralização perfeita na viewport em computadores, celulares e tablets, com área de rolagem interna adaptável (max-h 90vh) que mantém o cabeçalho e os botões sempre visíveis e acessíveis.',
+      'Adicionado fechamento automático ao clicar no fundo escuro ou pressionar a tecla Escape.'
+    ]
+  },
+  {
+    version: '3.0.16',
+    date: '29/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Correção da Numeração dos Requisitos e Respostas Didáticas Específicas nos Slides',
+    changes: [
+      'Correção definitiva da numeração dos requisitos: as notas, introduções e avisos foram isolados, garantindo que o número do slide e do cabeçalho coincida exatamente com o número oficial de cada questão.',
+      'Fim das respostas genéricas: agora cada questão é respondida com conteúdo teórico, técnico e prático de verdade, com explicações aprofundadas sobre o tema exato da especialidade (ex: Trail Run, nós, primeiros socorros, etc.).',
+      'Integração aprimorada com IA Gemini via servidor e modelos modernos resilientes (gemini-3.1-flash-lite e gemini-3.8-flash) com fallback inteligente especializado.',
+      'Destacadas as orientações oficiais da especialidade no slide de Visão Geral e notas em cards visuais dedicados.'
+    ]
+  },
+  {
+    version: '3.0.15',
+    date: '29/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Gerador de Apresentação em PowerPoint Didática (.pptx) para Especialidades',
+    changes: [
+      'Adicionado botão dedicado "Apresentação PowerPoint (.pptx)" ao final dos requisitos de cada especialidade, permitindo criar slides para ministrar ou estudar.',
+      'Elaboração de slides pedagógicos didáticos e widescreen (16:9) com insígnia oficial, código, área temática colorida e dados da instrução.',
+      'Preenchimento didático de cada questão com guia explicativo teórico, pontos fundamentais de fixação, sugestão de dinâmica prática na reunião de unidade e caixas de anotação.',
+      'Suporte a geração rápida (instantânea/offline) e preenchimento detalhado por inteligência artificial, além de slide final de avaliação com ficha de aprovação do instrutor e diretor.'
+    ]
+  },
+  {
+    version: '3.0.14',
+    date: '29/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Eliminação de Cabeçalho Redundante no Visualizador em Celulares',
+    changes: [
+      'Remoção da barra secundária interna que duplicava cabeçalhos e botões de ação em celulares durante a leitura de PDFs e materiais do Desbrava+.',
+      'Unificação elegante e centralizada dos controles no topo: botão fechar rápido (X), título do documento, subtítulo identificador e atalho para abrir em nova aba.',
+      'Aumento da área útil de leitura nos dispositivos móveis sem sobreposições desnecessárias.'
     ]
   },
   {
