@@ -1,11 +1,11 @@
 {
-  "version": 1759187500000,
-  "versionName": "3.0.19",
-  "buildDate": "2026-09-29T23:05:00.000Z",
-  "timestamp": 1759187500000,
+  "version": 1759267100000,
+  "versionName": "3.0.22",
+  "buildDate": "2026-09-30T20:52:00.000Z",
+  "timestamp": 1759267100000,
   "highlights": [
-    "Slides individuais dedicados para cada sub-item (a, b, c...) com explicação abrangente",
-    "Ilustrações visuais fotográficas e infográficas temáticas para cada sub-item",
-    "Sincronia rigorosa de numeração e ordem oficial da especialidade"
+    "Visualizador de itens do banco aberto e visível por padrão",
+    "Sincronização automática e instantânea com o banco de dados Supabase",
+    "Indicador de conexão ativa e botão de recarga sob demanda"
   ]
 }

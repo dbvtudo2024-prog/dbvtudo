@@ -6,14 +6,49 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.19';
-export const APP_BUILD_DATE = '29 de Setembro de 2026';
+export const APP_VERSION = '3.0.22';
+export const APP_BUILD_DATE = '30 de Setembro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '3.0.22',
+    date: '30/09/2026',
+    tag: 'NOVO',
+    title: 'Visualizador de Itens do Banco Sempre Ativo e Sincronização Automática',
+    changes: [
+      'Visualizador de itens do banco aberto por padrão: O visualizador de itens no modal de apresentação agora inicia expandido e visível automaticamente, permitindo conferir todos os requisitos do banco sem necessidade de clicar em expandir.',
+      'Sincronização automática e resiliente do Supabase: Implementada busca automática sob demanda dos requisitos oficiais caso uma especialidade seja aberta sem itens em cache, garantindo que nada fique em branco.',
+      'Indicadores de status e botão de recarga: Adicionado status ao vivo da conexão com o banco oficial e botão para recarregar requisitos instantaneamente caso necessário.',
+      'Visualização aprimorada de itens e sub-itens: Layout limpo com badges identificadoras de requisitos, bullets estilizados para sub-itens e rolagem suave.'
+    ]
+  },
+  {
+    version: '3.0.21',
+    date: '30/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Visualizador de Itens do Banco de Dados e Compatibilidade Total de Numerações',
+    changes: [
+      'Visualizador de itens do banco no modal de PowerPoint: Adicionada lista expansível dentro do modal para conferência imediata de todos os requisitos e sub-itens originais extraídos do Supabase.',
+      'Compatibilidade universal com numerações do banco: Reconhecimento perfeito de itens sem pontuação (ex: "1 Ler...", "2 Entrevistar..."), garantindo que a numeração oficial e os enunciados sejam exibidos com 100% de integridade.',
+      'Contador oficial visível: Indicador destacado em tela com o número exato de itens carregados do banco de dados na visualização da especialidade.'
+    ]
+  },
+  {
+    version: '3.0.20',
+    date: '30/09/2026',
+    tag: 'ESTÁVEL',
+    title: 'Geração Didática Unificada com Respostas Reais e Ilustrações Temáticas',
+    changes: [
+      'Geração em fluxo único: Removida a seleção dupla ("Com IA" / "Rápido"). Agora o aplicativo gera sempre a apresentação completa com todas as questões respondidas.',
+      'Eliminação definitiva de respostas padrão: Fim de textos genéricos de orientação. Cada questão e sub-item recebe respostas reais, técnicas e esclarecedoras com conteúdo verdadeiro.',
+      'Ilustrações temáticas precisas para toda questão e sub-item: Cada slide de questão e de sub-item recebe ilustração específica sobre o tema exato abordado (equipamentos, regras, nós, socorrismo, trilha, etc.), nunca imagens aleatórias.',
+      'Motor resiliente atualizado: Integração server-side com Gemini 3.5 Flash Lite para geração rápida e sem falhas de cota ou sobrecarga.'
+    ]
+  },
+  {
     version: '3.0.19',
     date: '29/09/2026',
-    tag: 'NOVO',
+    tag: 'ESTÁVEL',
     title: 'Slides Individuais para Sub-itens com Resolução Completa e Ilustrações Visuais',
     changes: [
       'Slides individuais para sub-itens: Cada sub-item (a, b, c...) agora ganha seu próprio slide de estudo aprofundado, com explicação técnica abrangente, pontos-chave e desafio prático para a unidade.',

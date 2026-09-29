@@ -26,9 +26,9 @@ import { APP_VERSION } from '../versionConfig';
 import { generateSpecialtyPowerPoint, parseAndNormalizeRequirements, isRequirementSubItem } from '../services/presentationService';
 import { 
   Shield, Award, User, Layers, Sparkles, Home as HomeIcon, Search,
-  ChevronRight, ChevronLeft, ChevronDown, Info, Book, Settings, Zap, Music, Flag, Shirt, Globe, Key, FileText, Library, CreditCard, MapPin, Video, Folder, BookOpen, Heart, ArrowUp, ArrowDown,
+  ChevronRight, ChevronLeft, ChevronDown, ChevronUp, ListChecks, Info, Book, Settings, Zap, Music, Flag, Shirt, Globe, Key, FileText, Library, CreditCard, MapPin, Video, Folder, BookOpen, Heart, ArrowUp, ArrowDown,
   Trash2, Plus, Save, Share2, Calendar, X, Image as ImageIcon, Download, ArrowLeft, ExternalLink, Filter, Edit2, Edit3, Check,
-  AlignLeft, AlignCenter, AlignRight, ZoomIn, ZoomOut, Minus, Trophy, PanelLeftClose, PanelLeftOpen, Menu, Presentation
+  AlignLeft, AlignCenter, AlignRight, ZoomIn, ZoomOut, Minus, Trophy, PanelLeftClose, PanelLeftOpen, Menu, Presentation, RefreshCw
 } from 'lucide-react';
 
 
@@ -1888,7 +1888,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   const [pptxInstructorName, setPptxInstructorName] = useState('');
   const [pptxClubName, setPptxClubName] = useState('');
   const [pptxUnitName, setPptxUnitName] = useState('');
-  const [pptxIncludeAi, setPptxIncludeAi] = useState(true);
+  const [showPptxItemsList, setShowPptxItemsList] = useState(true);
+  const [isLoadingRequirements, setIsLoadingRequirements] = useState(false);
   const [pptxProgressMsg, setPptxProgressMsg] = useState('');
   const [pptxProgressPercent, setPptxProgressPercent] = useState(0);
   const [pptxError, setPptxError] = useState<string | null>(null);
@@ -2319,6 +2320,52 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         .finally(() => setIsLoadingSearchSpecialties(false));
     }
   };
+
+  const reloadSpecialtyRequirements = async (specialty?: Especialidade | null) => {
+    const target = specialty || selectedSpecialty;
+    if (!target) return;
+    setIsLoadingRequirements(true);
+    try {
+      const table = (target.club === ClubType.ADVENTURER || club === ClubType.ADVENTURER)
+        ? 'EspecialidadesAVT'
+        : 'EspecialidadesDBV';
+      
+      let query = supabase.from(table).select('Questoes, ID, Nome, Imagem, Categoria');
+      if (target.id) {
+        query = query.eq('id', target.id);
+      } else if (target.codigo) {
+        query = query.eq('ID', target.codigo);
+      } else if (target.nome) {
+        query = query.ilike('Nome', target.nome);
+      }
+      const { data, error } = await query.limit(1);
+      if (!error && data && data.length > 0 && data[0].Questoes) {
+        const freshReqs = data[0].Questoes
+          .split(/\r?\n/)
+          .map((r: string) => r.trim())
+          .filter((r: string) => r.length > 0);
+        if (freshReqs.length > 0) {
+          setSelectedSpecialty(prev => prev ? {
+            ...prev,
+            requisitos: freshReqs,
+            logo: prev.logo || data[0].Imagem,
+            area: prev.area || data[0].Categoria
+          } : null);
+        }
+      }
+    } catch (err) {
+      console.warn("Erro ao recarregar requisitos do banco:", err);
+    } finally {
+      setIsLoadingRequirements(false);
+    }
+  };
+
+  // Garante que a especialidade selecionada sempre possua os requisitos oficiais do banco de dados carregados
+  useEffect(() => {
+    if (selectedSpecialty && (!selectedSpecialty.requisitos || selectedSpecialty.requisitos.length === 0)) {
+      reloadSpecialtyRequirements(selectedSpecialty);
+    }
+  }, [selectedSpecialty?.id, selectedSpecialty?.nome, selectedSpecialty?.requisitos?.length, club]);
 
   useEffect(() => {
     if (activeSubView === 'CLASSES') {
@@ -3045,7 +3092,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         instructorName: pptxInstructorName.trim() || userProfile?.nome || '',
         clubName: pptxClubName.trim() || '',
         unitName: pptxUnitName.trim() || '',
-        includeAiAnswers: pptxIncludeAi,
+        includeAiAnswers: true,
         onProgress: (status, percent) => {
           setPptxProgressMsg(status);
           setPptxProgressPercent(percent);
@@ -3132,63 +3179,103 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             </div>
           </div>
 
-          {/* Seletor de Modo de Geração Didática */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
-              Modo Didático:
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setPptxIncludeAi(true)}
-                disabled={isGeneratingPptx}
-                className={`p-2.5 rounded-xl border text-left transition-all relative ${
-                  pptxIncludeAi 
-                    ? 'border-orange-500 bg-orange-50/70 dark:bg-orange-950/40 text-orange-950 dark:text-orange-200 shadow-sm ring-1 ring-orange-500' 
-                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-[11px] font-black uppercase tracking-tight flex items-center gap-1">
-                    <Sparkles size={13} className="text-amber-500 shrink-0" /> Com IA
-                  </span>
-                  <span className="text-[8px] font-black uppercase px-1.5 py-0.2 bg-amber-500 text-white rounded-full">
-                    Top
-                  </span>
-                </div>
-                <p className="text-[9.5px] leading-tight text-slate-500 dark:text-slate-400 line-clamp-2">
-                  Respostas completas e slides ilustrados para sub-itens.
-                </p>
-              </button>
+          {/* Informações da Geração Didática Unificada */}
+          <div className="p-3 bg-gradient-to-r from-orange-50/90 to-amber-50/80 dark:from-orange-950/40 dark:to-slate-900/60 rounded-2xl border border-orange-200/70 dark:border-orange-900/50 space-y-1.5">
+            <div className="flex items-center space-x-2">
+              <div className="w-6 h-6 rounded-lg bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+                <Sparkles size={13} />
+              </div>
+              <span className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-tight">
+                Geração Didática Completa (.pptx)
+              </span>
+            </div>
+            <p className="text-[10px] leading-relaxed text-slate-600 dark:text-slate-300">
+              Todas as <strong>{totalRealReqs} questões oficiais</strong> com respostas explicativas verdadeiras, tópicos de fixação, ilustrações visuais temáticas correspondentes ao assunto exato e slides individuais ilustrados para cada sub-item.
+            </p>
+          </div>
 
-              <button
-                type="button"
-                onClick={() => setPptxIncludeAi(false)}
-                disabled={isGeneratingPptx}
-                className={`p-2.5 rounded-xl border text-left transition-all relative ${
-                  !pptxIncludeAi 
-                    ? 'border-orange-500 bg-orange-50/70 dark:bg-orange-950/40 text-orange-950 dark:text-orange-200 shadow-sm ring-1 ring-orange-500' 
-                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-[11px] font-black uppercase tracking-tight flex items-center gap-1">
-                    <Zap size={13} className="text-orange-500 shrink-0" /> Rápido
-                  </span>
-                  <span className="text-[8px] font-black uppercase px-1.5 py-0.2 bg-orange-100 dark:bg-orange-900/60 text-orange-700 dark:text-orange-300 rounded-full">
-                    Guia
-                  </span>
+          {/* Visualizador dos Itens Oficiais do Banco de Dados no Modal */}
+          <div className="border border-slate-200 dark:border-slate-700/80 rounded-2xl overflow-hidden bg-slate-50/60 dark:bg-slate-900/50 shadow-xs transition-all">
+            <button
+              type="button"
+              onClick={() => setShowPptxItemsList(prev => !prev)}
+              className="w-full px-3.5 py-2.5 flex items-center justify-between text-left text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100/60 dark:hover:bg-slate-800/60 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-md bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                  <ListChecks size={13} />
                 </div>
-                <p className="text-[9.5px] leading-tight text-slate-500 dark:text-slate-400 line-clamp-2">
-                  Roteiro pedagógico com pontos-chave imediatos.
-                </p>
-              </button>
-            </div>
+                <div className="flex flex-col text-left">
+                  <span className="text-[11px] font-black uppercase tracking-tight text-slate-800 dark:text-white">
+                    Visualizador de Itens do Banco ({parsedSpecialty.items.length} Requisitos)
+                  </span>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                      Itens Oficiais Conectados
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                <span>{showPptxItemsList ? 'Ocultar' : 'Expandir'}</span>
+                {showPptxItemsList ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </div>
+            </button>
             
-            <div className="flex items-center space-x-1.5 px-2.5 py-1.5 text-[9.5px] font-bold text-amber-800 dark:text-amber-300 bg-amber-50/80 dark:bg-amber-950/40 rounded-xl border border-amber-200/60 dark:border-amber-900/40">
-              <Sparkles size={12} className="text-amber-500 shrink-0" />
-              <span>Sub-itens contam com slides dedicados e ilustrações visuais!</span>
-            </div>
+            {showPptxItemsList && (
+              <div className="p-3 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                {isLoadingRequirements ? (
+                  <div className="py-6 flex flex-col items-center justify-center space-y-2">
+                    <div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                      Sincronizando itens oficiais do banco...
+                    </span>
+                  </div>
+                ) : parsedSpecialty.items.length === 0 ? (
+                  <div className="py-4 text-center space-y-2">
+                    <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                      Nenhum item detectado no banco de dados para esta especialidade.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => reloadSpecialtyRequirements(selectedSpecialty)}
+                      className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1 border border-indigo-200 dark:border-indigo-800 transition-colors"
+                    >
+                      <RefreshCw size={11} />
+                      <span>Buscar Itens no Banco</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="max-h-56 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+                    {parsedSpecialty.items.map((it, idx) => (
+                      <div key={idx} className="bg-white dark:bg-slate-800 rounded-xl p-2.5 border border-slate-100 dark:border-slate-700/80 shadow-xs text-[10px]">
+                        <div className="flex items-start gap-2">
+                          <span className="px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 font-black text-[9px] shrink-0 mt-0.5">
+                            Item {it.itemNumber}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-slate-800 dark:text-slate-200 leading-snug">
+                              {it.cleanQuestion}
+                            </p>
+                            {it.subItems.length > 0 && (
+                              <div className="mt-1.5 pl-2 border-l-2 border-indigo-200 dark:border-indigo-800 space-y-1 text-slate-600 dark:text-slate-300 text-[9.5px]">
+                                {it.subItems.map((sub, sIdx) => (
+                                  <div key={sIdx} className="leading-tight flex items-start gap-1">
+                                    <span className="text-indigo-500 font-bold shrink-0">•</span>
+                                    <span>{sub}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Campos de Personalização da Apresentação */}
@@ -3442,6 +3529,17 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
                 {isMastery ? 'Especialidades e Requisitos' : 'Requisitos'}
               </h4>
+              <div className="flex items-center gap-1.5">
+                {isLoadingRequirements && (
+                  <span className="flex items-center gap-1 text-[9.5px] font-bold text-amber-600 dark:text-amber-400 animate-pulse bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-full border border-amber-200/60 dark:border-amber-900/50">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
+                    Sincronizando...
+                  </span>
+                )}
+                <span className="text-[9.5px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-900/50">
+                  {selectedSpecialty.requisitos?.length || 0} Itens do Banco de Dados
+                </span>
+              </div>
             </div>
             
             <div className="space-y-3">
@@ -3585,9 +3683,24 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     </div>
                   );
                 })
+              ) : isLoadingRequirements ? (
+                <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-8 text-center space-y-3 shadow-xs">
+                  <div className="w-7 h-7 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  <p className="text-slate-600 dark:text-slate-300 font-bold text-xs uppercase tracking-wider">
+                    Sincronizando itens oficiais do banco de dados...
+                  </p>
+                </div>
               ) : (
-                <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-8 text-center">
-                  <p className="text-slate-400 font-bold text-sm">Nenhum requisito listado no momento.</p>
+                <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-8 text-center space-y-3 shadow-xs">
+                  <p className="text-slate-500 dark:text-slate-400 font-bold text-sm">Nenhum requisito carregado no momento.</p>
+                  <button
+                    type="button"
+                    onClick={() => reloadSpecialtyRequirements(selectedSpecialty)}
+                    className="px-4 py-2 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-black uppercase tracking-wider border border-indigo-200 dark:border-indigo-800 transition-colors inline-flex items-center gap-1.5 active:scale-95"
+                  >
+                    <RefreshCw size={13} />
+                    <span>Recarregar Itens do Banco</span>
+                  </button>
                 </div>
               )}
             </div>

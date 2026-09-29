@@ -1,6 +1,8 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, UserProfile, FuncaoCargo, Devocional, Cultura, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario, Video, VideoCategory, LivroAVT, ManualAVT, AppLink, Conquista, Trunfo } from '../types';
+import { CANONICAL_BIBLE_BOOKS } from './bibleData';
+export { CANONICAL_BIBLE_BOOKS };
 
 const DEFAULT_URL = 'https://dembhtmryutggifbpuka.supabase.co';
 const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlbWJodG1yeXV0Z2dpZmJwdWthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MDQ0NjUsImV4cCI6MjA5NTM4MDQ2NX0.PVAqzmvqo4wDO2_i_MCF1lw8yxXzLxJj1Uj_gcyKTRI';
@@ -14,7 +16,24 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_KEY;
 const safeSupabaseStorage = {
   getItem: (key: string): string | null => {
     try {
-      return typeof window !== 'undefined' && window.localStorage ? window.localStorage.getItem(key) : null;
+      if (typeof window === 'undefined' || !window.localStorage) return null;
+      const val = window.localStorage.getItem(key);
+      if (val && key.includes('auth-token')) {
+        try {
+          const parsed = JSON.parse(val);
+          // Se o token for malformado (não tiver 3 partes JWT), limpa para não bloquear as consultas anônimas
+          if (parsed && parsed.access_token && typeof parsed.access_token === 'string') {
+            if (parsed.access_token.split('.').length !== 3) {
+              window.localStorage.removeItem(key);
+              return null;
+            }
+          }
+        } catch {
+          window.localStorage.removeItem(key);
+          return null;
+        }
+      }
+      return val;
     } catch {
       return null;
     }
@@ -413,6 +432,53 @@ export async function fetchEspecialidades(club: ClubType, categoryFilter?: strin
     
     const { data, error } = await query.order('ID', { ascending: true });
     if (error || !data) {
+      if (error) {
+        console.warn(`Erro ao consultar ${table} no Supabase:`, error);
+        if (error.code === 'PGRST301' || error.status === 401 || error.message?.includes('JWT')) {
+          try {
+            if (typeof window !== 'undefined' && window.localStorage) {
+              Object.keys(window.localStorage).forEach(k => {
+                if (k.startsWith('sb-') && k.endsWith('-auth-token')) window.localStorage.removeItem(k);
+              });
+            }
+          } catch {}
+        }
+      }
+
+      // Tenta fallback via same-origin proxy
+      try {
+        let proxyUrl = `/supabase-proxy/rest/v1/${table}?select=*&order=ID.asc`;
+        if (categoryFilter) proxyUrl += `&Categoria=eq.${encodeURIComponent(categoryFilter)}`;
+        const res = await fetch(proxyUrl, {
+          headers: {
+            'apikey': DEFAULT_KEY,
+            'authorization': `Bearer ${DEFAULT_KEY}`
+          }
+        });
+        if (res.ok) {
+          const pData = await res.json();
+          if (Array.isArray(pData) && pData.length > 0) {
+            const mappedProxy: Especialidade[] = pData.map(item => ({
+              id: item.id,
+              nome: item.Nome,
+              area: item.Categoria,
+              logo: item.Imagem,
+              requisitos: item.Questoes ? item.Questoes.split(/\r?\n/).map((r: string) => r.trim()).filter((r: string) => r.length > 0) : [],
+              club,
+              sigla: item.Sigla,
+              nivel: item.Nivel,
+              ano: item.Ano,
+              origem: item.Origem,
+              codigo: item.ID
+            }));
+            if (!categoryFilter && mappedProxy.length > 0) {
+              try { localStorage.setItem(ESPECIALIDADES_CACHE_KEY_PREFIX + club, JSON.stringify(mappedProxy)); } catch {}
+            }
+            return mappedProxy;
+          }
+        }
+      } catch {}
+
       return getCachedEspecialidades(club);
     }
     const mapped: Especialidade[] = (data || []).map(item => ({
@@ -862,17 +928,38 @@ export async function fetchBibleBooks(): Promise<BibleBook[]> {
       .eq('verse_number', '1')
       .order('id', { ascending: true });
     
-    if (error || !data) return [];
+    if (error) {
+      console.warn('Erro ao consultar livros da Bíblia no Supabase:', error);
+      if (error.code === 'PGRST301' || error.status === 401 || error.message?.includes('JWT')) {
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            Object.keys(window.localStorage).forEach(k => {
+              if (k.startsWith('sb-') && k.endsWith('-auth-token')) window.localStorage.removeItem(k);
+            });
+          }
+        } catch {}
+      }
+      return CANONICAL_BIBLE_BOOKS;
+    }
 
-    return (data || []).map(item => ({
-      id: Number(item.id),
-      book_name: item.book_name || '',
-      book_abbrev: item.book_abbrev || '',
-      total_chapters: Number(item.total_chapters) || 0,
-      testament: item.testament || ''
-    }));
-  } catch {
-    return [];
+    if (data && data.length > 0) {
+      const mapped: BibleBook[] = data.map((item, idx) => ({
+        id: Number(item.id) || (idx + 1),
+        book_name: item.book_name || '',
+        book_abbrev: item.book_abbrev || CANONICAL_BIBLE_BOOKS[idx]?.book_abbrev || '',
+        total_chapters: Number(item.total_chapters) || CANONICAL_BIBLE_BOOKS[idx]?.total_chapters || 1,
+        testament: item.testament || CANONICAL_BIBLE_BOOKS[idx]?.testament || 'Antigo'
+      }));
+      try {
+        localStorage.setItem('dbv_cached_bible_books', JSON.stringify(mapped));
+      } catch {}
+      return mapped;
+    }
+
+    return CANONICAL_BIBLE_BOOKS;
+  } catch (err) {
+    console.warn('Exceção ao buscar livros da Bíblia:', err);
+    return CANONICAL_BIBLE_BOOKS;
   }
 }
 
@@ -885,7 +972,44 @@ export async function fetchBibleVerses(bookName: string, chapter: string): Promi
       .eq('chapter', chapter)
       .order('id', { ascending: true });
 
-    if (error || !data) return [];
+    if (error) {
+      console.warn('Erro ao consultar versículos no Supabase:', error);
+      if (error.code === 'PGRST301' || error.status === 401 || error.message?.includes('JWT')) {
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            Object.keys(window.localStorage).forEach(k => {
+              if (k.startsWith('sb-') && k.endsWith('-auth-token')) window.localStorage.removeItem(k);
+            });
+          }
+        } catch {}
+      }
+
+      // Tenta fallback via proxy
+      try {
+        const proxyUrl = `/supabase-proxy/rest/v1/Biblia_Completa?select=id,book_name,chapter,verse_number,text&book_name=eq.${encodeURIComponent(bookName)}&chapter=eq.${encodeURIComponent(chapter)}&order=id.asc`;
+        const res = await fetch(proxyUrl, {
+          headers: {
+            'apikey': DEFAULT_KEY,
+            'authorization': `Bearer ${DEFAULT_KEY}`
+          }
+        });
+        if (res.ok) {
+          const proxyData = await res.json();
+          if (Array.isArray(proxyData) && proxyData.length > 0) {
+            return proxyData.map(item => ({
+              id: Number(item.id),
+              book_name: item.book_name || '',
+              chapter: item.chapter || '',
+              verse_number: item.verse_number || '',
+              text: item.text || ''
+            }));
+          }
+        }
+      } catch {}
+      return [];
+    }
+
+    if (!data) return [];
 
     return (data || []).map(item => ({
       id: Number(item.id),
@@ -895,6 +1019,28 @@ export async function fetchBibleVerses(bookName: string, chapter: string): Promi
       text: item.text || ''
     }));
   } catch {
+    // Tenta fallback via proxy
+    try {
+      const proxyUrl = `/supabase-proxy/rest/v1/Biblia_Completa?select=id,book_name,chapter,verse_number,text&book_name=eq.${encodeURIComponent(bookName)}&chapter=eq.${encodeURIComponent(chapter)}&order=id.asc`;
+      const res = await fetch(proxyUrl, {
+        headers: {
+          'apikey': DEFAULT_KEY,
+          'authorization': `Bearer ${DEFAULT_KEY}`
+        }
+      });
+      if (res.ok) {
+        const proxyData = await res.json();
+        if (Array.isArray(proxyData) && proxyData.length > 0) {
+          return proxyData.map(item => ({
+            id: Number(item.id),
+            book_name: item.book_name || '',
+            chapter: item.chapter || '',
+            verse_number: item.verse_number || '',
+            text: item.text || ''
+          }));
+        }
+      }
+    } catch {}
     return [];
   }
 }

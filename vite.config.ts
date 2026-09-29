@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '3.0.19';
+const appVersion = '3.0.22';
 
 function versionPlugin(): Plugin {
   return {
@@ -19,8 +19,9 @@ function versionPlugin(): Plugin {
           buildDate: new Date(buildTime).toISOString(),
           timestamp: buildTime,
           highlights: [
-            "Correção de posicionamento do modal de PowerPoint em todas as resoluções",
-            "Renderização com Portal nativo no document.body para centralização impecável"
+            "Visualizador e lista de requisitos oficiais do banco de dados no modal de PowerPoint",
+            "Suporte aprimorado para numerações sem ponto (ex: '1 Ler', '2 Entrevistar') mantendo fidelidade total ao banco",
+            "Exibição clara e garantida de todos os itens e sub-itens oficiais em tela"
           ]
         }, null, 2)
       });
@@ -36,8 +37,9 @@ function versionPlugin(): Plugin {
             buildDate: new Date(buildTime).toISOString(),
             timestamp: buildTime,
             highlights: [
-              "Correção de posicionamento do modal de PowerPoint em todas as resoluções",
-              "Renderização com Portal nativo no document.body para centralização impecável"
+              "Visualizador e lista de requisitos oficiais do banco de dados no modal de PowerPoint",
+              "Suporte aprimorado para numerações sem ponto (ex: '1 Ler', '2 Entrevistar') mantendo fidelidade total ao banco",
+              "Exibição clara e garantida de todos os itens e sub-itens oficiais em tela"
             ]
           }));
           return;
@@ -65,7 +67,7 @@ function versionPlugin(): Plugin {
 
               const { GoogleGenAI } = await import('@google/genai');
               const ai = new GoogleGenAI({ apiKey });
-              const models = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
+              const models = ['gemini-3.5-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
               
               let resultText = '';
               let lastError = null;
@@ -118,6 +120,14 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3000,
         host: '0.0.0.0',
+        proxy: {
+          '/supabase-proxy': {
+            target: 'https://dembhtmryutggifbpuka.supabase.co',
+            changeOrigin: true,
+            secure: false,
+            rewrite: (p) => p.replace(/^\/supabase-proxy/, '')
+          }
+        }
       },
       plugins: [react(), tailwindcss(), versionPlugin()],
       define: {

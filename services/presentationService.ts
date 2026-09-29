@@ -17,6 +17,7 @@ export interface DetailedSubItem {
   keyPoints: string[];        // 2 a 3 tópicos fundamentais
   practicalTip: string;       // Dica prática de execução ou desafio
   imageUrl?: string | null;   // DataURL da imagem ilustrativa (foto ou canvas estilizado)
+  illustrationTopic?: string; // Tema específico ilustrado
 }
 
 export interface DidacticRequirement {
@@ -33,6 +34,8 @@ export interface DidacticRequirement {
   keyPoints: string[];        // 3 a 4 tópicos fundamentais para fixação
   practicalActivity: string;  // Dinâmica ou oficina prática para reunião de unidade
   instructorTip: string;      // Conselho pedagógico para o instrutor
+  imageUrl?: string | null;   // Ilustração temática específica para a questão
+  illustrationTopic?: string; // Tema específico ilustrado
 }
 
 export interface ParsedRequirementItem {
@@ -116,10 +119,10 @@ export const loadImageDataUrl = async (url: string | undefined | null): Promise<
   return null;
 };
 
-// Gera um card infográfico estilizado em Canvas para ilustrar sub-itens caso a imagem externa falhe ou esteja offline
+// Gera um card infográfico estilizado em Canvas para ilustrar requisitos ou sub-itens
 export function createIllustratedCanvasCard(
   title: string, 
-  letter: string, 
+  itemLabel: string, 
   primaryColor: string, 
   secondaryColor: string,
   categoryLabel?: string
@@ -132,14 +135,14 @@ export function createIllustratedCanvasCard(
     const ctx = canvas.getContext('2d');
     if (!ctx) return '';
 
-    // Fundo em gradiente suave das cores da área
+    // Fundo em gradiente suave das cores da área da especialidade
     const grad = ctx.createLinearGradient(0, 0, 640, 380);
     grad.addColorStop(0, `#${primaryColor}`);
     grad.addColorStop(1, `#${secondaryColor}`);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 640, 380);
 
-    // Linhas geométricas de estilo moderno
+    // Linhas geométricas de estilo moderno e pedagógico
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
     ctx.lineWidth = 2;
     for (let r = 70; r <= 310; r += 60) {
@@ -148,39 +151,43 @@ export function createIllustratedCanvasCard(
       ctx.stroke();
     }
 
-    // Badge circular da Letra do Sub-item
+    // Badge circular com a identificação do item/sub-item
     ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
     ctx.beginPath();
-    ctx.arc(320, 125, 46, 0, Math.PI * 2);
+    ctx.arc(320, 120, 46, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.strokeStyle = '#FFFFFF';
     ctx.lineWidth = 3.5;
     ctx.beginPath();
-    ctx.arc(320, 125, 46, 0, Math.PI * 2);
+    ctx.arc(320, 120, 46, 0, Math.PI * 2);
     ctx.stroke();
 
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 42px sans-serif';
+    ctx.font = 'bold 36px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(letter.toUpperCase(), 320, 127);
+    ctx.fillText(itemLabel.toUpperCase(), 320, 122);
 
-    // Título do Sub-item
+    // Título do Tópico / Requisito
     ctx.fillStyle = '#FFFFFF';
     ctx.font = 'bold 22px sans-serif';
     const displayTitle = title.length > 34 ? title.substring(0, 32) + '...' : title;
-    ctx.fillText(displayTitle.toUpperCase(), 320, 215);
+    ctx.fillText(displayTitle.toUpperCase(), 320, 210);
 
-    // Rótulo pedagógico
+    // Rótulo da Categoria Pedagógica
     ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
     ctx.font = 'bold 12px sans-serif';
-    ctx.fillText((categoryLabel || 'GUIA DIDÁTICO ILUSTRADO').toUpperCase(), 320, 250);
+    ctx.fillText((categoryLabel || 'GUIA DIDÁTICO ILUSTRADO').toUpperCase(), 320, 245);
 
-    // Rodapé de autenticação oficial
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+    // Faixa decorativa inferior
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.fillRect(40, 290, 560, 1.5);
+
+    // Rodapé de autenticação oficial do Clube de Desbravadores
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
     ctx.font = '11px sans-serif';
-    ctx.fillText('CLUBE DE DESBRAVADORES • MATERIAL HOMOLOGADO', 320, 325);
+    ctx.fillText('CLUBE DE DESBRAVADORES • MATERIAL INSTRUCIONAL HOMOLOGADO', 320, 330);
 
     return canvas.toDataURL('image/png');
   } catch (err) {
@@ -189,68 +196,87 @@ export function createIllustratedCanvasCard(
   }
 }
 
-// Seleciona uma imagem de alta qualidade temática e confiável baseada no conteúdo do sub-item
-export function getTopicImageUrl(specialtyName: string, subItemText: string, areaName?: string): string {
-  const text = `${specialtyName} ${subItemText} ${areaName || ''}`.toLowerCase();
+// Seleciona com rigor semântico uma imagem contextualizada especificamente sobre o que a questão pede
+export function getTopicImageUrl(
+  specialtyName: string, 
+  questionOrSubText: string, 
+  areaName?: string,
+  extraKeyword?: string
+): string {
+  // Normaliza o texto removendo acentos para casar de forma precisa
+  const fullRaw = `${specialtyName} ${questionOrSubText} ${areaName || ''} ${extraKeyword || ''}`;
+  const norm = fullRaw.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
-  // 1. Corrida / Atletismo / Trail Run
-  if (text.includes('velocidade') || text.includes('sprint') || text.includes('100m')) {
-    return 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=700&auto=format&fit=crop&q=80'; // atleta em largada / sprint
+  // 1. Corrida Rústica / Atletismo / Trail Run
+  if (norm.includes('velocidade') || norm.includes('sprint') || norm.includes('100m') || norm.includes('200m') || norm.includes('tiro curto')) {
+    return 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=700&auto=format&fit=crop&q=80'; // Largada explosiva / Sprint
   }
-  if (text.includes('meio-fundo') || text.includes('meio fundo') || text.includes('800m') || text.includes('1500m')) {
-    return 'https://images.unsplash.com/photo-1502680390469-be75c86b636f?w=700&auto=format&fit=crop&q=80'; // corredor em pista de atletismo
+  if (norm.includes('meio fundo') || norm.includes('meio-fundo') || norm.includes('800m') || norm.includes('1500m') || norm.includes('pista de atletismo')) {
+    return 'https://images.unsplash.com/photo-1502680390469-be75c86b636f?w=700&auto=format&fit=crop&q=80'; // Pista de atletismo / Meio fundo
   }
-  if (text.includes('fundo') || text.includes('maratona') || text.includes('longa dist') || text.includes('5km') || text.includes('10km')) {
-    return 'https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?w=700&auto=format&fit=crop&q=80'; // corrida em trilha na natureza
+  if (norm.includes('fundo') || norm.includes('maratona') || norm.includes('longa distancia') || norm.includes('5km') || norm.includes('10km') || norm.includes('resistencia aerobica')) {
+    return 'https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?w=700&auto=format&fit=crop&q=80'; // Corrida em trilha de montanha
   }
-  if (text.includes('tênis') || text.includes('tenis') || text.includes('calçado') || text.includes('calcado')) {
-    return 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=700&auto=format&fit=crop&q=80'; // tênis esportivo técnico
+  if (norm.includes('tenis') || norm.includes('calcado') || norm.includes('sapato') || norm.includes('solado') || norm.includes('cravos') || norm.includes('amortecimento') || norm.includes('meia')) {
+    return 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=700&auto=format&fit=crop&q=80'; // Tênis esportivo técnico com solado de trilha
   }
-  if (text.includes('hidrata') || text.includes('água') || text.includes('agua') || text.includes('squeeze') || text.includes('mochila')) {
-    return 'https://images.unsplash.com/photo-1523362628745-0c100150b504?w=700&auto=format&fit=crop&q=80'; // garrafa de hidratação na natureza
+  if (norm.includes('hidratacao') || norm.includes('agua') || norm.includes('squeeze') || norm.includes('garrafa') || norm.includes('mochila de hidratacao') || norm.includes('isotonico') || norm.includes('beber')) {
+    return 'https://images.unsplash.com/photo-1523362628745-0c100150b504?w=700&auto=format&fit=crop&q=80'; // Garrafa de hidratação na natureza
   }
-  if (text.includes('alongamento') || text.includes('aquecimento') || text.includes('postura') || text.includes('respira')) {
-    return 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=700&auto=format&fit=crop&q=80'; // alongamento e aquecimento dinâmico
+  if (norm.includes('alongamento') || norm.includes('aquecimento') || norm.includes('flexibilidade') || norm.includes('aquecer') || norm.includes('articular')) {
+    return 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=700&auto=format&fit=crop&q=80'; // Atleta fazendo aquecimento e alongamento dinâmico
   }
-  if (text.includes('corrida') || text.includes('trail') || text.includes('trilha') || text.includes('montanha')) {
-    return 'https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?w=700&auto=format&fit=crop&q=80';
+  if (norm.includes('frequencia cardiaca') || norm.includes('pulso') || norm.includes('batimento') || norm.includes('pressao') || norm.includes('respiracao') || norm.includes('coracao')) {
+    return 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=700&auto=format&fit=crop&q=80'; // Medição de frequência cardíaca e saúde física
   }
-
-  // 2. Pioneirismo / Nós / Cordas
-  if (text.includes('nó') || text.includes('no ') || text.includes('corda') || text.includes('amarra') || text.includes('volta')) {
-    return 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=700&auto=format&fit=crop&q=80';
+  if (norm.includes('desnivel') || norm.includes('subida') || norm.includes('descida') || norm.includes('montanha') || norm.includes('terreno irregular') || norm.includes('obstaculo')) {
+    return 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=700&auto=format&fit=crop&q=80'; // Montanhas e trilha com aclives e declives
   }
-  if (text.includes('barraca') || text.includes('acampamento') || text.includes('acampar') || text.includes('pioneirismo')) {
-    return 'https://images.unsplash.com/photo-1510312305653-8ed496efae75?w=700&auto=format&fit=crop&q=80';
-  }
-  if (text.includes('fogo') || text.includes('fogueira') || text.includes('lenha') || text.includes('cozinha')) {
-    return 'https://images.unsplash.com/photo-1475483768296-6163e08872a1?w=700&auto=format&fit=crop&q=80';
-  }
-  if (text.includes('bússola') || text.includes('bussola') || text.includes('mapa') || text.includes('orienta') || text.includes('azimute')) {
-    return 'https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?w=700&auto=format&fit=crop&q=80';
-  }
-
-  // 3. Primeiros Socorros / Saúde
-  if (text.includes('socorro') || text.includes('primeiros socorros') || text.includes('curativo') || text.includes('atadura') || text.includes('sangramento') || text.includes('fratura') || text.includes('entorse')) {
-    return 'https://images.unsplash.com/photo-1603398938378-e54eab446dde?w=700&auto=format&fit=crop&q=80';
+  if (norm.includes('corrida rustica') || norm.includes('trail run') || norm.includes('o que e corrida') || norm.includes('modalidade')) {
+    return 'https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?w=700&auto=format&fit=crop&q=80'; // Corredor em percurso rústico na natureza
   }
 
-  // 4. Natureza / Animais / Plantas / Astronomia
-  if (text.includes('pássaro') || text.includes('passaro') || text.includes('ave') || text.includes('penas')) {
-    return 'https://images.unsplash.com/photo-1444464666168-49d633b86797?w=700&auto=format&fit=crop&q=80';
+  // 2. Primeiros Socorros / Saúde / Segurança
+  if (norm.includes('socorro') || norm.includes('curativo') || norm.includes('atadura') || norm.includes('entorse') || norm.includes('fratura') || norm.includes('lesao') || norm.includes('sangramento') || norm.includes('estojo')) {
+    return 'https://images.unsplash.com/photo-1603398938378-e54eab446dde?w=700&auto=format&fit=crop&q=80'; // Kit e materiais de primeiros socorros
   }
-  if (text.includes('árvore') || text.includes('arvore') || text.includes('mata') || text.includes('floresta') || text.includes('madeira')) {
-    return 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=700&auto=format&fit=crop&q=80';
+  if (norm.includes('rcp') || norm.includes('ressuscita') || norm.includes('massagem cardiaca') || norm.includes('parada')) {
+    return 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=700&auto=format&fit=crop&q=80'; // Treinamento de suporte básico de vida
   }
-  if (text.includes('flor') || text.includes('planta') || text.includes('folha') || text.includes('semente')) {
-    return 'https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=700&auto=format&fit=crop&q=80';
-  }
-  if (text.includes('estrela') || text.includes('constela') || text.includes('astronomia') || text.includes('lua') || text.includes('planeta')) {
-    return 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=700&auto=format&fit=crop&q=80';
+  if (norm.includes('nutricao') || norm.includes('alimento') || norm.includes('alimentacao') || norm.includes('dieta') || norm.includes('saudavel') || norm.includes('vitamina')) {
+    return 'https://images.unsplash.com/photo-1490818387583-1baba5e638af?w=700&auto=format&fit=crop&q=80'; // Alimentos naturais saudáveis e frutas
   }
 
-  // Padrão Geral Ar Livre / Desbravadores
-  return 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=700&auto=format&fit=crop&q=80';
+  // 3. Pioneirismo / Nós / Acampamento
+  if (norm.includes('no ') || norm.includes('nos ') || norm.includes('corda') || norm.includes('amarra') || norm.includes('volta do fiel') || norm.includes('no direito') || norm.includes('lais de guia') || norm.includes('pescador')) {
+    return 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=700&auto=format&fit=crop&q=80'; // Cordas náuticas e nós de pioneirismo
+  }
+  if (norm.includes('barraca') || norm.includes('acampar') || norm.includes('acampamento') || norm.includes('abrigo')) {
+    return 'https://images.unsplash.com/photo-1510312305653-8ed496efae75?w=700&auto=format&fit=crop&q=80'; // Barraca montada em acampamento
+  }
+  if (norm.includes('fogo') || norm.includes('fogueira') || norm.includes('lenha') || norm.includes('cozinha ao ar livre')) {
+    return 'https://images.unsplash.com/photo-1475483768296-6163e08872a1?w=700&auto=format&fit=crop&q=80'; // Fogueira de acampamento em área segura
+  }
+  if (norm.includes('bussola') || norm.includes('mapa') || norm.includes('orientacao') || norm.includes('azimute') || norm.includes('coordenadas')) {
+    return 'https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?w=700&auto=format&fit=crop&q=80'; // Bússola sobre mapa topográfico de orientação
+  }
+
+  // 4. Natureza / Meio Ambiente
+  if (norm.includes('passaro') || norm.includes('ave') || norm.includes('ninho') || norm.includes('pena')) {
+    return 'https://images.unsplash.com/photo-1444464666168-49d633b86797?w=700&auto=format&fit=crop&q=80'; // Pássaro silvestre em galho
+  }
+  if (norm.includes('arvore') || norm.includes('floresta') || norm.includes('mata') || norm.includes('madeira') || norm.includes('tronco')) {
+    return 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=700&auto=format&fit=crop&q=80'; // Floresta de árvores majestosas
+  }
+  if (norm.includes('flor') || norm.includes('planta') || norm.includes('folha') || norm.includes('semente') || norm.includes('botanica')) {
+    return 'https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=700&auto=format&fit=crop&q=80'; // Flores e plantas da natureza
+  }
+  if (norm.includes('estrela') || norm.includes('constelacao') || norm.includes('astronomia') || norm.includes('lua') || norm.includes('planeta') || norm.includes('telescopio')) {
+    return 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=700&auto=format&fit=crop&q=80'; // Céu estrelado com constelações
+  }
+
+  // Padrão Geral Ar Livre / Trilha dos Desbravadores
+  return 'https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?w=700&auto=format&fit=crop&q=80';
 }
 
 // Paleta de cores oficial baseada na área da especialidade
@@ -435,7 +461,7 @@ export function extractInlineSubItems(text: string): { mainText: string; subItem
   };
 }
 
-// Analisa e normaliza a lista de requisitos separando notas preliminares, agrupando sub-itens sob seus respectivos requisitos e mantendo a ordem oficial
+// Analisa e normaliza a lista de requisitos separando notas preliminares e agrupando sub-itens
 export function parseAndNormalizeRequirements(rawRequirements: string[]): ParsedRequirementsResult {
   const items: ParsedRequirementItem[] = [];
   const specialNotes: string[] = [];
@@ -469,12 +495,12 @@ export function parseAndNormalizeRequirements(rawRequirements: string[]): Parsed
       continue;
     }
 
-    // 4. Tenta extrair a numeração oficial da questão com número explícito (ex: "1.", "2 -", "3)", "Item 4:")
-    const numberMatch = rawLine.match(/^(?:requisito|item|quest[aã]o)?\s*([0-9]+)\s*[\.\-\)\:]\s*(.*)/i);
+    // 4. Tenta extrair a numeração oficial da questão (ex: "1.", "2 -", "3)", "1 Ler", "Item 4:")
+    const numberMatch = rawLine.match(/^(?:requisito|item|quest[aã]o)?\s*([0-9]+)(?:[\.\-\)\:]|\s)\s*(.*)/i);
 
     if (numberMatch && numberMatch[1]) {
       const extractedNumber = numberMatch[1].trim();
-      const restText = (numberMatch[2] || '').trim();
+      const restText = (numberMatch[2] || '').trim().replace(/^[\.\-\)\:]\s*/, '').trim();
 
       const { mainText, subItems: inlineSubs } = extractInlineSubItems(restText);
 
@@ -493,7 +519,6 @@ export function parseAndNormalizeRequirements(rawRequirements: string[]): Parsed
     }
 
     // 5. Linha sem numeração explícita
-    // Se o requisito anterior terminar com dois pontos ":" ou for uma continuação de lista
     if (currentItem && (currentItem.cleanQuestion.endsWith(':') || currentItem.originalText.endsWith(':') || rawLine.startsWith('-') || /^[a-z]/i.test(rawLine))) {
       if (isRequirementSubItem(rawLine, currentItem.itemNumber)) {
         currentItem.subItems.push(rawLine);
@@ -512,7 +537,6 @@ export function parseAndNormalizeRequirements(rawRequirements: string[]): Parsed
     });
   }
 
-  // Se todos os itens foram filtrados como notas (caso anômalo), mantém ao menos um item
   if (items.length === 0 && specialNotes.length > 0) {
     items.push({
       itemNumber: '1',
@@ -559,13 +583,12 @@ function generateShortTitle(questionText: string): string {
   return clean || 'Requisito da Especialidade';
 }
 
-// Constrói detalhamento aprofundado para cada sub-item (com conceito, pontos-chave, desafios e imagem)
+// Constrói detalhamento aprofundado para cada sub-item (com conceito real, pontos-chave e desafio prático)
 export function buildDetailedSubItems(
   subItemStrings: string[], 
   specialty: Especialidade, 
   itemQuestion: string
 ): DetailedSubItem[] {
-  const theme = getAreaTheme(specialty.area);
   const qLower = itemQuestion.toLowerCase();
   const specLower = (specialty.nome || '').toLowerCase();
 
@@ -579,10 +602,10 @@ export function buildDetailedSubItems(
     let keyPoints: string[] = [];
     let practicalTip = '';
 
-    // Detalhamento contextual especializado para Corrida Rústica / Atletismo
+    // Resoluções técnicas específicas para modalidades de Corrida / Atletismo
     if (specLower.includes('corrida') || specLower.includes('trail') || qLower.includes('corrida') || qLower.includes('modalidade')) {
       if (titleLower.includes('velocidade') || titleLower.includes('sprint') || titleLower.includes('100m')) {
-        didacticAnswer = `A Corrida de Velocidade (ou Sprint) é caracterizada por esforços anaeróbicos aláticos máximos em distâncias curtas (até 400m). Exige largada explosiva (em blocos no atletismo tradicional ou postura baixa na terra), aceleração rápida nas primeiras passadas e manutenção da cadência e amplitude de passada com inclinação corporal equilibrada.`;
+        didacticAnswer = `A Corrida de Velocidade (ou Sprint) é caracterizada por esforços anaeróbicos aláticos máximos em distâncias curtas (até 400m). Exige largada explosiva, aceleração rápida nas primeiras passadas e manutenção da cadência e amplitude de passada com inclinação corporal equilibrada.`;
         keyPoints = [
           'Potência anaeróbica e aceleração rápida nas primeiras 10 a 15 passadas.',
           'Postura corporal levemente inclinada para frente sem flexão excessiva do tronco.',
@@ -590,7 +613,7 @@ export function buildDetailedSubItems(
         ];
         practicalTip = 'Treino de Reação: Organize a unidade em linha para realizar 3 tiros de 30m com largadas a partir de comandos sonoros e visuais.';
       } else if (titleLower.includes('meio-fundo') || titleLower.includes('meio fundo') || titleLower.includes('800') || titleLower.includes('1500')) {
-        didacticAnswer = `As provas de Meio-Fundo (800m a 3000m) constituem a transição perfeita entre velocidade e resistência aeróbica. O atleta precisa gerenciar o ritmo de passagem por volta, monitorar o limiar de lactato e posicionar-se taticamente no pelotão, guardando energia para uma aceleração final vigorosa nos últimos 200 a 300 metros.`;
+        didacticAnswer = `As provas de Meio-Fundo (800m a 3000m) constituem a transição entre velocidade e resistência aeróbica. O atleta precisa gerenciar o ritmo de passagem por volta, monitorar o limiar de lactato e posicionar-se taticamente no pelotão, guardando energia para uma aceleração final vigorosa nos últimos 200 a 300 metros.`;
         keyPoints = [
           'Distribuição uniforme do esforço com controle rigoroso do ritmo cardíaco.',
           'Respiração profunda e sincronizada com a cadência de 3 ou 4 passadas.',
@@ -622,24 +645,22 @@ export function buildDetailedSubItems(
         ];
         practicalTip = 'Simulação de Posto de Hidratação: Demonstre como beber água em movimento sem interromper o ritmo das passadas nem engasgar.';
       } else {
-        didacticAnswer = `O domínio deste sub-item desenvolve a competência técnica e o condicionamento específico do desbravador. Requer compreensão dos princípios fisiológicos envolvidos, treinamento prático supervisionado e autoavaliação contínua da postura corporal e nível de esforço executado.`;
+        didacticAnswer = `O sub-item "${cleanTitle}" requer domínio técnico e prático direto pelo desbravador. Deve ser executado conforme os parâmetros de segurança e os manuais oficiais da especialidade, demonstrando precisão e clareza no cumprimento da tarefa.`;
         keyPoints = [
-          'Execução correta com observação atenta dos detalhes anatômicos e técnicos.',
-          'Repetição consciente durante os treinamentos da unidade.',
-          'Registro do desempenho e aprendizado no caderno oficial de requisitos.'
+          `Aplicação dos fundamentos e propriedades de "${cleanTitle}".`,
+          'Prática orientada durante os treinamentos com acompanhamento do instrutor.',
+          'Registro da conclusão no caderno de requisitos oficial da classe.'
         ];
-        practicalTip = 'Demonstração Prática na Unidade: Cada membro executa o movimento sob a orientação do conselheiro para receber correções posturais.';
+        practicalTip = `Oficina na Unidade: Cada membro executa o procedimento prático de "${cleanTitle}" sob a supervisão do conselheiro.`;
       }
-    } 
-    // Detalhamento geral para outras especialidades
-    else {
-      didacticAnswer = `Para este tópico específico ("${cleanTitle}"), o desbravador deve demonstrar compreensão exata do conceito, identificando suas propriedades fundamentais e sabendo aplicá-lo em atividades práticas do clube, no campo ou em situações cotidianas.`;
+    } else {
+      didacticAnswer = `Em "${cleanTitle}", o desbravador estuda e cumpre este quesito específico conforme determinado pela liderança. A prática envolve o conhecimento dos elementos essenciais, a demonstração de habilidade e a aplicabilidade real no dia a dia do clube.`;
       keyPoints = [
-        `Compreender e definir com precisão o tópico ${cleanTitle}.`,
-        'Relacionar a teoria à prática real vivenciada na unidade ou no lar.',
-        'Fixar o conteúdo para apresentação e avaliação pelo instrutor.'
+        `Compreender e executar com exatidão o item "${cleanTitle}".`,
+        'Demonstrar a técnica de forma clara e segura ao avaliador.',
+        'Fixar o aprendizado prático no caderno de atividades da especialidade.'
       ];
-      practicalTip = `Oficina de Fixação: Debata com a unidade a importância de "${cleanTitle}" e anote 2 exemplos práticos de aplicação no dia a dia.`;
+      practicalTip = `Atividade Prática: Pratique com a unidade o ponto específico de "${cleanTitle}", tirando dúvidas na hora.`;
     }
 
     return {
@@ -648,12 +669,13 @@ export function buildDetailedSubItems(
       cleanTitle,
       didacticAnswer,
       keyPoints,
-      practicalTip
+      practicalTip,
+      illustrationTopic: `${specialty.nome} ${cleanTitle}`
     };
   });
 }
 
-// Gerador semântico didático local de alta qualidade (substituto definitivo de textos genéricos)
+// Gerador semântico local de alta fidelidade (elimina respostas padrão/genéricas)
 function buildDetailedDidacticData(
   item: ParsedRequirementItem,
   displayIndex: number,
@@ -670,7 +692,7 @@ function buildDetailedDidacticData(
   let practicalActivity = '';
   let instructorTip = '';
 
-  // 1. Resolução especializada para "Corrida Rústica" / "Trail Run"
+  // 1. Resolução para "Corrida Rústica" / "Trail Run"
   if (specLower.includes('corrida r') || specLower.includes('trail run') || qLower.includes('trail run') || qLower.includes('corrida rústica')) {
     if (qLower.includes('definição') || qLower.includes('o que é') || qLower.includes('modalidade')) {
       didacticAnswer = `A Corrida Rústica (Trail Run) é a modalidade esportiva pedestre realizada em ambientes naturais abertos (trilhas de terra batida, montanhas, florestas e caminhos rurais), com ausência ou mínimo de pavimentação asfáltica. Caracteriza-se por constantes desníveis altimétricos (subidas e descidas acentuadas), obstáculos naturais (pedras, raízes, lama e riachos) e pela exigência de preparo físico integral, equilíbrio dinâmico e respeito estrito ao meio ambiente.`;
@@ -714,61 +736,40 @@ function buildDetailedDidacticData(
       instructorTip = 'Incentive a perseverança individual, adaptando a intensidade para que todos os membros da unidade concluam o percurso com êxito.';
     }
   } 
-  // 2. Análise por tipo semântico do enunciado geral
-  else if (category === 'SEGURANCA' || qLower.includes('primeiros socorros') || qLower.includes('perigo')) {
-    didacticAnswer = `Para atender a este requisito, o desbravador deve dominar as regras oficiais de segurança, identificando fatores de risco potenciais antes do início de qualquer atividade. Em situações de emergência, deve-se agir com calma, acionar imediatamente o socorro adulto/médico e aplicar os procedimentos protocolares corretos para preservar vidas e evitar agravamento de lesões.`;
+  // 2. Pioneirismo / Nós / Amarras
+  else if (specLower.includes('nó') || specLower.includes('pioneirismo') || qLower.includes('nó') || qLower.includes('amarra') || qLower.includes('corda')) {
+    didacticAnswer = `Cada nó e amarra possui função mecânica específica na construção pioneira e em salvamentos. O nó deve ser executado de forma correta, firme e sem encavalamento de voltas, garantindo que suporte a carga exigida e possa ser desfeito com facilidade quando não estiver mais sob tração.`;
     keyPoints = [
-      'Identificar perigos ambientais e falhas de equipamento antes da execução.',
-      'Conhecer os números de emergência locais (193 Bombeiros, 192 SAMU).',
-      'Priorizar a proteção pessoal do socorrista antes de intervir no local.',
-      'Manter kit de primeiros socorros inspecionado e pronto para uso.'
+      'Execução com precisão anatômica da volta sem cruzamento errôneo.',
+      'Saber a aplicação real de cada nó (união, ancoragem ou salvamento).',
+      'Arremate firme nas pontas (chicotes) para evitar desfiamento.'
     ];
-    practicalActivity = 'Simulação de Conduta Rápida: Organize a unidade em duplas e simule o atendimento e comunicação correta de uma ocorrência simulada.';
-    instructorTip = 'Explique com serenidade. Mostre que a disciplina e o treinamento prévio evitam a maior parte dos acidentes em campo.';
-  } else if (category === 'PRATICO' || qLower.includes('demonstrar') || qLower.includes('fazer') || qLower.includes('amarrar')) {
-    didacticAnswer = `Este requisito exige domínio prático e demonstração habilidosa pelo desbravador. A metodologia didática consiste em: (1) Demonstração orientada do passo a passo pelo instrutor; (2) Treinamento repetido pelos desbravadores na unidade até obter precisão e rapidez; (3) Avaliação prática e registro fotográfico ou em amostra física para o relatório final.`;
+    practicalActivity = 'Desafio das Cordas: Cada desbravador executa o nó vendado após dominá-lo visualmente, testando a memória muscular.';
+    instructorTip = 'Demonstre o passo a passo com cordas de cores contrastantes para facilitar a visualização das voltas.';
+  }
+  // 3. Primeiros Socorros / Saúde
+  else if (category === 'SEGURANCA' || qLower.includes('socorro') || qLower.includes('fratura') || qLower.includes('entorse')) {
+    didacticAnswer = `O atendimento de primeiros socorros visa preservar a vida, evitar o agravamento do quadro e manter a vítima estável até o socorro médico especializado. O socorrista deve avaliar a cena, garantir a segurança pessoal, acionar o serviço de emergência (192 ou 193) e aplicar técnicas corretas de imobilização e curativo.`;
     keyPoints = [
-      'Executar a técnica com exatidão mecânica e postura correta.',
-      'Repetir o exercício até atingir segurança sem hesitação.',
-      'Saber explicar o propósito e utilidade prática da técnica demonstrada.',
-      'Apresentar o resultado final acabado ao conselheiro da unidade.'
+      'Avaliação da segurança da cena antes de qualquer aproximação.',
+      'Acionamento imediato do resgate informando local e estado da vítima.',
+      'Aplicação de curativos e imobilizações sem comprimir a circulação.'
     ];
-    practicalActivity = 'Oficina Mão na Massa: Cada membro executa a técnica com supervisão mútua na unidade, tirando dúvidas em tempo real.';
-    instructorTip = 'Disponibilize previamente todo o material necessário para que nenhum desbravador fique ocioso durante a instrução.';
-  } else if (category === 'PESQUISA' || qLower.includes('pesquisar') || qLower.includes('história') || qLower.includes('bíblia')) {
-    didacticAnswer = `O objetivo deste item é estimular a busca de informações fidedignas e a capacidade analítica do desbravador. As respostas devem ser colhidas em fontes confiáveis (manuais oficiais da DSA, literatura especializada ou a Bíblia Sagrada), resumidas com as próprias palavras e debatidas com os colegas de unidade para consolidação do aprendizado.`;
+    practicalActivity = 'Oficina de Ataduras: Treine na unidade a colocação de tala rígida e enfaixamento em espiral no braço.';
+    instructorTip = 'Reforce a importância de manter a calma e confortar a vítima durante todo o processo.';
+  } 
+  // 4. Geral específico baseado no enunciado
+  else {
+    didacticAnswer = `Este requisito exige domínio conceitual e prático das diretrizes oficiais da especialidade de ${specialty.nome}. O desbravador aprende os fundamentos essenciais, as técnicas aplicadas e como utilizar esse conhecimento em atividades do clube e a serviço do próximo.`;
     keyPoints = [
-      'Consultar fontes oficiais reconhecidas e materiais de referência confiáveis.',
-      'Sintetizar o conteúdo compreendido em redação própria, evitando cópias vazias.',
-      'Relacionar o tema pesquisado com valores cristãos e princípios da liderança.',
-      'Fixar os tópicos principais no caderno de especialidades da classe.'
+      `Compreensão dos tópicos fundamentais da especialidade ${specialty.nome}.`,
+      'Demonstração prática perante a unidade e o conselheiro.',
+      'Aplicação dos princípios de liderança e serviço comunitário.'
     ];
-    practicalActivity = 'Roda de Diálogo Bíblico/Científico: Cada desbravador apresenta 1 curiosidade ou lição que aprendeu na pesquisa para sua unidade.';
-    instructorTip = 'Instigue o pensamento crítico fazendo perguntas que desafiem os desbravadores a aplicarem o conhecimento à vida diária.';
-  } else if (category === 'VIVENCIA' || qLower.includes('visitar') || qLower.includes('acampar') || qLower.includes('caminhada')) {
-    didacticAnswer = `A vivência prática e o contato direto com o ambiente constituem o método pedagógico adventista de maior impacto. Este requisito deve ser cumprido preferencialmente em campo, combinando observação minuciosa da natureza, disciplina comunitária de acampamento e reflexão sobre a sabedoria do Criador manifesta no ambiente.`;
-    keyPoints = [
-      'Participar ativamente com uniforme e espírito de equipe exemplar.',
-      'Registrar datas, locais, espécies ou eventos observados durante a visitação.',
-      'Praticar os princípios de preservação ecológica e respeito aos moradores locais.',
-      'Elaborar um relatório de campo sucinto com fotos ou ilustrações.'
-    ];
-    practicalActivity = 'Diário de Bordo da Unidade: Anotar as experiências mais marcantes da excursão para montar o mural da unidade na sede.';
-    instructorTip = 'Planeje todas as autorizações com antecedência e use as pausas na caminhada para breves momentos de contemplação espiritual.';
-  } else {
-    // Teórico geral contextualizado
-    didacticAnswer = `Para responder a esta questão com rigor pedagógico, o desbravador deve compreender a definição precisa, a importância histórica e a aplicação técnica exigida pelo requisito. O estudo deve conectar o conceito formal às situações cotidianas do clube, capacitando o membro a ensinar o conteúdo aos seus colegas com clareza e autoridade.`;
-    keyPoints = [
-      'Compreender os termos técnicos e definições específicas deste item.',
-      'Diferenciar as propriedades e características fundamentais solicitadas.',
-      'Conseguir explicar o conceito de forma simples utilizando vocabulário próprio.',
-      'Fixar a matéria através de esquemas visuais, ilustrações ou mapas mentais.'
-    ];
-    practicalActivity = 'Quiz de Memorização Rápida: Organize uma rodada de perguntas e respostas no estilo "passa ou repassa" entre as unidades para fixar o assunto.';
-    instructorTip = 'Utilize analogias práticas e exemplos do cotidiano para tornar conceitos teóricos fáceis de assimilar e inesquecíveis.';
+    practicalActivity = 'Dinâmica Interativa na Unidade: Promova uma oficina prática de 10 minutos onde cada membro demonstra o que aprendeu.';
+    instructorTip = 'Conduza a instrução com entusiasmo, relacionando o assunto à vivência dos desbravadores no clube.';
   }
 
-  // Gera os sub-itens detalhados individuais com resolução didática se existirem
   const detailedSubItems = item.subItems && item.subItems.length > 0 
     ? buildDetailedSubItems(item.subItems, specialty, item.cleanQuestion) 
     : undefined;
@@ -786,11 +787,12 @@ function buildDetailedDidacticData(
     didacticAnswer,
     keyPoints,
     practicalActivity,
-    instructorTip
+    instructorTip,
+    illustrationTopic: `${specialty.nome} ${shortTitle}`
   };
 }
 
-// Enriquecimento pedagógico via Gemini com alta resiliência e fallback dinâmico
+// Enriquecimento pedagógico via Gemini com alta resiliência e modelo 3.5 Flash Lite
 async function enrichRequirementsWithAi(
   specialty: Especialidade, 
   parsedRequirements: ParsedRequirementsResult,
@@ -799,7 +801,7 @@ async function enrichRequirementsWithAi(
   const { items, specialNotes } = parsedRequirements;
   const totalCount = items.length;
 
-  if (onProgress) onProgress('Consultando inteligência pedagógica especializada...', 25);
+  if (onProgress) onProgress('Consultando instrutor especialista com inteligência artificial...', 20);
 
   const formattedItemsPrompt = items.map(it => {
     let t = `REQUISITO ${it.itemNumber}: ${it.cleanQuestion}`;
@@ -810,22 +812,24 @@ async function enrichRequirementsWithAi(
   }).join('\n\n');
 
   const prompt = `Você é um instrutor master e especialista técnico do Clube de Desbravadores da Igreja Adventista do Sétimo Dia.
-Para a especialidade "${specialty.nome}" (Área Oficial: ${specialty.area || 'Geral'}, Código DSA: ${specialty.codigo || ''}), responda e elabore o roteiro didático oficial para os seguintes requisitos:
+Para a especialidade "${specialty.nome}" (Área Oficial: ${specialty.area || 'Geral'}, Código DSA: ${specialty.codigo || ''}), elabore o material didático oficial e RESPONDA DE FATO a cada um dos seguintes requisitos:
 
 ${formattedItemsPrompt}
 
 ${specialNotes.length > 0 ? `\nNOTAS/ORIENTAÇÕES DA ESPECIALIDADE:\n${specialNotes.join('\n')}\n` : ''}
 
-INSTRUÇÕES PEDAGÓGICAS E DE CONTEÚDO OBRIGATÓRIAS:
-1. RESPONDA CADA QUESTÃO DE FORMA DIRETA, COMPLETA E DETALHADA. É ESTRITAMENTE PROIBIDO gerar respostas evasivas, genéricas ou "encher linguiça".
-2. SE O REQUISITO POSSUI SUB-ITENS (letras a, b, c...), ALÉM DA VISÃO GERAL, PREENCHA O ARRAY "subItemsDetailed" com a explicação aprofundada de cada sub-item (campo "didacticAnswer" específico para cada letra, "keyPoints" e "practicalTip").
-3. Se a questão pede a DEFINIÇÃO (ex: o que é corrida rústica/trail run), dê a definição exata e técnica da modalidade, características dos terrenos (trilhas naturais, montanhas, sem asfalto), desníveis e regras oficiais.
-4. Se pede regras, itens, equipamentos ou nós, cite e explique cada um com clareza.
-5. "didacticAnswer": texto denso de 3 a 6 frases de explicação real que respondem a pergunta de verdade para os desbravadores.
-6. "keyPoints": array com 3 a 4 tópicos concretos de fixação baseados na resposta dada.
-7. "practicalActivity": sugestão de dinâmica prática aplicável no Cantinho da Unidade (5 a 10 min).
-8. "instructorTip": conselho pedagógico para o instrutor ensinar o ponto com facilidade.
-9. "shortTitle": título curto de 3 a 6 palavras para o slide.
+REGRAS OBRIGATÓRIAS DE CONTEÚDO (MUITO IMPORTANTE):
+1. RESPONDA CADA QUESTÃO DE FORMA DIRETA, COMPLETA E DETALHADA COM O CONTEÚDO REAL.
+   - É ESTRITAMENTE PROIBIDO gerar respostas evasivas ou genéricas como "Para responder a esta questão com rigor pedagógico..." ou "o desbravador deve pesquisar...".
+   - Você DEVE explicar o conteúdo em si! Se a pergunta é "O que é corrida rústica?", explique o conceito real (trail run), características, terrenos e regras. Se pede nós, explique os nós. Se pede regras ou equipamentos, cite-os e explique cada um.
+2. SE O REQUISITO POSSUI SUB-ITENS (letras a, b, c...), além da resposta geral no requisito, preencha o array "subItemsDetailed" com a explicação real e aprofundada de CADA sub-item.
+3. Para cada requisito, preencha:
+   - "didacticAnswer": texto explicativo denso de 3 a 5 frases respondendo a questão de verdade para os desbravadores.
+   - "keyPoints": array com 3 a 4 tópicos concretos de fixação baseados na resposta real.
+   - "practicalActivity": atividade ou dinâmica prática no Cantinho da Unidade (5 a 10 min).
+   - "instructorTip": conselho pedagógico para o instrutor ensinar o ponto com facilidade.
+   - "shortTitle": título curto de 3 a 6 palavras para o slide.
+   - "illustrationTopic": 2 a 4 palavras-chave descritivas em português e inglês sobre o que ilustra exatamente esta questão (ex: "trail running shoes", "compass navigation", "camping tent", "first aid bandage").
 
 Retorne EXCLUSIVAMENTE um JSON array com os objetos no formato:
 [
@@ -833,23 +837,25 @@ Retorne EXCLUSIVAMENTE um JSON array com os objetos no formato:
     "itemNumber": "1",
     "shortTitle": "Título curto do requisito",
     "category": "TEORICO" | "PRATICO" | "PESQUISA" | "VIVENCIA" | "SEGURANCA",
-    "didacticAnswer": "Resposta explicativa detalhada e real que responde a pergunta",
-    "keyPoints": ["Ponto 1", "Ponto 2", "Ponto 3"],
+    "didacticAnswer": "Resposta explicativa detalhada e real que responde a pergunta de verdade",
+    "keyPoints": ["Ponto concreto 1", "Ponto 2", "Ponto 3"],
     "practicalActivity": "Atividade na unidade",
     "instructorTip": "Dica pedagógica",
+    "illustrationTopic": "trail running terrain",
     "subItemsDetailed": [
       {
         "letter": "a",
         "cleanTitle": "Título do sub-item",
-        "didacticAnswer": "Explicação detalhada deste sub-item específico",
-        "keyPoints": ["Ponto do sub-item 1", "Ponto 2"],
-        "practicalTip": "Dica prática ou desafio para este sub-item"
+        "didacticAnswer": "Explicação aprofundada deste sub-item específico",
+        "keyPoints": ["Ponto 1 do sub-item", "Ponto 2"],
+        "practicalTip": "Dica prática ou desafio para este sub-item",
+        "illustrationTopic": "sprint start track"
       }
     ]
   }
 ]`;
 
-  // 1. Tenta via endpoint do servidor Vite (/api/gemini/generate-didactic)
+  // 1. Tenta via endpoint do servidor Vite (/api/gemini/generate-didactic) com Gemini 3.5 Flash Lite
   try {
     if (typeof window !== 'undefined') {
       const response = await fetch('/api/gemini/generate-didactic', {
@@ -864,23 +870,23 @@ Retorne EXCLUSIVAMENTE um JSON array com os objetos no formato:
           const clean = resJson.text.replace(/```json/g, '').replace(/```/g, '').trim();
           const parsed = JSON.parse(clean);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            if (onProgress) onProgress('Organizando respostas didáticas de alta precisão...', 60);
+            if (onProgress) onProgress('Organizando respostas didáticas de alta precisão...', 55);
             return mapAiResponseToRequirements(parsed, items, totalCount, specialty);
           }
         }
       }
     }
   } catch (srvErr) {
-    console.warn('Tentativa via rota server-side falhou, tentando chamada direta no cliente:', srvErr);
+    console.warn('Tentativa via rota server-side falhou, tentando chamada cliente:', srvErr);
   }
 
-  // 2. Chamada direta no cliente com @google/genai (modelos resilientes: flash-lite primeiro para economizar cota)
+  // 2. Chamada direta no cliente com @google/genai (modelos modernos e resilientes)
   try {
     const apiKey = (typeof process !== 'undefined' && (process.env?.GEMINI_API_KEY || process.env?.API_KEY)) || (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
     if (apiKey) {
       const { GoogleGenAI } = await import("@google/genai");
       const ai = new GoogleGenAI({ apiKey });
-      const candidateModels = ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
+      const candidateModels = ['gemini-3.5-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
 
       for (const modelName of candidateModels) {
         try {
@@ -898,7 +904,7 @@ Retorne EXCLUSIVAMENTE um JSON array com os objetos no formato:
           const parsed = JSON.parse(cleanJson);
 
           if (Array.isArray(parsed) && parsed.length > 0) {
-            if (onProgress) onProgress('Organizando respostas didáticas geradas...', 60);
+            if (onProgress) onProgress('Organizando respostas didáticas geradas...', 55);
             return mapAiResponseToRequirements(parsed, items, totalCount, specialty);
           }
         } catch (e) {
@@ -925,7 +931,6 @@ function mapAiResponseToRequirements(
     const found = parsed.find((p: any) => String(p.itemNumber || p.index || '').trim() === String(it.itemNumber).trim()) || parsed[idx];
 
     if (found && found.didacticAnswer && found.didacticAnswer.length > 15) {
-      // Se a IA retornou sub-itens detalhados, utiliza-os; caso contrário, constrói pelo gerador local
       let detailedSubItems: DetailedSubItem[] | undefined = undefined;
       if (it.subItems && it.subItems.length > 0) {
         if (Array.isArray(found.subItemsDetailed) && found.subItemsDetailed.length > 0) {
@@ -937,7 +942,8 @@ function mapAiResponseToRequirements(
               cleanTitle: sub.cleanTitle || rawSub.replace(/^(?:\([a-z0-9]\)|[a-z0-9][\.\-\)\:])\s*/i, '').trim(),
               didacticAnswer: sub.didacticAnswer || `Explicação técnica detalhada para este item conforme os manuais oficiais da especialidade.`,
               keyPoints: Array.isArray(sub.keyPoints) && sub.keyPoints.length > 0 ? sub.keyPoints : ['Fixação do conceito técnico.', 'Aplicação prática na unidade.'],
-              practicalTip: sub.practicalTip || 'Demonstração prática orientada pelo instrutor.'
+              practicalTip: sub.practicalTip || 'Demonstração prática orientada pelo instrutor.',
+              illustrationTopic: sub.illustrationTopic || `${specialty.nome} ${sub.cleanTitle || rawSub}`
             };
           });
         } else {
@@ -956,6 +962,7 @@ function mapAiResponseToRequirements(
         shortTitle: found.shortTitle || generateShortTitle(it.cleanQuestion),
         category: found.category || analyzeRequirementType(it.originalText),
         didacticAnswer: found.didacticAnswer,
+        illustrationTopic: found.illustrationTopic || `${specialty.nome} ${it.cleanQuestion}`,
         keyPoints: Array.isArray(found.keyPoints) && found.keyPoints.length > 0 
           ? found.keyPoints 
           : [
@@ -972,6 +979,40 @@ function mapAiResponseToRequirements(
   });
 }
 
+// Carrega ou gera a ilustração visual para cada requisito principal
+async function resolveRequirementIllustration(
+  item: DidacticRequirement, 
+  specialty: Especialidade, 
+  theme: ReturnType<typeof getAreaTheme>
+): Promise<string | null> {
+  // 1. Tenta carregar imagem fotográfica temática de alta resolução baseada no tema exato da pergunta
+  const photoUrl = getTopicImageUrl(specialty.nome, item.cleanQuestion, specialty.area, item.illustrationTopic);
+  try {
+    const dataUrl = await loadImageDataUrl(photoUrl);
+    if (dataUrl) return dataUrl;
+  } catch {}
+
+  // 2. Se falhar ou estiver offline, gera o card ilustrado vetorial em Canvas
+  const canvasCard = createIllustratedCanvasCard(
+    item.shortTitle, 
+    `ITEM ${item.itemNumber}`, 
+    theme.primary, 
+    theme.secondary,
+    item.category
+  );
+  if (canvasCard) return canvasCard;
+
+  // 3. Fallback: logo da especialidade se disponível
+  if (specialty.logo) {
+    try {
+      const logoData = await loadImageDataUrl(specialty.logo);
+      if (logoData) return logoData;
+    } catch {}
+  }
+
+  return null;
+}
+
 // Carrega ou gera a ilustração visual para cada sub-item
 async function resolveSubItemIllustration(
   sub: DetailedSubItem, 
@@ -979,7 +1020,7 @@ async function resolveSubItemIllustration(
   theme: ReturnType<typeof getAreaTheme>
 ): Promise<string | null> {
   // 1. Tenta carregar imagem fotográfica temática de alta resolução
-  const photoUrl = getTopicImageUrl(specialty.nome, `${sub.cleanTitle} ${sub.label}`, specialty.area);
+  const photoUrl = getTopicImageUrl(specialty.nome, `${sub.cleanTitle} ${sub.label}`, specialty.area, sub.illustrationTopic);
   try {
     const dataUrl = await loadImageDataUrl(photoUrl);
     if (dataUrl) return dataUrl;
@@ -1011,7 +1052,7 @@ export async function generateSpecialtyPowerPoint(
   specialty: Especialidade, 
   options: PresentationOptions = {}
 ): Promise<void> {
-  const { instructorName, clubName, unitName, includeAiAnswers = true, onProgress } = options;
+  const { instructorName, clubName, unitName, onProgress } = options;
 
   if (onProgress) onProgress('Iniciando elaboração pedagógica dos slides...', 5);
 
@@ -1030,7 +1071,7 @@ export async function generateSpecialtyPowerPoint(
   // Carrega logo da especialidade se existir
   let specialtyLogoDataUrl: string | null = null;
   if (specialty.logo) {
-    if (onProgress) onProgress('Carregando insígnia oficial da especialidade...', 12);
+    if (onProgress) onProgress('Carregando insígnia oficial da especialidade...', 10);
     specialtyLogoDataUrl = await loadImageDataUrl(specialty.logo);
   }
 
@@ -1041,19 +1082,15 @@ export async function generateSpecialtyPowerPoint(
 
   const parsedRequirements = parseAndNormalizeRequirements(rawReqs);
 
-  // Obtém os dados didáticos para cada requisito
-  let didacticItems: DidacticRequirement[] = [];
-  if (includeAiAnswers) {
-    didacticItems = await enrichRequirementsWithAi(specialty, parsedRequirements, onProgress);
-  } else {
-    didacticItems = parsedRequirements.items.map((item, idx) => 
-      buildDetailedDidacticData(item, idx + 1, parsedRequirements.items.length, specialty)
-    );
-  }
+  // Obtém os dados didáticos completos com respostas verdadeiras
+  const didacticItems = await enrichRequirementsWithAi(specialty, parsedRequirements, onProgress);
 
-  // Carrega ilustrações para todos os sub-itens detalhados
-  if (onProgress) onProgress('Preparando ilustrações didáticas para cada sub-item...', 50);
-  for (const item of didacticItems) {
+  // Carrega ilustrações personalizadas e específicas para TODAS as questões e sub-itens
+  if (onProgress) onProgress('Carregando ilustrações temáticas específicas para cada questão...', 45);
+  for (let idx = 0; idx < didacticItems.length; idx++) {
+    const item = didacticItems[idx];
+    item.imageUrl = await resolveRequirementIllustration(item, specialty, theme);
+
     if (item.detailedSubItems && item.detailedSubItems.length > 0) {
       for (const sub of item.detailedSubItems) {
         sub.imageUrl = await resolveSubItemIllustration(sub, specialty, theme);
@@ -1150,22 +1187,29 @@ export async function generateSpecialtyPowerPoint(
     fontSize: 28,
     bold: true,
     color: 'FFFFFF',
-    valign: 'middle',
     wrap: true
   });
 
-  // Subtítulo didático
-  slide1.addText('Apresentação Didática, Resoluções & Guia de Ensino Oficial', {
+  // Subtítulo descritivo
+  slide1.addText('Material Didático, Instrucional e Roteiro de Requisitos Homologados', {
     x: 2.8,
     y: 2.95,
     w: 6.4,
-    h: 0.4,
+    h: 0.45,
     fontSize: 13,
-    color: '94A3B8',
-    bold: true
+    color: '94A3B8'
   });
 
-  // Card inferior de informações de aplicação
+  // Linha separadora
+  slide1.addShape(pres.ShapeType.rect, {
+    x: 0.8,
+    y: 3.55,
+    w: 8.4,
+    h: 0.03,
+    fill: { color: '334155' }
+  });
+
+  // Caixa de Identificação do Clube e Instrutor
   slide1.addShape(pres.ShapeType.roundRect, {
     x: 0.8,
     y: 3.75,
@@ -1176,38 +1220,39 @@ export async function generateSpecialtyPowerPoint(
     line: { color: '334155', width: 1 }
   });
 
-  slide1.addText('DADOS DA INSTRUÇÃO & CLUBE', {
+  const clubDisplay = clubName || 'Clube de Desbravadores';
+  const instructorDisplay = instructorName || 'Instrutor(a) Oficial';
+  const unitDisplay = unitName ? `Unidade: ${unitName}` : 'Divisão Sul-Americana (DSA)';
+
+  slide1.addText([
+    { text: 'ORGANIZAÇÃO & MINISTRAÇÃO:\n', options: { fontSize: 9, bold: true, color: theme.accent } },
+    { text: `${clubDisplay.toUpperCase()}\n`, options: { fontSize: 13, bold: true, color: 'FFFFFF' } },
+    { text: `${unitDisplay}   •   Instrutor(a): ${instructorDisplay}`, options: { fontSize: 10, color: '94A3B8' } }
+  ], {
     x: 1.1,
     y: 3.9,
     w: 7.8,
-    h: 0.3,
-    fontSize: 9,
-    bold: true,
-    color: theme.accent
+    h: 1.05,
+    valign: 'middle'
   });
 
-  const clubDisplay = clubName || 'Clube de Desbravadores';
-  const unitDisplay = unitName ? `Unidade: ${unitName}` : 'Todas as Unidades';
-  const instructorDisplay = instructorName || 'Instrutor(a) do Clube';
-  const dateDisplay = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
-
-  slide1.addText(`Instrutor(a): ${instructorDisplay}   |   ${clubDisplay}   |   ${unitDisplay}\nData de Realização: ${dateDisplay}   |   Material Didático Homologado`, {
-    x: 1.1,
-    y: 4.25,
-    w: 7.8,
-    h: 0.7,
-    fontSize: 11,
-    color: 'E2E8F0',
-    wrap: true
+  // Rodapé da Capa
+  slide1.addText('MINISTÉRIO DOS DESBRAVADORES  •  DIVISÃO SUL-AMERICANA DA IASD', {
+    x: 0.8,
+    y: 5.2,
+    w: 8.4,
+    h: 0.25,
+    fontSize: 8.5,
+    color: '64748B',
+    align: 'center'
   });
 
   // ==========================================
-  // SLIDE 2: VISÃO GERAL & RECOMENDAÇÕES OFICIAIS
+  // SLIDE 2: VISÃO GERAL & METODOLOGIA
   // ==========================================
   const slide2 = pres.addSlide();
   slide2.background = { color: 'F8FAFC' };
 
-  // Header do slide
   slide2.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.85, fill: { color: theme.primary } });
   slide2.addText('VISÃO GERAL & METODOLOGIA PEDAGÓGICA', {
     x: 0.8,
@@ -1244,11 +1289,11 @@ export async function generateSpecialtyPowerPoint(
   const summaryBullets = [
     { text: `Especialidade: ${specialty.nome}`, options: { bold: true, breakLine: true } },
     { text: `Área Oficial: ${theme.label}`, options: { breakLine: true } },
-    { text: `Código: ${codeBadge}`, options: { breakLine: true } },
-    { text: `Nível de Dificuldade: ${specialty.nivel || 'Nível Básico / Médio'}`, options: { breakLine: true } },
+    { text: `Código DSA: ${codeBadge}`, options: { breakLine: true } },
+    { text: `Nível de Dificuldade: ${specialty.nivel || 'Básico / Médio'}`, options: { breakLine: true } },
     { text: `Total de Requisitos: ${didacticItems.length} requisitos oficiais homologados`, options: { breakLine: true } },
-    { text: `Ano / Origem: ${specialty.ano || specialty.origem || 'Divisão Sul-Americana (DSA)'}`, options: { breakLine: true } },
-    { text: `Metodologia: Respostas conceituais fundamentadas, slides individuais ilustrados para cada sub-item e dinâmicas na unidade.`, options: {} }
+    { text: `Origem: ${specialty.ano || specialty.origem || 'Divisão Sul-Americana (DSA)'}`, options: { breakLine: true } },
+    { text: `Metodologia: Resoluções explicativas reais, ilustrações temáticas contextualizadas e slides individuais para cada sub-item.`, options: {} }
   ];
 
   slide2.addText(summaryBullets, {
@@ -1287,13 +1332,13 @@ export async function generateSpecialtyPowerPoint(
     ? parsedRequirements.specialNotes.map(n => ({ text: n, options: { breakLine: true } }))
     : [
       { text: '1. Introdução Visual:', options: { bold: true, breakLine: true } },
-      { text: 'Apresente os slides projetados estimulando os membros a responderem antes de ver a resolução.', options: { breakLine: true } },
-      { text: '2. Fixação Teórica Real:', options: { bold: true, breakLine: true } },
-      { text: 'Analise os pontos conceituais de cada questão sem deixar dúvidas conceituais abertas.', options: { breakLine: true } },
-      { text: '3. Demonstração Prática:', options: { bold: true, breakLine: true } },
-      { text: 'Execute as dinâmicas propostas no Cantinho da Unidade pelo método "aprender fazendo".', options: { breakLine: true } },
-      { text: '4. Caderno & Registro:', options: { bold: true, breakLine: true } },
-      { text: 'Oriente cada desbravador a registrar o aprendizado para a aprovação final.', options: {} }
+      { text: 'Apresente a questão projetada estimulando a unidade a formular hipóteses e debater.', options: { breakLine: true } },
+      { text: '2. Explicação Real e Fundamentada:', options: { bold: true, breakLine: true } },
+      { text: 'Ensine os conceitos verdadeiros contidos na resposta do slide sem dúvidas abertas.', options: { breakLine: true } },
+      { text: '3. Demonstração Prática & Dinâmicas:', options: { bold: true, breakLine: true } },
+      { text: 'Execute a oficina proposta no Cantinho da Unidade pelo método "aprender fazendo".', options: { breakLine: true } },
+      { text: '4. Caderno & Registro de Investidura:', options: { bold: true, breakLine: true } },
+      { text: 'Oriente cada membro a registrar o cumprimento prático para a investidura.', options: {} }
     ];
 
   slide2.addText(rightCardBullets, {
@@ -1308,7 +1353,7 @@ export async function generateSpecialtyPowerPoint(
   });
 
   // ==========================================
-  // SLIDES DIDÁTICOS DE REQUISITOS & SUB-ITENS INDIVIDUAIS ILUSTRADOS
+  // SLIDES DIDÁTICOS DE REQUISITOS (COM ILUSTRAÇÃO TEMÁTICA E RESPOSTAS REAIS)
   // ==========================================
   for (let i = 0; i < didacticItems.length; i++) {
     const item = didacticItems[i];
@@ -1316,7 +1361,7 @@ export async function generateSpecialtyPowerPoint(
     const detailedSubs = item.detailedSubItems || [];
 
     // -------------------------------------------------------------
-    // SLIDE A: REQUISITO PRINCIPAL (VISÃO GERAL DO REQUISITO)
+    // SLIDE A: REQUISITO PRINCIPAL
     // -------------------------------------------------------------
     const slide = pres.addSlide();
     slide.background = { color: 'F8FAFC' };
@@ -1350,8 +1395,8 @@ export async function generateSpecialtyPowerPoint(
       color: 'FFFFFF'
     });
 
-    // Bloco 1: Enunciado Oficial da Questão / Requisito
-    const qBoxHeight = hasSubItems ? (item.subItems!.length > 3 ? 1.3 : 1.15) : 1.05;
+    // Bloco 1: Enunciado Oficial da Questão
+    const qBoxHeight = hasSubItems ? (item.subItems!.length > 3 ? 1.25 : 1.1) : 0.95;
 
     slide.addShape(pres.ShapeType.roundRect, {
       x: 0.8,
@@ -1363,25 +1408,24 @@ export async function generateSpecialtyPowerPoint(
       line: { color: theme.cardBorder, width: 1.5 }
     });
 
-    // Badge do requisito numerado fielmente
     const badgeText = hasSubItems 
       ? `REQUISITO ${item.itemNumber}  [${item.category}] • COM ${item.subItems!.length} SUB-ITENS DETALHADOS A SEGUIR`
       : `REQUISITO ${item.itemNumber}  [${item.category}]`;
 
     slide.addShape(pres.ShapeType.roundRect, {
       x: 0.95,
-      y: 1.02,
+      y: 1.0,
       w: hasSubItems ? 3.8 : 1.8,
-      h: 0.26,
+      h: 0.24,
       rectRadius: 0.08,
       fill: { color: theme.badgeBg }
     });
 
     slide.addText(badgeText, {
       x: 0.95,
-      y: 1.02,
+      y: 1.0,
       w: hasSubItems ? 3.8 : 1.8,
-      h: 0.26,
+      h: 0.24,
       fontSize: 8,
       bold: true,
       color: theme.badgeText,
@@ -1389,65 +1433,36 @@ export async function generateSpecialtyPowerPoint(
       valign: 'middle'
     });
 
-    // Enunciado oficial da pergunta
     slide.addText(item.cleanQuestion, {
       x: 0.95,
-      y: 1.32,
+      y: 1.28,
       w: 8.1,
-      h: hasSubItems ? 0.32 : 0.55,
+      h: hasSubItems ? 0.3 : 0.5,
       fontSize: 10,
       bold: true,
       color: '1E293B',
       wrap: true
     });
 
-    // Se houver sub-itens, exibe uma lista preliminar organizada
     if (hasSubItems) {
-      if (item.subItems!.length <= 4) {
-        const subText = item.subItems!.map(s => `• ${s}`).join('     ');
-        slide.addText(subText, {
-          x: 0.95,
-          y: 1.66,
-          w: 8.1,
-          h: qBoxHeight - 0.76,
-          fontSize: 8.5,
-          color: theme.secondary,
-          bold: true,
-          wrap: true
-        });
-      } else {
-        const half = Math.ceil(item.subItems!.length / 2);
-        const col1 = item.subItems!.slice(0, half).map(s => `• ${s}`).join('\n');
-        const col2 = item.subItems!.slice(half).map(s => `• ${s}`).join('\n');
-
-        slide.addText(col1, {
-          x: 0.95,
-          y: 1.66,
-          w: 3.9,
-          h: qBoxHeight - 0.76,
-          fontSize: 8,
-          color: theme.secondary,
-          bold: true,
-          wrap: true
-        });
-        slide.addText(col2, {
-          x: 5.0,
-          y: 1.66,
-          w: 4.0,
-          h: qBoxHeight - 0.76,
-          fontSize: 8,
-          color: theme.secondary,
-          bold: true,
-          wrap: true
-        });
-      }
+      const subSummary = item.subItems!.map(s => `• ${s}`).join('   ');
+      slide.addText(subSummary, {
+        x: 0.95,
+        y: 1.6,
+        w: 8.1,
+        h: qBoxHeight - 0.7,
+        fontSize: 8,
+        color: theme.secondary,
+        bold: true,
+        wrap: true
+      });
     }
 
-    // Colunas inferiores do Requisito Pai
+    // Colunas inferiores
     const contentY = 0.92 + qBoxHeight + 0.12;
     const contentH = Math.max(2.8, 5.4 - contentY);
 
-    // Bloco 2 (Coluna Esquerda): Resposta Didática & Resolução do Requisito Geral
+    // Bloco 2 (Coluna Esquerda): Resposta Didática & Pontos Fundamentais
     slide.addShape(pres.ShapeType.roundRect, {
       x: 0.8,
       y: contentY,
@@ -1458,30 +1473,29 @@ export async function generateSpecialtyPowerPoint(
       line: { color: 'E2E8F0', width: 1 }
     });
 
-    slide.addText('💡 Resumo Didático do Requisito', {
+    slide.addText('💡 Resposta Completa & Resolução do Requisito', {
       x: 1.0,
       y: contentY + 0.1,
       w: 4.2,
-      h: 0.28,
-      fontSize: 10.5,
+      h: 0.26,
+      fontSize: 10,
       bold: true,
       color: theme.primary
     });
 
     slide.addText(item.didacticAnswer, {
       x: 1.0,
-      y: contentY + 0.4,
+      y: contentY + 0.38,
       w: 4.2,
       h: contentH * 0.44,
-      fontSize: hasSubItems ? 8.5 : 9.5,
+      fontSize: hasSubItems ? 8.5 : 9,
       color: '334155',
       wrap: true
     });
 
-    // Pontos-chave essenciais
-    slide.addText('Pontos Fundamentais para Fixação:', {
+    slide.addText('📌 Pontos Fundamentais para Fixação:', {
       x: 1.0,
-      y: contentY + (contentH * 0.44) + 0.45,
+      y: contentY + (contentH * 0.44) + 0.42,
       w: 4.2,
       h: 0.2,
       fontSize: 8.5,
@@ -1496,51 +1510,54 @@ export async function generateSpecialtyPowerPoint(
 
     slide.addText(bulletItems, {
       x: 1.0,
-      y: contentY + (contentH * 0.44) + 0.68,
+      y: contentY + (contentH * 0.44) + 0.64,
       w: 4.2,
-      h: contentH - ((contentH * 0.44) + 0.72),
+      h: contentH - ((contentH * 0.44) + 0.68),
       fontSize: 8,
       color: '475569',
       bullet: true,
       wrap: true
     });
 
-    // Bloco 3 (Coluna Direita - Superior): Dinâmica Prática na Unidade
-    const rightTopH = (contentH - 0.15) * 0.48;
-    const rightBottomH = (contentH - 0.15) * 0.52;
-    const rightBottomY = contentY + rightTopH + 0.15;
-
+    // Bloco 3 (Coluna Direita - Superior): ILUSTRAÇÃO TEMÁTICA DA QUESTÃO
+    const rightImgH = 1.95;
     slide.addShape(pres.ShapeType.roundRect, {
       x: 5.6,
       y: contentY,
       w: 3.6,
-      h: rightTopH,
+      h: rightImgH,
       rectRadius: 0.12,
       fill: { color: 'FFFFFF' },
-      line: { color: 'E2E8F0', width: 1 }
+      line: { color: theme.cardBorder, width: 1 }
     });
 
-    slide.addText('⚡ Dinâmica / Oficina Prática na Unidade', {
-      x: 5.8,
-      y: contentY + 0.1,
-      w: 3.2,
-      h: 0.22,
-      fontSize: 9.5,
-      bold: true,
-      color: theme.secondary
-    });
+    if (item.imageUrl) {
+      try {
+        slide.addImage({
+          data: item.imageUrl,
+          x: 5.65,
+          y: contentY + 0.05,
+          w: 3.5,
+          h: rightImgH - 0.1
+        });
+      } catch {
+        slide.addText(`📸 Ilustração Temática: ${item.shortTitle}`, {
+          x: 5.8,
+          y: contentY + 0.8,
+          w: 3.2,
+          h: 0.4,
+          fontSize: 9.5,
+          bold: true,
+          color: theme.primary,
+          align: 'center'
+        });
+      }
+    }
 
-    slide.addText(item.practicalActivity, {
-      x: 5.8,
-      y: contentY + 0.35,
-      w: 3.2,
-      h: rightTopH - 0.45,
-      fontSize: 8,
-      color: '475569',
-      wrap: true
-    });
+    // Bloco 4 (Coluna Direita - Inferior): Dinâmica Prática na Unidade & Conselho Pedagógico
+    const rightBottomY = contentY + rightImgH + 0.12;
+    const rightBottomH = contentH - rightImgH - 0.12;
 
-    // Bloco 4 (Coluna Direita - Inferior): Dica Pedagógica e Notificação dos Sub-itens
     slide.addShape(pres.ShapeType.roundRect, {
       x: 5.6,
       y: rightBottomY,
@@ -1551,42 +1568,28 @@ export async function generateSpecialtyPowerPoint(
       line: { color: theme.cardBorder, width: 1 }
     });
 
-    slide.addText('🎓 Roteiro Didático da Unidade', {
+    slide.addText('⚡ Dinâmica Prática na Unidade', {
       x: 5.8,
-      y: rightBottomY + 0.1,
+      y: rightBottomY + 0.08,
       w: 3.2,
-      h: 0.22,
-      fontSize: 9.5,
+      h: 0.2,
+      fontSize: 9,
       bold: true,
-      color: theme.primary
+      color: theme.secondary
     });
 
-    slide.addText(hasSubItems 
-      ? `Este requisito possui ${item.subItems!.length} sub-itens específicos. A seguir, cada um deles será detalhado e ilustrado em seu próprio slide individual!`
-      : item.instructorTip, {
+    slide.addText(item.practicalActivity, {
       x: 5.8,
-      y: rightBottomY + 0.35,
+      y: rightBottomY + 0.3,
       w: 3.2,
-      h: rightBottomH * 0.55,
+      h: rightBottomH - 0.35,
       fontSize: 8,
-      color: '334155',
+      color: '475569',
       wrap: true
     });
 
-    slide.addText(hasSubItems ? '👉 Veja os slides seguintes com as resoluções e fotos de cada letra' : '[ Espaço do Desbravador: Anote dúvidas ou conclusões práticas da reunião ]', {
-      x: 5.8,
-      y: rightBottomY + (rightBottomH * 0.55) + 0.35,
-      w: 3.2,
-      h: 0.3,
-      fontSize: 7.5,
-      bold: hasSubItems,
-      color: hasSubItems ? theme.primary : '94A3B8',
-      align: 'center',
-      valign: 'middle'
-    });
-
     // -------------------------------------------------------------
-    // SLIDES DEDICADOS PARA CADA SUB-ITEM (COM ILUSTRAÇÃO E CONCEITO)
+    // SLIDES DEDICADOS PARA CADA SUB-ITEM (COM ILUSTRAÇÃO E CONCEITO PRÓPRIO)
     // -------------------------------------------------------------
     if (detailedSubs.length > 0) {
       for (let sIdx = 0; sIdx < detailedSubs.length; sIdx++) {
@@ -1594,7 +1597,6 @@ export async function generateSpecialtyPowerPoint(
         const subSlide = pres.addSlide();
         subSlide.background = { color: 'F8FAFC' };
 
-        // Topo com sincronia e indicação clara de sub-item
         subSlide.addShape(pres.ShapeType.rect, {
           x: 0,
           y: 0,
@@ -1628,7 +1630,7 @@ export async function generateSpecialtyPowerPoint(
           x: 0.8,
           y: 0.95,
           w: 8.4,
-          h: 0.88,
+          h: 0.85,
           rectRadius: 0.1,
           fill: { color: 'FFFFFF' },
           line: { color: theme.cardBorder, width: 1.5 }
@@ -1638,7 +1640,7 @@ export async function generateSpecialtyPowerPoint(
           x: 0.95,
           y: 1.05,
           w: 2.5,
-          h: 0.26,
+          h: 0.24,
           rectRadius: 0.08,
           fill: { color: theme.badgeBg }
         });
@@ -1646,7 +1648,7 @@ export async function generateSpecialtyPowerPoint(
           x: 0.95,
           y: 1.05,
           w: 2.5,
-          h: 0.26,
+          h: 0.24,
           fontSize: 8,
           bold: true,
           color: theme.badgeText,
@@ -1656,7 +1658,7 @@ export async function generateSpecialtyPowerPoint(
 
         subSlide.addText(sub.label, {
           x: 0.95,
-          y: 1.35,
+          y: 1.33,
           w: 8.1,
           h: 0.42,
           fontSize: 11,
@@ -1680,15 +1682,15 @@ export async function generateSpecialtyPowerPoint(
           x: 1.0,
           y: 2.05,
           w: 4.2,
-          h: 0.28,
-          fontSize: 10.5,
+          h: 0.26,
+          fontSize: 10,
           bold: true,
           color: theme.primary
         });
 
         subSlide.addText(sub.didacticAnswer, {
           x: 1.0,
-          y: 2.38,
+          y: 2.36,
           w: 4.2,
           h: 1.45,
           fontSize: 9,
@@ -1696,11 +1698,11 @@ export async function generateSpecialtyPowerPoint(
           wrap: true
         });
 
-        subSlide.addText('Pontos Fundamentais para Fixação:', {
+        subSlide.addText('📌 Pontos Fundamentais para Fixação:', {
           x: 1.0,
-          y: 3.9,
+          y: 3.88,
           w: 4.2,
-          h: 0.22,
+          h: 0.2,
           fontSize: 8.5,
           bold: true,
           color: '475569'
@@ -1713,7 +1715,7 @@ export async function generateSpecialtyPowerPoint(
 
         subSlide.addText(subBullets, {
           x: 1.0,
-          y: 4.15,
+          y: 4.12,
           w: 4.2,
           h: 1.05,
           fontSize: 8,
@@ -1743,7 +1745,6 @@ export async function generateSpecialtyPowerPoint(
               h: 1.95
             });
           } catch {
-            // Fallback silencioso para texto descritivo
             subSlide.addText(`📸 Ilustração Temática: ${sub.cleanTitle}`, {
               x: 5.8,
               y: 2.75,
@@ -1800,152 +1801,138 @@ export async function generateSpecialtyPowerPoint(
   finalSlide.addShape(pres.ShapeType.rect, {
     x: 0,
     y: 0,
-    w: '100%',
-    h: 0.15,
+    w: 0.35,
+    h: '100%',
     fill: { color: theme.primary }
   });
 
-  finalSlide.addText('AVALIAÇÃO PRÁTICA & REGISTRO DE INVESTIDURA', {
+  finalSlide.addShape(pres.ShapeType.roundRect, {
     x: 0.8,
-    y: 0.4,
+    y: 0.8,
     w: 8.4,
+    h: 1.1,
+    rectRadius: 0.15,
+    fill: { color: theme.secondary }
+  });
+
+  finalSlide.addText('🎉 CONCLUSÃO & REGISTRO DE INVESTIDURA', {
+    x: 1.0,
+    y: 0.95,
+    w: 8.0,
     h: 0.4,
     fontSize: 18,
     bold: true,
-    color: 'FFFFFF',
-    align: 'center'
+    color: 'FFFFFF'
   });
 
-  finalSlide.addText(`Conclusão da Especialidade ${specialty.nome} (${codeBadge})`, {
-    x: 0.8,
-    y: 0.85,
-    w: 8.4,
-    h: 0.3,
-    fontSize: 12,
-    color: theme.accent,
-    align: 'center',
-    bold: true
+  finalSlide.addText(`Parabéns! Todos os requisitos da Especialidade ${specialty.nome} foram ensinados e cumpridos.`, {
+    x: 1.0,
+    y: 1.35,
+    w: 8.0,
+    h: 0.4,
+    fontSize: 11,
+    color: 'E2E8F0'
   });
 
-  // Box 1: Checklist de Requisitos Concluídos
+  // Card Checklist
   finalSlide.addShape(pres.ShapeType.roundRect, {
     x: 0.8,
-    y: 1.35,
+    y: 2.1,
     w: 4.0,
-    h: 3.65,
+    h: 3.0,
     rectRadius: 0.15,
     fill: { color: '1E293B' },
     line: { color: '334155', width: 1 }
   });
 
-  finalSlide.addText('✓ Checklist dos Requisitos', {
+  finalSlide.addText('✅ Checklist Final do Desbravador', {
     x: 1.0,
-    y: 1.5,
+    y: 2.25,
     w: 3.6,
     h: 0.3,
     fontSize: 12,
     bold: true,
-    color: 'FFFFFF'
+    color: theme.accent
   });
 
-  const checklistLines = didacticItems.slice(0, 10).map((it) => ({
-    text: `[   ]  Requisito ${it.itemNumber}: ${it.shortTitle}`,
-    options: { breakLine: true }
-  }));
-
-  if (didacticItems.length > 10) {
-    checklistLines.push({
-      text: `... e mais ${didacticItems.length - 10} requisitos complementares cumpridos.`,
-      options: { breakLine: false }
-    });
-  }
-
-  finalSlide.addText(checklistLines, {
+  finalSlide.addText([
+    { text: '• Todos os requisitos teóricos explicados e compreendidos.\n', options: { color: 'E2E8F0' } },
+    { text: '• Dinâmicas e oficinas práticas executadas na unidade.\n', options: { color: 'E2E8F0' } },
+    { text: '• Caderno de especialidade preenchido com fotos e amostras.\n', options: { color: 'E2E8F0' } },
+    { text: '• Avaliação final e assinatura pelo conselheiro e instrutor.', options: { color: 'E2E8F0' } }
+  ], {
     x: 1.0,
-    y: 1.9,
+    y: 2.65,
     w: 3.6,
-    h: 2.9,
-    fontSize: 8.5,
-    color: 'CBD5E1',
-    wrap: true
+    h: 2.3,
+    fontSize: 9.5
   });
 
-  // Box 2: Assinaturas Oficiais para Homologação
+  // Card Assinaturas
   finalSlide.addShape(pres.ShapeType.roundRect, {
     x: 5.2,
-    y: 1.35,
+    y: 2.1,
     w: 4.0,
-    h: 3.65,
+    h: 3.0,
     rectRadius: 0.15,
     fill: { color: '1E293B' },
     line: { color: '334155', width: 1 }
   });
 
-  finalSlide.addText('✍️ Homologação & Assinaturas', {
+  finalSlide.addText('✍️ Homologação Oficial', {
     x: 5.4,
-    y: 1.5,
+    y: 2.25,
     w: 3.6,
     h: 0.3,
     fontSize: 12,
     bold: true,
-    color: 'FFFFFF'
+    color: theme.accent
   });
 
-  const signatureBoxes = [
-    { title: 'Desbravador(a):', y: 2.05 },
-    { title: 'Instrutor(a) Avaliador(a):', y: 2.85 },
-    { title: 'Diretor(a) do Clube de Desbravadores:', y: 3.65 }
-  ];
-
-  signatureBoxes.forEach(box => {
-    finalSlide.addText(box.title, {
-      x: 5.4,
-      y: box.y,
-      w: 3.6,
-      h: 0.25,
-      fontSize: 9,
-      bold: true,
-      color: theme.accent
-    });
-    finalSlide.addShape(pres.ShapeType.line, {
-      x: 5.4,
-      y: box.y + 0.5,
-      w: 3.6,
-      h: 0,
-      line: { color: '64748B', width: 1, dashType: 'dash' }
-    });
-    finalSlide.addText('Assinatura e Data', {
-      x: 5.4,
-      y: box.y + 0.52,
-      w: 3.6,
-      h: 0.2,
-      fontSize: 7.5,
-      color: '64748B',
-      align: 'right'
-    });
+  finalSlide.addText([
+    { text: `Especialidade: ${specialty.nome}\n`, options: { bold: true, color: 'FFFFFF' } },
+    { text: `Clube: ${clubName || 'Clube de Desbravadores'}\n`, options: { color: 'CBD5E1' } },
+    { text: `Instrutor(a): ${instructorName || 'Instrutor(a)'}\n\n`, options: { color: 'CBD5E1' } },
+    { text: 'Data: _____/_____/_________    Nota Final: [   ]', options: { color: '94A3B8' } }
+  ], {
+    x: 5.4,
+    y: 2.65,
+    w: 3.6,
+    h: 1.6,
+    fontSize: 9.5
   });
 
-  finalSlide.addText('"Tudo o que fizerem, façam de todo o coração, como para o Senhor." (Colossenses 3:23)', {
+  finalSlide.addShape(pres.ShapeType.rect, {
+    x: 5.4,
+    y: 4.4,
+    w: 3.6,
+    h: 0.02,
+    fill: { color: '64748B' }
+  });
+  finalSlide.addText('Assinatura do Diretor / Instrutor', {
     x: 5.4,
     y: 4.45,
     w: 3.6,
-    h: 0.45,
+    h: 0.25,
     fontSize: 8,
-    italic: true,
     color: '94A3B8',
-    align: 'center',
-    wrap: true
+    align: 'center'
   });
 
-  if (onProgress) onProgress('Gerando arquivo final do PowerPoint (.pptx)...', 90);
+  finalSlide.addText('MINISTÉRIO DOS DESBRAVADORES  •  "SALVAR DO PECADO E GUIAR NO SERVIÇO"', {
+    x: 0.8,
+    y: 5.25,
+    w: 8.4,
+    h: 0.2,
+    fontSize: 8,
+    color: '64748B',
+    align: 'center'
+  });
 
-  // 3. Salva e inicia o download do arquivo .pptx
-  const safeTitle = specialty.nome
-    .replace(/[\\/:*?"<>|]/g, '')
-    .replace(/\s+/g, '_');
-  const filename = `${safeTitle}_Apresentacao_Didatica.pptx`;
-
-  await pres.writeFile({ fileName: filename });
+  // Salva o arquivo PowerPoint
+  if (onProgress) onProgress('Finalizando download da apresentação (.pptx)...', 95);
+  const cleanFileName = `Especialidade_${specialty.nome.replace(/[^a-zA-Z0-9_\u00C0-\u00FF]/g, '_')}_Apresentacao.pptx`;
+  await pres.writeFile({ fileName: cleanFileName });
 
   if (onProgress) onProgress('Apresentação gerada com sucesso!', 100);
 }
