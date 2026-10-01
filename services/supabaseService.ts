@@ -7,11 +7,12 @@ export { CANONICAL_BIBLE_BOOKS };
 const DEFAULT_URL = 'https://dembhtmryutggifbpuka.supabase.co';
 const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlbWJodG1yeXV0Z2dpZmJwdWthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MDQ0NjUsImV4cCI6MjA5NTM4MDQ2NX0.PVAqzmvqo4wDO2_i_MCF1lw8yxXzLxJj1Uj_gcyKTRI';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_URL.startsWith('http') 
-  ? import.meta.env.VITE_SUPABASE_URL 
+const envMeta = (typeof import.meta !== 'undefined' && (import.meta as any).env) ? (import.meta as any).env : {};
+const supabaseUrl = envMeta.VITE_SUPABASE_URL && envMeta.VITE_SUPABASE_URL.startsWith('http') 
+  ? envMeta.VITE_SUPABASE_URL 
   : DEFAULT_URL;
 
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_KEY;
+const supabaseKey = envMeta.VITE_SUPABASE_ANON_KEY || DEFAULT_KEY;
 
 const safeSupabaseStorage = {
   getItem: (key: string): string | null => {
@@ -255,54 +256,151 @@ export async function deleteVideoCategory(id: number) {
   }
 }
 
-export async function fetchLivrosClasses(): Promise<LivroClasse[]> {
+export async function fetchTableWithFallback(
+  tableName: string,
+  orderField: string = 'id',
+  filterParam?: string
+): Promise<any[]> {
+  // 1. Supabase SDK
   try {
-    const { data, error } = await supabase.from('LivroDasClasses').select('*').order('id', { ascending: true });
-    if (error) return [];
-    return data || [];
-  } catch {
-    return [];
+    let query = supabase.from(tableName).select('*');
+    if (filterParam) {
+      const [key, val] = filterParam.split('=');
+      if (key && val) query = query.eq(key, decodeURIComponent(val));
+    }
+    const { data, error } = await query.order(orderField, { ascending: true });
+    if (!error && data && Array.isArray(data) && data.length > 0) {
+      return data;
+    }
+    if (error) {
+      console.warn(`[Supabase SDK] Erro ao consultar ${tableName}:`, error);
+      if (error.code === 'PGRST301' || (error as any).status === 401 || error.message?.includes('JWT')) {
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            Object.keys(window.localStorage).forEach(k => {
+              if (k.startsWith('sb-') && k.endsWith('-auth-token')) window.localStorage.removeItem(k);
+            });
+          }
+        } catch {}
+      }
+    }
+  } catch (err) {
+    console.warn(`[Supabase SDK] Exceção em ${tableName}:`, err);
   }
+
+  // 2. Direct REST to Supabase API
+  try {
+    let restUrl = `${DEFAULT_URL}/rest/v1/${tableName}?select=*&order=${orderField}.asc`;
+    if (filterParam) {
+      restUrl += `&${filterParam}`;
+    }
+    const res = await fetch(restUrl, {
+      headers: {
+        'apikey': DEFAULT_KEY,
+        'authorization': `Bearer ${DEFAULT_KEY}`
+      }
+    });
+    if (res.ok) {
+      const restData = await res.json();
+      if (Array.isArray(restData) && restData.length > 0) {
+        return restData;
+      }
+    }
+  } catch (errRest) {
+    console.warn(`[REST Direct] Erro em ${tableName}:`, errRest);
+  }
+
+  // 3. Same-origin proxy (fallback para dev)
+  try {
+    let proxyUrl = `/supabase-proxy/rest/v1/${tableName}?select=*&order=${orderField}.asc`;
+    if (filterParam) {
+      proxyUrl += `&${filterParam}`;
+    }
+    const res = await fetch(proxyUrl, {
+      headers: {
+        'apikey': DEFAULT_KEY,
+        'authorization': `Bearer ${DEFAULT_KEY}`
+      }
+    });
+    if (res.ok) {
+      const pData = await res.json();
+      if (Array.isArray(pData) && pData.length > 0) {
+        return pData;
+      }
+    }
+  } catch {}
+
+  return [];
+}
+
+export async function fetchLivrosClasses(): Promise<LivroClasse[]> {
+  const cacheKey = 'dbv_cached_livros_classes';
+  const data = await fetchTableWithFallback('LivroDasClasses', 'id');
+  if (data.length > 0) {
+    try { localStorage.setItem(cacheKey, JSON.stringify(data)); } catch {}
+    return data;
+  }
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) return JSON.parse(cached);
+  } catch {}
+  return [];
 }
 
 export async function fetchLivrosAno(): Promise<LivroAno[]> {
-  try {
-    const { data, error } = await supabase.from('LivrosDoAno').select('*').order('id', { ascending: true });
-    if (error) return [];
-    return data || [];
-  } catch {
-    return [];
+  const cacheKey = 'dbv_cached_livros_ano';
+  const data = await fetchTableWithFallback('LivrosDoAno', 'id');
+  if (data.length > 0) {
+    try { localStorage.setItem(cacheKey, JSON.stringify(data)); } catch {}
+    return data;
   }
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) return JSON.parse(cached);
+  } catch {}
+  return [];
 }
 
 export async function fetchOutrosLivros(): Promise<OutroLivro[]> {
-  try {
-    const { data, error } = await supabase.from('OutrosLivros').select('*').order('id', { ascending: true });
-    if (error) return [];
-    return data || [];
-  } catch {
-    return [];
+  const cacheKey = 'dbv_cached_outros_livros';
+  const data = await fetchTableWithFallback('OutrosLivros', 'id');
+  if (data.length > 0) {
+    try { localStorage.setItem(cacheKey, JSON.stringify(data)); } catch {}
+    return data;
   }
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) return JSON.parse(cached);
+  } catch {}
+  return [];
 }
 
 export async function fetchManuaisDBV(): Promise<ManualDBV[]> {
-  try {
-    const { data, error } = await supabase.from('ManuaisDBV').select('*').order('id', { ascending: true });
-    if (error) return [];
-    return data || [];
-  } catch {
-    return [];
+  const cacheKey = 'dbv_cached_manuais_dbv';
+  const data = await fetchTableWithFallback('ManuaisDBV', 'id');
+  if (data.length > 0) {
+    try { localStorage.setItem(cacheKey, JSON.stringify(data)); } catch {}
+    return data;
   }
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) return JSON.parse(cached);
+  } catch {}
+  return [];
 }
 
 export async function fetchCampingDBV(): Promise<CampingDBV[]> {
-  try {
-    const { data, error } = await supabase.from('CampingDBV').select('*').order('id', { ascending: true });
-    if (error) return [];
-    return data || [];
-  } catch {
-    return [];
+  const cacheKey = 'dbv_cached_camping_dbv';
+  const data = await fetchTableWithFallback('CampingDBV', 'id');
+  if (data.length > 0) {
+    try { localStorage.setItem(cacheKey, JSON.stringify(data)); } catch {}
+    return data;
   }
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) return JSON.parse(cached);
+  } catch {}
+  return [];
 }
 
 export async function fetchFormularios(): Promise<Formulario[]> {
@@ -343,30 +441,33 @@ export async function deleteFormulario(id: number) {
 }
 
 export async function fetchCategories(club: ClubType): Promise<Category[]> {
-  try {
-    const table = club === ClubType.PATHFINDER ? 'CategoriaEspecialidadeDBV' : 'CategoriaEspecialidadeAVT';
-    const { data, error } = await supabase.from(table).select('*').order('id', { ascending: true });
-    if (error) return [];
-    return (data || []).map(item => ({
+  const cacheKey = `dbv_cached_categories_${club}`;
+  const table = club === ClubType.PATHFINDER ? 'CategoriaEspecialidadeDBV' : 'CategoriaEspecialidadeAVT';
+  const data = await fetchTableWithFallback(table, 'id');
+  if (data.length > 0) {
+    const mapped: Category[] = data.map(item => ({
       id: item.id,
       nome: item.Mestrado || item.Nome || item.nome || item.Titulo || 'Sem Nome',
       imagem: item.Imagem || item.imagem || item.Icone,
       cor: item.CorCorpo || item.Cor || item.cor,
       sigla: item.Sigla || item.sigla
     }));
-  } catch {
-    return [];
+    try { localStorage.setItem(cacheKey, JSON.stringify(mapped)); } catch {}
+    return mapped;
   }
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) return JSON.parse(cached);
+  } catch {}
+  return [];
 }
 
 export async function fetchClasses(club: ClubType): Promise<ClubClass[]> {
-  try {
-    const table = club === ClubType.PATHFINDER ? 'Classes' : 'ClassesAVT';
-    const { data, error } = await supabase.from(table).select('*').order('id', { ascending: true });
-    
-    if (error) return [];
-
-    return (data || []).map(item => ({
+  const cacheKey = `dbv_cached_classes_${club}`;
+  const table = club === ClubType.PATHFINDER ? 'Classes' : 'ClassesAVT';
+  const data = await fetchTableWithFallback(table, 'id');
+  if (data.length > 0) {
+    const mapped: ClubClass[] = data.map(item => ({
       id: item.id,
       titulo: item.titulo || item.Titulo || item.nome || item.Nome || item.classe || item.Classe || '',
       sigla: item.Sigla || item.sigla,
@@ -375,9 +476,14 @@ export async function fetchClasses(club: ClubType): Promise<ClubClass[]> {
       cor: item.Cor || item.cor,
       corpo: item.Corpo || item.corpo
     }));
-  } catch {
-    return [];
+    try { localStorage.setItem(cacheKey, JSON.stringify(mapped)); } catch {}
+    return mapped;
   }
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) return JSON.parse(cached);
+  } catch {}
+  return [];
 }
 
 const ESPECIALIDADES_CACHE_KEY_PREFIX = 'dbv_tudo_cached_specialties_';
@@ -434,7 +540,7 @@ export async function fetchEspecialidades(club: ClubType, categoryFilter?: strin
     if (error || !data) {
       if (error) {
         console.warn(`Erro ao consultar ${table} no Supabase:`, error);
-        if (error.code === 'PGRST301' || error.status === 401 || error.message?.includes('JWT')) {
+        if (error.code === 'PGRST301' || (error as any).status === 401 || error.message?.includes('JWT')) {
           try {
             if (typeof window !== 'undefined' && window.localStorage) {
               Object.keys(window.localStorage).forEach(k => {
@@ -445,7 +551,43 @@ export async function fetchEspecialidades(club: ClubType, categoryFilter?: strin
         }
       }
 
-      // Tenta fallback via same-origin proxy
+      // 1. Tenta fallback direto via REST API oficial do Supabase
+      try {
+        let directUrl = `${DEFAULT_URL}/rest/v1/${table}?select=*&order=ID.asc`;
+        if (categoryFilter) directUrl += `&Categoria=eq.${encodeURIComponent(categoryFilter)}`;
+        const res = await fetch(directUrl, {
+          headers: {
+            'apikey': DEFAULT_KEY,
+            'authorization': `Bearer ${DEFAULT_KEY}`
+          }
+        });
+        if (res.ok) {
+          const pData = await res.json();
+          if (Array.isArray(pData) && pData.length > 0) {
+            const mappedProxy: Especialidade[] = pData.map(item => ({
+              id: item.id,
+              nome: item.Nome,
+              area: item.Categoria,
+              logo: item.Imagem,
+              requisitos: item.Questoes ? item.Questoes.split(/\r?\n/).map((r: string) => r.trim()).filter((r: string) => r.length > 0) : [],
+              club,
+              sigla: item.Sigla,
+              nivel: item.Nivel,
+              ano: item.Ano,
+              origem: item.Origem,
+              codigo: item.ID
+            }));
+            if (!categoryFilter && mappedProxy.length > 0) {
+              try { localStorage.setItem(ESPECIALIDADES_CACHE_KEY_PREFIX + club, JSON.stringify(mappedProxy)); } catch {}
+            }
+            return mappedProxy;
+          }
+        }
+      } catch (errDirect) {
+        console.warn(`Fallback REST direto para ${table} falhou:`, errDirect);
+      }
+
+      // 2. Tenta fallback via same-origin proxy (dev)
       try {
         let proxyUrl = `/supabase-proxy/rest/v1/${table}?select=*&order=ID.asc`;
         if (categoryFilter) proxyUrl += `&Categoria=eq.${encodeURIComponent(categoryFilter)}`;
@@ -921,6 +1063,20 @@ export async function updateUserSpecialties(email?: string | null, specialties: 
 
 export async function fetchBibleBooks(): Promise<BibleBook[]> {
   try {
+    // 1. Verificar cache local rápido
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const cached = localStorage.getItem('dbv_cached_bible_books');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length >= 66) {
+            return parsed;
+          }
+        }
+      }
+    } catch {}
+
+    // 2. Consulta via Supabase Client
     const { data, error } = await supabase
       .from('Biblia_Completa')
       .select('id, book_name, book_abbrev, total_chapters, testament')
@@ -928,21 +1084,7 @@ export async function fetchBibleBooks(): Promise<BibleBook[]> {
       .eq('verse_number', '1')
       .order('id', { ascending: true });
     
-    if (error) {
-      console.warn('Erro ao consultar livros da Bíblia no Supabase:', error);
-      if (error.code === 'PGRST301' || error.status === 401 || error.message?.includes('JWT')) {
-        try {
-          if (typeof window !== 'undefined' && window.localStorage) {
-            Object.keys(window.localStorage).forEach(k => {
-              if (k.startsWith('sb-') && k.endsWith('-auth-token')) window.localStorage.removeItem(k);
-            });
-          }
-        } catch {}
-      }
-      return CANONICAL_BIBLE_BOOKS;
-    }
-
-    if (data && data.length > 0) {
+    if (!error && data && data.length > 0) {
       const mapped: BibleBook[] = data.map((item, idx) => ({
         id: Number(item.id) || (idx + 1),
         book_name: item.book_name || '',
@@ -956,6 +1098,33 @@ export async function fetchBibleBooks(): Promise<BibleBook[]> {
       return mapped;
     }
 
+    // 3. Fallback via fetch direto à API REST do Supabase
+    try {
+      const restUrl = `${DEFAULT_URL}/rest/v1/Biblia_Completa?select=id,book_name,book_abbrev,total_chapters,testament&chapter=eq.1&verse_number=eq.1&order=id.asc`;
+      const res = await fetch(restUrl, {
+        headers: {
+          'apikey': DEFAULT_KEY,
+          'authorization': `Bearer ${DEFAULT_KEY}`
+        }
+      });
+      if (res.ok) {
+        const restData = await res.json();
+        if (Array.isArray(restData) && restData.length > 0) {
+          const mapped: BibleBook[] = restData.map((item, idx) => ({
+            id: Number(item.id) || (idx + 1),
+            book_name: item.book_name || '',
+            book_abbrev: item.book_abbrev || CANONICAL_BIBLE_BOOKS[idx]?.book_abbrev || '',
+            total_chapters: Number(item.total_chapters) || CANONICAL_BIBLE_BOOKS[idx]?.total_chapters || 1,
+            testament: item.testament || CANONICAL_BIBLE_BOOKS[idx]?.testament || 'Antigo'
+          }));
+          try {
+            localStorage.setItem('dbv_cached_bible_books', JSON.stringify(mapped));
+          } catch {}
+          return mapped;
+        }
+      }
+    } catch {}
+
     return CANONICAL_BIBLE_BOOKS;
   } catch (err) {
     console.warn('Exceção ao buscar livros da Bíblia:', err);
@@ -964,7 +1133,31 @@ export async function fetchBibleBooks(): Promise<BibleBook[]> {
 }
 
 export async function fetchBibleVerses(bookName: string, chapter: string): Promise<BibleVerse[]> {
+  const cacheKey = `dbv_bible_cache_${bookName}_${chapter}`;
+
+  // 1. Verificar cache local imediato
   try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    }
+  } catch {}
+
+  const saveCache = (verses: BibleVerse[]) => {
+    if (Array.isArray(verses) && verses.length > 0) {
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(verses));
+      } catch {}
+    }
+  };
+
+  try {
+    // 2. Consulta via Supabase Client
     const { data, error } = await supabase
       .from('Biblia_Completa')
       .select('id, book_name, chapter, verse_number, text')
@@ -972,9 +1165,21 @@ export async function fetchBibleVerses(bookName: string, chapter: string): Promi
       .eq('chapter', chapter)
       .order('id', { ascending: true });
 
+    if (!error && data && data.length > 0) {
+      const mapped = data.map(item => ({
+        id: Number(item.id),
+        book_name: item.book_name || '',
+        chapter: item.chapter || '',
+        verse_number: item.verse_number || '',
+        text: item.text || ''
+      }));
+      saveCache(mapped);
+      return mapped;
+    }
+
     if (error) {
       console.warn('Erro ao consultar versículos no Supabase:', error);
-      if (error.code === 'PGRST301' || error.status === 401 || error.message?.includes('JWT')) {
+      if (error.code === 'PGRST301' || (error as any).status === 401 || error.message?.includes('JWT')) {
         try {
           if (typeof window !== 'undefined' && window.localStorage) {
             Object.keys(window.localStorage).forEach(k => {
@@ -983,43 +1188,36 @@ export async function fetchBibleVerses(bookName: string, chapter: string): Promi
           }
         } catch {}
       }
-
-      // Tenta fallback via proxy
-      try {
-        const proxyUrl = `/supabase-proxy/rest/v1/Biblia_Completa?select=id,book_name,chapter,verse_number,text&book_name=eq.${encodeURIComponent(bookName)}&chapter=eq.${encodeURIComponent(chapter)}&order=id.asc`;
-        const res = await fetch(proxyUrl, {
-          headers: {
-            'apikey': DEFAULT_KEY,
-            'authorization': `Bearer ${DEFAULT_KEY}`
-          }
-        });
-        if (res.ok) {
-          const proxyData = await res.json();
-          if (Array.isArray(proxyData) && proxyData.length > 0) {
-            return proxyData.map(item => ({
-              id: Number(item.id),
-              book_name: item.book_name || '',
-              chapter: item.chapter || '',
-              verse_number: item.verse_number || '',
-              text: item.text || ''
-            }));
-          }
-        }
-      } catch {}
-      return [];
     }
 
-    if (!data) return [];
+    // 3. Fallback Direto via REST API do Supabase com chave oficial anônima
+    try {
+      const directUrl = `${DEFAULT_URL}/rest/v1/Biblia_Completa?select=id,book_name,chapter,verse_number,text&book_name=eq.${encodeURIComponent(bookName)}&chapter=eq.${encodeURIComponent(chapter)}&order=id.asc`;
+      const res = await fetch(directUrl, {
+        headers: {
+          'apikey': DEFAULT_KEY,
+          'authorization': `Bearer ${DEFAULT_KEY}`
+        }
+      });
+      if (res.ok) {
+        const restData = await res.json();
+        if (Array.isArray(restData) && restData.length > 0) {
+          const mapped = restData.map(item => ({
+            id: Number(item.id),
+            book_name: item.book_name || '',
+            chapter: item.chapter || '',
+            verse_number: item.verse_number || '',
+            text: item.text || ''
+          }));
+          saveCache(mapped);
+          return mapped;
+        }
+      }
+    } catch (errRest) {
+      console.warn('Fallback REST direto falhou:', errRest);
+    }
 
-    return (data || []).map(item => ({
-      id: Number(item.id),
-      book_name: item.book_name || '',
-      chapter: item.chapter || '',
-      verse_number: item.verse_number || '',
-      text: item.text || ''
-    }));
-  } catch {
-    // Tenta fallback via proxy
+    // 4. Fallback via proxy local (caso exista no ambiente de desenvolvimento)
     try {
       const proxyUrl = `/supabase-proxy/rest/v1/Biblia_Completa?select=id,book_name,chapter,verse_number,text&book_name=eq.${encodeURIComponent(bookName)}&chapter=eq.${encodeURIComponent(chapter)}&order=id.asc`;
       const res = await fetch(proxyUrl, {
@@ -1031,16 +1229,48 @@ export async function fetchBibleVerses(bookName: string, chapter: string): Promi
       if (res.ok) {
         const proxyData = await res.json();
         if (Array.isArray(proxyData) && proxyData.length > 0) {
-          return proxyData.map(item => ({
+          const mapped = proxyData.map(item => ({
             id: Number(item.id),
             book_name: item.book_name || '',
             chapter: item.chapter || '',
             verse_number: item.verse_number || '',
             text: item.text || ''
           }));
+          saveCache(mapped);
+          return mapped;
         }
       }
     } catch {}
+
+    return [];
+  } catch (errCatch) {
+    console.warn('Exceção ao buscar versículos da Bíblia:', errCatch);
+
+    // Tentativa final de resgate direto via REST
+    try {
+      const directUrl = `${DEFAULT_URL}/rest/v1/Biblia_Completa?select=id,book_name,chapter,verse_number,text&book_name=eq.${encodeURIComponent(bookName)}&chapter=eq.${encodeURIComponent(chapter)}&order=id.asc`;
+      const res = await fetch(directUrl, {
+        headers: {
+          'apikey': DEFAULT_KEY,
+          'authorization': `Bearer ${DEFAULT_KEY}`
+        }
+      });
+      if (res.ok) {
+        const restData = await res.json();
+        if (Array.isArray(restData) && restData.length > 0) {
+          const mapped = restData.map(item => ({
+            id: Number(item.id),
+            book_name: item.book_name || '',
+            chapter: item.chapter || '',
+            verse_number: item.verse_number || '',
+            text: item.text || ''
+          }));
+          saveCache(mapped);
+          return mapped;
+        }
+      }
+    } catch {}
+
     return [];
   }
 }
@@ -1889,23 +2119,31 @@ export async function updateCultura(cultura: Partial<Cultura>) {
 }
 
 export async function fetchLivrosAVT(): Promise<LivroAVT[]> {
-  try {
-    const { data, error } = await supabase.from('LivrosAVT').select('*').order('id', { ascending: true });
-    if (error) return [];
-    return data || [];
-  } catch {
-    return [];
+  const cacheKey = 'dbv_cached_livros_avt';
+  const data = await fetchTableWithFallback('LivrosAVT', 'id');
+  if (data.length > 0) {
+    try { localStorage.setItem(cacheKey, JSON.stringify(data)); } catch {}
+    return data;
   }
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) return JSON.parse(cached);
+  } catch {}
+  return [];
 }
 
 export async function fetchManuaisAVT(): Promise<ManualAVT[]> {
-  try {
-    const { data, error } = await supabase.from('ManuaisAVT').select('*').order('id', { ascending: true });
-    if (error) return [];
-    return data || [];
-  } catch {
-    return [];
+  const cacheKey = 'dbv_cached_manuais_avt';
+  const data = await fetchTableWithFallback('ManuaisAVT', 'id');
+  if (data.length > 0) {
+    try { localStorage.setItem(cacheKey, JSON.stringify(data)); } catch {}
+    return data;
   }
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) return JSON.parse(cached);
+  } catch {}
+  return [];
 }
 
 export async function fetchAppLinks(): Promise<AppLink[]> {

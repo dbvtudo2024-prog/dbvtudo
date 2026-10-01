@@ -6,6 +6,7 @@ import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, 
 import { 
   fetchCategories, fetchEspecialidades, fetchClasses, fetchDesbravaMais, 
   fetchBibleBooks, fetchBibleVerses, fetchBibleDictionary, fetchDevocionais, 
+  CANONICAL_BIBLE_BOOKS,
   createDevocional, updateDevocional, deleteDevocional, fetchUserSpecialties, updateUserSpecialties, 
   getLocalUserSpecialties, saveLocalUserSpecialties,
   getLocalCatalogFavorites, saveLocalCatalogFavorites,
@@ -1796,15 +1797,27 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   }, [activeSubView]);
   const [videos, setVideos] = useState<VideoType[]>([]);
   const [videoCategories, setVideoCategories] = useState<VideoCategory[]>([]);
-  const [bibleBooks, setBibleBooks] = useState<BibleBook[]>([]);
+  const [bibleBooks, setBibleBooks] = useState<BibleBook[]>(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const cached = localStorage.getItem('dbv_cached_bible_books');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length >= 66) return parsed;
+        }
+      }
+    } catch {}
+    return CANONICAL_BIBLE_BOOKS;
+  });
   const [selectedBibleBook, setSelectedBibleBook] = useState<BibleBook | null>(null);
   const [selectedBibleChapter, setSelectedBibleChapter] = useState<number | null>(null);
   const [bibleVerses, setBibleVerses] = useState<BibleVerse[]>([]);
+  const [bibleVersesRetryTrigger, setBibleVersesRetryTrigger] = useState(0);
   const [markedVerses, setMarkedVerses] = useState<BibleVerse[]>(() => {
     const saved = localStorage.getItem('markedVerses');
     return saved ? JSON.parse(saved) : [];
   });
-  const [selectedTestament, setSelectedTestament] = useState<'ANTIGO' | 'NOVO' | 'TODOS'>('ANTIGO');
+  const [selectedTestament, setSelectedTestament] = useState<'ANTIGO' | 'NOVO' | 'TODOS'>('TODOS');
   const [bibleSearch, setBibleSearch] = useState('');
   const [bibleDictionary, setBibleDictionary] = useState<BibleDictionaryEntry[]>([]);
   const [dictionarySearch, setDictionarySearch] = useState('');
@@ -2534,7 +2547,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         .catch(err => console.warn("Erro ao carregar devocionais:", err))
         .finally(() => setIsLoading(false));
     }
-  }, [activeSubView, club, selectedBibleBook, selectedBibleChapter, dictionarySearch]);
+  }, [activeSubView, club, selectedBibleBook, selectedBibleChapter, dictionarySearch, bibleVersesRetryTrigger]);
 
   useEffect(() => {
     if (activeSubView === 'SPECIALTIES_LIST' && selectedCategory) {
@@ -2604,6 +2617,25 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-4">
           <div className="w-8 h-8 border-3 border-slate-100 dark:border-slate-800 border-t-slate-300 rounded-full animate-spin"></div>
+          <p className="text-xs font-bold text-slate-400">Carregando classes...</p>
+        </div>
+      ) : classes.length === 0 ? (
+        <div className="bg-white dark:bg-slate-800 rounded-[28px] p-8 text-center border border-slate-100 dark:border-slate-700 shadow-sm space-y-3">
+          <Layers size={36} className="mx-auto text-slate-300 dark:text-slate-600" />
+          <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+            Nenhuma classe encontrada no momento.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setIsLoading(true);
+              fetchClasses(club).then(setClasses).finally(() => setIsLoading(false));
+            }}
+            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider active:scale-95 transition-all shadow-sm inline-flex items-center gap-1.5"
+          >
+            <RefreshCw size={13} />
+            <span>Recarregar Classes do Banco</span>
+          </button>
         </div>
       ) : (
         <div className="space-y-3">
@@ -2840,38 +2872,58 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             <ChevronRight size={18} className="text-slate-300 dark:text-slate-500 group-hover:translate-x-1 transition-transform" />
           </button>
 
-          <p className="text-[10px] font-black text-slate-300 dark:text-slate-500 uppercase tracking-[0.2em] ml-2 mb-2">Mestrados</p>
+          <p className="text-[10px] font-black text-slate-300 dark:text-slate-500 uppercase tracking-[0.2em] ml-2 mb-2">Mestrados e Áreas</p>
 
-          {categories.map((cat) => (
-            <button 
-              key={cat.id} 
-              onClick={() => {
-                setSelectedCategory(cat);
-                setActiveSubView('SPECIALTIES_LIST');
-              }}
-              className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[20px] p-5 flex items-center relative shadow-sm active:scale-[0.98] transition-all overflow-hidden group"
-            >
-              <div 
-                className="absolute left-0 top-0 bottom-0 w-1.5" 
-                style={{ backgroundColor: cat.cor || themeColor }}
-              ></div>
-              
-              <div className="flex items-center flex-grow">
-                <div className="mr-4">
-                  <Folder 
-                    size={24} 
-                    style={{ color: cat.cor || themeColor }} 
-                    strokeWidth={2.5}
-                  />
+          {categories.length === 0 ? (
+            <div className="bg-white dark:bg-slate-800 rounded-[28px] p-8 text-center border border-slate-100 dark:border-slate-700 shadow-sm space-y-3">
+              <Folder size={36} className="mx-auto text-slate-300 dark:text-slate-600" />
+              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                Nenhuma área de especialidade encontrada.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLoading(true);
+                  fetchCategories(club).then(setCategories).finally(() => setIsLoading(false));
+                }}
+                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider active:scale-95 transition-all shadow-sm inline-flex items-center gap-1.5"
+              >
+                <RefreshCw size={13} />
+                <span>Recarregar Áreas do Banco</span>
+              </button>
+            </div>
+          ) : (
+            categories.map((cat) => (
+              <button 
+                key={cat.id} 
+                onClick={() => {
+                  setSelectedCategory(cat);
+                  setActiveSubView('SPECIALTIES_LIST');
+                }}
+                className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[20px] p-5 flex items-center relative shadow-sm active:scale-[0.98] transition-all overflow-hidden group"
+              >
+                <div 
+                  className="absolute left-0 top-0 bottom-0 w-1.5" 
+                  style={{ backgroundColor: cat.cor || themeColor }}
+                ></div>
+                
+                <div className="flex items-center flex-grow">
+                  <div className="mr-4">
+                    <Folder 
+                      size={24} 
+                      style={{ color: cat.cor || themeColor }} 
+                      strokeWidth={2.5}
+                    />
+                  </div>
+                  <span className="text-[15px] font-black text-slate-800 dark:text-white uppercase tracking-tight text-left">
+                    {cat.nome}
+                  </span>
                 </div>
-                <span className="text-[15px] font-black text-slate-800 dark:text-white uppercase tracking-tight text-left">
-                  {cat.nome}
-                </span>
-              </div>
-              
-              <ChevronRight size={18} className="text-slate-300 dark:text-slate-500 group-hover:translate-x-1 transition-transform" />
-            </button>
-          ))}
+                
+                <ChevronRight size={18} className="text-slate-300 dark:text-slate-500 group-hover:translate-x-1 transition-transform" />
+              </button>
+            ))
+          )}
         </div>
       )}
     </div>
@@ -2884,8 +2936,36 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       </div>
 
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-20">
+        <div className="flex flex-col items-center justify-center py-20 space-y-3">
           <div className="w-8 h-8 border-3 border-slate-100 border-t-slate-300 rounded-full animate-spin"></div>
+          <p className="text-xs font-bold text-slate-400">Carregando especialidades...</p>
+        </div>
+      ) : specialties.length === 0 ? (
+        <div className="bg-white dark:bg-slate-800 rounded-[28px] p-8 text-center border border-slate-100 dark:border-slate-700 shadow-sm space-y-3">
+          <Award size={36} className="mx-auto text-slate-300 dark:text-slate-600" />
+          <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+            Nenhuma especialidade carregada nesta categoria.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              if (selectedCategory) {
+                setIsLoading(true);
+                if (selectedCategory.id === -100) {
+                  setSpecialties(allSpecialtiesList.filter(s => completedSpecialties.includes(s.id.toString())));
+                  setIsLoading(false);
+                } else {
+                  fetchEspecialidades(club, selectedCategory.nome)
+                    .then(setSpecialties)
+                    .finally(() => setIsLoading(false));
+                }
+              }
+            }}
+            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider active:scale-95 transition-all shadow-sm inline-flex items-center gap-1.5"
+          >
+            <RefreshCw size={13} />
+            <span>Recarregar Especialidades</span>
+          </button>
         </div>
       ) : (
         <div className="space-y-3">
@@ -4426,8 +4506,42 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           </h3>
 
           {currentData.length === 0 ? (
-            <div className="bg-white dark:bg-slate-800 rounded-[32px] p-12 text-center border border-slate-100 dark:border-slate-700 shadow-sm">
-              <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Nenhum item disponível.</p>
+            <div className="bg-white dark:bg-slate-800 rounded-[32px] p-8 text-center border border-slate-100 dark:border-slate-700 shadow-sm space-y-3">
+              <Book size={36} className="mx-auto text-slate-300 dark:text-slate-600" />
+              <p className="text-slate-600 dark:text-slate-300 font-bold text-sm">
+                Nenhum livro ou manual carregado nesta seção.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLoading(true);
+                  if (isPathfinder) {
+                    Promise.all([
+                      fetchLivrosClasses(),
+                      fetchLivrosAno(),
+                      fetchOutrosLivros(),
+                      fetchManuaisDBV()
+                    ]).then(([c, a, o, m]) => {
+                      setLivrosClasses(c);
+                      setLivrosAno([...a].sort((x, y) => (Number(y.Ano) || 0) - (Number(x.Ano) || 0)));
+                      setOutrosLivros(o);
+                      setManuaisDBV(m);
+                    }).finally(() => setIsLoading(false));
+                  } else {
+                    Promise.all([
+                      fetchLivrosAVT(),
+                      fetchManuaisAVT()
+                    ]).then(([livros, manuais]) => {
+                      setLivrosAVT(livros);
+                      setManuaisAVT(manuais);
+                    }).finally(() => setIsLoading(false));
+                  }
+                }}
+                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider active:scale-95 transition-all shadow-sm inline-flex items-center gap-1.5"
+              >
+                <RefreshCw size={13} />
+                <span>Recarregar do Banco de Dados</span>
+              </button>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4">
@@ -4537,15 +4651,33 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     <div className="animate-slide-in h-full flex flex-col flex-grow w-full bg-slate-100 dark:bg-slate-950 md:rounded-3xl overflow-hidden md:border md:border-slate-200/80 md:dark:border-slate-800 md:shadow-md">
       <div className="flex-grow flex flex-col relative h-full min-h-[500px]">
         {selectedPdfUrl ? (
-          <iframe 
-            src={selectedPdfUrl} 
-            className="w-full h-full border-none flex-grow bg-slate-50 dark:bg-slate-900"
-            title={pdfTitle}
-            allow="autoplay"
-          />
+          <>
+            <iframe 
+              src={selectedPdfUrl} 
+              className="w-full h-full border-none flex-grow bg-slate-50 dark:bg-slate-900"
+              title={pdfTitle}
+              allow="autoplay"
+            />
+            {/* Barra inferior de resgate para visualização externa */}
+            <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs border-t border-slate-200 dark:border-slate-800 p-2.5 px-4 flex items-center justify-between text-xs text-slate-500 shrink-0">
+              <span className="truncate max-w-[220px] font-medium text-[11px] text-slate-600 dark:text-slate-300">
+                {pdfTitle}
+              </span>
+              <a
+                href={selectedPdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1.5 active:scale-95 transition-all shadow-xs"
+              >
+                <span>Abrir em Nova Aba</span>
+                <ExternalLink size={12} />
+              </a>
+            </div>
+          </>
         ) : (
-          <div className="flex items-center justify-center h-full text-slate-400 dark:text-slate-500 font-bold text-sm">
-            PDF não disponível
+          <div className="flex flex-col items-center justify-center h-full text-slate-400 dark:text-slate-500 font-bold text-sm p-6 text-center space-y-2">
+            <BookOpen size={36} className="text-slate-300 dark:text-slate-600" />
+            <p>Documento não disponível no momento.</p>
           </div>
         )}
       </div>
@@ -4957,15 +5089,36 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           
           <div className="relative z-10">
             <h3 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight mb-0.5">Bíblia Sagrada</h3>
-            <p className="text-indigo-300 text-[10px] font-black uppercase tracking-[0.2em] mb-4 sm:mb-5">Versão Almeida Revista e Corrigida</p>
+            <p className="text-indigo-300 text-[10px] font-black uppercase tracking-[0.2em] mb-3">Versão Almeida Revista e Corrigida</p>
+            <button
+              onClick={() => setActiveSubView('BIBLE_BOOKS')}
+              className="mb-4 px-5 py-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 hover:from-blue-500 hover:to-indigo-500 text-white rounded-full text-xs font-black uppercase tracking-wider shadow-lg hover:shadow-xl active:scale-95 transition-all inline-flex items-center gap-2 border border-white/20"
+            >
+              <BookOpen size={16} />
+              <span>Ler a Bíblia Completa (66 Livros)</span>
+            </button>
           </div>
           
           {/* Versículo do Dia */}
-          <div className="bg-white dark:bg-slate-800 rounded-[24px] sm:rounded-[28px] p-5 sm:p-6 text-left shadow-inner relative z-10 border border-white/10 dark:border-slate-700">
+          <div 
+            onClick={() => {
+              const jeremias = bibleBooks.find(b => b.book_name.toLowerCase().includes('jeremias')) || CANONICAL_BIBLE_BOOKS.find(b => b.book_name === 'Jeremias');
+              if (jeremias) {
+                setSelectedBibleBook(jeremias);
+                setSelectedBibleChapter(22);
+                setActiveSubView('BIBLE_VERSES');
+              }
+            }}
+            className="bg-white dark:bg-slate-800 rounded-[24px] sm:rounded-[28px] p-5 sm:p-6 text-left shadow-inner relative z-10 border border-white/10 dark:border-slate-700 cursor-pointer hover:border-amber-400/50 transition-all group"
+            title="Clique para ler este capítulo na Bíblia"
+          >
             <div className="flex justify-between items-start mb-3">
-              <h4 className="text-amber-500 text-[10px] font-black uppercase tracking-widest">Versículo do Dia</h4>
+              <h4 className="text-amber-500 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                <span>Versículo do Dia</span>
+                <span className="text-[9px] lowercase font-medium text-slate-400 group-hover:text-amber-500 transition-colors">(toque para ler)</span>
+              </h4>
               <button 
-                onClick={handleShareVerse}
+                onClick={(e) => { e.stopPropagation(); handleShareVerse(); }}
                 className="w-8 h-8 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-300 active:scale-90 transition-all"
               >
                 <Share2 size={14} />
@@ -4974,7 +5127,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             <p className="text-slate-700 dark:text-slate-200 font-bold text-sm leading-relaxed mb-3 italic">
               "Ó terra, terra, terra! Ouve a palavra do SENHOR!"
             </p>
-            <p className="text-slate-400 text-[10px] font-black uppercase tracking-tight">Jeremias 22:29</p>
+            <p className="text-slate-400 text-[10px] font-black uppercase tracking-tight flex items-center justify-between">
+              <span>Jeremias 22:29</span>
+              <span className="text-blue-500 dark:text-blue-400 font-bold text-[9px] uppercase tracking-wider group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-0.5">
+                Ler Capítulo <ChevronRight size={12} />
+              </span>
+            </p>
           </div>
         </div>
 
@@ -5134,21 +5292,43 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         <div className="space-y-3">
           <div className="flex items-center justify-between px-2">
             <h4 className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-tight">
-              {selectedTestament === 'ANTIGO' ? 'Antigo Testamento (39 livros)' : selectedTestament === 'NOVO' ? 'Novo Testamento (27 livros)' : `${filteredBooks.length} livros`}
+              {selectedTestament === 'ANTIGO' 
+                ? 'Antigo Testamento (39 livros)' 
+                : selectedTestament === 'NOVO' 
+                ? 'Novo Testamento (27 livros)' 
+                : `Todos os Livros (${filteredBooks.length} de 66)`}
             </h4>
             {selectedTestament !== 'TODOS' && (
               <button 
                 onClick={() => setSelectedTestament('TODOS')}
                 className="text-[10px] font-bold text-blue-500 hover:underline"
               >
-                Mostrar todos
+                Mostrar todos (AT + NT)
               </button>
             )}
           </div>
 
-          {isLoading ? (
-            <div className="flex justify-center py-10">
+          {isLoading && bibleBooks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-2">
               <div className="w-8 h-8 border-3 border-slate-100 dark:border-slate-700 border-t-blue-500 rounded-full animate-spin"></div>
+              <p className="text-xs font-bold text-slate-400">Carregando livros da Bíblia...</p>
+            </div>
+          ) : filteredBooks.length === 0 ? (
+            <div className="bg-white dark:bg-slate-800 rounded-[28px] p-8 text-center border border-slate-100 dark:border-slate-700 shadow-sm space-y-3">
+              <BookOpen size={36} className="mx-auto text-slate-300 dark:text-slate-600" />
+              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                Nenhum livro encontrado{bibleSearch ? ` para "${bibleSearch}"` : ''} no filtro atual.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setBibleSearch('');
+                  setSelectedTestament('TODOS');
+                }}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-wider active:scale-95 transition-all shadow-sm"
+              >
+                Limpar Busca e Mostrar Todos os 66 Livros
+              </button>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3">
@@ -5168,7 +5348,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     </div>
                     <div className="text-left">
                       <h5 className="font-black text-slate-800 dark:text-white uppercase tracking-tight">{book.book_name}</h5>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{book.total_chapters} capítulos</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{book.total_chapters} capítulos • {book.testament}</p>
                     </div>
                   </div>
                   <ChevronRight size={18} className="text-slate-200 dark:text-slate-600 group-hover:translate-x-1 transition-transform" />
@@ -5281,8 +5461,42 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         {/* Lista de Versículos */}
         <div className={`space-y-4 p-4 rounded-[32px] transition-all ${bibleSettings.darkMode ? 'bg-slate-900 text-white' : ''}`}>
           {isLoading ? (
-            <div className="flex justify-center py-10">
-              <div className="w-8 h-8 border-3 border-slate-100 dark:border-slate-700 border-t-blue-500 rounded-full animate-spin"></div>
+            <div className="flex flex-col items-center justify-center py-16 space-y-3">
+              <div className="w-9 h-9 border-3 border-slate-200 dark:border-slate-700 border-t-blue-600 rounded-full animate-spin"></div>
+              <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                Carregando versículos de {selectedBibleBook.book_name} {selectedBibleChapter}...
+              </p>
+            </div>
+          ) : bibleVerses.length === 0 ? (
+            <div className="bg-white dark:bg-slate-800 rounded-[28px] p-8 text-center border border-slate-100 dark:border-slate-700 shadow-sm space-y-4">
+              <div className="w-14 h-14 bg-amber-50 dark:bg-amber-950/40 text-amber-500 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+                <BookOpen size={28} />
+              </div>
+              <div>
+                <h4 className="font-black text-slate-800 dark:text-white text-base">
+                  Nenhum versículo exibido
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto leading-relaxed">
+                  Não foi possível obter os versículos de <strong>{selectedBibleBook.book_name} {selectedBibleChapter}</strong> no momento.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setBibleVersesRetryTrigger(prev => prev + 1)}
+                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider inline-flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                >
+                  <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
+                  <span>Recarregar Versículos</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveSubView('BIBLE_CHAPTERS')}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-2xl text-xs font-black uppercase tracking-wider active:scale-95 transition-all"
+                >
+                  Voltar aos Capítulos
+                </button>
+              </div>
             </div>
           ) : (
             <div className="space-y-4">

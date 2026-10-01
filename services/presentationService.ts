@@ -197,86 +197,225 @@ export function createIllustratedCanvasCard(
 }
 
 // Seleciona com rigor semântico uma imagem contextualizada especificamente sobre o que a questão pede
+// Helper com verificação estrita de palavra inteira (impede falsos positivos como 'sombras' casar com 'rã')
+function hasExactWord(text: string, ...words: string[]): boolean {
+  for (const w of words) {
+    const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, 'i');
+    if (regex.test(text)) return true;
+  }
+  return false;
+}
+
+// Seleciona com rigor semântico uma imagem contextualizada especificamente sobre o que a questão pede
 export function getTopicImageUrl(
   specialtyName: string, 
   questionOrSubText: string, 
   areaName?: string,
   extraKeyword?: string
 ): string {
-  // Normaliza o texto removendo acentos para casar de forma precisa
-  const fullRaw = `${specialtyName} ${questionOrSubText} ${areaName || ''} ${extraKeyword || ''}`;
-  const norm = fullRaw.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  // Normaliza ESTRITAMENTE o texto da questão/sub-item (e extraKeyword específico da questão)
+  // IMPORTANTE: NÃO concatenamos specialtyName nem areaName para evitar que termos genéricos da especialidade
+  // casem em todas as perguntas (ex: não colocar foto de corredor em questões sobre hidratação, alimentação ou história).
+  const cleanQ = (questionOrSubText || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  
+  // Limpa extraKeyword caso apenas repita o nome da especialidade
+  let cleanExtra = (extraKeyword || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (specialtyName) {
+    const specNorm = specialtyName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    cleanExtra = cleanExtra.replace(specNorm, '').trim();
+  }
 
-  // 1. Corrida Rústica / Atletismo / Trail Run
-  if (norm.includes('velocidade') || norm.includes('sprint') || norm.includes('100m') || norm.includes('200m') || norm.includes('tiro curto')) {
-    return 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=700&auto=format&fit=crop&q=80'; // Largada explosiva / Sprint
-  }
-  if (norm.includes('meio fundo') || norm.includes('meio-fundo') || norm.includes('800m') || norm.includes('1500m') || norm.includes('pista de atletismo')) {
-    return 'https://images.unsplash.com/photo-1502680390469-be75c86b636f?w=700&auto=format&fit=crop&q=80'; // Pista de atletismo / Meio fundo
-  }
-  if (norm.includes('fundo') || norm.includes('maratona') || norm.includes('longa distancia') || norm.includes('5km') || norm.includes('10km') || norm.includes('resistencia aerobica')) {
-    return 'https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?w=700&auto=format&fit=crop&q=80'; // Corrida em trilha de montanha
-  }
-  if (norm.includes('tenis') || norm.includes('calcado') || norm.includes('sapato') || norm.includes('solado') || norm.includes('cravos') || norm.includes('amortecimento') || norm.includes('meia')) {
+  const norm = `${cleanQ} ${cleanExtra}`.trim();
+
+  // 1. Corrida / Atletismo / Esportes Terrestres (apenas quando a questão pedir explicitamente o item)
+  if (hasExactWord(norm, 'tenis', 'calcado', 'calcados', 'sapato', 'sapatos', 'solado', 'cravos', 'amortecimento', 'meia', 'meias')) {
     return 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=700&auto=format&fit=crop&q=80'; // Tênis esportivo técnico com solado de trilha
   }
-  if (norm.includes('hidratacao') || norm.includes('agua') || norm.includes('squeeze') || norm.includes('garrafa') || norm.includes('mochila de hidratacao') || norm.includes('isotonico') || norm.includes('beber')) {
+  if (hasExactWord(norm, 'hidratacao', 'agua mineral', 'squeeze', 'garrafa', 'garrafinha', 'beber agua', 'mochila de hidratacao', 'isotonico')) {
     return 'https://images.unsplash.com/photo-1523362628745-0c100150b504?w=700&auto=format&fit=crop&q=80'; // Garrafa de hidratação na natureza
   }
-  if (norm.includes('alongamento') || norm.includes('aquecimento') || norm.includes('flexibilidade') || norm.includes('aquecer') || norm.includes('articular')) {
+  if (hasExactWord(norm, 'alongamento', 'alongamentos', 'aquecimento', 'aquecimentos', 'flexibilidade', 'aquecer', 'alongar', 'articular')) {
     return 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=700&auto=format&fit=crop&q=80'; // Atleta fazendo aquecimento e alongamento dinâmico
   }
-  if (norm.includes('frequencia cardiaca') || norm.includes('pulso') || norm.includes('batimento') || norm.includes('pressao') || norm.includes('respiracao') || norm.includes('coracao')) {
+  if (hasExactWord(norm, 'frequencia cardiaca', 'pulso', 'batimento', 'batimentos', 'pressao arterial', 'medir a frequencia', 'medir o pulso')) {
     return 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=700&auto=format&fit=crop&q=80'; // Medição de frequência cardíaca e saúde física
   }
-  if (norm.includes('desnivel') || norm.includes('subida') || norm.includes('descida') || norm.includes('montanha') || norm.includes('terreno irregular') || norm.includes('obstaculo')) {
-    return 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=700&auto=format&fit=crop&q=80'; // Montanhas e trilha com aclives e declives
+  if (hasExactWord(norm, 'velocidade', 'sprint', '100m', '200m', 'tiro curto', 'largada')) {
+    return 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=700&auto=format&fit=crop&q=80'; // Largada explosiva / Sprint
   }
-  if (norm.includes('corrida rustica') || norm.includes('trail run') || norm.includes('o que e corrida') || norm.includes('modalidade')) {
-    return 'https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?w=700&auto=format&fit=crop&q=80'; // Corredor em percurso rústico na natureza
+  if (hasExactWord(norm, 'pista de atletismo', 'meio fundo', 'meio-fundo', '800m', '1500m')) {
+    return 'https://images.unsplash.com/photo-1502680390469-be75c86b636f?w=700&auto=format&fit=crop&q=80'; // Pista de atletismo / Meio fundo
+  }
+  if (hasExactWord(norm, 'maratona', 'longa distancia', '5km', '10km', 'resistencia aerobica', 'percurso acidentado')) {
+    return 'https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?w=700&auto=format&fit=crop&q=80'; // Corrida em trilha de montanha
+  }
+  if (hasExactWord(norm, 'ciclismo', 'bicicleta', 'pedal', 'mountain bike')) {
+    return 'https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=700&auto=format&fit=crop&q=80'; // Ciclismo em trilha / mountain bike
+  }
+  if (hasExactWord(norm, 'natacao', 'nadar', 'piscina', 'nado crawl', 'salvamento aquatico')) {
+    return 'https://images.unsplash.com/photo-1530549387789-4c1017266635?w=700&auto=format&fit=crop&q=80'; // Natação em piscina olímpica
+  }
+  if (hasExactWord(norm, 'canoagem', 'caiaque', 'remo', 'bote')) {
+    return 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=700&auto=format&fit=crop&q=80'; // Caiaque e canoagem em águas abertas
+  }
+  if (hasExactWord(norm, 'mergulho', 'snorkel', 'nadadeira', 'subaquatico')) {
+    return 'https://images.unsplash.com/photo-1682687220063-4742bd7fd538?w=700&auto=format&fit=crop&q=80'; // Mergulho com vida marinha
+  }
+  if (hasExactWord(norm, 'escalada', 'rapel', 'mosquetao', 'corda de escalada')) {
+    return 'https://images.unsplash.com/photo-1522163182402-834f871fd851?w=700&auto=format&fit=crop&q=80'; // Escalada em rocha natural
   }
 
   // 2. Primeiros Socorros / Saúde / Segurança
-  if (norm.includes('socorro') || norm.includes('curativo') || norm.includes('atadura') || norm.includes('entorse') || norm.includes('fratura') || norm.includes('lesao') || norm.includes('sangramento') || norm.includes('estojo')) {
+  if (hasExactWord(norm, 'curativo', 'curativos', 'atadura', 'ataduras', 'entorse', 'fratura', 'fraturas', 'sangramento', 'hemorragia', 'bandagem', 'estojo de primeiros socorros')) {
     return 'https://images.unsplash.com/photo-1603398938378-e54eab446dde?w=700&auto=format&fit=crop&q=80'; // Kit e materiais de primeiros socorros
   }
-  if (norm.includes('rcp') || norm.includes('ressuscita') || norm.includes('massagem cardiaca') || norm.includes('parada')) {
+  if (hasExactWord(norm, 'rcp', 'ressuscita', 'massagem cardiaca', 'parada cardiaca', 'heimlich', 'desengasgo')) {
     return 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=700&auto=format&fit=crop&q=80'; // Treinamento de suporte básico de vida
   }
-  if (norm.includes('nutricao') || norm.includes('alimento') || norm.includes('alimentacao') || norm.includes('dieta') || norm.includes('saudavel') || norm.includes('vitamina')) {
+  if (hasExactWord(norm, 'nutricao', 'alimentacao saudavel', 'dieta do atleta', 'alimentos saudaveis', 'vitaminas', 'remedios naturais')) {
     return 'https://images.unsplash.com/photo-1490818387583-1baba5e638af?w=700&auto=format&fit=crop&q=80'; // Alimentos naturais saudáveis e frutas
   }
+  if (hasExactWord(norm, 'sangue', 'sanguineo', 'circulacao sanguinea', 'vasos sanguineos')) {
+    return 'https://images.unsplash.com/photo-1615461066841-6116e61058f4?w=700&auto=format&fit=crop&q=80'; // Saúde e medicina laboratorial
+  }
 
-  // 3. Pioneirismo / Nós / Acampamento
-  if (norm.includes('no ') || norm.includes('nos ') || norm.includes('corda') || norm.includes('amarra') || norm.includes('volta do fiel') || norm.includes('no direito') || norm.includes('lais de guia') || norm.includes('pescador')) {
+  // 3. Pioneirismo / Nós / Acampamento / Sobrevivência
+  if (hasExactWord(norm, 'amarra', 'amarras', 'corda', 'cordas', 'volta do fiel', 'no direito', 'lais de guia', 'pescador', 'chicote', 'pioneiria', 'no de escota', 'catau') ||
+     (hasExactWord(norm, 'no', 'nos') && hasExactWord(norm, 'corda', 'amarra', 'laco', 'chicote'))) {
     return 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=700&auto=format&fit=crop&q=80'; // Cordas náuticas e nós de pioneirismo
   }
-  if (norm.includes('barraca') || norm.includes('acampar') || norm.includes('acampamento') || norm.includes('abrigo')) {
+  if (hasExactWord(norm, 'barraca', 'barracas', 'montagem de barraca', 'acampar', 'acampamento', 'camping', 'abrigo')) {
     return 'https://images.unsplash.com/photo-1510312305653-8ed496efae75?w=700&auto=format&fit=crop&q=80'; // Barraca montada em acampamento
   }
-  if (norm.includes('fogo') || norm.includes('fogueira') || norm.includes('lenha') || norm.includes('cozinha ao ar livre')) {
+  if (hasExactWord(norm, 'fogo', 'fogueira', 'fogueiras', 'lenha', 'cozinha ao ar livre', 'pederneira', 'acender fogo')) {
     return 'https://images.unsplash.com/photo-1475483768296-6163e08872a1?w=700&auto=format&fit=crop&q=80'; // Fogueira de acampamento em área segura
   }
-  if (norm.includes('bussola') || norm.includes('mapa') || norm.includes('orientacao') || norm.includes('azimute') || norm.includes('coordenadas')) {
+  if (hasExactWord(norm, 'bussola', 'mapa topografico', 'mapas', 'orientacao', 'azimute', 'coordenadas', 'cartografia', 'leitura de mapa')) {
     return 'https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?w=700&auto=format&fit=crop&q=80'; // Bússola sobre mapa topográfico de orientação
   }
+  if (hasExactWord(norm, 'mochila cargueira', 'arrumar a mochila', 'caminhada com mochila', 'excursionismo')) {
+    return 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=700&auto=format&fit=crop&q=80'; // Caminhada e trilha com mochila
+  }
+  if (hasExactWord(norm, 'machadinha', 'facao', 'canivete', 'corte de madeira', 'afiar')) {
+    return 'https://images.unsplash.com/photo-1516214104703-d870798883c5?w=700&auto=format&fit=crop&q=80'; // Ferramentas manuais de acampamento e madeira
+  }
 
-  // 4. Natureza / Meio Ambiente
-  if (norm.includes('passaro') || norm.includes('ave') || norm.includes('ninho') || norm.includes('pena')) {
+  // 4. Natureza / Animais / Zoologia (somente se a questão tratar explicitamente do animal)
+  if (hasExactWord(norm, 'cao', 'caes', 'cachorro', 'cachorros', 'canino', 'caninos', 'pastor alemao', 'labrador')) {
+    return 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=700&auto=format&fit=crop&q=80'; // Cão / Caninos
+  }
+  if (hasExactWord(norm, 'gato', 'gatos', 'felino', 'felinos', 'leao', 'onca', 'tigre')) {
+    return 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=700&auto=format&fit=crop&q=80'; // Gatos e felinos
+  }
+  if (hasExactWord(norm, 'passaro', 'passaros', 'ave', 'aves', 'ninho', 'pena', 'penas', 'ornitologia', 'rapina')) {
     return 'https://images.unsplash.com/photo-1444464666168-49d633b86797?w=700&auto=format&fit=crop&q=80'; // Pássaro silvestre em galho
   }
-  if (norm.includes('arvore') || norm.includes('floresta') || norm.includes('mata') || norm.includes('madeira') || norm.includes('tronco')) {
-    return 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=700&auto=format&fit=crop&q=80'; // Floresta de árvores majestosas
+  if (hasExactWord(norm, 'reptil', 'repteis', 'cobra', 'cobras', 'serpente', 'lagarto', 'tartaruga', 'jacare')) {
+    return 'https://images.unsplash.com/photo-1534361960057-19889db9621e?w=700&auto=format&fit=crop&q=80'; // Répteis e serpentes
   }
-  if (norm.includes('flor') || norm.includes('planta') || norm.includes('folha') || norm.includes('semente') || norm.includes('botanica')) {
-    return 'https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=700&auto=format&fit=crop&q=80'; // Flores e plantas da natureza
+  if (hasExactWord(norm, 'anfibio', 'anfibios', 'sapo', 'sapos', 'perereca', 'pererecas')) {
+    return 'https://images.unsplash.com/photo-1559253664-ca249d4608c6?w=700&auto=format&fit=crop&q=80'; // Anfíbios e sapos
   }
-  if (norm.includes('estrela') || norm.includes('constelacao') || norm.includes('astronomia') || norm.includes('lua') || norm.includes('planeta') || norm.includes('telescopio')) {
-    return 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=700&auto=format&fit=crop&q=80'; // Céu estrelado com constelações
+  if (hasExactWord(norm, 'peixe', 'peixes', 'tubarao', 'ictiologia', 'recife')) {
+    return 'https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=700&auto=format&fit=crop&q=80'; // Peixes e vida aquática
+  }
+  if (hasExactWord(norm, 'inseto', 'insetos', 'borboleta', 'abelha', 'formiga', 'entomologia', 'aracnideo')) {
+    return 'https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=700&auto=format&fit=crop&q=80'; // Insetos e borboletas
+  }
+  if (hasExactWord(norm, 'mamifero', 'mamiferos', 'baleia', 'morcego', 'cavalo')) {
+    return 'https://images.unsplash.com/photo-1535268647677-300dbf3d78d1?w=700&auto=format&fit=crop&q=80'; // Mamíferos selvagens
   }
 
-  // Padrão Geral Ar Livre / Trilha dos Desbravadores
-  return 'https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?w=700&auto=format&fit=crop&q=80';
+  // 5. Botânica / Plantas / Ecologia
+  if (hasExactWord(norm, 'arvore', 'arvores', 'floresta', 'mata', 'tronco', 'dendrologia')) {
+    return 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=700&auto=format&fit=crop&q=80'; // Floresta de árvores majestosas
+  }
+  if (hasExactWord(norm, 'flor', 'flores', 'orquidea', 'petalas', 'polinizacao')) {
+    return 'https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=700&auto=format&fit=crop&q=80'; // Flores e plantas da natureza
+  }
+  if (hasExactWord(norm, 'cacto', 'cactos', 'suculenta', 'suculentas', 'deserto')) {
+    return 'https://images.unsplash.com/photo-1509223197845-458d87318791?w=700&auto=format&fit=crop&q=80'; // Cactos e vegetação xerófita
+  }
+  if (hasExactWord(norm, 'fungo', 'fungos', 'cogumelo', 'cogumelos', 'micologia')) {
+    return 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=700&auto=format&fit=crop&q=80'; // Cogumelos silvestres na floresta
+  }
+
+  // 6. Astronomia / Geologia / Clima
+  if (hasExactWord(norm, 'estrela', 'estrelas', 'constelacao', 'constelacoes', 'astronomia', 'telescopio', 'galaxia', 'cruzeiro do sul', 'orion')) {
+    return 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=700&auto=format&fit=crop&q=80'; // Céu estrelado com constelações
+  }
+  if (hasExactWord(norm, 'rocha', 'rochas', 'mineral', 'minerais', 'geologia', 'fossil', 'fosseis', 'pedra')) {
+    return 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=700&auto=format&fit=crop&q=80'; // Rochas, minerais e geologia
+  }
+  if (hasExactWord(norm, 'clima', 'meteorologia', 'nuvem', 'nuvens', 'chuva', 'vento', 'tempestade', 'cumulonimbus')) {
+    return 'https://images.unsplash.com/photo-1534088568595-a066f410bcda?w=700&auto=format&fit=crop&q=80'; // Clima e nuvens meteorológicas
+  }
+
+  // 7. Artes / Desenho / Perspectiva / Pintura / Música
+  if (hasExactWord(norm, 'perspectiva', 'ponto de fuga', 'luz e sombra', 'grafite', 'esboco', 'cilindro', 'desenho geometrico')) {
+    return 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=700&auto=format&fit=crop&q=80'; // Desenho geométrico e perspectiva artística
+  }
+  if (hasExactWord(norm, 'violao', 'flauta', 'partitura', 'instrumento musical', 'canto coral', 'instrumentos musicais')) {
+    return 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=700&auto=format&fit=crop&q=80'; // Instrumentos musicais e violão acústico
+  }
+  if (hasExactWord(norm, 'pintura', 'tinta', 'quadro', 'pincel', 'pinceis', 'aquarela', 'oleo sobre tela')) {
+    return 'https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?w=700&auto=format&fit=crop&q=80'; // Pincéis de pintura artística e tintas
+  }
+  if (hasExactWord(norm, 'fotografia', 'camera fotografica', 'lente', 'abertura', 'obturador', 'diafragma')) {
+    return 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=700&auto=format&fit=crop&q=80'; // Câmera fotográfica profissional
+  }
+  if (hasExactWord(norm, 'computacao', 'computador', 'programacao', 'hardware', 'software', 'codigo')) {
+    return 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=700&auto=format&fit=crop&q=80'; // Notebook, computação e programação
+  }
+  if (hasExactWord(norm, 'radioamador', 'codigo morse', 'semafora', 'antena transmissora')) {
+    return 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=700&auto=format&fit=crop&q=80'; // Ondas sonoras e equipamentos de transmissão
+  }
+
+  // 8. Habilidades Domésticas / Agrícolas
+  if (hasExactWord(norm, 'culinaria', 'receita', 'pao', 'panificacao', 'assar', 'forno de acampamento')) {
+    return 'https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=700&auto=format&fit=crop&q=80'; // Culinária e preparo de alimentos
+  }
+  if (hasExactWord(norm, 'costura', 'agulha', 'linha de costura', 'alfaiataria', 'ponto caseado')) {
+    return 'https://images.unsplash.com/photo-1528458876861-544fd1761a91?w=700&auto=format&fit=crop&q=80'; // Carretéis de costura e agulhas
+  }
+  if (hasExactWord(norm, 'horta', 'jardim', 'adubo', 'plantio', 'hortalica', 'canteiro', 'compostagem')) {
+    return 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=700&auto=format&fit=crop&q=80'; // Horta orgânica e jardinagem produtiva
+  }
+  if (hasExactWord(norm, 'marcenaria', 'serra', 'martelo', 'carpintaria', 'plaina', 'lixa')) {
+    return 'https://images.unsplash.com/photo-1504148455328-c376907d081c?w=700&auto=format&fit=crop&q=80'; // Ferramentas de marcenaria e madeira
+  }
+
+  // 9. Atividades Missionárias / Bíblia / Liderança
+  if (hasExactWord(norm, 'biblia', 'evangelho', 'versiculo', 'testemunho', 'pregacao', 'escrituras', 'antigo testamento', 'novo testamento')) {
+    return 'https://images.unsplash.com/photo-1507692049790-de58290a4334?w=700&auto=format&fit=crop&q=80'; // Bíblia Sagrada aberta para estudo
+  }
+  if (hasExactWord(norm, 'ordem unida', 'civismo', 'bandeira nacional', 'pelotao', 'marcha militar')) {
+    return 'https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?w=700&auto=format&fit=crop&q=80'; // Grupo unido de jovens e liderança
+  }
+
+  // Se não houver correspondência direta e precisa com o que a questão pede,
+  // retorna vazio para que NENHUMA imagem desconexa apareça.
+  return '';
+}
+
+// Busca dinamicamente uma ilustração estritamente contextualizada com o que a questão pede.
+// Diretriz de Qualidade: Se não houver imagem diretamente ligada ao assunto da questão,
+// retorna null para NÃO exibir imagem alguma, preservando a integridade pedagógica do slide.
+export async function findContextualIllustrationUrl(
+  specialtyName: string, 
+  questionOrSubText: string, 
+  areaName?: string,
+  extraKeyword?: string
+): Promise<string | null> {
+  const curated = getTopicImageUrl(specialtyName, questionOrSubText, areaName, extraKeyword);
+  if (curated) {
+    return curated;
+  }
+
+  // Se não houver imagem com relação direta ao enunciado da questão, retorna null.
+  // O slide automaticamente utilizará o layout pedagógico expandido (Dinâmica Prática + Conselho ao Instrutor).
+  return null;
 }
 
 // Paleta de cores oficial baseada na área da especialidade
@@ -736,38 +875,82 @@ function buildDetailedDidacticData(
       instructorTip = 'Incentive a perseverança individual, adaptando a intensidade para que todos os membros da unidade concluam o percurso com êxito.';
     }
   } 
-  // 2. Pioneirismo / Nós / Amarras
-  else if (specLower.includes('nó') || specLower.includes('pioneirismo') || qLower.includes('nó') || qLower.includes('amarra') || qLower.includes('corda')) {
-    didacticAnswer = `Cada nó e amarra possui função mecânica específica na construção pioneira e em salvamentos. O nó deve ser executado de forma correta, firme e sem encavalamento de voltas, garantindo que suporte a carga exigida e possa ser desfeito com facilidade quando não estiver mais sob tração.`;
-    keyPoints = [
-      'Execução com precisão anatômica da volta sem cruzamento errôneo.',
-      'Saber a aplicação real de cada nó (união, ancoragem ou salvamento).',
-      'Arremate firme nas pontas (chicotes) para evitar desfiamento.'
-    ];
-    practicalActivity = 'Desafio das Cordas: Cada desbravador executa o nó vendado após dominá-lo visualmente, testando a memória muscular.';
-    instructorTip = 'Demonstre o passo a passo com cordas de cores contrastantes para facilitar a visualização das voltas.';
+  // 2. Pioneirismo / Nós / Amarras / Acampamento
+  else if (specLower.includes('nó') || specLower.includes('pioneirismo') || specLower.includes('acamp') || qLower.includes('nó') || qLower.includes('amarra') || qLower.includes('corda') || qLower.includes('fogueira') || qLower.includes('fogo')) {
+    if (qLower.includes('fogo') || qLower.includes('fogueira')) {
+      didacticAnswer = `O fogo de acampamento atende a funções vitais: cocção de alimentos, aquecimento, iluminação e purificação de água. A construção correta exige limpeza de um raio de 3 metros ao redor (retirando folhas secas até o solo mineral), delimitação com pedras úmidas ou valeta e escalonamento da lenha: isca (pequenas lascas secas), gravetos de sustentação e troncos de combustão lenta. Jamais deixe o fogo sem vigilância e apague-o com água e terra até que as cinzas estejam frias ao toque.`;
+      keyPoints = [
+        'Limpeza prévia da área e isolamento seguro contra propagação de fagulhas.',
+        'Escalonamento correto do combustível: isca, gravetos médios e lenha de queima lenta.',
+        'Extinção total com água e terra, garantindo que não haja brasas ocultas sob as cinzas.'
+      ];
+      practicalActivity = 'Construção Prática de Fogueira: Divida a unidade para montar sem acender três estruturas: cone/fita, caçador e estrela.';
+      instructorTip = 'Ensine que o respeito e a segurança com o fogo são marcas inegociáveis de um desbravador responsável.';
+    } else {
+      didacticAnswer = `Cada nó e amarra possui função mecânica específica na construção pioneira e em salvamentos. O nó deve ser executado de forma correta, firme e sem encavalamento de voltas, garantindo que suporte a carga exigida e possa ser desfeito com facilidade quando não estiver mais sob tração. As amarras unem toras de madeira através de voltas bem ajustadas e enforcadas firmemente.`;
+      keyPoints = [
+        'Execução com precisão anatômica da volta sem cruzamento errôneo.',
+        'Saber a aplicação real de cada nó (união, ancoragem ou salvamento).',
+        'Arremate firme nas pontas (chicotes) para evitar desfiamento e acidentes.'
+      ];
+      practicalActivity = 'Desafio das Cordas: Cada desbravador executa o nó demonstrado pelo instrutor, praticando com e sem apoio visual.';
+      instructorTip = 'Demonstre o passo a passo com cordas de cores contrastantes para facilitar a visualização de cada seio e laçada.';
+    }
   }
-  // 3. Primeiros Socorros / Saúde
-  else if (category === 'SEGURANCA' || qLower.includes('socorro') || qLower.includes('fratura') || qLower.includes('entorse')) {
-    didacticAnswer = `O atendimento de primeiros socorros visa preservar a vida, evitar o agravamento do quadro e manter a vítima estável até o socorro médico especializado. O socorrista deve avaliar a cena, garantir a segurança pessoal, acionar o serviço de emergência (192 ou 193) e aplicar técnicas corretas de imobilização e curativo.`;
+  // 3. Estudo da Natureza / Animais / Botânica / Astronomia
+  else if (specLower.includes('bicho') || specLower.includes('animal') || specLower.includes('ave') || specLower.includes('planta') || specLower.includes('arvore') || specLower.includes('flor') || specLower.includes('estrela') || specLower.includes('astronom') || (specialty.area || '').toLowerCase().includes('natureza')) {
+    didacticAnswer = `O estudo da natureza nesta especialidade revela a sabedoria e a perfeição do Criador manifestadas nos seres vivos e no cosmos. O cumprimento deste requisito exige observação direta em campo, identificação de padrões morfológicos e comportamentais, além do entendimento de como cada organismo integra e equilibra o seu respectivo ecossistema.`;
     keyPoints = [
-      'Avaliação da segurança da cena antes de qualquer aproximação.',
-      'Acionamento imediato do resgate informando local e estado da vítima.',
-      'Aplicação de curativos e imobilizações sem comprimir a circulação.'
+      `Identificar características morfológicas e funções biológicas específicas de ${specialty.nome}.`,
+      'Compreender o habitat, hábitos ecológicos e a cadeia alimentar envolvida.',
+      'Reconhecer o papel de mordomia cristã e proteção ambiental como guardiões da criação de Deus.'
     ];
-    practicalActivity = 'Oficina de Ataduras: Treine na unidade a colocação de tala rígida e enfaixamento em espiral no braço.';
-    instructorTip = 'Reforce a importância de manter a calma e confortar a vítima durante todo o processo.';
+    practicalActivity = `Expedição de Observação: Realize um safári fotográfico ou caderno de campo registrando 3 espécimes/exemplos práticos de ${specialty.nome}.`;
+    instructorTip = 'Conecte cada detalhe biológico ao cuidado providentíssimo de Deus com suas criaturas (Salmos 104).';
+  }
+  // 4. Primeiros Socorros / Saúde / Ciência
+  else if (category === 'SEGURANCA' || qLower.includes('socorro') || qLower.includes('fratura') || qLower.includes('entorse') || qLower.includes('rcp') || (specialty.area || '').toLowerCase().includes('saude')) {
+    didacticAnswer = `O atendimento de primeiros socorros visa preservar a vida, evitar o agravamento do quadro e manter a vítima estável até a chegada de socorro médico especializado. O socorrista deve avaliar a cena, garantir sua própria segurança e da equipe, acionar o serviço de emergência (SAMU 192 ou Bombeiros 193) e intervir com técnicas corretas e comprovadas.`;
+    keyPoints = [
+      'Avaliação primária da segurança da cena antes de qualquer aproximação da vítima.',
+      'Acionamento imediato do resgate profissional informando local exato e gravidade.',
+      'Aplicação de protocolos seguros (compressas, imobilizações e curativos) sem garrotear a circulação.'
+    ];
+    practicalActivity = 'Simulação Realista: Pratique com a unidade o atendimento inicial e enfaixamento simulado com materiais do kit de socorros.';
+    instructorTip = 'Reforce a importância de manter a serenidade e transmitir segurança à vítima através de palavras calmas.';
   } 
-  // 4. Geral específico baseado no enunciado
-  else {
-    didacticAnswer = `Este requisito exige domínio conceitual e prático das diretrizes oficiais da especialidade de ${specialty.nome}. O desbravador aprende os fundamentos essenciais, as técnicas aplicadas e como utilizar esse conhecimento em atividades do clube e a serviço do próximo.`;
+  // 5. Atividades Missionárias / Bíblia
+  else if ((specialty.area || '').toLowerCase().includes('mission') || specLower.includes('biblia') || qLower.includes('biblia') || qLower.includes('deus') || qLower.includes('jesus')) {
+    didacticAnswer = `Este requisito capacita o desbravador no ministério do testemunho cristão e no aprofundamento das Escrituras Sagradas. O aprendizado alia fundamentação bíblica sólida, vida diária de oração e desenvolvimento de métodos práticos para compartilhar a esperança do Evangelho de Cristo com amigos, família e comunidade.`;
     keyPoints = [
-      `Compreensão dos tópicos fundamentais da especialidade ${specialty.nome}.`,
-      'Demonstração prática perante a unidade e o conselheiro.',
-      'Aplicação dos princípios de liderança e serviço comunitário.'
+      'Domínio dos textos bíblicos e princípios fundamentais do tema estudado.',
+      'Aplicação pessoal prática na conduta diária e no caráter cristão.',
+      'Compartilhamento ativo do amor de Jesus através de ações missionárias e comunitárias.'
     ];
-    practicalActivity = 'Dinâmica Interativa na Unidade: Promova uma oficina prática de 10 minutos onde cada membro demonstra o que aprendeu.';
-    instructorTip = 'Conduza a instrução com entusiasmo, relacionando o assunto à vivência dos desbravadores no clube.';
+    practicalActivity = 'Círculo de Compartilhamento: Cada desbravador apresenta em 1 minuto uma lição bíblica prática aprendida neste item.';
+    instructorTip = 'Encoraje os desbravadores a memorizarem os versos-chave com auxílio de dinâmicas lúdicas em equipe.';
+  }
+  // 6. Artes, Habilidades Manuais e Domésticas
+  else if ((specialty.area || '').toLowerCase().includes('artes') || (specialty.area || '').toLowerCase().includes('domestica') || specLower.includes('musica') || specLower.includes('culinaria')) {
+    didacticAnswer = `O domínio deste requisito desenvolve a criatividade, a destreza manual e a utilidade prática do desbravador. A realização envolve o conhecimento detalhado das ferramentas e materiais apropriados, o seguimento metódico das etapas de produção e o cultivo de altos padrões de acabamento, higiene e segurança.`;
+    keyPoints = [
+      `Conhecer as ferramentas, técnicas fundamentais e matérias-primas de ${specialty.nome}.`,
+      'Executar o trabalho com esmero, paciência e atenção rigorosa aos detalhes.',
+      'Aplicar os aprendizados em benefício da unidade, do lar e do serviço comunitário.'
+    ];
+    practicalActivity = `Oficina de Mão na Massa: Promova 15 minutos de produção prática onde cada desbravador elabora ou demonstra uma etapa do item.`;
+    instructorTip = 'Valorize o esforço e a dedicação individual de cada desbravador, independentemente do nível inicial de habilidade.';
+  }
+  // 7. Geral contextualizado pelo enunciado específico da questão
+  else {
+    didacticAnswer = `Para cumprir o item "${shortTitle}", o desbravador deve dominar a fundamentação técnica e prática prescrita pelo Ministério dos Desbravadores. Este quesito aborda os princípios essenciais da especialidade de ${specialty.nome}, capacitando o jovem a explicar conceitos com clareza, executar procedimentos com segurança e aplicar o conhecimento em campo.`;
+    keyPoints = [
+      `Dominar os conceitos técnicos e definições centrais de "${shortTitle}".`,
+      'Demonstrar a aplicação prática satisfatória perante a liderança e conselheiro.',
+      'Registrar os resultados e aprendizados no relatório da especialidade.'
+    ];
+    practicalActivity = `Dinâmica de Fixação em Duplas: Os desbravadores formulam perguntas e respostas entre si sobre "${shortTitle}" durante o Cantinho da Unidade.`;
+    instructorTip = 'Utilize recursos visuais e perguntas socráticas para engajar os desbravadores na construção do conhecimento.';
   }
 
   const detailedSubItems = item.subItems && item.subItems.length > 0 
@@ -865,13 +1048,16 @@ Retorne EXCLUSIVAMENTE um JSON array com os objetos no formato:
       });
 
       if (response.ok) {
-        const resJson = await response.json();
-        if (resJson && resJson.text) {
-          const clean = resJson.text.replace(/```json/g, '').replace(/```/g, '').trim();
-          const parsed = JSON.parse(clean);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            if (onProgress) onProgress('Organizando respostas didáticas de alta precisão...', 55);
-            return mapAiResponseToRequirements(parsed, items, totalCount, specialty);
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const resJson = await response.json();
+          if (resJson && resJson.text) {
+            const clean = resJson.text.replace(/```json/g, '').replace(/```/g, '').trim();
+            const parsed = JSON.parse(clean);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              if (onProgress) onProgress('Organizando respostas didáticas de alta precisão...', 55);
+              return mapAiResponseToRequirements(parsed, items, totalCount, specialty);
+            }
           }
         }
       }
@@ -985,31 +1171,16 @@ async function resolveRequirementIllustration(
   specialty: Especialidade, 
   theme: ReturnType<typeof getAreaTheme>
 ): Promise<string | null> {
-  // 1. Tenta carregar imagem fotográfica temática de alta resolução baseada no tema exato da pergunta
-  const photoUrl = getTopicImageUrl(specialty.nome, item.cleanQuestion, specialty.area, item.illustrationTopic);
-  try {
-    const dataUrl = await loadImageDataUrl(photoUrl);
-    if (dataUrl) return dataUrl;
-  } catch {}
-
-  // 2. Se falhar ou estiver offline, gera o card ilustrado vetorial em Canvas
-  const canvasCard = createIllustratedCanvasCard(
-    item.shortTitle, 
-    `ITEM ${item.itemNumber}`, 
-    theme.primary, 
-    theme.secondary,
-    item.category
-  );
-  if (canvasCard) return canvasCard;
-
-  // 3. Fallback: logo da especialidade se disponível
-  if (specialty.logo) {
+  // Tenta carregar imagem fotográfica temática estritamente contextualizada
+  const photoUrl = await findContextualIllustrationUrl(specialty.nome, item.cleanQuestion, specialty.area, item.illustrationTopic);
+  if (photoUrl) {
     try {
-      const logoData = await loadImageDataUrl(specialty.logo);
-      if (logoData) return logoData;
+      const dataUrl = await loadImageDataUrl(photoUrl);
+      if (dataUrl) return dataUrl;
     } catch {}
   }
 
+  // Se não encontrar imagem diretamente relacionada, NÃO exibe imagem (layout se ajusta para conteúdo pedagógico)
   return null;
 }
 
@@ -1019,31 +1190,16 @@ async function resolveSubItemIllustration(
   specialty: Especialidade, 
   theme: ReturnType<typeof getAreaTheme>
 ): Promise<string | null> {
-  // 1. Tenta carregar imagem fotográfica temática de alta resolução
-  const photoUrl = getTopicImageUrl(specialty.nome, `${sub.cleanTitle} ${sub.label}`, specialty.area, sub.illustrationTopic);
-  try {
-    const dataUrl = await loadImageDataUrl(photoUrl);
-    if (dataUrl) return dataUrl;
-  } catch {}
-
-  // 2. Se falhar ou estiver offline, gera o card ilustrado vetorial em Canvas
-  const canvasCard = createIllustratedCanvasCard(
-    sub.cleanTitle, 
-    sub.letter, 
-    theme.primary, 
-    theme.secondary,
-    specialty.area
-  );
-  if (canvasCard) return canvasCard;
-
-  // 3. Fallback: logo da especialidade se disponível
-  if (specialty.logo) {
+  // Tenta carregar imagem fotográfica temática estritamente contextualizada
+  const photoUrl = await findContextualIllustrationUrl(specialty.nome, `${sub.cleanTitle} ${sub.label}`, specialty.area, sub.illustrationTopic);
+  if (photoUrl) {
     try {
-      const logoData = await loadImageDataUrl(specialty.logo);
-      if (logoData) return logoData;
+      const dataUrl = await loadImageDataUrl(photoUrl);
+      if (dataUrl) return dataUrl;
     } catch {}
   }
 
+  // Se não encontrar imagem relacionada, não exibe imagem
   return null;
 }
 
@@ -1519,19 +1675,19 @@ export async function generateSpecialtyPowerPoint(
       wrap: true
     });
 
-    // Bloco 3 (Coluna Direita - Superior): ILUSTRAÇÃO TEMÁTICA DA QUESTÃO
-    const rightImgH = 1.95;
-    slide.addShape(pres.ShapeType.roundRect, {
-      x: 5.6,
-      y: contentY,
-      w: 3.6,
-      h: rightImgH,
-      rectRadius: 0.12,
-      fill: { color: 'FFFFFF' },
-      line: { color: theme.cardBorder, width: 1 }
-    });
-
+    // Coluna Direita: Ilustração ou Conteúdo Pedagógico Ampliado
     if (item.imageUrl) {
+      const rightImgH = 1.95;
+      slide.addShape(pres.ShapeType.roundRect, {
+        x: 5.6,
+        y: contentY,
+        w: 3.6,
+        h: rightImgH,
+        rectRadius: 0.12,
+        fill: { color: 'FFFFFF' },
+        line: { color: theme.cardBorder, width: 1 }
+      });
+
       try {
         slide.addImage({
           data: item.imageUrl,
@@ -1540,53 +1696,108 @@ export async function generateSpecialtyPowerPoint(
           w: 3.5,
           h: rightImgH - 0.1
         });
-      } catch {
-        slide.addText(`📸 Ilustração Temática: ${item.shortTitle}`, {
-          x: 5.8,
-          y: contentY + 0.8,
-          w: 3.2,
-          h: 0.4,
-          fontSize: 9.5,
-          bold: true,
-          color: theme.primary,
-          align: 'center'
-        });
-      }
+      } catch {}
+
+      // Bloco 4 (Coluna Direita - Inferior): Dinâmica Prática na Unidade
+      const rightBottomY = contentY + rightImgH + 0.12;
+      const rightBottomH = contentH - rightImgH - 0.12;
+
+      slide.addShape(pres.ShapeType.roundRect, {
+        x: 5.6,
+        y: rightBottomY,
+        w: 3.6,
+        h: rightBottomH,
+        rectRadius: 0.12,
+        fill: { color: theme.bgLight },
+        line: { color: theme.cardBorder, width: 1 }
+      });
+
+      slide.addText('⚡ Dinâmica Prática na Unidade', {
+        x: 5.8,
+        y: rightBottomY + 0.08,
+        w: 3.2,
+        h: 0.2,
+        fontSize: 9,
+        bold: true,
+        color: theme.secondary
+      });
+
+      slide.addText(item.practicalActivity, {
+        x: 5.8,
+        y: rightBottomY + 0.3,
+        w: 3.2,
+        h: rightBottomH - 0.35,
+        fontSize: 8,
+        color: '475569',
+        wrap: true
+      });
+    } else {
+      // Quando não há imagem relacionada: layout pedagógico balanceado e sem lacunas
+      const cardH = (contentH - 0.14) / 2;
+
+      // Card Superior: Dinâmica Prática na Unidade
+      slide.addShape(pres.ShapeType.roundRect, {
+        x: 5.6,
+        y: contentY,
+        w: 3.6,
+        h: cardH,
+        rectRadius: 0.12,
+        fill: { color: theme.bgLight },
+        line: { color: theme.cardBorder, width: 1 }
+      });
+
+      slide.addText('⚡ Dinâmica Prática na Unidade', {
+        x: 5.8,
+        y: contentY + 0.1,
+        w: 3.2,
+        h: 0.22,
+        fontSize: 9.5,
+        bold: true,
+        color: theme.secondary
+      });
+
+      slide.addText(item.practicalActivity, {
+        x: 5.8,
+        y: contentY + 0.36,
+        w: 3.2,
+        h: cardH - 0.44,
+        fontSize: 8.5,
+        color: '334155',
+        wrap: true
+      });
+
+      // Card Inferior: Conselho Pedagógico para o Instrutor
+      const secondY = contentY + cardH + 0.14;
+      slide.addShape(pres.ShapeType.roundRect, {
+        x: 5.6,
+        y: secondY,
+        w: 3.6,
+        h: cardH,
+        rectRadius: 0.12,
+        fill: { color: 'FFFFFF' },
+        line: { color: 'E2E8F0', width: 1 }
+      });
+
+      slide.addText('💡 Conselho Pedagógico para o Instrutor', {
+        x: 5.8,
+        y: secondY + 0.1,
+        w: 3.2,
+        h: 0.22,
+        fontSize: 9.5,
+        bold: true,
+        color: theme.primary
+      });
+
+      slide.addText(item.instructorTip || 'Oriente a instrução com exemplos concretos e perguntas reflexivas, estimulando a participação de cada desbravador na unidade.', {
+        x: 5.8,
+        y: secondY + 0.36,
+        w: 3.2,
+        h: cardH - 0.44,
+        fontSize: 8.5,
+        color: '475569',
+        wrap: true
+      });
     }
-
-    // Bloco 4 (Coluna Direita - Inferior): Dinâmica Prática na Unidade & Conselho Pedagógico
-    const rightBottomY = contentY + rightImgH + 0.12;
-    const rightBottomH = contentH - rightImgH - 0.12;
-
-    slide.addShape(pres.ShapeType.roundRect, {
-      x: 5.6,
-      y: rightBottomY,
-      w: 3.6,
-      h: rightBottomH,
-      rectRadius: 0.12,
-      fill: { color: theme.bgLight },
-      line: { color: theme.cardBorder, width: 1 }
-    });
-
-    slide.addText('⚡ Dinâmica Prática na Unidade', {
-      x: 5.8,
-      y: rightBottomY + 0.08,
-      w: 3.2,
-      h: 0.2,
-      fontSize: 9,
-      bold: true,
-      color: theme.secondary
-    });
-
-    slide.addText(item.practicalActivity, {
-      x: 5.8,
-      y: rightBottomY + 0.3,
-      w: 3.2,
-      h: rightBottomH - 0.35,
-      fontSize: 8,
-      color: '475569',
-      wrap: true
-    });
 
     // -------------------------------------------------------------
     // SLIDES DEDICADOS PARA CADA SUB-ITEM (COM ILUSTRAÇÃO E CONCEITO PRÓPRIO)
@@ -1724,18 +1935,18 @@ export async function generateSpecialtyPowerPoint(
           wrap: true
         });
 
-        // Bloco 3 (Coluna Direita - Superior: Ilustração / Imagem Temática)
-        subSlide.addShape(pres.ShapeType.roundRect, {
-          x: 5.6,
-          y: 1.95,
-          w: 3.6,
-          h: 2.05,
-          rectRadius: 0.12,
-          fill: { color: 'FFFFFF' },
-          line: { color: 'E2E8F0', width: 1 }
-        });
-
+        // Coluna Direita: Ilustração ou Aplicação Pedagógica Ampliada
         if (sub.imageUrl) {
+          subSlide.addShape(pres.ShapeType.roundRect, {
+            x: 5.6,
+            y: 1.95,
+            w: 3.6,
+            h: 2.05,
+            rectRadius: 0.12,
+            fill: { color: 'FFFFFF' },
+            line: { color: 'E2E8F0', width: 1 }
+          });
+
           try {
             subSlide.addImage({
               data: sub.imageUrl,
@@ -1744,50 +1955,102 @@ export async function generateSpecialtyPowerPoint(
               w: 3.5,
               h: 1.95
             });
-          } catch {
-            subSlide.addText(`📸 Ilustração Temática: ${sub.cleanTitle}`, {
-              x: 5.8,
-              y: 2.75,
-              w: 3.2,
-              h: 0.5,
-              fontSize: 10,
-              bold: true,
-              color: theme.primary,
-              align: 'center'
-            });
-          }
+          } catch {}
+
+          // Bloco 4 (Coluna Direita - Inferior: Aplicação Prática / Desafio na Unidade)
+          subSlide.addShape(pres.ShapeType.roundRect, {
+            x: 5.6,
+            y: 4.12,
+            w: 3.6,
+            h: 1.18,
+            rectRadius: 0.12,
+            fill: { color: theme.bgLight },
+            line: { color: theme.cardBorder, width: 1 }
+          });
+
+          subSlide.addText('🎯 Aplicação Prática / Desafio na Unidade', {
+            x: 5.8,
+            y: 4.22,
+            w: 3.2,
+            h: 0.22,
+            fontSize: 9.5,
+            bold: true,
+            color: theme.secondary
+          });
+
+          subSlide.addText(sub.practicalTip, {
+            x: 5.8,
+            y: 4.47,
+            w: 3.2,
+            h: 0.75,
+            fontSize: 8,
+            color: '334155',
+            wrap: true
+          });
+        } else {
+          // Quando não há imagem relacionada no sub-item:
+          // Card Superior: Aplicação Prática / Desafio na Unidade
+          subSlide.addShape(pres.ShapeType.roundRect, {
+            x: 5.6,
+            y: 1.95,
+            w: 3.6,
+            h: 1.62,
+            rectRadius: 0.12,
+            fill: { color: theme.bgLight },
+            line: { color: theme.cardBorder, width: 1 }
+          });
+
+          subSlide.addText('🎯 Aplicação Prática / Desafio na Unidade', {
+            x: 5.8,
+            y: 2.05,
+            w: 3.2,
+            h: 0.22,
+            fontSize: 9.5,
+            bold: true,
+            color: theme.secondary
+          });
+
+          subSlide.addText(sub.practicalTip, {
+            x: 5.8,
+            y: 2.32,
+            w: 3.2,
+            h: 1.15,
+            fontSize: 8.5,
+            color: '334155',
+            wrap: true
+          });
+
+          // Card Inferior: Orientação & Avaliação da Unidade
+          subSlide.addShape(pres.ShapeType.roundRect, {
+            x: 5.6,
+            y: 3.68,
+            w: 3.6,
+            h: 1.62,
+            rectRadius: 0.12,
+            fill: { color: 'FFFFFF' },
+            line: { color: 'E2E8F0', width: 1 }
+          });
+
+          subSlide.addText('💡 Orientação & Avaliação da Unidade', {
+            x: 5.8,
+            y: 3.78,
+            w: 3.2,
+            h: 0.22,
+            fontSize: 9.5,
+            bold: true,
+            color: theme.primary
+          });
+
+          subSlide.addText(`Certifique-se de que cada desbravador da unidade compreendeu e executou este sub-item (${sub.letter.toUpperCase()}) com clareza antes de passar ao próximo requisito.`, {
+            x: 5.8,
+            y: 4.05,
+            w: 3.2,
+            h: 1.15,
+            fontSize: 8.5,
+            color: '475569',
+            wrap: true
+          });
         }
-
-        // Bloco 4 (Coluna Direita - Inferior: Aplicação Prática / Desafio na Unidade)
-        subSlide.addShape(pres.ShapeType.roundRect, {
-          x: 5.6,
-          y: 4.12,
-          w: 3.6,
-          h: 1.18,
-          rectRadius: 0.12,
-          fill: { color: theme.bgLight },
-          line: { color: theme.cardBorder, width: 1 }
-        });
-
-        subSlide.addText('🎯 Aplicação Prática / Desafio na Unidade', {
-          x: 5.8,
-          y: 4.22,
-          w: 3.2,
-          h: 0.22,
-          fontSize: 9.5,
-          bold: true,
-          color: theme.secondary
-        });
-
-        subSlide.addText(sub.practicalTip, {
-          x: 5.8,
-          y: 4.47,
-          w: 3.2,
-          h: 0.75,
-          fontSize: 8,
-          color: '334155',
-          wrap: true
-        });
       }
     }
   }

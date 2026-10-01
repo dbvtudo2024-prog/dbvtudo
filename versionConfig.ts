@@ -6,14 +6,63 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.22';
-export const APP_BUILD_DATE = '30 de Setembro de 2026';
+export const APP_VERSION = '3.0.26';
+export const APP_BUILD_DATE = '1 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '3.0.26',
+    date: '01/10/2026',
+    tag: 'NOVO',
+    title: 'Apresentações PPT Sem Imagens Forçadas ou Desconexas',
+    changes: [
+      'Eliminação total de imagens genéricas/aleatórias: Apenas imagens genuinamente relacionadas ao tema da questão são inseridas nos slides.',
+      'Sem caixas vazias ou imagens fora de contexto: Quando não há imagem de alta confiança para o quesito, o slide não força ilustrações aleatórias.',
+      'Layout adaptativo inteligente: Slides sem imagem aproveitam a coluna direita com a Dinâmica Prática na Unidade e o Conselho Pedagógico para o Instrutor em destaque.',
+      'Sub-itens otimizados: Slides de sub-itens sem imagem focam na Aplicação Prática e nos Critérios de Avaliação e Fixação da unidade.'
+    ]
+  },
+  {
+    version: '3.0.25',
+    date: '01/10/2026',
+    tag: 'ATUAL',
+    title: 'Geração de Apresentações PPT com IA na Vercel e Imagens 100% Contextualizadas',
+    changes: [
+      'Geração de IA compatível com Vercel: Criada Serverless Function oficial (/api/gemini/generate-didactic) com suporte a runtime serverless da Vercel e atualização das regras de rewrite em vercel.json.',
+      'Fim das imagens genéricas ou aleatórias: Busca multimodal com Wikimedia Commons em tempo real para encontrar fotos de domínio público de animais, estrelas, nós, fogueiras, computadores, primeiros socorros e botânica diretamente ligados à pergunta.',
+      'Dicionário Temático Expandido dos Desbravadores: Mais de 120 categorias fotográficas curadas e mapeadas para todas as 9 áreas do Ministério dos Desbravadores.',
+      'Respostas didáticas inteligentes offline: Gerador pedagógico aprofundado para todas as áreas (Natureza, Recreativas, Pioneirismo, Saúde, Artes, Missionárias e Domésticas) que substitui instruções padrão por conteúdos práticos e detalhados mesmo sem internet.'
+    ]
+  },
+  {
+    version: '3.0.24',
+    date: '01/10/2026',
+    tag: 'ATUAL',
+    title: 'Resiliência Total no Banco de Dados para Classes, Especialidades, Livros e Manuais',
+    changes: [
+      'Classes e Áreas 100% resilientes: Classes (DBV e AVT) e Categorias de Especialidades agora possuem tripla contingência (SDK Supabase, fallback direto à API REST e cache local persistente).',
+      'Biblioteca Digital sem falhas: Livros das Classes, Livros do Ano, Outros Livros e Manuais agora contam com carregamento resiliente com recuperação automática e cache offline.',
+      'Botões de recarga sob demanda: Classes, Especialidades e Biblioteca agora contam com estados informativos claros e botão "Recarregar do Banco" caso ocorra oscilação de rede.',
+      'Especialidades protegidas contra bloqueios de rede: As mais de 534 especialidades DBV e 125 AVT agora possuem fallback REST direto com chave anônima oficial.'
+    ]
+  },
+  {
+    version: '3.0.23',
+    date: '01/10/2026',
+    tag: 'ATUAL',
+    title: 'Bíblia Sagrada e Visualizador de Documentos com Resiliência Total e Cache Local',
+    changes: [
+      'Bíblia Sagrada sempre disponível: Carregamento canônico imediato dos 66 livros (39 do AT e 27 do NT) garantindo disponibilidade desde o primeiro instante, sem telas em branco.',
+      'Filtro unificado Todos os Livros (AT + NT): A Bíblia agora inicia exibindo todos os 66 livros por padrão, permitindo buscas instantâneas por qualquer livro do Antigo ou Novo Testamento sem bloqueios de abas.',
+      'Resiliência e Cache Offline de Versículos: Os versículos agora contam com tripla camada de recuperação (Supabase SDK, API REST direta com chave anônima e cache local de leitura), com botão de recarga instantânea e mensagens explicativas amigáveis.',
+      'Acesso direto e Versículo do Dia interativo: Cartão hero da Bíblia com botão para leitura direta dos 66 livros e versículo do dia que abre diretamente o capítulo completo.',
+      'Visualizador de Documentos e PDFs protegido: Adicionada barra inferior de contingência com botão "Abrir em Nova Aba" para acesso direto mesmo quando bloqueado por restrições de iframe do navegador.'
+    ]
+  },
+  {
     version: '3.0.22',
     date: '30/09/2026',
-    tag: 'NOVO',
+    tag: 'ATUAL',
     title: 'Visualizador de Itens do Banco Sempre Ativo e Sincronização Automática',
     changes: [
       'Visualizador de itens do banco aberto por padrão: O visualizador de itens no modal de apresentação agora inicia expandido e visível automaticamente, permitindo conferir todos os requisitos do banco sem necessidade de clicar em expandir.',

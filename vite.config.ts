@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '3.0.22';
+const appVersion = '3.0.26';
 
 function versionPlugin(): Plugin {
   return {
@@ -19,9 +19,9 @@ function versionPlugin(): Plugin {
           buildDate: new Date(buildTime).toISOString(),
           timestamp: buildTime,
           highlights: [
-            "Visualizador e lista de requisitos oficiais do banco de dados no modal de PowerPoint",
-            "Suporte aprimorado para numerações sem ponto (ex: '1 Ler', '2 Entrevistar') mantendo fidelidade total ao banco",
-            "Exibição clara e garantida de todos os itens e sub-itens oficiais em tela"
+            "Apenas imagens genuinamente relacionadas são exibidas nas apresentações (.pptx)",
+            "Fim de imagens aleatórias, fallbacks forçados ou fotos sem contexto",
+            "Layout adaptativo que expande conteúdos pedagógicos quando não há imagem"
           ]
         }, null, 2)
       });
@@ -37,9 +37,9 @@ function versionPlugin(): Plugin {
             buildDate: new Date(buildTime).toISOString(),
             timestamp: buildTime,
             highlights: [
-              "Visualizador e lista de requisitos oficiais do banco de dados no modal de PowerPoint",
-              "Suporte aprimorado para numerações sem ponto (ex: '1 Ler', '2 Entrevistar') mantendo fidelidade total ao banco",
-              "Exibição clara e garantida de todos os itens e sub-itens oficiais em tela"
+              "Apenas imagens genuinamente relacionadas são exibidas nas apresentações (.pptx)",
+              "Fim de imagens aleatórias, fallbacks forçados ou fotos sem contexto",
+              "Layout adaptativo que expande conteúdos pedagógicos quando não há imagem"
             ]
           }));
           return;
