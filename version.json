@@ -1,11 +1,11 @@
 {
-  "version": 1759369200000,
-  "versionName": "3.0.26",
-  "buildDate": "2026-10-01T22:10:00.000Z",
-  "timestamp": 1759369200000,
+  "version": 1759545600000,
+  "versionName": "3.0.28",
+  "buildDate": "2026-10-04T02:40:00.000Z",
+  "timestamp": 1759545600000,
   "highlights": [
-    "Apenas imagens genuinamente relacionadas são exibidas nas apresentações (.pptx)",
-    "Fim de imagens aleatórias, fallbacks forçados ou fotos sem contexto",
-    "Layout adaptativo que expande conteúdos pedagógicos quando não há imagem"
+    "Funcionamento automático da IA na Vercel após deploy (com sincronização segura via banco de dados)",
+    "Suporte de até 60s para funções Serverless na Vercel (vercel.json)",
+    "Apresentações PPT 100% focadas em conteúdo pedagógico estruturado e sem imagens desconexas"
   ]
 }

@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '3.0.26';
+const appVersion = '3.0.28';
 
 function versionPlugin(): Plugin {
   return {
@@ -19,9 +19,9 @@ function versionPlugin(): Plugin {
           buildDate: new Date(buildTime).toISOString(),
           timestamp: buildTime,
           highlights: [
-            "Apenas imagens genuinamente relacionadas são exibidas nas apresentações (.pptx)",
-            "Fim de imagens aleatórias, fallbacks forçados ou fotos sem contexto",
-            "Layout adaptativo que expande conteúdos pedagógicos quando não há imagem"
+            "Funcionamento automático da IA na Vercel após deploy (com sincronização segura via banco de dados)",
+            "Suporte de até 60s para funções Serverless na Vercel (vercel.json)",
+            "Apresentações PPT 100% focadas em conteúdo pedagógico estruturado e sem imagens desconexas"
           ]
         }, null, 2)
       });
@@ -37,9 +37,9 @@ function versionPlugin(): Plugin {
             buildDate: new Date(buildTime).toISOString(),
             timestamp: buildTime,
             highlights: [
-              "Apenas imagens genuinamente relacionadas são exibidas nas apresentações (.pptx)",
-              "Fim de imagens aleatórias, fallbacks forçados ou fotos sem contexto",
-              "Layout adaptativo que expande conteúdos pedagógicos quando não há imagem"
+              "Funcionamento automático da IA na Vercel após deploy (com sincronização segura via banco de dados)",
+              "Suporte de até 60s para funções Serverless na Vercel (vercel.json)",
+              "Apresentações PPT 100% focadas em conteúdo pedagógico estruturado e sem imagens desconexas"
             ]
           }));
           return;
@@ -51,14 +51,18 @@ function versionPlugin(): Plugin {
           req.on('data', chunk => { body += chunk; });
           req.on('end', async () => {
             try {
-              const { prompt } = JSON.parse(body || '{}');
+              const parsedBody = JSON.parse(body || '{}');
+              const { prompt, systemInstruction } = parsedBody;
+              const responseMimeType = parsedBody.responseMimeType ?? 'application/json';
+              const temperature = typeof parsedBody.temperature === 'number' ? parsedBody.temperature : 0.3;
+
               if (!prompt) {
                 res.statusCode = 400;
                 res.end(JSON.stringify({ error: 'Prompt ausente' }));
                 return;
               }
 
-              const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
+              const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.API_KEY || '';
               if (!apiKey) {
                 res.statusCode = 500;
                 res.end(JSON.stringify({ error: 'GEMINI_API_KEY não configurada' }));
@@ -67,20 +71,25 @@ function versionPlugin(): Plugin {
 
               const { GoogleGenAI } = await import('@google/genai');
               const ai = new GoogleGenAI({ apiKey });
-              const models = ['gemini-3.5-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
+              const models = ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
               
               let resultText = '';
               let lastError = null;
 
               for (const modelName of models) {
                 try {
+                  const configObj: any = { temperature };
+                  if (responseMimeType) {
+                    configObj.responseMimeType = responseMimeType;
+                  }
+                  if (systemInstruction) {
+                    configObj.systemInstruction = systemInstruction;
+                  }
+
                   const response = await ai.models.generateContent({
                     model: modelName,
                     contents: prompt,
-                    config: {
-                      responseMimeType: 'application/json',
-                      temperature: 0.3
-                    }
+                    config: configObj
                   });
                   if (response && response.text) {
                     resultText = response.text;
@@ -115,7 +124,7 @@ function versionPlugin(): Plugin {
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
-    const geminiApiKey = env.GEMINI_API_KEY || process.env.GEMINI_API_KEY || process.env.API_KEY || '';
+    const geminiApiKey = env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY || env.API_KEY || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.API_KEY || '';
     return {
       server: {
         port: 3000,

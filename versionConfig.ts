@@ -6,14 +6,37 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.26';
-export const APP_BUILD_DATE = '1 de Outubro de 2026';
+export const APP_VERSION = '3.0.28';
+export const APP_BUILD_DATE = '3 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '3.0.28',
+    date: '03/10/2026',
+    tag: 'NOVO',
+    title: 'IA Funcionando Automaticamente na Vercel Após Deploy',
+    changes: [
+      'Resolução automática de credenciais na Vercel: Mesmo que a variável não esteja configurada manualmente no painel da Vercel, a função Serverless e o app recuperam a configuração codificada sincronizada com o banco Supabase.',
+      'Timeout estendido na Vercel (maxDuration: 60s): Configurado em vercel.json para evitar que o plano gratuito da Vercel interrompa a geração de apresentações com muitos requisitos após 10 segundos.',
+      'Desbravinho e Gerador de PPT integrados: Ambos utilizam a rota Serverless (/api/gemini/generate-didactic) com fallback automático para máxima disponibilidade em produção.',
+      'Correção de pareamento URL/Key do Supabase: Alinhamento automático da URL do projeto pelo payload JWT para evitar falhas de autenticação.'
+    ]
+  },
+  {
+    version: '3.0.27',
+    date: '03/10/2026',
+    tag: 'ATUAL',
+    title: 'Apresentações PPT 100% Focadas no Conteúdo Pedagógico (Sem Imagens nas Questões)',
+    changes: [
+      'Remoção definitiva de imagens nos slides de requisitos e sub-itens: Evita associações literais equivocadas (como termos compostos em nomes de nós ou técnicas) e mantém foco total na instrução.',
+      'Layout didático estruturado em duas colunas: Todos os requisitos exibem Resposta Completa, Pontos Fundamentais de Fixação, Dinâmica Prática na Unidade e Conselho Pedagógico ao Instrutor.',
+      'Geração mais rápida e limpa: A apresentação mantém apenas a insígnia oficial da especialidade na capa, otimizando o tempo de geração do arquivo PowerPoint (.pptx).'
+    ]
+  },
+  {
     version: '3.0.26',
     date: '01/10/2026',
-    tag: 'NOVO',
+    tag: 'ATUAL',
     title: 'Apresentações PPT Sem Imagens Forçadas ou Desconexas',
     changes: [
       'Eliminação total de imagens genéricas/aleatórias: Apenas imagens genuinamente relacionadas ao tema da questão são inseridas nos slides.',

@@ -1,4 +1,6 @@
 
+import { resolveGeminiApiKey } from './supabaseService';
+
 const SYSTEM_INSTRUCTION = `
 Você é o "Desbravinho", um assistente virtual especialista em Clubes de Desbravadores e Aventureiros da Igreja Adventista do Sétimo Dia.
 Sua missão é ajudar diretores e conselheiros com:
@@ -14,15 +16,43 @@ Mantenha as respostas concisas e use formatação Markdown para facilitar a leit
 `;
 
 export async function askAdvisor(prompt: string): Promise<string> {
+  // 1. Tenta via rota server-side (/api/gemini/generate-didactic)
   try {
-    const apiKey = (typeof process !== 'undefined' && (process.env?.GEMINI_API_KEY || process.env?.API_KEY)) || (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
+    if (typeof window !== 'undefined') {
+      const res = await fetch('/api/gemini/generate-didactic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          systemInstruction: SYSTEM_INSTRUCTION,
+          responseMimeType: '',
+          temperature: 0.7
+        })
+      });
+      if (res.ok) {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const data = await res.json();
+          if (data && data.text) {
+            return data.text;
+          }
+        }
+      }
+    }
+  } catch (srvErr) {
+    console.warn("Tentativa server-side no Desbravinho falhou, usando fallback direto:", srvErr);
+  }
+
+  // 2. Fallback direto com chave resolvida (ambiente ou configuração sincronizada no Supabase)
+  try {
+    const apiKey = await resolveGeminiApiKey();
     if (!apiKey) {
       return "Olá! O Desbravinho está pronto. Para ativar as respostas com inteligência artificial, configure sua chave de API Gemini.";
     }
 
     const { GoogleGenAI } = await import("@google/genai");
     const ai = new GoogleGenAI({ apiKey });
-    const models = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
+    const models = ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
 
     for (const modelName of models) {
       try {

@@ -3270,7 +3270,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               </span>
             </div>
             <p className="text-[10px] leading-relaxed text-slate-600 dark:text-slate-300">
-              Todas as <strong>{totalRealReqs} questões oficiais</strong> com respostas explicativas verdadeiras, tópicos de fixação, ilustrações visuais temáticas correspondentes ao assunto exato e slides individuais ilustrados para cada sub-item.
+              Todas as <strong>{totalRealReqs} questões oficiais</strong> com respostas explicativas completas, pontos fundamentais de fixação, dinâmicas práticas na unidade, conselhos pedagógicos ao instrutor e slides dedicados para cada sub-item.
             </p>
           </div>
 

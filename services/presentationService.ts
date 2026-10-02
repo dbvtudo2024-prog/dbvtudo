@@ -1,5 +1,6 @@
 import pptxgen from 'pptxgenjs';
 import { Especialidade, ClubType } from '../types';
+import { resolveGeminiApiKey } from './supabaseService';
 
 export interface PresentationOptions {
   instructorName?: string;
@@ -197,224 +198,25 @@ export function createIllustratedCanvasCard(
 }
 
 // Seleciona com rigor semântico uma imagem contextualizada especificamente sobre o que a questão pede
-// Helper com verificação estrita de palavra inteira (impede falsos positivos como 'sombras' casar com 'rã')
-function hasExactWord(text: string, ...words: string[]): boolean {
-  for (const w of words) {
-    const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, 'i');
-    if (regex.test(text)) return true;
-  }
-  return false;
-}
-
-// Seleciona com rigor semântico uma imagem contextualizada especificamente sobre o que a questão pede
+// Ilustrações por questão desativadas por diretriz pedagógica:
+// Os slides dos requisitos utilizam 100% do layout em duas colunas estruturadas
+// (Explicação Conceitual + Pontos Fundamentais | Dinâmica Prática + Conselho ao Instrutor),
+// evitando associações literais equivocadas (como "nó pata de gato" exibir foto de felino).
 export function getTopicImageUrl(
-  specialtyName: string, 
-  questionOrSubText: string, 
-  areaName?: string,
-  extraKeyword?: string
+  _specialtyName: string, 
+  _questionOrSubText: string, 
+  _areaName?: string,
+  _extraKeyword?: string
 ): string {
-  // Normaliza ESTRITAMENTE o texto da questão/sub-item (e extraKeyword específico da questão)
-  // IMPORTANTE: NÃO concatenamos specialtyName nem areaName para evitar que termos genéricos da especialidade
-  // casem em todas as perguntas (ex: não colocar foto de corredor em questões sobre hidratação, alimentação ou história).
-  const cleanQ = (questionOrSubText || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  
-  // Limpa extraKeyword caso apenas repita o nome da especialidade
-  let cleanExtra = (extraKeyword || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  if (specialtyName) {
-    const specNorm = specialtyName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-    cleanExtra = cleanExtra.replace(specNorm, '').trim();
-  }
-
-  const norm = `${cleanQ} ${cleanExtra}`.trim();
-
-  // 1. Corrida / Atletismo / Esportes Terrestres (apenas quando a questão pedir explicitamente o item)
-  if (hasExactWord(norm, 'tenis', 'calcado', 'calcados', 'sapato', 'sapatos', 'solado', 'cravos', 'amortecimento', 'meia', 'meias')) {
-    return 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=700&auto=format&fit=crop&q=80'; // Tênis esportivo técnico com solado de trilha
-  }
-  if (hasExactWord(norm, 'hidratacao', 'agua mineral', 'squeeze', 'garrafa', 'garrafinha', 'beber agua', 'mochila de hidratacao', 'isotonico')) {
-    return 'https://images.unsplash.com/photo-1523362628745-0c100150b504?w=700&auto=format&fit=crop&q=80'; // Garrafa de hidratação na natureza
-  }
-  if (hasExactWord(norm, 'alongamento', 'alongamentos', 'aquecimento', 'aquecimentos', 'flexibilidade', 'aquecer', 'alongar', 'articular')) {
-    return 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=700&auto=format&fit=crop&q=80'; // Atleta fazendo aquecimento e alongamento dinâmico
-  }
-  if (hasExactWord(norm, 'frequencia cardiaca', 'pulso', 'batimento', 'batimentos', 'pressao arterial', 'medir a frequencia', 'medir o pulso')) {
-    return 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=700&auto=format&fit=crop&q=80'; // Medição de frequência cardíaca e saúde física
-  }
-  if (hasExactWord(norm, 'velocidade', 'sprint', '100m', '200m', 'tiro curto', 'largada')) {
-    return 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=700&auto=format&fit=crop&q=80'; // Largada explosiva / Sprint
-  }
-  if (hasExactWord(norm, 'pista de atletismo', 'meio fundo', 'meio-fundo', '800m', '1500m')) {
-    return 'https://images.unsplash.com/photo-1502680390469-be75c86b636f?w=700&auto=format&fit=crop&q=80'; // Pista de atletismo / Meio fundo
-  }
-  if (hasExactWord(norm, 'maratona', 'longa distancia', '5km', '10km', 'resistencia aerobica', 'percurso acidentado')) {
-    return 'https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?w=700&auto=format&fit=crop&q=80'; // Corrida em trilha de montanha
-  }
-  if (hasExactWord(norm, 'ciclismo', 'bicicleta', 'pedal', 'mountain bike')) {
-    return 'https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=700&auto=format&fit=crop&q=80'; // Ciclismo em trilha / mountain bike
-  }
-  if (hasExactWord(norm, 'natacao', 'nadar', 'piscina', 'nado crawl', 'salvamento aquatico')) {
-    return 'https://images.unsplash.com/photo-1530549387789-4c1017266635?w=700&auto=format&fit=crop&q=80'; // Natação em piscina olímpica
-  }
-  if (hasExactWord(norm, 'canoagem', 'caiaque', 'remo', 'bote')) {
-    return 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=700&auto=format&fit=crop&q=80'; // Caiaque e canoagem em águas abertas
-  }
-  if (hasExactWord(norm, 'mergulho', 'snorkel', 'nadadeira', 'subaquatico')) {
-    return 'https://images.unsplash.com/photo-1682687220063-4742bd7fd538?w=700&auto=format&fit=crop&q=80'; // Mergulho com vida marinha
-  }
-  if (hasExactWord(norm, 'escalada', 'rapel', 'mosquetao', 'corda de escalada')) {
-    return 'https://images.unsplash.com/photo-1522163182402-834f871fd851?w=700&auto=format&fit=crop&q=80'; // Escalada em rocha natural
-  }
-
-  // 2. Primeiros Socorros / Saúde / Segurança
-  if (hasExactWord(norm, 'curativo', 'curativos', 'atadura', 'ataduras', 'entorse', 'fratura', 'fraturas', 'sangramento', 'hemorragia', 'bandagem', 'estojo de primeiros socorros')) {
-    return 'https://images.unsplash.com/photo-1603398938378-e54eab446dde?w=700&auto=format&fit=crop&q=80'; // Kit e materiais de primeiros socorros
-  }
-  if (hasExactWord(norm, 'rcp', 'ressuscita', 'massagem cardiaca', 'parada cardiaca', 'heimlich', 'desengasgo')) {
-    return 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=700&auto=format&fit=crop&q=80'; // Treinamento de suporte básico de vida
-  }
-  if (hasExactWord(norm, 'nutricao', 'alimentacao saudavel', 'dieta do atleta', 'alimentos saudaveis', 'vitaminas', 'remedios naturais')) {
-    return 'https://images.unsplash.com/photo-1490818387583-1baba5e638af?w=700&auto=format&fit=crop&q=80'; // Alimentos naturais saudáveis e frutas
-  }
-  if (hasExactWord(norm, 'sangue', 'sanguineo', 'circulacao sanguinea', 'vasos sanguineos')) {
-    return 'https://images.unsplash.com/photo-1615461066841-6116e61058f4?w=700&auto=format&fit=crop&q=80'; // Saúde e medicina laboratorial
-  }
-
-  // 3. Pioneirismo / Nós / Acampamento / Sobrevivência
-  if (hasExactWord(norm, 'amarra', 'amarras', 'corda', 'cordas', 'volta do fiel', 'no direito', 'lais de guia', 'pescador', 'chicote', 'pioneiria', 'no de escota', 'catau') ||
-     (hasExactWord(norm, 'no', 'nos') && hasExactWord(norm, 'corda', 'amarra', 'laco', 'chicote'))) {
-    return 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=700&auto=format&fit=crop&q=80'; // Cordas náuticas e nós de pioneirismo
-  }
-  if (hasExactWord(norm, 'barraca', 'barracas', 'montagem de barraca', 'acampar', 'acampamento', 'camping', 'abrigo')) {
-    return 'https://images.unsplash.com/photo-1510312305653-8ed496efae75?w=700&auto=format&fit=crop&q=80'; // Barraca montada em acampamento
-  }
-  if (hasExactWord(norm, 'fogo', 'fogueira', 'fogueiras', 'lenha', 'cozinha ao ar livre', 'pederneira', 'acender fogo')) {
-    return 'https://images.unsplash.com/photo-1475483768296-6163e08872a1?w=700&auto=format&fit=crop&q=80'; // Fogueira de acampamento em área segura
-  }
-  if (hasExactWord(norm, 'bussola', 'mapa topografico', 'mapas', 'orientacao', 'azimute', 'coordenadas', 'cartografia', 'leitura de mapa')) {
-    return 'https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?w=700&auto=format&fit=crop&q=80'; // Bússola sobre mapa topográfico de orientação
-  }
-  if (hasExactWord(norm, 'mochila cargueira', 'arrumar a mochila', 'caminhada com mochila', 'excursionismo')) {
-    return 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=700&auto=format&fit=crop&q=80'; // Caminhada e trilha com mochila
-  }
-  if (hasExactWord(norm, 'machadinha', 'facao', 'canivete', 'corte de madeira', 'afiar')) {
-    return 'https://images.unsplash.com/photo-1516214104703-d870798883c5?w=700&auto=format&fit=crop&q=80'; // Ferramentas manuais de acampamento e madeira
-  }
-
-  // 4. Natureza / Animais / Zoologia (somente se a questão tratar explicitamente do animal)
-  if (hasExactWord(norm, 'cao', 'caes', 'cachorro', 'cachorros', 'canino', 'caninos', 'pastor alemao', 'labrador')) {
-    return 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=700&auto=format&fit=crop&q=80'; // Cão / Caninos
-  }
-  if (hasExactWord(norm, 'gato', 'gatos', 'felino', 'felinos', 'leao', 'onca', 'tigre')) {
-    return 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=700&auto=format&fit=crop&q=80'; // Gatos e felinos
-  }
-  if (hasExactWord(norm, 'passaro', 'passaros', 'ave', 'aves', 'ninho', 'pena', 'penas', 'ornitologia', 'rapina')) {
-    return 'https://images.unsplash.com/photo-1444464666168-49d633b86797?w=700&auto=format&fit=crop&q=80'; // Pássaro silvestre em galho
-  }
-  if (hasExactWord(norm, 'reptil', 'repteis', 'cobra', 'cobras', 'serpente', 'lagarto', 'tartaruga', 'jacare')) {
-    return 'https://images.unsplash.com/photo-1534361960057-19889db9621e?w=700&auto=format&fit=crop&q=80'; // Répteis e serpentes
-  }
-  if (hasExactWord(norm, 'anfibio', 'anfibios', 'sapo', 'sapos', 'perereca', 'pererecas')) {
-    return 'https://images.unsplash.com/photo-1559253664-ca249d4608c6?w=700&auto=format&fit=crop&q=80'; // Anfíbios e sapos
-  }
-  if (hasExactWord(norm, 'peixe', 'peixes', 'tubarao', 'ictiologia', 'recife')) {
-    return 'https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=700&auto=format&fit=crop&q=80'; // Peixes e vida aquática
-  }
-  if (hasExactWord(norm, 'inseto', 'insetos', 'borboleta', 'abelha', 'formiga', 'entomologia', 'aracnideo')) {
-    return 'https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=700&auto=format&fit=crop&q=80'; // Insetos e borboletas
-  }
-  if (hasExactWord(norm, 'mamifero', 'mamiferos', 'baleia', 'morcego', 'cavalo')) {
-    return 'https://images.unsplash.com/photo-1535268647677-300dbf3d78d1?w=700&auto=format&fit=crop&q=80'; // Mamíferos selvagens
-  }
-
-  // 5. Botânica / Plantas / Ecologia
-  if (hasExactWord(norm, 'arvore', 'arvores', 'floresta', 'mata', 'tronco', 'dendrologia')) {
-    return 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=700&auto=format&fit=crop&q=80'; // Floresta de árvores majestosas
-  }
-  if (hasExactWord(norm, 'flor', 'flores', 'orquidea', 'petalas', 'polinizacao')) {
-    return 'https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=700&auto=format&fit=crop&q=80'; // Flores e plantas da natureza
-  }
-  if (hasExactWord(norm, 'cacto', 'cactos', 'suculenta', 'suculentas', 'deserto')) {
-    return 'https://images.unsplash.com/photo-1509223197845-458d87318791?w=700&auto=format&fit=crop&q=80'; // Cactos e vegetação xerófita
-  }
-  if (hasExactWord(norm, 'fungo', 'fungos', 'cogumelo', 'cogumelos', 'micologia')) {
-    return 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=700&auto=format&fit=crop&q=80'; // Cogumelos silvestres na floresta
-  }
-
-  // 6. Astronomia / Geologia / Clima
-  if (hasExactWord(norm, 'estrela', 'estrelas', 'constelacao', 'constelacoes', 'astronomia', 'telescopio', 'galaxia', 'cruzeiro do sul', 'orion')) {
-    return 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=700&auto=format&fit=crop&q=80'; // Céu estrelado com constelações
-  }
-  if (hasExactWord(norm, 'rocha', 'rochas', 'mineral', 'minerais', 'geologia', 'fossil', 'fosseis', 'pedra')) {
-    return 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=700&auto=format&fit=crop&q=80'; // Rochas, minerais e geologia
-  }
-  if (hasExactWord(norm, 'clima', 'meteorologia', 'nuvem', 'nuvens', 'chuva', 'vento', 'tempestade', 'cumulonimbus')) {
-    return 'https://images.unsplash.com/photo-1534088568595-a066f410bcda?w=700&auto=format&fit=crop&q=80'; // Clima e nuvens meteorológicas
-  }
-
-  // 7. Artes / Desenho / Perspectiva / Pintura / Música
-  if (hasExactWord(norm, 'perspectiva', 'ponto de fuga', 'luz e sombra', 'grafite', 'esboco', 'cilindro', 'desenho geometrico')) {
-    return 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=700&auto=format&fit=crop&q=80'; // Desenho geométrico e perspectiva artística
-  }
-  if (hasExactWord(norm, 'violao', 'flauta', 'partitura', 'instrumento musical', 'canto coral', 'instrumentos musicais')) {
-    return 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=700&auto=format&fit=crop&q=80'; // Instrumentos musicais e violão acústico
-  }
-  if (hasExactWord(norm, 'pintura', 'tinta', 'quadro', 'pincel', 'pinceis', 'aquarela', 'oleo sobre tela')) {
-    return 'https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?w=700&auto=format&fit=crop&q=80'; // Pincéis de pintura artística e tintas
-  }
-  if (hasExactWord(norm, 'fotografia', 'camera fotografica', 'lente', 'abertura', 'obturador', 'diafragma')) {
-    return 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=700&auto=format&fit=crop&q=80'; // Câmera fotográfica profissional
-  }
-  if (hasExactWord(norm, 'computacao', 'computador', 'programacao', 'hardware', 'software', 'codigo')) {
-    return 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=700&auto=format&fit=crop&q=80'; // Notebook, computação e programação
-  }
-  if (hasExactWord(norm, 'radioamador', 'codigo morse', 'semafora', 'antena transmissora')) {
-    return 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=700&auto=format&fit=crop&q=80'; // Ondas sonoras e equipamentos de transmissão
-  }
-
-  // 8. Habilidades Domésticas / Agrícolas
-  if (hasExactWord(norm, 'culinaria', 'receita', 'pao', 'panificacao', 'assar', 'forno de acampamento')) {
-    return 'https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=700&auto=format&fit=crop&q=80'; // Culinária e preparo de alimentos
-  }
-  if (hasExactWord(norm, 'costura', 'agulha', 'linha de costura', 'alfaiataria', 'ponto caseado')) {
-    return 'https://images.unsplash.com/photo-1528458876861-544fd1761a91?w=700&auto=format&fit=crop&q=80'; // Carretéis de costura e agulhas
-  }
-  if (hasExactWord(norm, 'horta', 'jardim', 'adubo', 'plantio', 'hortalica', 'canteiro', 'compostagem')) {
-    return 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=700&auto=format&fit=crop&q=80'; // Horta orgânica e jardinagem produtiva
-  }
-  if (hasExactWord(norm, 'marcenaria', 'serra', 'martelo', 'carpintaria', 'plaina', 'lixa')) {
-    return 'https://images.unsplash.com/photo-1504148455328-c376907d081c?w=700&auto=format&fit=crop&q=80'; // Ferramentas de marcenaria e madeira
-  }
-
-  // 9. Atividades Missionárias / Bíblia / Liderança
-  if (hasExactWord(norm, 'biblia', 'evangelho', 'versiculo', 'testemunho', 'pregacao', 'escrituras', 'antigo testamento', 'novo testamento')) {
-    return 'https://images.unsplash.com/photo-1507692049790-de58290a4334?w=700&auto=format&fit=crop&q=80'; // Bíblia Sagrada aberta para estudo
-  }
-  if (hasExactWord(norm, 'ordem unida', 'civismo', 'bandeira nacional', 'pelotao', 'marcha militar')) {
-    return 'https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?w=700&auto=format&fit=crop&q=80'; // Grupo unido de jovens e liderança
-  }
-
-  // Se não houver correspondência direta e precisa com o que a questão pede,
-  // retorna vazio para que NENHUMA imagem desconexa apareça.
   return '';
 }
 
-// Busca dinamicamente uma ilustração estritamente contextualizada com o que a questão pede.
-// Diretriz de Qualidade: Se não houver imagem diretamente ligada ao assunto da questão,
-// retorna null para NÃO exibir imagem alguma, preservando a integridade pedagógica do slide.
 export async function findContextualIllustrationUrl(
-  specialtyName: string, 
-  questionOrSubText: string, 
-  areaName?: string,
-  extraKeyword?: string
+  _specialtyName: string, 
+  _questionOrSubText: string, 
+  _areaName?: string,
+  _extraKeyword?: string
 ): Promise<string | null> {
-  const curated = getTopicImageUrl(specialtyName, questionOrSubText, areaName, extraKeyword);
-  if (curated) {
-    return curated;
-  }
-
-  // Se não houver imagem com relação direta ao enunciado da questão, retorna null.
-  // O slide automaticamente utilizará o layout pedagógico expandido (Dinâmica Prática + Conselho ao Instrutor).
   return null;
 }
 
@@ -1012,7 +814,6 @@ REGRAS OBRIGATÓRIAS DE CONTEÚDO (MUITO IMPORTANTE):
    - "practicalActivity": atividade ou dinâmica prática no Cantinho da Unidade (5 a 10 min).
    - "instructorTip": conselho pedagógico para o instrutor ensinar o ponto com facilidade.
    - "shortTitle": título curto de 3 a 6 palavras para o slide.
-   - "illustrationTopic": 2 a 4 palavras-chave descritivas em português e inglês sobre o que ilustra exatamente esta questão (ex: "trail running shoes", "compass navigation", "camping tent", "first aid bandage").
 
 Retorne EXCLUSIVAMENTE um JSON array com os objetos no formato:
 [
@@ -1024,21 +825,19 @@ Retorne EXCLUSIVAMENTE um JSON array com os objetos no formato:
     "keyPoints": ["Ponto concreto 1", "Ponto 2", "Ponto 3"],
     "practicalActivity": "Atividade na unidade",
     "instructorTip": "Dica pedagógica",
-    "illustrationTopic": "trail running terrain",
     "subItemsDetailed": [
       {
         "letter": "a",
         "cleanTitle": "Título do sub-item",
         "didacticAnswer": "Explicação aprofundada deste sub-item específico",
         "keyPoints": ["Ponto 1 do sub-item", "Ponto 2"],
-        "practicalTip": "Dica prática ou desafio para este sub-item",
-        "illustrationTopic": "sprint start track"
+        "practicalTip": "Dica prática ou desafio para este sub-item"
       }
     ]
   }
 ]`;
 
-  // 1. Tenta via endpoint do servidor Vite (/api/gemini/generate-didactic) com Gemini 3.5 Flash Lite
+  // 1. Tenta via endpoint do servidor (/api/gemini/generate-didactic)
   try {
     if (typeof window !== 'undefined') {
       const response = await fetch('/api/gemini/generate-didactic', {
@@ -1063,16 +862,16 @@ Retorne EXCLUSIVAMENTE um JSON array com os objetos no formato:
       }
     }
   } catch (srvErr) {
-    console.warn('Tentativa via rota server-side falhou, tentando chamada cliente:', srvErr);
+    console.warn('Tentativa via rota server-side falhou, tentando chamada com chave sincronizada:', srvErr);
   }
 
-  // 2. Chamada direta no cliente com @google/genai (modelos modernos e resilientes)
+  // 2. Chamada direta com @google/genai usando chave de ambiente ou configuração sincronizada no Supabase
   try {
-    const apiKey = (typeof process !== 'undefined' && (process.env?.GEMINI_API_KEY || process.env?.API_KEY)) || (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
+    const apiKey = await resolveGeminiApiKey();
     if (apiKey) {
       const { GoogleGenAI } = await import("@google/genai");
       const ai = new GoogleGenAI({ apiKey });
-      const candidateModels = ['gemini-3.5-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
+      const candidateModels = ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
 
       for (const modelName of candidateModels) {
         try {
@@ -1241,15 +1040,15 @@ export async function generateSpecialtyPowerPoint(
   // Obtém os dados didáticos completos com respostas verdadeiras
   const didacticItems = await enrichRequirementsWithAi(specialty, parsedRequirements, onProgress);
 
-  // Carrega ilustrações personalizadas e específicas para TODAS as questões e sub-itens
-  if (onProgress) onProgress('Carregando ilustrações temáticas específicas para cada questão...', 45);
+  // Mantém os slides dos requisitos sem imagens avulsas, priorizando o layout pedagógico estruturado
+  if (onProgress) onProgress('Organizando estrutura pedagógica dos requisitos e sub-itens...', 55);
   for (let idx = 0; idx < didacticItems.length; idx++) {
     const item = didacticItems[idx];
-    item.imageUrl = await resolveRequirementIllustration(item, specialty, theme);
+    item.imageUrl = null;
 
     if (item.detailedSubItems && item.detailedSubItems.length > 0) {
       for (const sub of item.detailedSubItems) {
-        sub.imageUrl = await resolveSubItemIllustration(sub, specialty, theme);
+        sub.imageUrl = null;
       }
     }
   }

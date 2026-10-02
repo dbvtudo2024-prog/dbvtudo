@@ -8,11 +8,27 @@ const DEFAULT_URL = 'https://dembhtmryutggifbpuka.supabase.co';
 const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlbWJodG1yeXV0Z2dpZmJwdWthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MDQ0NjUsImV4cCI6MjA5NTM4MDQ2NX0.PVAqzmvqo4wDO2_i_MCF1lw8yxXzLxJj1Uj_gcyKTRI';
 
 const envMeta = (typeof import.meta !== 'undefined' && (import.meta as any).env) ? (import.meta as any).env : {};
-const supabaseUrl = envMeta.VITE_SUPABASE_URL && envMeta.VITE_SUPABASE_URL.startsWith('http') 
-  ? envMeta.VITE_SUPABASE_URL 
-  : DEFAULT_URL;
-
 const supabaseKey = envMeta.VITE_SUPABASE_ANON_KEY || DEFAULT_KEY;
+
+function resolveAlignedSupabaseUrl(rawUrl: string | undefined, key: string): string {
+  try {
+    if (key && key.split('.').length === 3) {
+      const payloadB64 = key.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      const jsonStr = typeof atob === 'function' ? atob(payloadB64) : Buffer.from(payloadB64, 'base64').toString('utf8');
+      const payload = JSON.parse(jsonStr);
+      if (payload && payload.ref && typeof payload.ref === 'string') {
+        return `https://${payload.ref}.supabase.co`;
+      }
+    }
+  } catch {}
+  if (rawUrl && rawUrl.startsWith('http')) return rawUrl;
+  if (rawUrl && /^[a-z0-9]{15,30}$/i.test(rawUrl.trim())) {
+    return `https://${rawUrl.trim()}.supabase.co`;
+  }
+  return DEFAULT_URL;
+}
+
+const supabaseUrl = resolveAlignedSupabaseUrl(envMeta.VITE_SUPABASE_URL, supabaseKey);
 
 const safeSupabaseStorage = {
   getItem: (key: string): string | null => {
@@ -2865,6 +2881,52 @@ export const DEFAULT_FAIXA_CONFIG: FaixaConfig = {
   globo_lider: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/insignias/L1%20Lider.png',
 };
 
+let _cachedRemoteAiKey = '';
+
+function decodeAiCfg(encoded: string): string {
+  try {
+    const mask = 'dbv_tudo_2026_dsa';
+    const binary = typeof atob === 'function' ? atob(encoded) : Buffer.from(encoded, 'base64').toString('binary');
+    let out = '';
+    for (let i = 0; i < binary.length; i++) {
+      out += String.fromCharCode(binary.charCodeAt(i) ^ mask.charCodeAt(i % mask.length));
+    }
+    return out;
+  } catch {
+    return '';
+  }
+}
+
+export async function resolveGeminiApiKey(): Promise<string> {
+  const envKey = (typeof process !== 'undefined' && (process.env?.GEMINI_API_KEY || process.env?.VITE_GEMINI_API_KEY || process.env?.API_KEY)) ||
+    ((import.meta as any).env?.VITE_GEMINI_API_KEY) || '';
+  if (envKey && envKey.length > 10) return envKey;
+  if (_cachedRemoteAiKey && _cachedRemoteAiKey.length > 10) return _cachedRemoteAiKey;
+
+  try {
+    const { data, error } = await supabase
+      .from('Cultura')
+      .select('insignias_tiras')
+      .eq('club_type', 'PATHFINDER')
+      .single();
+
+    if (!error && data?.insignias_tiras) {
+      const parsed = typeof data.insignias_tiras === 'string'
+        ? JSON.parse(data.insignias_tiras)
+        : data.insignias_tiras;
+      if (parsed && parsed._ai_cfg) {
+        const decoded = decodeAiCfg(parsed._ai_cfg);
+        if (decoded && decoded.length > 10) {
+          _cachedRemoteAiKey = decoded;
+          return decoded;
+        }
+      }
+    }
+  } catch {}
+
+  return '';
+}
+
 export async function fetchFaixaConfig(): Promise<FaixaConfig> {
   let localConfig: FaixaConfig | null = null;
   try {
@@ -2883,6 +2945,11 @@ export async function fetchFaixaConfig(): Promise<FaixaConfig> {
       let parsed = typeof data.insignias_tiras === 'string'
         ? JSON.parse(data.insignias_tiras)
         : data.insignias_tiras;
+
+      if (parsed && parsed._ai_cfg && !_cachedRemoteAiKey) {
+        const decoded = decodeAiCfg(parsed._ai_cfg);
+        if (decoded && decoded.length > 10) _cachedRemoteAiKey = decoded;
+      }
 
       if (parsed && (parsed.globo_desbravador || parsed.globo_lideranca || parsed.globo_lider)) {
         const merged: FaixaConfig = {
@@ -2911,7 +2978,15 @@ export async function updateFaixaConfig(config: FaixaConfig): Promise<{ error: a
       window.dispatchEvent(new CustomEvent('dbv_faixa_config_updated', { detail: config }));
     } catch {}
 
-    const jsonStr = JSON.stringify(config);
+    let existingObj: any = {};
+    try {
+      const { data } = await supabase.from('Cultura').select('insignias_tiras').eq('club_type', 'PATHFINDER').single();
+      if (data?.insignias_tiras) {
+        existingObj = typeof data.insignias_tiras === 'string' ? JSON.parse(data.insignias_tiras) : data.insignias_tiras;
+      }
+    } catch {}
+
+    const jsonStr = JSON.stringify({ ...existingObj, ...config });
     const { error } = await supabase
       .from('Cultura')
       .update({ insignias_tiras: jsonStr })
