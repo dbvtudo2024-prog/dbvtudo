@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '3.0.33';
+const appVersion = '3.0.34';
 
 function versionPlugin(): Plugin {
   return {
@@ -19,9 +19,9 @@ function versionPlugin(): Plugin {
           buildDate: new Date(buildTime).toISOString(),
           timestamp: buildTime,
           highlights: [
-            "Rolagem automática para o topo do tópico recém-aberto em Emblemas e Uniformes",
-            "Fechamento automático do tópico anterior ao abrir outro em Emblemas e Uniformes",
-            "Correção do login no celular e botão 'Fazer Login' em Ajustes no modo sem login"
+            "Correção definitiva do erro de login ('Credenciais Inválidas') no celular/Vercel com autenticação simultânea entre instâncias do Supabase",
+            "Rolagem automática estabilizada para o topo ao abrir tópicos em Emblemas e Uniformes",
+            "Atualização dos modelos de IA (gemini-3.1-flash-lite e gemini-flash-latest) para geração instantânea no PowerPoint"
           ]
         }, null, 2)
       });
@@ -37,9 +37,9 @@ function versionPlugin(): Plugin {
             buildDate: new Date(buildTime).toISOString(),
             timestamp: buildTime,
             highlights: [
-              "Rolagem automática para o topo do tópico recém-aberto em Emblemas e Uniformes",
-              "Fechamento automático do tópico anterior ao abrir outro em Emblemas e Uniformes",
-              "Correção do login no celular e botão 'Fazer Login' em Ajustes no modo sem login"
+              "Correção definitiva do erro de login ('Credenciais Inválidas') no celular/Vercel com autenticação simultânea entre instâncias do Supabase",
+              "Rolagem automática estabilizada para o topo ao abrir tópicos em Emblemas e Uniformes",
+              "Atualização dos modelos de IA (gemini-3.1-flash-lite e gemini-flash-latest) para geração instantânea no PowerPoint"
             ]
           }));
           return;
@@ -71,7 +71,7 @@ function versionPlugin(): Plugin {
 
               const { GoogleGenAI } = await import('@google/genai');
               const ai = new GoogleGenAI({ apiKey });
-              const models = ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
+              const models = ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
               
               let resultText = '';
               let lastError = null;

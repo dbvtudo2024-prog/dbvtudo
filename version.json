@@ -1,11 +1,11 @@
 {
-  "version": 1759550300000,
-  "versionName": "3.0.33",
-  "buildDate": "2026-10-04T03:58:20.000Z",
-  "timestamp": 1759550300000,
+  "version": 1759552500000,
+  "versionName": "3.0.34",
+  "buildDate": "2026-10-04T04:35:00.000Z",
+  "timestamp": 1759552500000,
   "highlights": [
-    "Rolagem automática para o topo do tópico recém-aberto em Emblemas e Uniformes",
-    "Fechamento automático do tópico anterior ao abrir outro em Emblemas e Uniformes",
-    "Correção do login no celular e botão 'Fazer Login' em Ajustes no modo sem login"
+    "Correção definitiva do erro de login ('Credenciais Inválidas') no celular/Vercel com autenticação simultânea entre instâncias do Supabase",
+    "Rolagem automática estabilizada para o topo ao abrir tópicos em Emblemas e Uniformes",
+    "Atualização dos modelos de IA (gemini-3.1-flash-lite e gemini-flash-latest) para geração instantânea no PowerPoint"
   ]
 }

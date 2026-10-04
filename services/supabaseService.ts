@@ -4,8 +4,14 @@ import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, 
 import { CANONICAL_BIBLE_BOOKS } from './bibleData';
 export { CANONICAL_BIBLE_BOOKS };
 
-const DEFAULT_URL = 'https://dembhtmryutggifbpuka.supabase.co';
-const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlbWJodG1yeXV0Z2dpZmJwdWthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MDQ0NjUsImV4cCI6MjA5NTM4MDQ2NX0.PVAqzmvqo4wDO2_i_MCF1lw8yxXzLxJj1Uj_gcyKTRI';
+export const QFPY_URL = 'https://qfpyjavbncijowjvznkg.supabase.co';
+export const QFPY_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmcHlqYXZibmNpam93anZ6bmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NDcxMDUsImV4cCI6MjA3NDQyMzEwNX0.adxRCkobV-m_XUHp1KBXmg67VXkR-HL4QKFVtgQOmYc';
+
+export const DEMB_URL = 'https://dembhtmryutggifbpuka.supabase.co';
+export const DEMB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlbWJodG1yeXV0Z2dpZmJwdWthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MDQ0NjUsImV4cCI6MjA5NTM4MDQ2NX0.PVAqzmvqo4wDO2_i_MCF1lw8yxXzLxJj1Uj_gcyKTRI';
+
+const DEFAULT_URL = QFPY_URL;
+const DEFAULT_KEY = QFPY_KEY;
 
 const envMeta = (typeof import.meta !== 'undefined' && (import.meta as any).env) ? (import.meta as any).env : {};
 const supabaseKey = envMeta.VITE_SUPABASE_ANON_KEY || DEFAULT_KEY;
@@ -71,7 +77,7 @@ const safeSupabaseStorage = {
   }
 };
 
-export const supabase = createClient(supabaseUrl, supabaseKey, {
+export const supabaseQfpy = createClient(QFPY_URL, QFPY_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
@@ -79,6 +85,140 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
     storage: safeSupabaseStorage
   }
 });
+
+export const supabaseDemb = createClient(DEMB_URL, DEMB_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+    storage: safeSupabaseStorage
+  }
+});
+
+let _activeAuthProject: 'qfpy' | 'demb' = (() => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const saved = window.localStorage.getItem('dbv_active_supabase_project');
+      if (saved === 'demb' || saved === 'qfpy') return saved;
+      if (window.localStorage.getItem('sb-qfpyjavbncijowjvznkg-auth-token')) return 'qfpy';
+      if (window.localStorage.getItem('sb-dembhtmryutggifbpuka-auth-token')) return 'demb';
+    }
+  } catch {}
+  return supabaseUrl.includes('dembhtmryutggifbpuka') ? 'demb' : 'qfpy';
+})();
+
+export function setActiveSupabaseProject(proj: 'qfpy' | 'demb') {
+  _activeAuthProject = proj;
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem('dbv_active_supabase_project', proj);
+    }
+  } catch {}
+}
+
+export function getActiveSupabaseClient() {
+  return _activeAuthProject === 'demb' ? supabaseDemb : supabaseQfpy;
+}
+
+export const supabase = new Proxy(supabaseQfpy, {
+  get(_target, prop, _receiver) {
+    const client = getActiveSupabaseClient() as any;
+    const value = client[prop];
+    return typeof value === 'function' ? value.bind(client) : value;
+  }
+});
+
+export async function authenticateUserMultiProject(email: string, rawPassword: string): Promise<{
+  user: any | null;
+  profile: any | null;
+  error: any | null;
+}> {
+  const cleanEmail = email.trim().toLowerCase();
+  const trimmedPassword = rawPassword.trim();
+  const candidates = Array.from(new Set([
+    rawPassword,
+    trimmedPassword,
+    trimmedPassword.length > 1 && /^[A-Z]/.test(trimmedPassword)
+      ? trimmedPassword.charAt(0).toLowerCase() + trimmedPassword.slice(1)
+      : rawPassword,
+    trimmedPassword.length > 1 && /^[a-z]/.test(trimmedPassword)
+      ? trimmedPassword.charAt(0).toUpperCase() + trimmedPassword.slice(1)
+      : rawPassword,
+  ])).filter(Boolean);
+
+  let lastError: any = null;
+  let emailUnconfirmedPassword: string | null = null;
+
+  for (const pwd of candidates) {
+    // 1. Tenta no banco principal (qfpyjavbncijowjvznkg) e no banco secundário (dembhtmryutggifbpuka) simultaneamente
+    const [resQfpy, resDemb] = await Promise.all([
+      supabaseQfpy.auth.signInWithPassword({ email: cleanEmail, password: pwd }).catch(e => ({ data: { user: null, session: null }, error: e })),
+      supabaseDemb.auth.signInWithPassword({ email: cleanEmail, password: pwd }).catch(e => ({ data: { user: null, session: null }, error: e }))
+    ]);
+
+    if (!resQfpy.error && resQfpy.data?.user) {
+      setActiveSupabaseProject('qfpy');
+      let profile: any = null;
+      try {
+        const { data: p1 } = await supabaseQfpy.from('Usuarios').select('*').eq('user_id', resQfpy.data.user.id).maybeSingle();
+        profile = p1;
+        if (!profile && !resDemb.error && resDemb.data?.user) {
+          const { data: p2 } = await supabaseDemb.from('Usuarios').select('*').eq('user_id', resDemb.data.user.id).maybeSingle();
+          if (p2) profile = p2;
+        }
+      } catch {}
+      return { user: resQfpy.data.user, profile, error: null };
+    }
+
+    if (!resDemb.error && resDemb.data?.user) {
+      setActiveSupabaseProject('demb');
+      let profile: any = null;
+      try {
+        const { data: p2 } = await supabaseDemb.from('Usuarios').select('*').eq('user_id', resDemb.data.user.id).maybeSingle();
+        profile = p2;
+      } catch {}
+      return { user: resDemb.data.user, profile, error: null };
+    }
+
+    const dembMsg = (resDemb.error?.message || '').toLowerCase();
+    const qfpyMsg = (resQfpy.error?.message || '').toLowerCase();
+    if (dembMsg.includes('email not confirmed') || qfpyMsg.includes('email not confirmed')) {
+      emailUnconfirmedPassword = pwd;
+    }
+
+    lastError = resQfpy.error || resDemb.error;
+  }
+
+  // Se a conta foi criada na instância demb (onde mailer_autoconfirm era false) com esta senha exata,
+  // ativa automaticamente no banco principal qfpy (onde mailer_autoconfirm é true)
+  if (emailUnconfirmedPassword) {
+    try {
+      const signUpQfpy = await supabaseQfpy.auth.signUp({
+        email: cleanEmail,
+        password: emailUnconfirmedPassword
+      });
+      if (!signUpQfpy.error && signUpQfpy.data?.user) {
+        setActiveSupabaseProject('qfpy');
+        const { data: profile } = await supabaseQfpy.from('Usuarios').select('*').eq('user_id', signUpQfpy.data.user.id).maybeSingle();
+        return { user: signUpQfpy.data.user, profile: profile || null, error: null };
+      }
+    } catch {}
+  }
+
+  return { user: null, profile: null, error: lastError };
+}
+
+export async function resetPasswordMultiProject(email: string, redirectTo: string): Promise<{ error: any | null }> {
+  const cleanEmail = email.trim().toLowerCase();
+  const [r1, r2] = await Promise.all([
+    supabaseQfpy.auth.resetPasswordForEmail(cleanEmail, { redirectTo }).catch(e => ({ error: e })),
+    supabaseDemb.auth.resetPasswordForEmail(cleanEmail, { redirectTo }).catch(e => ({ error: e }))
+  ]);
+  if (!r1.error || !r2.error) {
+    return { error: null };
+  }
+  return { error: r1.error || r2.error };
+}
 
 let _isSupabaseRestricted = false;
 let _restrictionMessage = '';
@@ -1375,14 +1515,23 @@ export async function deleteDevocional(id: string) {
 // Funções para Perfil do Usuário
 export async function fetchUserProfile(userId: string): Promise<UserProfile | null> {
   try {
-    const { data, error } = await supabase
+    const primaryClient = getActiveSupabaseClient();
+    const { data, error } = await primaryClient
       .from('Usuarios')
       .select('*')
       .eq('user_id', userId)
       .maybeSingle();
     
-    if (error) return null;
-    return data;
+    if (!error && data) return data;
+
+    const secondaryClient = primaryClient === supabaseQfpy ? supabaseDemb : supabaseQfpy;
+    const { data: fallbackData } = await secondaryClient
+      .from('Usuarios')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    return fallbackData || null;
   } catch {
     return null;
   }

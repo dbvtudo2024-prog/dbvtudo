@@ -1,5 +1,5 @@
 // Service Worker for DBV Tudo
-const CACHE_NAME = 'dbv-tudo-v3.0.31';
+const CACHE_NAME = 'dbv-tudo-v3.0.34';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -37,8 +37,15 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Pass through directly to network
-  event.respondWith(fetch(event.request));
+  // Não interceptar requisições POST, rotas de API ou chamadas ao Supabase/Google
+  if (
+    event.request.method !== 'GET' ||
+    event.request.url.includes('/api/') ||
+    event.request.url.includes('supabase.co') ||
+    event.request.url.includes('googleapis.com')
+  ) {
+    return;
+  }
 });
 
 

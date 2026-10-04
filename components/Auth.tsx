@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Mail, Lock, User, Shield, MapPin, Briefcase, Phone, ChevronLeft, Eye, EyeOff, UserCircle } from 'lucide-react';
 import { ClubType, UserProfile } from '../types';
-import { supabase, updateUserProfile, fetchFuncoes, DEFAULT_CARGOS, getCachedFuncoes, saveLocalFaixaSpecialties } from '../services/supabaseService';
+import { supabase, supabaseQfpy, setActiveSupabaseProject, authenticateUserMultiProject, resetPasswordMultiProject, updateUserProfile, fetchFuncoes, DEFAULT_CARGOS, getCachedFuncoes, saveLocalFaixaSpecialties } from '../services/supabaseService';
 
 interface AuthProps {
   onLoginSuccess: (isGuest?: boolean) => void;
@@ -101,7 +101,8 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
     setResetMessage(null);
 
     try {
-      const { data, error: authError } = await supabase.auth.signUp({
+      setActiveSupabaseProject('qfpy');
+      const { data, error: authError } = await supabaseQfpy.auth.signUp({
         email: cleanEmail,
         password: cleanPassword,
       });
@@ -126,16 +127,22 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
           localStorage.setItem('dbv_last_login_email', cleanEmail);
         } catch {}
 
-        // Salvar no localStorage para compatibilidade legada
-        localStorage.setItem(`dbv_tudo_global_user_profile`, JSON.stringify({
+        const newProfileObj = {
           name: formData.name.trim(),
           email: cleanEmail,
           tipo: profile.clubes,
           clube: formData.clubName.trim(),
           cargo: formData.cargo,
           telefone: formData.phone.trim(),
-          avatar: ""
-        }));
+          avatar: "",
+          isAdmin: cleanEmail === 'ronaldosonic@gmail.com' || cleanEmail === 'dbvtudo2024@gmail.com'
+        };
+
+        // Salvar no localStorage para compatibilidade legada
+        localStorage.setItem(`dbv_tudo_global_user_profile`, JSON.stringify(newProfileObj));
+        try {
+          localStorage.setItem(`dbv_profile_backup_${cleanEmail}`, JSON.stringify(newProfileObj));
+        } catch {}
 
         onLoginSuccess(false);
       }
@@ -281,9 +288,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
     setError(null);
     setResetMessage(null);
     try {
-      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
-        redirectTo: window.location.origin
-      });
+      const { error: resetErr } = await resetPasswordMultiProject(cleanEmail, window.location.origin);
       if (resetErr) throw resetErr;
       setResetMessage(`Enviamos um link de redefinição de senha para ${cleanEmail}. Verifique sua caixa de entrada e spam.`);
     } catch (err: any) {
@@ -296,7 +301,6 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
   const handleLogin = async () => {
     const cleanEmail = loginData.email.trim().toLowerCase();
     const rawPassword = loginData.password;
-    const trimmedPassword = loginData.password.trim();
 
     if (!cleanEmail || !rawPassword) {
       setError("Preencha e-mail e senha.");
@@ -308,111 +312,100 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
     setResetMessage(null);
 
     try {
-      // 1ª tentativa: e-mail limpo (sem espaços/maiúsculas do teclado do celular) e senha digitada
-      let { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password: rawPassword,
-      });
+      const { user, profile, error: authError } = await authenticateUserMultiProject(cleanEmail, rawPassword);
 
-      // 2ª tentativa automática: caso o teclado do celular tenha inserido espaço no início/fim da senha
-      if (authError && trimmedPassword !== rawPassword && trimmedPassword.length > 0) {
-        const retryTrimmed = await supabase.auth.signInWithPassword({
-          email: cleanEmail,
-          password: trimmedPassword,
-        });
-        if (!retryTrimmed.error && retryTrimmed.data?.user) {
-          data = retryTrimmed.data;
-          authError = null;
-        }
+      if (authError || !user) {
+        throw authError || new Error("Invalid login credentials");
       }
 
-      // 3ª tentativa automática: caso a senha tenha sido digitada com a 1ª letra maiúscula pelo corretor do celular
-      if (authError && trimmedPassword.length > 1 && /^[A-Z]/.test(trimmedPassword)) {
-        const uncapitalizedPassword = trimmedPassword.charAt(0).toLowerCase() + trimmedPassword.slice(1);
-        const retryUncap = await supabase.auth.signInWithPassword({
-          email: cleanEmail,
-          password: uncapitalizedPassword,
-        });
-        if (!retryUncap.error && retryUncap.data?.user) {
-          data = retryUncap.data;
-          authError = null;
+      try {
+        localStorage.setItem('dbv_last_login_email', cleanEmail);
+      } catch {}
+
+      let localBackup: any = null;
+      try {
+        const rawBackup = localStorage.getItem(`dbv_profile_backup_${cleanEmail}`);
+        if (rawBackup) localBackup = JSON.parse(rawBackup);
+      } catch {}
+
+      const isSuperAdminEmail = cleanEmail === 'ronaldosonic@gmail.com' || cleanEmail === 'dbvtudo2024@gmail.com';
+
+      if (profile) {
+        const uClub = profile.clubes === "Aventureiro" ? ClubType.ADVENTURER : ClubType.PATHFINDER;
+        const uEmail = profile.email || (profile as any)['e - mail'] || user.email || cleanEmail;
+        let birthDate = profile.data_nascimento || (profile as any)['data de nascimento'] || user.user_metadata?.data_nascimento || localBackup?.data_nascimento || "";
+        let cargoFromFundo = "";
+        let bloodType = profile.tipo_sanguineo || localBackup?.tipo_sanguineo || "";
+        let rhFactor = profile.fator_rh || localBackup?.fator_rh || "";
+        if (profile.fundo) {
+          try {
+            const pf = JSON.parse(profile.fundo);
+            if (!birthDate && pf?.data_nascimento) birthDate = pf.data_nascimento;
+            if (pf?.cargo) cargoFromFundo = pf.cargo;
+            if (!bloodType && pf?.tipo_sanguineo) bloodType = pf.tipo_sanguineo;
+            if (!rhFactor && pf?.fator_rh) rhFactor = pf.fator_rh;
+          } catch {
+            if (!birthDate && /^\d{4}-\d{2}-\d{2}$/.test(profile.fundo)) birthDate = profile.fundo;
+          }
         }
-      }
 
-      if (authError) throw authError;
+        const profileObj = {
+          name: profile.nome || user.user_metadata?.nome || localBackup?.name || cleanEmail.split('@')[0],
+          email: uEmail,
+          tipo: profile.clubes || localBackup?.tipo || "Desbravador",
+          clube: profile.clube || profile.clube_de || (profile as any)['clube de'] || localBackup?.clube || "",
+          cargo: profile.funçao || (profile as any).cargo || cargoFromFundo || user.user_metadata?.cargo || localBackup?.cargo || "",
+          telefone: profile.telefone || localBackup?.telefone || "",
+          avatar: profile.foto || localBackup?.avatar || "",
+          cidade: profile.cidade || localBackup?.cidade || "",
+          estado: profile.estado || localBackup?.estado || "",
+          data_nascimento: birthDate,
+          tipo_sanguineo: bloodType,
+          fator_rh: rhFactor,
+          isAdmin: Boolean(profile.ADM || isSuperAdminEmail || localBackup?.isAdmin)
+        };
 
-      if (data.user) {
+        localStorage.setItem(`dbv_tudo_global_user_profile`, JSON.stringify(profileObj));
         try {
-          localStorage.setItem('dbv_last_login_email', cleanEmail);
+          localStorage.setItem(`dbv_profile_backup_${cleanEmail}`, JSON.stringify(profileObj));
         } catch {}
 
-        // Buscar perfil para atualizar localStorage
-        const { data: profile } = await supabase
-          .from('Usuarios')
-          .select('*')
-          .eq('user_id', data.user.id)
-          .maybeSingle();
-
-        if (profile) {
-          const uClub = profile.clubes === "Aventureiro" ? ClubType.ADVENTURER : ClubType.PATHFINDER;
-          const uEmail = profile.email || (profile as any)['e - mail'] || data.user.email || cleanEmail;
-          let birthDate = profile.data_nascimento || (profile as any)['data de nascimento'] || data.user.user_metadata?.data_nascimento || "";
-          let cargoFromFundo = "";
-          if (profile.fundo) {
-            try {
-              const pf = JSON.parse(profile.fundo);
-              if (!birthDate && pf?.data_nascimento) birthDate = pf.data_nascimento;
-              if (pf?.cargo) cargoFromFundo = pf.cargo;
-            } catch {
-              if (!birthDate && /^\d{4}-\d{2}-\d{2}$/.test(profile.fundo)) birthDate = profile.fundo;
-            }
+        const rawEsp = profile.Especialidades !== undefined ? profile.Especialidades : (profile as any).especialidades;
+        if (rawEsp) {
+          let parsedIds: string[] = [];
+          if (typeof rawEsp === 'string') {
+            parsedIds = rawEsp.split(',').map((id: string) => id.trim()).filter((id: string) => id.length > 0);
+          } else if (Array.isArray(rawEsp)) {
+            parsedIds = rawEsp.map((id: any) => String(id).trim()).filter((id: string) => id.length > 0);
           }
-
-          localStorage.setItem(`dbv_tudo_global_user_profile`, JSON.stringify({
-            name: profile.nome || data.user.user_metadata?.nome || cleanEmail.split('@')[0],
-            email: uEmail,
-            tipo: profile.clubes || "Desbravador",
-            clube: profile.clube || profile.clube_de || (profile as any)['clube de'] || "",
-            cargo: profile.funçao || (profile as any).cargo || cargoFromFundo || data.user.user_metadata?.cargo || "",
-            telefone: profile.telefone || "",
-            avatar: profile.foto || "",
-            cidade: profile.cidade || "",
-            estado: profile.estado || "",
-            data_nascimento: birthDate,
-            isAdmin: profile.ADM || false
-          }));
-
-          const rawEsp = profile.Especialidades !== undefined ? profile.Especialidades : (profile as any).especialidades;
-          if (rawEsp) {
-            let parsedIds: string[] = [];
-            if (typeof rawEsp === 'string') {
-              parsedIds = rawEsp.split(',').map((id: string) => id.trim()).filter((id: string) => id.length > 0);
-            } else if (Array.isArray(rawEsp)) {
-              parsedIds = rawEsp.map((id: any) => String(id).trim()).filter((id: string) => id.length > 0);
-            }
-            if (parsedIds.length > 0) {
-              saveLocalFaixaSpecialties(parsedIds, uEmail, uClub);
-            }
+          if (parsedIds.length > 0) {
+            saveLocalFaixaSpecialties(parsedIds, uEmail, uClub);
           }
-        } else {
-          // Garantir perfil salvo no localStorage mesmo se a linha na tabela Usuarios ainda não existir
-          localStorage.setItem(`dbv_tudo_global_user_profile`, JSON.stringify({
-            name: data.user.user_metadata?.nome || cleanEmail.split('@')[0],
-            email: data.user.email || cleanEmail,
-            tipo: "Desbravador",
-            clube: "",
-            cargo: data.user.user_metadata?.cargo || "",
-            telefone: "",
-            avatar: "",
-            cidade: "",
-            estado: "",
-            data_nascimento: data.user.user_metadata?.data_nascimento || "",
-            isAdmin: false
-          }));
         }
-
-        onLoginSuccess(false);
+      } else {
+        // Garantir perfil salvo no localStorage mesmo se a linha na tabela Usuarios ainda não existir
+        const fallbackProfileObj = {
+          name: user.user_metadata?.nome || localBackup?.name || cleanEmail.split('@')[0],
+          email: user.email || cleanEmail,
+          tipo: localBackup?.tipo || "Desbravador",
+          clube: localBackup?.clube || "",
+          cargo: user.user_metadata?.cargo || localBackup?.cargo || "",
+          telefone: localBackup?.telefone || "",
+          avatar: localBackup?.avatar || "",
+          cidade: localBackup?.cidade || "",
+          estado: localBackup?.estado || "",
+          data_nascimento: user.user_metadata?.data_nascimento || localBackup?.data_nascimento || "",
+          tipo_sanguineo: localBackup?.tipo_sanguineo || "",
+          fator_rh: localBackup?.fator_rh || "",
+          isAdmin: Boolean(isSuperAdminEmail || localBackup?.isAdmin)
+        };
+        localStorage.setItem(`dbv_tudo_global_user_profile`, JSON.stringify(fallbackProfileObj));
+        try {
+          localStorage.setItem(`dbv_profile_backup_${cleanEmail}`, JSON.stringify(fallbackProfileObj));
+        } catch {}
       }
+
+      onLoginSuccess(false);
     } catch (err: any) {
       if (err?.message === 'Failed to fetch' || err?.name === 'AuthRetryableFetchError' || err?.message?.includes('Failed to fetch')) {
         setError("Não foi possível conectar ao servidor. Verifique sua conexão com a internet.");

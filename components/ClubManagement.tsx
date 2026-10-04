@@ -2105,26 +2105,41 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   useEffect(() => {
     if (activeAccordions.length === 1 && (activeSubView === 'EMBLEMS' || activeSubView === 'UNIFORMS')) {
       const openedId = activeAccordions[0];
-      const scrollToTopicStart = () => {
+      const scrollToTopicStart = (smooth: boolean) => {
         const container = scrollContainerRef.current;
         const topicEl = document.getElementById(`cultura-topic-${openedId}`);
         if (container && topicEl) {
           const containerRect = container.getBoundingClientRect();
           const topicRect = topicEl.getBoundingClientRect();
-          const targetTop = container.scrollTop + (topicRect.top - containerRect.top) - 12;
-          container.scrollTo({
-            top: Math.max(0, targetTop),
-            behavior: 'smooth'
-          });
+          const targetTop = Math.max(0, container.scrollTop + (topicRect.top - containerRect.top) - 10);
+          if (smooth) {
+            container.scrollTo({
+              top: targetTop,
+              behavior: 'smooth'
+            });
+          } else {
+            container.scrollTop = targetTop;
+          }
         } else if (topicEl) {
-          topicEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          topicEl.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
         }
       };
 
       const rafId = requestAnimationFrame(() => {
-        scrollToTopicStart();
+        scrollToTopicStart(false);
       });
-      return () => cancelAnimationFrame(rafId);
+      const timer1 = setTimeout(() => {
+        scrollToTopicStart(true);
+      }, 60);
+      const timer2 = setTimeout(() => {
+        scrollToTopicStart(true);
+      }, 180);
+
+      return () => {
+        cancelAnimationFrame(rafId);
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+      };
     }
   }, [activeAccordions, activeSubView]);
 
@@ -9316,6 +9331,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       <div 
         ref={scrollContainerRef}
         onScroll={handleScroll}
+        style={{ overflowAnchor: 'none' }}
         className={`flex-grow overflow-y-auto scrollbar-hide ${
           activeSubView === 'DESBRAVA_PLUS_PDF' || activeSubView === 'PDF_VIEWER' 
             ? 'p-0 md:px-6 md:pb-6 lg:px-10 lg:pb-8 flex flex-col h-full min-h-0' 

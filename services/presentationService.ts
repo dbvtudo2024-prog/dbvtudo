@@ -852,7 +852,7 @@ function extractAndParseJsonArray(rawText: string): any[] {
 
 // Chama a IA para um lote compacto de requisitos (rápido no celular e no computador, sem estourar timeout)
 async function generateBatchWithAi(batchPrompt: string, apiKey: string): Promise<any[]> {
-  const candidateModels = ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
+  const candidateModels = ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
 
   // 1. Chamada REST direta e rápida para a API Gemini (evita timeout de 10s da Vercel e erros de chunk dinâmico no PWA mobile)
   if (apiKey && apiKey.length > 10) {

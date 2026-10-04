@@ -466,7 +466,9 @@ const App: React.FC = () => {
         try {
           const parsed = JSON.parse(savedProfile);
           if (parsed?.email && parsed.email !== 'email@exemplo.com') {
-            localStorage.setItem('dbv_last_login_email', String(parsed.email).trim().toLowerCase());
+            const cleanMail = String(parsed.email).trim().toLowerCase();
+            localStorage.setItem('dbv_last_login_email', cleanMail);
+            localStorage.setItem(`dbv_profile_backup_${cleanMail}`, savedProfile);
           }
         } catch {}
       }

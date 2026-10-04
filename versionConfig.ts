@@ -6,14 +6,25 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.33';
+export const APP_VERSION = '3.0.34';
 export const APP_BUILD_DATE = '3 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
-    version: '3.0.33',
+    version: '3.0.34',
     date: '03/10/2026',
     tag: 'NOVO',
+    title: 'Correção Definitiva do Login no Celular/Vercel (Autenticação Multi-Instância Supabase) e Estabilização de Rolagem',
+    changes: [
+      'Correção da causa raiz do erro de "Credenciais Inválidas" no celular/Vercel: Na Vercel (sem variáveis de ambiente locais), o aplicativo apontava por padrão para a instância secundária do Supabase (dembhtmryutggifbpuka), enquanto as contas principais estão registradas na instância oficial (qfpyjavbncijowjvznkg). Agora o app autentica simultaneamente em ambas as instâncias e testa automaticamente variações de maiúscula/minúscula na 1ª letra da senha.',
+      'Rolagem automática estabilizada em Emblemas e Uniformes: Desativado o scroll anchoring nativo do navegador móvel para que, ao fechar um tópico grande (ex: Insígnias e Tiras) e abrir o próximo, o cabeçalho do novo tópico posicione-se com precisão no topo.',
+      'Atualização dos modelos Gemini (gemini-3.1-flash-lite e gemini-flash-latest) para resposta imediata sem falhas.'
+    ]
+  },
+  {
+    version: '3.0.33',
+    date: '03/10/2026',
+    tag: 'ATUAL',
     title: 'Rolagem Automática para o Topo ao Abrir Tópicos em Emblemas e Uniformes',
     changes: [
       'Ao abrir um tópico em Emblemas ou Uniformes (fechando o anterior), a página rola suavemente de forma automática para posicionar o início do novo tópico exatamente no topo da área de leitura.'
