@@ -1108,7 +1108,7 @@ export async function generateSpecialtyExamPdf(
     pdf.setFontSize(7.2);
     pdf.setTextColor(148, 163, 184);
     pdf.text(
-      `DBV Tudo • Avaliação Oficial da Especialidade: ${specialty.nome} (${codeStr})`,
+      `${isAdventurer ? 'Clube de Aventureiros (DSA)' : 'Clube de Desbravadores (DSA)'} • Avaliação Oficial da Especialidade: ${specialty.nome} (${codeStr})`,
       margin,
       pageHeight - 6.8
     );

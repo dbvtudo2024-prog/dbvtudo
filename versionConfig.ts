@@ -6,14 +6,98 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.75';
-export const APP_BUILD_DATE = '4 de Outubro de 2026';
+export const APP_VERSION = '3.0.83';
+export const APP_BUILD_DATE = '5 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '3.0.83',
+    date: '05/10/2026',
+    tag: 'NOVO',
+    title: 'Novos Vídeos de Desbravadores & Permanência na Página ao Alternar Ministério no PC',
+    changes: [
+      'Adição de novos vídeos verificados para o Clube de Desbravadores nas categorias Tutorial de Especialidades (Temperança, Cactos, Sábado, Instrutor de Especialidades), Atividades e Jogos (Gincanas Partes 2, 3 e 4, Brincadeiras de Unidade) e Cerimônias (Admissão em Lenço e Investidura).',
+      'No PC, ao clicar no botão do outro ministério na barra lateral, o aplicativo mantém a página/seção aberta alterando apenas o ministério; e ao clicar novamente no ministério já ativo, reseta e volta para a tela inicial do ministério.',
+      'Correção da versão: diferenciação entre troca de ministério (mantém a página) e clique no ministério já selecionado (volta para a tela inicial do ministério).'
+    ]
+  },
+  {
+    version: '3.0.82',
+    date: '05/10/2026',
+    tag: 'ATUAL',
+    title: 'Layout de Vídeos em Duas Colunas para PC e Compacto no Celular',
+    changes: [
+      'Manutenção do formato compacto das miniaturas 16:9 em 1 coluna para telas de celular e organização automática em 2 colunas lado a lado para PC/Desktop.'
+    ]
+  },
+  {
+    version: '3.0.81',
+    date: '05/10/2026',
+    tag: 'ATUAL',
+    title: 'Acervo de Vídeos do Clube de Aventureiros (IASD) por Categoria',
+    changes: [
+      'Adição de vídeos verificados para o Clube de Aventureiros da IASD nas categorias Tutorial de Especialidades (Tabernáculo, Cortesia, Arte com Sombras, Flores), Atividades e Jogos e Cerimônias (Admissão em Lenço e Investidura).',
+      'Miniaturas compactas 16:9 no estilo lista do YouTube tanto para Desbravadores quanto para Aventureiros.'
+    ]
+  },
+  {
+    version: '3.0.80',
+    date: '05/10/2026',
+    tag: 'ATUAL',
+    title: 'Central de Vídeos Estilo YouTube com Miniaturas Reais',
+    changes: [
+      'Exibição da miniatura oficial 16:9 (thumbnail do YouTube) de todos os vídeos cadastrados, com selo de duração no canto inferior direito e botão Play central.',
+      'Reorganização do layout em estilo YouTube mantendo as categorias originais (Tutorial de Especialidades, Atividades e Jogos, Cerimônias) com barra de filtros por categoria no topo, avatar do canal, título e contagem de visualizações.',
+      'Lista de "Próximos Vídeos" com miniaturas na tela do reprodutor de vídeo.',
+      'Correção da versão: importação do ícone Play na Central de Vídeos.'
+    ]
+  },
+  {
+    version: '3.0.79',
+    date: '05/10/2026',
+    tag: 'ATUAL',
+    title: 'Materiais Gráficos Exclusivos com Emblemas Oficiais',
+    changes: [
+      'Seção Materiais Gráficos simplificada para exibir exclusivamente os Emblemas Oficiais de Desbravadores (D1 a D5 e L1 a L3) e Aventureiros (A1 a A5 e L A1) em CorelDRAW (.CDR e vetor).',
+      'Removidos os demais itens extras (guias, manuais e bandeiras) da categoria Materiais Gráficos.'
+    ]
+  },
+  {
+    version: '3.0.78',
+    date: '05/10/2026',
+    tag: 'ATUAL',
+    title: 'Círculos de Cores de Realce Mais Compactos, Fundo do Container em Modo Claro & Visibilidade dos Fios no Modo Claro',
+    changes: [
+      'Redução adicional do tamanho das esferas de seleção em "Cores de Realce" (24px) com anel de seleção proporcional.',
+      'Correção do fundo do sub-container "Cores de Realce" no Modo Claro (fundo claro com brilho suave da cor selecionada e texto escuro nítido, eliminando o degradê escuro metade preto/metade bege).',
+      'Ajuste de contraste do quadriculado de fios no Modo Claro para que os fios permaneçam visíveis e suaves tanto no tema claro quanto no tema escuro.'
+    ]
+  },
+  {
+    version: '3.0.77',
+    date: '05/10/2026',
+    tag: 'ESTÁVEL',
+    title: 'Refinamento do Quadriculado de Fios, Botões de Cores de Realce Compactos & Preservação da Faixa e Bolso no Perfil',
+    changes: [
+      'Suavização da intensidade do quadriculado de fios do fundo para um efeito visual ainda mais delicado.',
+      'Redução do tamanho dos botões circulares de seleção em "Cores de Realce" conforme o layout de referência.',
+      'Blindagem das cores oficiais da Faixa Verde-Petróleo e do Bolso do Uniforme no Perfil para que não sofram qualquer alteração ao mudar a Cor de Realce ou o Modo Escuro.'
+    ]
+  },
+  {
+    version: '3.0.76',
+    date: '05/10/2026',
+    tag: 'ESTÁVEL',
+    title: 'Cores de Realce com Fundo Radial Central, Quadriculado de Fios Suave & Separação Estrita DBV/AVT',
+    changes: [
+      'Adição do seletor "Cores de Realce" (Âmbar Dourado, Coral Terracota, Turquesa Real e Verde Sálvia) dentro do container de Modo Escuro em Ajustes, aplicando fundo em círculo começando do centro e dissipando até as bordas, acompanhado de um quadriculado de fios bem suave e mudança dinâmica da cor dos textos em destaque em todo o aplicativo.',
+      'Separação 100% estrita de todos os Formulários, Fichas de Atividades, Certificados, Materiais Gráficos, Trunfos e referências entre a área de Desbravadores (DBV) e a área de Aventureiros (AVT), garantindo que cada ministério exiba exclusivamente seus próprios documentos e conteúdos oficiais.'
+    ]
+  },
+  {
     version: '3.0.75',
     date: '04/10/2026',
-    tag: 'NOVO',
+    tag: 'ESTÁVEL',
     title: 'Edição de Dias, Adição de Novos Dias/Refeições, Prato Principal em 2 Linhas e Suco & Frutas no Acampamento',
     changes: [
       'Adição de gerenciador completo de Dias e Refeições na aba Cardápio & Escala de Acampamento (Cantinho da Unidade): permite filtrar por dia, renomear um dia inteiro ou editar o dia/título diretamente em cada card, adicionar novos dias completos (com Desjejum, Almoço e Jantar) e adicionar ou remover refeições avulsas.',

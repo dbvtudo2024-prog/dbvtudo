@@ -1063,7 +1063,7 @@ const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club }) => {
                   onChange={(e) => setNewMemberRole(e.target.value as UnitMember['role'])}
                   className="w-full sm:w-auto min-w-0 px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 outline-none truncate"
                 >
-                  <option value="Membro">Membro (Desbravador/Aventureiro)</option>
+                  <option value="Membro">Membro ({isPathfinder ? 'Desbravador' : 'Aventureiro'})</option>
                   <option value="Capitão(ã)">Capitão(ã)</option>
                   <option value="Secretário(a)">Secretário(a)</option>
                   <option value="Tesoureiro(a)">Tesoureiro(a)</option>
@@ -1809,7 +1809,15 @@ const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club }) => {
               Créditos e Fontes Oficiais de Referência
             </span>
             <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
-              Conteúdo estruturado com base no <strong>Manual Administrativo do Clube de Desbravadores e Aventureiros (Divisão Sul-Americana da IASD — DSA)</strong>, <strong>Manual do Conselheiro de Unidade (DSA)</strong>, <strong>Caderneta Oficial do Capitão e Secretário de Unidade (DSA)</strong>, <strong>Sistema de Gerenciamento de Clubes (SGC)</strong> e requisitos oficiais das Especialidades de <strong>Arte de Acampar, Acampamento I a IV, Fogueiras e Cozinha ao Ar Livre e Pioneiria (mda.wiki.br)</strong>.
+              {isPathfinder ? (
+                <>
+                  Conteúdo estruturado com base no <strong>Manual Administrativo do Clube de Desbravadores (Divisão Sul-Americana da IASD — DSA)</strong>, <strong>Manual do Conselheiro de Unidade (DSA)</strong>, <strong>Caderneta Oficial do Capitão e Secretário de Unidade (DSA)</strong>, <strong>Sistema de Gerenciamento de Clubes (SGC)</strong> e requisitos oficiais das Especialidades de <strong>Arte de Acampar, Acampamento I a IV, Fogueiras e Cozinha ao Ar Livre e Pioneiria (mda.wiki.br)</strong>.
+                </>
+              ) : (
+                <>
+                  Conteúdo estruturado com base no <strong>Manual Administrativo do Clube de Aventureiros (Divisão Sul-Americana da IASD — DSA)</strong>, <strong>Guia da Rede Familiar dos Aventureiros (RFA / DSA)</strong>, <strong>Caderneta do Conselheiro de Unidade Infantil (DSA)</strong>, <strong>Sistema de Gerenciamento de Clubes (SGC)</strong> e diretrizes oficiais de <strong>Acantonamento, Passeios na Natureza e Aventuri (mda.wiki.br)</strong>.
+                </>
+              )}
             </p>
           </div>
         </div>

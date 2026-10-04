@@ -60,9 +60,9 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
   }, [isGuest]);
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-[#F8FAFC] dark:bg-slate-900 transition-colors duration-500">
+    <div className="flex h-full w-full overflow-hidden bg-transparent transition-colors duration-500">
       {/* Menu Lateral exclusivo para PC (desktop/notebook): apenas foto de perfil no topo e ajustes + versão e ano embaixo */}
-      <aside className="hidden md:flex flex-col justify-between items-center w-20 lg:w-22 py-6 px-3 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-r border-slate-200/70 dark:border-slate-800/80 shrink-0 z-30 select-none">
+      <aside className="hidden md:flex flex-col justify-between items-center w-20 lg:w-22 py-6 px-3 bg-white/70 dark:bg-slate-900/65 backdrop-blur-xl border-r border-slate-200/70 dark:border-slate-800/80 shrink-0 z-30 select-none">
         {/* Topo do Menu Lateral: Apenas a Foto de Perfil */}
         <div className="flex flex-col items-center">
           <div className="relative">
@@ -99,7 +99,7 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
           </button>
 
           <div className="flex flex-col items-center text-center mt-3 select-none text-slate-400 dark:text-slate-500 leading-tight">
-            <span className="text-[10px] font-black tracking-wider text-slate-500 dark:text-slate-400">
+            <span className="app-accent-text text-[10px] font-black tracking-wider text-slate-500 dark:text-slate-400">
               v{APP_VERSION}
             </span>
             <span className="text-[8px] font-extrabold uppercase tracking-wider mt-0.5">
@@ -112,7 +112,7 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
       {/* Área Principal de Conteúdo */}
       <div className="flex flex-col flex-1 h-full overflow-y-auto scrollbar-hide min-w-0">
         {/* Top Header Móvel (visível apenas em telas menores / mobile) */}
-        <header className="md:hidden sticky top-0 z-20 w-full bg-[#F8FAFC]/95 dark:bg-slate-900/95 backdrop-blur-md py-3 px-4 shrink-0 transition-colors border-b border-slate-200/40 dark:border-slate-800/40">
+        <header className="md:hidden sticky top-0 z-20 w-full bg-white/70 dark:bg-slate-900/70 backdrop-blur-md py-3 px-4 shrink-0 transition-colors border-b border-slate-200/40 dark:border-slate-800/40">
           <div className="w-full flex justify-between items-center">
             <button 
               onClick={onOpenSettings} 
@@ -180,14 +180,14 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
                 </h1>
                 <div className="flex items-center justify-center space-x-2">
                   <span className="h-[1px] w-4 bg-slate-300 dark:bg-slate-700"></span>
-                  <p className="text-[9px] sm:text-[11px] font-extrabold text-slate-400 dark:text-slate-400 uppercase tracking-[0.4em]">
+                  <p className="app-accent-text text-[9px] sm:text-[11px] font-extrabold text-slate-400 dark:text-slate-400 uppercase tracking-[0.4em]">
                     Gestão Digital
                   </p>
                   <span className="h-[1px] w-4 bg-slate-300 dark:bg-slate-700"></span>
                 </div>
                 
                 <div className="mt-3 sm:mt-4">
-                  <span className="inline-flex items-center px-3.5 py-1 rounded-full bg-amber-500/10 dark:bg-amber-400/15 border border-amber-500/25 dark:border-amber-400/30 text-amber-700 dark:text-amber-300 font-bold text-[10px] sm:text-xs tracking-wide">
+                  <span className="app-accent-text inline-flex items-center px-3.5 py-1 rounded-full bg-amber-500/10 dark:bg-amber-400/15 border border-amber-500/25 dark:border-amber-400/30 text-amber-700 dark:text-amber-300 font-bold text-[10px] sm:text-xs tracking-wide">
                     Esse não é um app oficial da IASD
                   </span>
                 </div>
@@ -198,7 +198,7 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
             <div className="w-full md:w-[380px] lg:w-[440px] shrink-0 flex flex-col items-center justify-center">
               {/* Título de Instrução Centralizado */}
               <div className="mb-4 sm:mb-5 text-center w-full">
-                <h2 className="text-[11px] sm:text-xs font-bold text-slate-400 dark:text-slate-400 uppercase tracking-[0.25em]">
+                <h2 className="app-accent-text text-[11px] sm:text-xs font-bold text-slate-400 dark:text-slate-400 uppercase tracking-[0.25em]">
                   Escolha um ministério
                 </h2>
               </div>

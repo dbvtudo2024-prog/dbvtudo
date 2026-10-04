@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '3.0.75';
+const appVersion = '3.0.83';
 
 function versionPlugin(): Plugin {
   return {
@@ -19,8 +19,7 @@ function versionPlugin(): Plugin {
           buildDate: new Date(buildTime).toISOString(),
           timestamp: buildTime,
           highlights: [
-            "Planejador de Acampamento no Cantinho da Unidade atualizado com opção de editar os dias e adicionar novos dias e refeições",
-            "Campo de Prato Principal / Cardápio com 2 linhas de texto e campo dedicado para Suco Natural e Frutas em todas as refeições"
+            "Novos vídeos adicionados para Desbravadores e manutenção da página atual ao alternar entre Desbravadores e Aventureiros no PC"
           ]
         }, null, 2)
       });
@@ -36,8 +35,7 @@ function versionPlugin(): Plugin {
             buildDate: new Date(buildTime).toISOString(),
             timestamp: buildTime,
             highlights: [
-              "Planejador de Acampamento no Cantinho da Unidade atualizado com opção de editar os dias e adicionar novos dias e refeições",
-              "Campo de Prato Principal / Cardápio com 2 linhas de texto e campo dedicado para Suco Natural e Frutas em todas as refeições"
+              "Novos vídeos adicionados para Desbravadores e manutenção da página atual ao alternar entre Desbravadores e Aventureiros no PC"
             ]
           }));
           return;

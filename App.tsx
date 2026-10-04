@@ -6,7 +6,7 @@ import ClubManagement, { SubViewType } from './components/ClubManagement';
 import Auth from './components/Auth';
 import Profile from './components/Profile';
 import UpdateNotification from './components/UpdateNotification';
-import { Settings, X, ChevronLeft, ChevronRight, Search, Moon, Sun, Bell, BellOff, LogOut, LogIn, Sparkles, History, CheckCircle2, RefreshCw, Layers, PanelLeft } from 'lucide-react';
+import { Settings, X, ChevronLeft, ChevronRight, Search, Moon, Sun, Bell, BellOff, LogOut, LogIn, Sparkles, History, CheckCircle2, RefreshCw, Layers, PanelLeft, Palette, Check } from 'lucide-react';
 import { APP_VERSION, APP_BUILD_DATE, VERSION_HISTORY } from './versionConfig';
 
 import { PROFILE_KEY } from './constants';
@@ -64,12 +64,153 @@ const styles = `
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
   .bg-mesh {
+    background-color: transparent;
+  }
+
+  /* Fundo radial centralizado dissipando até as bordas + quadriculado de fios bem suave */
+  .app-radial-canvas {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    transition: background 0.6s cubic-bezier(0.16, 1, 0.3, 1);
     background-color: #f8fafc;
-    background-image: 
-      radial-gradient(at 0% 0%, rgba(220, 55, 27, 0.05) 0px, transparent 50%),
-      radial-gradient(at 100% 0%, rgba(128, 0, 0, 0.05) 0px, transparent 50%);
+    background-image:
+      radial-gradient(
+        circle at 50% 50%,
+        rgba(var(--app-accent-rgb, 220, 160, 72), 0.30) 0%,
+        rgba(var(--app-accent-rgb, 220, 160, 72), 0.16) 28%,
+        rgba(var(--app-accent-rgb, 220, 160, 72), 0.06) 56%,
+        rgba(248, 250, 252, 0.96) 84%,
+        #f8fafc 100%
+      );
+  }
+
+  html.dark .app-radial-canvas {
+    background-color: #07090e;
+    background-image:
+      radial-gradient(
+        circle at 50% 50%,
+        rgba(var(--app-accent-rgb, 220, 160, 72), 0.38) 0%,
+        rgba(var(--app-accent-rgb, 220, 160, 72), 0.21) 26%,
+        rgba(var(--app-accent-rgb, 220, 160, 72), 0.08) 54%,
+        rgba(8, 10, 15, 0.95) 82%,
+        #06080d 100%
+      );
+  }
+
+  .app-wireframe-grid {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-image:
+      linear-gradient(to right, rgba(var(--app-accent-rgb, 220, 160, 72), 0.18) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(var(--app-accent-rgb, 220, 160, 72), 0.18) 1px, transparent 1px),
+      linear-gradient(to right, rgba(15, 23, 42, 0.045) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(15, 23, 42, 0.045) 1px, transparent 1px);
+    background-size: 32px 32px;
+    background-position: center center;
+    -webkit-mask-image: radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.55) 58%, rgba(0, 0, 0, 0.14) 95%);
+    mask-image: radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.55) 58%, rgba(0, 0, 0, 0.14) 95%);
+    transition: all 0.5s ease;
+  }
+
+  html.dark .app-wireframe-grid {
+    background-image:
+      linear-gradient(to right, rgba(var(--app-accent-rgb, 220, 160, 72), 0.075) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(var(--app-accent-rgb, 220, 160, 72), 0.075) 1px, transparent 1px);
+    -webkit-mask-image: radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.82) 0%, rgba(0, 0, 0, 0.42) 55%, rgba(0, 0, 0, 0.06) 95%);
+    mask-image: radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.82) 0%, rgba(0, 0, 0, 0.42) 55%, rgba(0, 0, 0, 0.06) 95%);
+  }
+
+  /* Textos em destaque de todo o app assumem a Cor de Realce selecionada (preservando faixa e bolso no perfil) */
+  html[data-accent] .app-accent-text:not(.no-accent-override, .no-accent-override *),
+  html[data-accent] .text-indigo-600:not(.text-white, .no-accent-override, .no-accent-override *),
+  html[data-accent] .text-indigo-500:not(.text-white, .no-accent-override, .no-accent-override *),
+  html[data-accent] .text-indigo-400:not(.text-white, .no-accent-override, .no-accent-override *),
+  html[data-accent] .text-blue-600:not(.text-white, .no-accent-override, .no-accent-override *),
+  html[data-accent] .text-blue-500:not(.text-white, .no-accent-override, .no-accent-override *),
+  html[data-accent] .text-blue-400:not(.text-white, .no-accent-override, .no-accent-override *),
+  html[data-accent] .text-amber-600:not(.text-white, .no-accent-override, .no-accent-override *),
+  html[data-accent] .text-amber-500:not(.text-white, .no-accent-override, .no-accent-override *),
+  html[data-accent] .text-amber-700:not(.text-white, .no-accent-override, .no-accent-override *),
+  html[data-accent] .text-red-500:not(.text-white, .no-accent-override, .no-accent-override *),
+  html[data-accent] .text-red-600:not(.text-white, .no-accent-override, .no-accent-override *),
+  html[data-accent] .text-fuchsia-600:not(.text-white, .no-accent-override, .no-accent-override *),
+  html[data-accent] .text-fuchsia-700:not(.text-white, .no-accent-override, .no-accent-override *),
+  html[data-accent] .text-emerald-600:not(.text-white, .no-accent-override, .no-accent-override *) {
+    color: var(--app-accent-text) !important;
+  }
+
+  html.dark[data-accent] .dark\\:text-indigo-400:not(.text-white, .no-accent-override, .no-accent-override *),
+  html.dark[data-accent] .dark\\:text-indigo-300:not(.text-white, .no-accent-override, .no-accent-override *),
+  html.dark[data-accent] .dark\\:text-blue-400:not(.text-white, .no-accent-override, .no-accent-override *),
+  html.dark[data-accent] .dark\\:text-blue-300:not(.text-white, .no-accent-override, .no-accent-override *),
+  html.dark[data-accent] .dark\\:text-amber-400:not(.text-white, .no-accent-override, .no-accent-override *),
+  html.dark[data-accent] .dark\\:text-amber-300:not(.text-white, .no-accent-override, .no-accent-override *),
+  html.dark[data-accent] .dark\\:text-red-400:not(.text-white, .no-accent-override, .no-accent-override *),
+  html.dark[data-accent] .dark\\:text-orange-400:not(.text-white, .no-accent-override, .no-accent-override *),
+  html.dark[data-accent] .dark\\:text-rose-400:not(.text-white, .no-accent-override, .no-accent-override *),
+  html.dark[data-accent] .dark\\:text-fuchsia-400:not(.text-white, .no-accent-override, .no-accent-override *),
+  html.dark[data-accent] .dark\\:text-fuchsia-300:not(.text-white, .no-accent-override, .no-accent-override *),
+  html.dark[data-accent] .dark\\:text-emerald-400:not(.text-white, .no-accent-override, .no-accent-override *),
+  html.dark[data-accent] .dark\\:text-emerald-300:not(.text-white, .no-accent-override, .no-accent-override *) {
+    color: var(--app-accent-text) !important;
+  }
+
+  /* Translucidez sutil nos cards no modo escuro para deixar o brilho central e o quadriculado visíveis em todo o app */
+  html.dark[data-accent] .dark\\:bg-slate-800:not(.no-accent-override, .no-accent-override *) {
+    background-color: rgba(20, 26, 38, 0.76) !important;
+    border-color: rgba(var(--app-accent-rgb, 220, 160, 72), 0.16) !important;
   }
 `;
+
+export type AccentColorId = 'gold' | 'coral' | 'teal' | 'green';
+
+export interface AccentColorOption {
+  id: AccentColorId;
+  label: string;
+  hex: string;
+  rgb: string;
+  textDark: string;
+  textLight: string;
+}
+
+export const ACCENT_COLOR_OPTIONS: AccentColorOption[] = [
+  {
+    id: 'gold',
+    label: 'Âmbar Dourado',
+    hex: '#dca048',
+    rgb: '220, 160, 72',
+    textDark: '#f5b95f',
+    textLight: '#b45309'
+  },
+  {
+    id: 'coral',
+    label: 'Coral Terracota',
+    hex: '#dc8253',
+    rgb: '220, 130, 83',
+    textDark: '#fb923c',
+    textLight: '#c2410c'
+  },
+  {
+    id: 'teal',
+    label: 'Turquesa Real',
+    hex: '#49b3a8',
+    rgb: '73, 179, 168',
+    textDark: '#2dd4bf',
+    textLight: '#0f766e'
+  },
+  {
+    id: 'green',
+    label: 'Verde Sálvia',
+    hex: '#6bb07b',
+    rgb: '107, 176, 123',
+    textDark: '#4ade80',
+    textLight: '#15803d'
+  }
+];
 
 const App: React.FC = () => {
   // Se o usuário estiver logado, inicia na tela inicial (HOME); caso contrário, na tela de LOGIN
@@ -233,6 +374,41 @@ const App: React.FC = () => {
     return false;
   });
 
+  // Cor de Realce (muda fundo radial do centro para as bordas + quadriculado suave + textos em destaque)
+  const [accentColor, setAccentColor] = useState<AccentColorId>(() => {
+    try {
+      const saved = localStorage.getItem('dbv_tudo_accent_color') as AccentColorId | null;
+      if (saved && ACCENT_COLOR_OPTIONS.some((o) => o.id === saved)) {
+        return saved;
+      }
+    } catch {}
+    return 'gold';
+  });
+
+  const activeAccentOption = React.useMemo(
+    () => ACCENT_COLOR_OPTIONS.find((o) => o.id === accentColor) || ACCENT_COLOR_OPTIONS[0],
+    [accentColor]
+  );
+
+  const handleSelectAccentColor = (id: AccentColorId) => {
+    setAccentColor(id);
+    try {
+      localStorage.setItem('dbv_tudo_accent_color', id);
+      window.dispatchEvent(new CustomEvent('dbv_accent_color_changed', { detail: id }));
+    } catch {}
+  };
+
+  useEffect(() => {
+    const onAccentEvent = (e: any) => {
+      const nextId = e?.detail as AccentColorId;
+      if (nextId && ACCENT_COLOR_OPTIONS.some((o) => o.id === nextId)) {
+        setAccentColor(nextId);
+      }
+    };
+    window.addEventListener('dbv_accent_color_changed', onAccentEvent as EventListener);
+    return () => window.removeEventListener('dbv_accent_color_changed', onAccentEvent as EventListener);
+  }, []);
+
   // Notificações: preferência salva no dispositivo e verificação de suporte/permissão
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(() => {
     try {
@@ -380,7 +556,7 @@ const App: React.FC = () => {
     } catch (e) {}
   }, []);
 
-  // Sincronizar classe dark para Tailwind e salvar preferência de tema
+  // Sincronizar classe dark para Tailwind e variáveis de Cor de Realce
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
@@ -393,7 +569,14 @@ const App: React.FC = () => {
         localStorage.setItem('dbv_tudo_theme', 'light');
       } catch (e) {}
     }
-  }, [darkMode]);
+    document.documentElement.setAttribute('data-accent', activeAccentOption.id);
+    document.documentElement.style.setProperty('--app-accent', activeAccentOption.hex);
+    document.documentElement.style.setProperty('--app-accent-rgb', activeAccentOption.rgb);
+    document.documentElement.style.setProperty(
+      '--app-accent-text',
+      darkMode ? activeAccentOption.textDark : activeAccentOption.textLight
+    );
+  }, [darkMode, activeAccentOption]);
 
   // Gerenciar histórico para o botão voltar do Android
   useEffect(() => {
@@ -594,8 +777,11 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className={`app-root-wrapper h-[100dvh] h-screen w-screen flex flex-col p-0 m-0 overflow-hidden transition-colors duration-500 ${darkMode ? 'bg-slate-950' : 'bg-[#f8fafc]'}`}>
+    <div className={`app-root-wrapper relative h-[100dvh] h-screen w-screen flex flex-col p-0 m-0 overflow-hidden transition-colors duration-500 ${darkMode ? 'bg-slate-950' : 'bg-[#f8fafc]'}`}>
       <style>{styles}</style>
+      {/* Fundo Global: Círculo central dissipando até as bordas + Quadriculado de fios bem suave */}
+      <div className="app-radial-canvas" aria-hidden="true" />
+      <div className="app-wireframe-grid" aria-hidden="true" />
       <UpdateNotification
         onOpenVersionHistory={handleOpenVersionHistory}
       />
@@ -624,14 +810,14 @@ const App: React.FC = () => {
         </aside>
       )}
 
-      <div className={`app-card-wrapper h-full w-full max-w-7xl lg:max-w-[1550px] mx-auto relative overflow-hidden rounded-none border-0 shadow-none flex flex-col flex-1 transition-colors duration-500 ${darkMode ? 'bg-slate-900' : 'bg-white'}`}>
-        <main className={`flex-1 w-full overflow-hidden flex flex-col transition-colors duration-500 ${darkMode ? 'bg-slate-900' : 'bg-mesh'}`}>
+      <div className="app-card-wrapper h-full w-full max-w-7xl lg:max-w-[1550px] mx-auto relative z-10 overflow-hidden rounded-none border-0 shadow-none flex flex-col flex-1 bg-transparent transition-colors duration-500">
+        <main className="flex-1 w-full overflow-hidden flex flex-col bg-transparent transition-colors duration-500">
           {renderContent()}
         </main>
 
         {/* Rodapé Global (no PC o rodapé está integrado à barra lateral) */}
         <footer className="app-footer py-1.5 sm:py-2 px-4 text-center select-none shrink-0 pointer-events-none z-20 transition-colors duration-500 md:hidden">
-          <p className="text-[10px] sm:text-[11px] font-black text-blue-500 dark:text-blue-400 uppercase tracking-[0.25em]">
+          <p className="app-accent-text text-[10px] sm:text-[11px] font-black text-blue-500 dark:text-blue-400 uppercase tracking-[0.25em]">
             DBV TUDO 2024 - 2026
           </p>
         </footer>
@@ -674,42 +860,121 @@ const App: React.FC = () => {
 
             {/* Corpo do Modal com Opções */}
             <div className="p-6 space-y-3.5 overflow-y-auto scrollbar-hide flex-1">
-              {/* Tema Escuro e Notificações Lado a Lado */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Botão Tema Escuro */}
-                <button 
+              {/* Container do Modo Escuro + Cores de Realce (idêntico à referência visual) */}
+              <div
+                className={`p-4 rounded-[26px] border transition-all space-y-3.5 ${
+                  darkMode
+                    ? 'bg-slate-800/80 border-slate-700/90'
+                    : 'bg-slate-50 border-slate-200/80'
+                }`}
+              >
+                {/* Linha Superior: Alternador de Modo Escuro */}
+                <button
+                  type="button"
                   onClick={() => setDarkMode(!darkMode)}
-                  className={`p-3.5 rounded-2xl flex items-center justify-between border transition-all text-left group active:scale-[0.98] ${
-                    darkMode 
-                      ? 'bg-slate-800/80 border-slate-700 hover:border-slate-600' 
-                      : 'bg-slate-50 border-slate-200/80 hover:border-slate-300'
-                  }`}
+                  className="w-full flex items-center justify-between text-left group active:scale-[0.99] transition-all cursor-pointer"
                 >
-                  <div className="flex items-center space-x-2.5 min-w-0 pr-2">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                      darkMode ? 'bg-indigo-500/20 text-indigo-400' : 'bg-amber-500/10 text-amber-600'
-                    }`}>
-                      {darkMode ? <Moon size={18} /> : <Sun size={18} />}
+                  <div className="flex items-center space-x-3 min-w-0 pr-2">
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors"
+                      style={{
+                        backgroundColor: `rgba(${activeAccentOption.rgb}, 0.18)`,
+                        color: activeAccentOption.hex
+                      }}
+                    >
+                      {darkMode ? <Moon size={19} /> : <Sun size={19} />}
                     </div>
                     <div className="truncate">
-                      <span className={`block text-xs sm:text-sm font-bold truncate ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
-                        Tema Escuro
+                      <span className={`block text-sm font-black truncate ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
+                        Modo Escuro
                       </span>
-                      <span className="text-[10px] text-slate-400 dark:text-slate-400 block truncate">
-                        {darkMode ? 'Modo escuro' : 'Modo claro'}
+                      <span className="text-[11px] text-slate-400 dark:text-slate-400 block truncate">
+                        {darkMode ? 'Tema escuro ativado' : 'Tema claro ativado'}
                       </span>
                     </div>
                   </div>
-                  <div className={`w-10 h-5 sm:w-11 sm:h-5.5 rounded-full p-0.5 transition-colors duration-300 shrink-0 ${
-                    darkMode ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-700'
-                  }`}>
-                    <div className={`w-4 h-4 sm:w-4.5 sm:h-4.5 bg-white rounded-full shadow-sm transition-transform duration-300 ${
-                      darkMode ? 'translate-x-5 sm:translate-x-5.5' : ''
-                    }`} />
+                  <div
+                    className="w-11 h-6 rounded-full p-0.5 transition-colors duration-300 shrink-0"
+                    style={{
+                      backgroundColor: darkMode ? activeAccentOption.hex : undefined
+                    }}
+                  >
+                    <div
+                      className={`w-full h-full rounded-full flex items-center ${
+                        !darkMode ? 'bg-slate-300 dark:bg-slate-700 p-0.5 -m-0.5' : ''
+                      }`}
+                    >
+                      <div
+                        className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ${
+                          darkMode ? 'translate-x-5' : ''
+                        }`}
+                      />
+                    </div>
                   </div>
                 </button>
 
-                {/* Botão Notificações */}
+                {/* Sub-container interno: Cores de Realce */}
+                <div
+                  className="rounded-2xl py-2.5 px-3 border transition-all relative overflow-hidden"
+                  style={{
+                    backgroundColor: darkMode ? '#14161d' : '#ffffff',
+                    backgroundImage: darkMode
+                      ? `radial-gradient(circle at 18% 50%, rgba(${activeAccentOption.rgb}, 0.20) 0%, rgba(${activeAccentOption.rgb}, 0.05) 48%, transparent 80%)`
+                      : `radial-gradient(circle at 18% 50%, rgba(${activeAccentOption.rgb}, 0.16) 0%, rgba(${activeAccentOption.rgb}, 0.04) 50%, transparent 85%)`,
+                    borderColor: darkMode
+                      ? `rgba(${activeAccentOption.rgb}, 0.28)`
+                      : `rgba(${activeAccentOption.rgb}, 0.32)`
+                  }}
+                >
+                  <div className="flex items-center space-x-1.5 mb-2">
+                    <Palette
+                      size={14}
+                      style={{ color: activeAccentOption.hex }}
+                      className="shrink-0 transition-colors duration-300"
+                    />
+                    <span className={`text-[11px] sm:text-xs font-extrabold tracking-tight ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                      Cores de Realce
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-around px-3 py-0.5">
+                    {ACCENT_COLOR_OPTIONS.map((option) => {
+                      const isSelected = accentColor === option.id;
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => handleSelectAccentColor(option.id)}
+                          title={option.label}
+                          aria-label={`Cor de realce ${option.label}`}
+                          className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer relative shrink-0 ${
+                            isSelected ? 'scale-110' : 'hover:scale-105 opacity-90 hover:opacity-100 active:scale-95'
+                          }`}
+                          style={{
+                            width: '24px',
+                            height: '24px',
+                            minWidth: '24px',
+                            minHeight: '24px',
+                            backgroundColor: option.hex,
+                            boxShadow: isSelected
+                              ? darkMode
+                                ? `0 0 0 2px rgba(255, 255, 255, 0.95), 0 0 10px 2px rgba(${option.rgb}, 0.65)`
+                                : `0 0 0 2px #ffffff, 0 0 0 3.5px rgba(${option.rgb}, 0.75), 0 2px 6px rgba(${option.rgb}, 0.35)`
+                              : '0 1px 3px rgba(0, 0, 0, 0.25)'
+                          }}
+                        >
+                          {isSelected && (
+                            <Check size={12} strokeWidth={3} className="text-white drop-shadow-xs" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Botão Notificações */}
+              <div className="grid grid-cols-1 gap-3">
                 <button 
                   onClick={handleToggleNotifications}
                   className={`p-3.5 rounded-2xl flex items-center justify-between border transition-all text-left group active:scale-[0.98] ${

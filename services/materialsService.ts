@@ -105,17 +105,6 @@ export const OFFICIAL_COREL_EMBLEMS: CorelEmblemItem[] = [
     imageUrl: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Emblemas/dbv_emblema_l_d3_0_7.png',
     corelPortalUrl: 'https://downloads.adventistas.org/pt/desbravadores/logomarcas/logos-abertos-desbravadores/'
   },
-  {
-    id: 'corel_dbv_bandeira',
-    code: 'BANDEIRA DBV',
-    title: 'Gabarito Vetorial — Bandeira Oficial e Bandeirim DBV',
-    subtitle: 'Diagramação oficial com quartéis azul royal e branco, D1 central e fonte Arial Black p/ nome do Clube',
-    ministry: 'DBV',
-    dimensions: '128 × 90 cm (Bandeira Oficial) • 55 × 36 cm (Bandeirim de Unidade)',
-    colorsSpec: 'Azul Royal (Quartéis Sup. Esq. e Inf. Dir.) • Branco • Emblema D1 30×30 cm ao centro',
-    imageUrl: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Emblemas/dbv_bandeira_oficial_dos_desbravadores_3.png',
-    corelPortalUrl: 'https://downloads.adventistas.org/pt/kits/identidade-visual-do-ministerio-de-desbravadores/'
-  },
 
   // ================= AVENTUREIROS (DSA) =================
   {
@@ -184,17 +173,6 @@ export const OFFICIAL_COREL_EMBLEMS: CorelEmblemItem[] = [
     dimensions: '10,0 × 7,0 cm (Lenço de Líder) • 7,0 × 5,0 cm (Manga Esquerda)',
     colorsSpec: 'Azul Celeste, Laranja, Azul Marinho e Vinho + Borda Ouro',
     imageUrl: 'https://mda.wiki.br/site/@imgs_wiki/imagem@emblema_l_a1.png',
-    corelPortalUrl: 'https://downloads.adventistas.org/pt/aventureiros/logomarcas/logos-aberto-aventureiros/'
-  },
-  {
-    id: 'corel_avt_bandeira',
-    code: 'BANDEIRA AVT',
-    title: 'Gabarito Vetorial — Bandeira Oficial e Bandeirim AVT',
-    subtitle: 'Diagramação oficial com quartéis vinho/bordô e branco, A1 central e nome do Clube no quartel inferior direito',
-    ministry: 'AVT',
-    dimensions: '128 × 90 cm (Bandeira Oficial) • 55 × 36 cm (Bandeirim de Unidade)',
-    colorsSpec: 'Vinho/Bordô (C:25 M:100 Y:78 K:26) • Branco • Emblema A1 29×27 cm ao centro',
-    imageUrl: 'https://mda.wiki.br/site/@imgs_wiki/imagem@bandeira_aventureiros.jpeg',
     corelPortalUrl: 'https://downloads.adventistas.org/pt/aventureiros/logomarcas/logos-aberto-aventureiros/'
   }
 ];

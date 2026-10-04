@@ -306,7 +306,8 @@ export const TiraNome: React.FC<TiraNomeProps> = ({ name, age, tipoSanguineo, fa
         {/* Tipo sanguíneo e Fator RH exclusivamente na faixa, do lado direito da caixa do nome apenas a escrita em vermelho */}
         {bloodTypeDisplay && (
           <span 
-            className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 z-10 font-black text-sm sm:text-base md:text-lg text-red-600 font-mono tracking-tight leading-none pointer-events-none select-none drop-shadow-[0_0.5px_0.5px_rgba(0,0,0,0.2)]"
+            style={{ color: '#dc2626' }}
+            className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 z-10 font-black text-sm sm:text-base md:text-lg text-red-600 font-mono tracking-tight leading-none pointer-events-none select-none drop-shadow-[0_0.5px_0.5px_rgba(0,0,0,0.2)] no-accent-override"
             title={`Tipo Sanguíneo e Fator RH: ${bloodTypeDisplay}`}
           >
             {bloodTypeDisplay}
@@ -1196,7 +1197,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#F8FAFC] dark:bg-slate-900 overflow-hidden relative transition-colors duration-500">
+    <div className="flex flex-col h-full bg-transparent overflow-hidden relative transition-colors duration-500">
       <input type="file" ref={fileInputRef} onChange={handlePhotoUpload} accept="image/*" className="hidden" />
 
       {/* Modal Informativo do Globo da Faixa */}
@@ -1805,15 +1806,15 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
           )}
         </div>
 
-        <div className="mt-8 px-4 sm:px-8 pb-10 animate-slide-up max-w-7xl mx-auto">
+        <div className="mt-8 px-4 sm:px-8 pb-10 animate-slide-up max-w-7xl mx-auto no-accent-override">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 items-start">
             {/* LADO 1: SIMULAÇÃO TÊXTIL DO BOLSO ESQUERDO DO UNIFORME DE GALA */}
             <div className="w-full flex flex-col items-center">
               <div className={`w-full max-w-[340px] sm:max-w-[380px] ${
                 isAdultUniform 
                   ? 'bg-white border-2 border-slate-300 text-slate-900 shadow-2xl' 
-                  : 'bg-[#c7a783] dark:bg-[#b89874] border-2 border-[#a68662] dark:border-[#967753] shadow-2xl'
-              } rounded-[28px] p-4 sm:p-5 flex flex-col items-center relative overflow-hidden transition-colors duration-500`}>
+                  : 'bg-[#c7a783] border-2 border-[#a68662] shadow-2xl'
+              } rounded-[28px] p-4 sm:p-5 flex flex-col items-center relative overflow-hidden`}>
                 {/* Textura sutil e costuras de alfaiataria */}
                 <div className={`absolute inset-0 pointer-events-none ${
                   isAdultUniform 
@@ -1821,7 +1822,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                     : 'bg-[radial-gradient(#6e502b_1px,transparent_1px)] opacity-15'
                 } [background-size:12px_12px]`} />
                 <div className={`absolute top-2 left-4 right-4 border-b border-dashed ${
-                  isAdultUniform ? 'border-slate-300' : 'border-[#947450]/50 dark:border-[#856541]/60'
+                  isAdultUniform ? 'border-slate-300' : 'border-[#947450]/50'
                 } pointer-events-none`} />
 
                 {/* 1. ACIMA DO BOLSO: Insígnia de Excelência (Comprimento proporcional, sem ficar excessivamente longa) */}
@@ -1944,19 +1945,19 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                     <div className={`w-full h-28 sm:h-30 ${
                       isAdultUniform 
                         ? 'bg-white border-2 border-slate-300' 
-                        : 'bg-[#be9d77] dark:bg-[#b08f6b] border-2 border-[#9e7f5b] dark:border-[#91724f]'
-                    } rounded-t-lg relative shadow-sm flex flex-col items-center justify-center pt-2.5 pb-2.5 px-2 z-10 transition-colors duration-500`}>
+                        : 'bg-[#be9d77] border-2 border-[#9e7f5b]'
+                    } rounded-t-lg relative shadow-sm flex flex-col items-center justify-center pt-2.5 pb-2.5 px-2 z-10`}>
                       {/* Pesponto decorativo na lapela */}
                       <div className={`absolute inset-1 border border-dashed ${
-                        isAdultUniform ? 'border-slate-300/80' : 'border-[#8f6f4b]/50 dark:border-[#7d5f3d]/60'
+                        isAdultUniform ? 'border-slate-300/80' : 'border-[#8f6f4b]/50'
                       } pointer-events-none rounded-t-sm`} />
 
                       {/* Botão de fechamento central da lapela (costura militar) */}
                       <div className={`absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full ${
                         isAdultUniform 
                           ? 'bg-slate-100 border border-slate-300' 
-                          : 'bg-[#9e7f5b] dark:bg-[#8f704c] border border-[#7d603e] dark:border-[#6e5334]'
-                      } shadow-xs flex items-center justify-center pointer-events-none z-20 transition-colors`}>
+                          : 'bg-[#9e7f5b] border border-[#7d603e]'
+                      } shadow-xs flex items-center justify-center pointer-events-none z-20`}>
                         <div className={`w-1.5 h-1.5 rounded-full ${isAdultUniform ? 'bg-slate-300' : 'bg-[#dfcbb2]/70'}`} />
                       </div>
 
@@ -2070,33 +2071,33 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                     <div className={`w-full h-64 sm:h-72 ${
                       isAdultUniform 
                         ? 'bg-white border-x-2 border-b-2 border-slate-300' 
-                        : 'bg-[#be9d77] dark:bg-[#b08f6b] border-x-2 border-b-2 border-[#9e7f5b] dark:border-[#91724f]'
-                    } rounded-b-2xl relative shadow-md flex flex-col items-center justify-center overflow-hidden -mt-0.5 transition-colors duration-500`}>
+                        : 'bg-[#be9d77] border-x-2 border-b-2 border-[#9e7f5b]'
+                    } rounded-b-2xl relative shadow-md flex flex-col items-center justify-center overflow-hidden -mt-0.5`}>
                       {/* Costura pespontada lateral e inferior */}
                       <div className={`absolute inset-2 border-x border-b border-dashed ${
-                        isAdultUniform ? 'border-slate-300/80' : 'border-[#8f6f4b]/50 dark:border-[#7d5f3d]/60'
+                        isAdultUniform ? 'border-slate-300/80' : 'border-[#8f6f4b]/50'
                       } pointer-events-none rounded-b-xl`} />
 
                       {/* Prega macho central vertical com relevo autêntico */}
                       <div className={`absolute top-0 bottom-0 w-10 sm:w-12 ${
                         isAdultUniform 
                           ? 'bg-slate-100 border-x border-slate-200 shadow-[inset_0_0_8px_rgba(0,0,0,0.04)]' 
-                          : 'bg-[#ae8c66]/60 dark:bg-[#a07f59]/70 border-x border-[#91714e]/80 dark:border-[#856544] shadow-[inset_0_0_8px_rgba(0,0,0,0.12)]'
-                      } pointer-events-none transition-colors duration-500`} />
+                          : 'bg-[#ae8c66]/60 border-x border-[#91714e]/80 shadow-[inset_0_0_8px_rgba(0,0,0,0.12)]'
+                      } pointer-events-none`} />
                     </div>
                   </div>
 
                   {/* Legenda Informativa */}
                   <div className="mt-3 text-center">
                     <p className={`text-[10px] font-black uppercase tracking-wider ${
-                      isAdultUniform ? 'text-slate-700 dark:text-slate-300' : 'text-[#48351f] dark:text-[#f3e9da]'
+                      isAdultUniform ? 'text-slate-700' : 'text-[#48351f]'
                     }`}>
                       {isAdultUniform 
                         ? 'Bolso Esquerdo • Uniforme Branco Oficial (16+ anos)' 
                         : 'Bolso Esquerdo • Uniforme Cáqui Oficial (Até 15 anos)'}
                     </p>
                     <p className={`text-[9px] font-bold ${
-                      isAdultUniform ? 'text-slate-400 dark:text-slate-400' : 'text-[#5e472a] dark:text-[#dfd0be]'
+                      isAdultUniform ? 'text-slate-400' : 'text-[#5e472a]'
                     }`}>
                       {userAchievements.length} ativas • Toque para condecorar
                     </p>
@@ -2107,7 +2108,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
               {/* LADO 2: FAIXA VERDE-PETRÓLEO OFICIAL (Conforme uniforme e faixa real) */}
               <div className="w-full flex flex-col items-center filter drop-shadow-[0_20px_25px_rgba(0,0,0,0.5)] drop-shadow-[0_8px_10px_rgba(0,0,0,0.3)]">
                 <div 
-                  className="w-[340px] sm:w-[380px] max-w-full bg-[#0c3c31] dark:bg-[#07241d] border-2 border-[#092d25] dark:border-[#041612] px-3 sm:px-4 pt-4 sm:pt-5 pb-6 flex flex-col items-center relative overflow-hidden text-white transition-all duration-300"
+                  className="w-[340px] sm:w-[380px] max-w-full bg-[#0c3c31] border-2 border-[#092d25] px-3 sm:px-4 pt-4 sm:pt-5 pb-6 flex flex-col items-center relative overflow-hidden text-white"
                   style={{
                     clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 340px), 0 100%)'
                   }}

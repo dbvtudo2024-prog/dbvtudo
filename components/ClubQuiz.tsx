@@ -953,7 +953,9 @@ const ClubQuiz: React.FC<ClubQuizProps> = ({ club, specialties, getImageUrl = (u
           ? `Foco específico solicitado pelo usuário: "${customBibleTopic.trim()}" (Bíblia Sagrada Almeida Revista e Corrigida / Livro do Ano / Bom de Bíblia).`
           : `Concurso Oficial "Bom de Bíblia" (Antigo Testamento, Novo Testamento, Heróis da Fé, Profecias de Daniel e Apocalipse, e História dos Pioneiros Adventistas).`;
       } else if (selectedArena === 'MANUAL_ADMINISTRATIVO') {
-        topicContext = `Manual Administrativo Oficial do Clube de Desbravadores da Divisão Sul-Americana (DSA): Filosofia e Objetivos, Faixa Etária (10-15 anos), Eleição da Diretoria, Comissão Executiva e Regular, Sistema de Unidades (Conselheiro, Capitão, Secretário), Classes Regulares e Avançadas, Especialidades, Cerimônias (Admissão em Lenço, Investidura), Finanças e Patrimônio na Tesouraria da Igreja, Seguro Anual e SGC, Bandeira Oficial, Banderim, Ordem Unida, Acampamentos e Disciplina Redentiva.`;
+        topicContext = isPathfinder
+          ? `Manual Administrativo Oficial do Clube de Desbravadores da Divisão Sul-Americana (DSA): Filosofia e Objetivos, Faixa Etária (10-15 anos), Eleição da Diretoria, Comissão Executiva e Regular, Sistema de Unidades (Conselheiro, Capitão, Secretário), Classes Regulares e Avançadas (Amigo a Guia), Especialidades, Cerimônias (Admissão em Lenço, Investidura), Finanças e Patrimônio na Tesouraria da Igreja, Seguro Anual e SGC, Bandeira Oficial, Bandeirim, Ordem Unida, Acampamentos e Disciplina Redentiva.`
+          : `Manual Administrativo Oficial do Clube de Aventureiros da Divisão Sul-Americana (DSA): Filosofia e Objetivos do Ministério de Aventureiros, Faixa Etária (6 a 9 anos), Rede Familiar dos Aventureiros (RFA), Classes (Abelhinhas Laboriosas, Luminares, Edificadores e Mãos Ajudadoras), Especialidades Infantis, Sistema de Unidades Infantis, Cerimônias (Admissão em Lenço Vinho, Investidura), Seguro Anual e SGC, Bandeira Oficial, Bandeirim, Acantonamento e Aventuri.`;
       } else if (selectedArena === 'NISTO_CREMOS_1_10') {
         topicContext = `Livro "Nisto Cremos" (As 28 Crenças Fundamentais da IASD) — EXCLUSIVAMENTE os Capítulos 1 ao 10: 1. As Escrituras Sagradas; 2. A Trindade; 3. O Pai; 4. O Filho; 5. O Espírito Santo; 6. A Criação; 7. A Natureza da Humanidade; 8. O Grande Conflito; 9. A Vida, Morte e Ressurreição de Cristo; 10. A Experiência da Salvação.`;
       } else if (selectedArena === 'NISTO_CREMOS_11_20') {
@@ -1550,7 +1552,15 @@ REGRAS OBRIGATÓRIAS:
                   Créditos e Fontes Oficiais do Banco de Questões
                 </span>
                 <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
-                  Questões e gabaritos elaborados com base na <strong>Bíblia Sagrada</strong>, <strong>Nisto Cremos (28 Crenças Fundamentais da IASD)</strong>, <strong>Manual Administrativo do Clube de Desbravadores e Aventureiros (Divisão Sul-Americana — DSA)</strong>, <strong>Regulamento de Uniformes do Ministério de Desbravadores e Aventureiros (RUD/DSA)</strong>, <strong>Cadernos de Classes Regulares e Avançadas (DSA)</strong> e <strong>Manual Oficial de Especialidades MDA (mda.wiki.br)</strong>.
+                  {isPathfinder ? (
+                    <>
+                      Questões e gabaritos elaborados com base na <strong>Bíblia Sagrada</strong>, <strong>Nisto Cremos (28 Crenças Fundamentais da IASD)</strong>, <strong>Manual Administrativo do Clube de Desbravadores (Divisão Sul-Americana — DSA)</strong>, <strong>Regulamento de Uniformes do Ministério de Desbravadores (RUD/DSA)</strong>, <strong>Cadernos de Classes Regulares e Avançadas (Amigo a Guia — DSA)</strong> e <strong>Manual Oficial de Especialidades dos Desbravadores (mda.wiki.br)</strong>.
+                    </>
+                  ) : (
+                    <>
+                      Questões e gabaritos elaborados com base na <strong>Bíblia Sagrada</strong>, <strong>Nisto Cremos (28 Crenças Fundamentais da IASD)</strong>, <strong>Manual Administrativo do Clube de Aventureiros (Divisão Sul-Americana — DSA)</strong>, <strong>Regulamento de Uniformes do Ministério de Aventureiros (RUD/DSA)</strong>, <strong>Cadernos das Classes dos Aventureiros (Abelhinhas Laboriosas a Mãos Ajudadoras — DSA)</strong> e <strong>Manual Oficial de Especialidades dos Aventureiros (mda.wiki.br)</strong>.
+                    </>
+                  )}
                 </p>
               </div>
             </div>

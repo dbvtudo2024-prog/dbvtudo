@@ -285,11 +285,228 @@ export async function fetchVideos(club: ClubType): Promise<Video[]> {
   }
 }
 
+const DEFAULT_ATIVIDADES_JOGOS_DBV: Video[] = [
+  {
+    id: 1,
+    created_at: '2026-01-01T15:30:43.732932+00:00',
+    titulo: '7 GINCANAS PARA SEU CLUBE!',
+    canal: 'DBV Mania',
+    duracao: '6:24',
+    visualizacoes: '62 mil visualizações',
+    link: 'https://www.youtube.com/watch?v=MmrJwyUIuOg',
+    categoria_id: -1,
+    club: ClubType.PATHFINDER
+  },
+  {
+    id: 2,
+    created_at: '2026-10-05T12:40:00.000Z',
+    titulo: 'GINCANAS PARA O CLUBE DE DESBRAVADORES | PARTE 2',
+    canal: 'DBV Mania',
+    duracao: '5:43',
+    visualizacoes: '133 mil visualizações',
+    link: 'https://www.youtube.com/watch?v=76FfCSYRrDU',
+    categoria_id: -1,
+    club: ClubType.PATHFINDER
+  },
+  {
+    id: 3,
+    created_at: '2026-10-05T12:40:00.000Z',
+    titulo: 'GINCANAS PARA DESBRAVADORES | PARTE 3',
+    canal: 'DBV Mania',
+    duracao: '8:45',
+    visualizacoes: '13 mil visualizações',
+    link: 'https://www.youtube.com/watch?v=-eT0QFidJU0',
+    categoria_id: -1,
+    club: ClubType.PATHFINDER
+  },
+  {
+    id: 4,
+    created_at: '2026-10-05T12:40:00.000Z',
+    titulo: '3 GINCANAS SUPER DIVERTIDAS PARA DESBRAVADORES!',
+    canal: 'DBV Mania',
+    duracao: '6:01',
+    visualizacoes: '12,8 mil visualizações',
+    link: 'https://www.youtube.com/watch?v=H0Y4ZtWKCBo',
+    categoria_id: -1,
+    club: ClubType.PATHFINDER
+  },
+  {
+    id: 5,
+    created_at: '2026-10-05T12:40:00.000Z',
+    titulo: 'GINCANAS FÁCEIS PARA DESBRAVADORES | PARTE 4',
+    canal: 'DBV Mania',
+    duracao: '5:18',
+    visualizacoes: '9,8 mil visualizações',
+    link: 'https://www.youtube.com/watch?v=SD8lXlZScpM',
+    categoria_id: -1,
+    club: ClubType.PATHFINDER
+  },
+  {
+    id: 6,
+    created_at: '2026-10-05T12:40:00.000Z',
+    titulo: '3 Melhores Brincadeiras para Fazer com a sua Unidade',
+    canal: 'Hey Dbv',
+    duracao: '2:50',
+    visualizacoes: '6,3 mil visualizações',
+    link: 'https://www.youtube.com/watch?v=bYa1HFbt2l4',
+    categoria_id: -1,
+    club: ClubType.PATHFINDER
+  }
+];
+
+const DEFAULT_CERIMONIAS_DBV: Video[] = [
+  {
+    id: 1,
+    created_at: '2026-01-01T15:31:31.691104+00:00',
+    titulo: 'Cerimônias no clube de Desbravadores',
+    canal: 'MDA Tube',
+    duracao: '54:18',
+    visualizacoes: '76 visualizações',
+    link: 'https://www.youtube.com/watch?v=FvKnOqhAMBQ',
+    categoria_id: -2,
+    club: ClubType.PATHFINDER
+  },
+  {
+    id: 2,
+    created_at: '2026-10-05T12:40:00.000Z',
+    titulo: 'Cerimônia de Admissão de Lenço - Conquistadores da Alvorada',
+    canal: 'Lucas Baliza',
+    duracao: '27:08',
+    visualizacoes: '43,4 mil visualizações',
+    link: 'https://www.youtube.com/watch?v=eu3YXvRJYVk',
+    categoria_id: -2,
+    club: ClubType.PATHFINDER
+  },
+  {
+    id: 3,
+    created_at: '2026-10-05T12:40:00.000Z',
+    titulo: 'Cerimônia de Admissão em Lenço - Clube de Desbravadores Plus Ultra (IASD)',
+    canal: 'Igreja Adventista Central de Marília',
+    duracao: '1:27:31',
+    visualizacoes: '569 visualizações',
+    link: 'https://www.youtube.com/watch?v=I8iO3LQ_3Dk',
+    categoria_id: -2,
+    club: ClubType.PATHFINDER
+  },
+  {
+    id: 4,
+    created_at: '2026-10-05T12:40:00.000Z',
+    titulo: 'Investidura de Lenço Desbravadores - Cerimônia de Admissão em Lenço',
+    canal: 'Emily e Sophia Oliveira',
+    duracao: '21:38',
+    visualizacoes: '609 visualizações',
+    link: 'https://www.youtube.com/watch?v=fU1D-NG5nBc',
+    categoria_id: -2,
+    club: ClubType.PATHFINDER
+  }
+];
+
+const DEFAULT_VIDEOS_DBV: Video[] = [
+  {
+    id: 1,
+    created_at: '2026-01-01T15:32:25.822405+00:00',
+    titulo: 'Especialidade - coração e circulação',
+    canal: 'Papo Desbravador',
+    duracao: '17:50',
+    visualizacoes: '483 visualizações',
+    link: 'https://www.youtube.com/watch?v=cDdVR5HG-d0&list=PLn840JJkbqo6zT9wDI5SQFIlLoMnsAi48&index=30',
+    categoria_id: -3,
+    club: ClubType.PATHFINDER
+  },
+  {
+    id: 2,
+    created_at: '2026-01-01T15:32:55.428928+00:00',
+    titulo: 'Especialidade - Ornamentação de flores',
+    canal: 'Papo Desbravador',
+    duracao: '11:20',
+    visualizacoes: '243 visualizações',
+    link: 'https://www.youtube.com/watch?v=jXn3gcHKUC0&list=PLn840JJkbqo6zT9wDI5SQFIlLoMnsAi48&index=25',
+    categoria_id: -3,
+    club: ClubType.PATHFINDER
+  },
+  {
+    id: 3,
+    created_at: '2026-01-01T15:33:24.839574+00:00',
+    titulo: 'Especialidade - Cultura indígena',
+    canal: 'Papo Desbravador',
+    duracao: '11:50',
+    visualizacoes: '280 visualizações',
+    link: 'https://www.youtube.com/watch?v=pz3XrB4Xu_k&list=PLn840JJkbqo6zT9wDI5SQFIlLoMnsAi48&index=29',
+    categoria_id: -3,
+    club: ClubType.PATHFINDER
+  },
+  {
+    id: 4,
+    created_at: '2026-01-01T15:33:55.805431+00:00',
+    titulo: 'Especialidade - Araras, papagaios e periquitos',
+    canal: 'Papo Desbravador',
+    duracao: '11:23',
+    visualizacoes: '734 visualizações',
+    link: 'https://www.youtube.com/watch?v=njgE7vpJ8yQ&list=PLn840JJkbqo6zT9wDI5SQFIlLoMnsAi48&index=14',
+    categoria_id: -3,
+    club: ClubType.PATHFINDER
+  },
+  {
+    id: 5,
+    created_at: '2026-10-05T12:40:00.000Z',
+    titulo: 'Especialidade - Temperança',
+    canal: 'Papo Desbravador',
+    duracao: '20:03',
+    visualizacoes: '6 mil visualizações',
+    link: 'https://www.youtube.com/watch?v=aSG24CWTfus',
+    categoria_id: -3,
+    club: ClubType.PATHFINDER
+  },
+  {
+    id: 6,
+    created_at: '2026-10-05T12:40:00.000Z',
+    titulo: 'Especialidade de Cactos - Desbravadores',
+    canal: 'Canal Desbravando',
+    duracao: '15:34',
+    visualizacoes: '5,3 mil visualizações',
+    link: 'https://www.youtube.com/watch?v=Nrv1FG2kIM8',
+    categoria_id: -3,
+    club: ClubType.PATHFINDER
+  },
+  {
+    id: 7,
+    created_at: '2026-10-05T12:40:00.000Z',
+    titulo: 'Especialidade de Sábado - Clube de Desbravadores',
+    canal: 'Hora do Clube',
+    duracao: '16:16',
+    visualizacoes: '1,9 mil visualizações',
+    link: 'https://www.youtube.com/watch?v=_q574vzhAqc',
+    categoria_id: -3,
+    club: ClubType.PATHFINDER
+  },
+  {
+    id: 8,
+    created_at: '2026-10-05T12:40:00.000Z',
+    titulo: 'Dicas e Funções para Instrutor de Especialidades de Desbravadores',
+    canal: 'Hora do Clube',
+    duracao: '9:46',
+    visualizacoes: '1,4 mil visualizações',
+    link: 'https://www.youtube.com/watch?v=svtzmYfRDv4',
+    categoria_id: -3,
+    club: ClubType.PATHFINDER
+  }
+];
+
+function mergeWithDefaults(dbVideos: Video[], defaultVideos: Video[]): Video[] {
+  const extractVidId = (url: string) => {
+    const m = (url || '').match(/(?:v=|youtu\.be\/)([^"&?\/\s]{11})/);
+    return m ? m[1] : url;
+  };
+  const seen = new Set(dbVideos.map(v => extractVidId(v.link)));
+  const extras = defaultVideos.filter(d => !seen.has(extractVidId(d.link)));
+  return [...dbVideos, ...extras];
+}
+
 export async function fetchAtividadesJogosDBV(): Promise<Video[]> {
   try {
     const { data, error } = await supabase.from('AtividadesJogosDBV').select('*').order('id', { ascending: true });
-    if (error) return [];
-    return (data || []).map(v => ({
+    if (error || !data || data.length === 0) return DEFAULT_ATIVIDADES_JOGOS_DBV;
+    const mapped = data.map(v => ({
       id: v.id,
       created_at: v.created_at,
       titulo: v.Titulo || '',
@@ -300,16 +517,17 @@ export async function fetchAtividadesJogosDBV(): Promise<Video[]> {
       categoria_id: -1, // Virtual ID
       club: ClubType.PATHFINDER
     }));
+    return mergeWithDefaults(mapped, DEFAULT_ATIVIDADES_JOGOS_DBV);
   } catch {
-    return [];
+    return DEFAULT_ATIVIDADES_JOGOS_DBV;
   }
 }
 
 export async function fetchCerimoniasDBV(): Promise<Video[]> {
   try {
     const { data, error } = await supabase.from('CerimoniasDBV').select('*').order('id', { ascending: true });
-    if (error) return [];
-    return (data || []).map(v => ({
+    if (error || !data || data.length === 0) return DEFAULT_CERIMONIAS_DBV;
+    const mapped = data.map(v => ({
       id: v.id,
       created_at: v.created_at,
       titulo: v.Titulo || '',
@@ -320,16 +538,17 @@ export async function fetchCerimoniasDBV(): Promise<Video[]> {
       categoria_id: -2, // Virtual ID
       club: ClubType.PATHFINDER
     }));
+    return mergeWithDefaults(mapped, DEFAULT_CERIMONIAS_DBV);
   } catch {
-    return [];
+    return DEFAULT_CERIMONIAS_DBV;
   }
 }
 
 export async function fetchVideosDBV(): Promise<Video[]> {
   try {
     const { data, error } = await supabase.from('VideosDBV').select('*').order('id', { ascending: true });
-    if (error) return [];
-    return (data || []).map(v => ({
+    if (error || !data || data.length === 0) return DEFAULT_VIDEOS_DBV;
+    const mapped = data.map(v => ({
       id: v.id,
       created_at: v.created_at,
       titulo: v.Titulo || '',
@@ -340,9 +559,163 @@ export async function fetchVideosDBV(): Promise<Video[]> {
       categoria_id: -3, // Virtual ID
       club: ClubType.PATHFINDER
     }));
+    return mergeWithDefaults(mapped, DEFAULT_VIDEOS_DBV);
   } catch {
-    return [];
+    return DEFAULT_VIDEOS_DBV;
   }
+}
+
+const DEFAULT_ATIVIDADES_JOGOS_AVT: Video[] = [
+  {
+    id: 101,
+    created_at: '2026-10-05T12:30:00.000Z',
+    titulo: 'Clube de Aventureiros - O melhor jeito de ser criança (IASD)',
+    canal: 'Adventistas Brasil',
+    duracao: '2:34',
+    visualizacoes: '238 mil visualizações',
+    link: 'https://www.youtube.com/watch?v=cGTOP7pCxCw',
+    categoria_id: -1,
+    club: ClubType.ADVENTURER
+  },
+  {
+    id: 102,
+    created_at: '2026-10-05T12:30:00.000Z',
+    titulo: 'Atividade Recreativa #1 - Clube de Aventureiros',
+    canal: 'Sou Aventureiro',
+    duracao: '0:12',
+    visualizacoes: '28,6 mil visualizações',
+    link: 'https://www.youtube.com/watch?v=pNUPcgT_PR0',
+    categoria_id: -1,
+    club: ClubType.ADVENTURER
+  },
+  {
+    id: 103,
+    created_at: '2026-10-05T12:30:00.000Z',
+    titulo: 'Ensinando a Lei dos Aventureiros de Forma Dinâmica',
+    canal: 'Clube de Aventureiros - 5ª Região ABC',
+    duracao: '1:48',
+    visualizacoes: '955 visualizações',
+    link: 'https://www.youtube.com/watch?v=4NNCqoo9pb8',
+    categoria_id: -1,
+    club: ClubType.ADVENTURER
+  },
+  {
+    id: 104,
+    created_at: '2026-10-05T12:30:00.000Z',
+    titulo: 'Início das Atividades - Clube de Aventureiros (IASD)',
+    canal: 'Adventistas Aracruz',
+    duracao: '1:48',
+    visualizacoes: '775 visualizações',
+    link: 'https://www.youtube.com/watch?v=pQBRvn-uLo8',
+    categoria_id: -1,
+    club: ClubType.ADVENTURER
+  }
+];
+
+const DEFAULT_CERIMONIAS_AVT: Video[] = [
+  {
+    id: 201,
+    created_at: '2026-10-05T12:30:00.000Z',
+    titulo: 'Cerimônia de Admissão em Lenço - Aventureiros (ANRA / IASD)',
+    canal: 'Coordenação Rondoniense de Aventureiros - ANRA',
+    duracao: '4:08',
+    visualizacoes: '8 mil visualizações',
+    link: 'https://www.youtube.com/watch?v=QTkQe--4okA',
+    categoria_id: -2,
+    club: ClubType.ADVENTURER
+  },
+  {
+    id: 202,
+    created_at: '2026-10-05T12:30:00.000Z',
+    titulo: 'Entrada de Investidura - Clube de Aventureiros',
+    canal: 'Juliana Rodrigues Da Silva',
+    duracao: '2:07',
+    visualizacoes: '62,5 mil visualizações',
+    link: 'https://www.youtube.com/watch?v=3ldHu8oqeno',
+    categoria_id: -2,
+    club: ClubType.ADVENTURER
+  },
+  {
+    id: 203,
+    created_at: '2026-10-05T12:30:00.000Z',
+    titulo: 'Cerimônia de Admissão em Lenço Aventureiros (IASD)',
+    canal: 'Adventistas Londrina',
+    duracao: '54:01',
+    visualizacoes: '3,6 mil visualizações',
+    link: 'https://www.youtube.com/watch?v=pFdJoiV9gHI',
+    categoria_id: -2,
+    club: ClubType.ADVENTURER
+  },
+  {
+    id: 204,
+    created_at: '2026-10-05T12:30:00.000Z',
+    titulo: 'Entrada da Cerimônia de Admissão em Lenço - Clube de Aventureiros',
+    canal: 'Renata Nogueira',
+    duracao: '2:46',
+    visualizacoes: '3,7 mil visualizações',
+    link: 'https://www.youtube.com/watch?v=KaQ_n2psahU',
+    categoria_id: -2,
+    club: ClubType.ADVENTURER
+  }
+];
+
+const DEFAULT_VIDEOS_AVT: Video[] = [
+  {
+    id: 301,
+    created_at: '2026-10-05T12:30:00.000Z',
+    titulo: 'Especialidade Tabernáculo - Clube de Aventureiros',
+    canal: 'Hora do Clube',
+    duracao: '15:18',
+    visualizacoes: '3,4 mil visualizações',
+    link: 'https://www.youtube.com/watch?v=IUckbcEJh5c',
+    categoria_id: -3,
+    club: ClubType.ADVENTURER
+  },
+  {
+    id: 302,
+    created_at: '2026-10-05T12:30:00.000Z',
+    titulo: 'Especialidade de Cortesia - Clube de Aventureiros',
+    canal: 'Hora do Clube',
+    duracao: '16:41',
+    visualizacoes: '6,2 mil visualizações',
+    link: 'https://www.youtube.com/watch?v=rS3lhULl8PE',
+    categoria_id: -3,
+    club: ClubType.ADVENTURER
+  },
+  {
+    id: 303,
+    created_at: '2026-10-05T12:30:00.000Z',
+    titulo: 'Especialidade Arte com Sombras - Clube de Aventureiros',
+    canal: 'Hora do Clube',
+    duracao: '9:30',
+    visualizacoes: '4,1 mil visualizações',
+    link: 'https://www.youtube.com/watch?v=GwM2U8NynGY',
+    categoria_id: -3,
+    club: ClubType.ADVENTURER
+  },
+  {
+    id: 304,
+    created_at: '2026-10-05T12:30:00.000Z',
+    titulo: 'Especialidade de Flores - Clube de Aventureiros',
+    canal: 'Hora do Clube',
+    duracao: '18:42',
+    visualizacoes: '7,4 mil visualizações',
+    link: 'https://www.youtube.com/watch?v=w4AMtAQB5mY',
+    categoria_id: -3,
+    club: ClubType.ADVENTURER
+  }
+];
+
+export async function fetchAtividadesJogosAVT(): Promise<Video[]> {
+  return DEFAULT_ATIVIDADES_JOGOS_AVT;
+}
+
+export async function fetchCerimoniasAVT(): Promise<Video[]> {
+  return DEFAULT_CERIMONIAS_AVT;
+}
+
+export async function fetchVideosAVT(): Promise<Video[]> {
+  return DEFAULT_VIDEOS_AVT;
 }
 
 export async function fetchVideoCategories(club: ClubType): Promise<VideoCategory[]> {
@@ -691,98 +1064,98 @@ export const DEFAULT_FORMULARIOS: Formulario[] = [
     titulo: 'Ficha Oficial de Inscrição / Cadastro de Desbravador (DSA)',
     categoria: 'forms',
     link: 'https://arquivosadventistas.org/arquivos/DESBRAVADORES/fichas/Ficha%20de%20Cadastro%20de%20Desbravador%20OFICIAL%20EM%20BRANCO-1.pdf',
-    descricao: 'Formulário Oficial de Matrícula Individual para Secretaria do Clube (DSA / SGC)',
+    descricao: 'Formulário Oficial de Matrícula Individual para Secretaria do Clube de Desbravadores (DSA / SGC)',
     icone: 'DBV'
   },
   {
     id: 15,
     created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Ficha Médica e de Saúde Oficial — Desbravadores e Aventureiros (DSA)',
+    titulo: 'Ficha Médica e de Saúde Oficial — Clube de Aventureiros (DSA)',
     categoria: 'forms',
     link: 'https://ministerioaventureirosases.org/wp-content/uploads/2025/06/ficha-medica.pdf',
-    descricao: 'Histórico Médico, Alergias, Vacinas, Restrições, Tipo Sanguíneo e Contato de Emergência (DSA)',
-    icone: 'ALL'
+    descricao: 'Histórico Médico, Alergias, Vacinas, Restrições, Tipo Sanguíneo e Contato de Emergência — Aventureiros (DSA)',
+    icone: 'AVT'
   },
   {
     id: 16,
     created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Ficha Oficial de Inscrição da Diretoria (+16 Anos • DSA)',
+    titulo: 'Ficha Oficial de Inscrição da Diretoria — Clube de Aventureiros (+16 Anos • DSA)',
     categoria: 'forms',
     link: 'https://ministerioaventureirosases.org/wp-content/uploads/2025/06/ficha-de-inscricao-diretoria.pdf',
-    descricao: 'Formulário Oficial de Cadastro de Membros da Diretoria, Conselheiros e Instrutores (DSA)',
-    icone: 'ALL'
+    descricao: 'Formulário Oficial de Cadastro de Membros da Diretoria, Conselheiros e Instrutores de Aventureiros (DSA)',
+    icone: 'AVT'
   },
   {
     id: 17,
     created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Caderno Completo de Formulários da Secretaria do Clube (DSA)',
+    titulo: 'Caderno Completo de Formulários da Secretaria do Clube — Desbravadores (DSA)',
     categoria: 'forms',
     link: 'https://arquivosadventistas.org/arquivos/DESBRAVADORES/Secretaria_Modelo%20documentos%20diversos.pdf',
-    descricao: 'Pacote Oficial: Registro Individual, Ficha Financeira, Livro Caixa, Atas, Ofícios e Relatórios (DSA)',
+    descricao: 'Pacote Oficial: Registro Individual, Ficha Financeira, Livro Caixa, Atas, Ofícios e Relatórios de Desbravadores (DSA)',
     icone: 'DBV'
   },
   {
     id: 18,
     created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Autorização dos Pais para Acampamento e Passeio (ECA / DSA)',
+    titulo: 'Autorização dos Pais para Acampamento e Passeio — Desbravadores (ECA / DSA)',
     categoria: 'forms',
     link: 'https://drive.google.com/file/d/1lmVGgPf6rahZP69yZjuw01dRzrVjnmD0/view',
-    descricao: 'Termo Oficial de Autorização de Saída para Menores de Idade em Atividades Externas (DSA)',
-    icone: 'ALL'
+    descricao: 'Termo Oficial de Autorização de Saída para Desbravadores em Acampamentos e Atividades Externas (DSA)',
+    icone: 'DBV'
   },
   {
     id: 19,
     created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Autorização para Viagens Interestaduais de Menores (Camporis • DSA)',
+    titulo: 'Autorização para Viagens Interestaduais de Menores — Desbravadores (Camporis • DSA)',
     categoria: 'forms',
     link: 'https://drive.google.com/file/d/1OvcnV7iu3ZxmEmXfoqmV1zcWCR44Ue4m/view',
-    descricao: 'Modelo Oficial conforme o Estatuto da Criança e do Adolescente (ECA) para Viagens e Camporis (DSA)',
-    icone: 'ALL'
+    descricao: 'Modelo Oficial conforme o Estatuto da Criança e do Adolescente (ECA) para Viagens e Camporis de Desbravadores (DSA)',
+    icone: 'DBV'
   },
   {
     id: 20,
     created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Termo Oficial de Consentimento dos Pais e Uso de Imagem/Dados (LGPD • IASD)',
+    titulo: 'Termo Oficial de Consentimento dos Pais e Uso de Imagem/Dados — Desbravadores (LGPD • IASD)',
     categoria: 'forms',
     link: 'https://drive.google.com/file/d/1r3W6NUcZI5VOfp5m3edw1-24pmiNgshD/view',
-    descricao: 'Termo de Concessão de Consentimento e Proteção de Dados da Igreja Adventista (SGC / ACMS)',
-    icone: 'ALL'
+    descricao: 'Termo de Concessão de Consentimento e Proteção de Dados do Clube de Desbravadores (SGC / ACMS)',
+    icone: 'DBV'
   },
   {
     id: 21,
     created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Autorização e Avaliação para Cerimônia de Admissão em Lenço (DSA)',
+    titulo: 'Autorização e Avaliação para Cerimônia de Admissão em Lenço — Desbravadores (DSA)',
     categoria: 'forms',
     link: 'https://drive.google.com/file/d/1zj90ikCL5k3yVYpvl9_nBP1c9wJGH3a_/view',
-    descricao: 'Ficha Oficial de Verificação dos Requisitos do Cartão de Admissão em Lenço (DSA)',
+    descricao: 'Ficha Oficial de Verificação dos Requisitos do Cartão de Admissão em Lenço (Desbravadores DSA)',
     icone: 'DBV'
   },
   {
     id: 22,
     created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Caderneta Oficial de Controle da Unidade — Cantinho da Unidade (DSA)',
+    titulo: 'Caderneta Oficial de Controle da Unidade — Cantinho da Unidade (Desbravadores DSA)',
     categoria: 'forms',
     link: 'https://drive.google.com/file/d/11Nm6yFbtqOndQEfovhAUnUJ8g5usH6_K/view',
-    descricao: 'Ficha de Chamada, Pontuação Semanal, Patrimônio e Relatório do Capitão e Secretário (DSA)',
+    descricao: 'Ficha de Chamada, Pontuação Semanal, Patrimônio e Relatório do Capitão e Secretário (Desbravadores DSA)',
     icone: 'DBV'
   },
   {
     id: 23,
     created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Ficha Oficial de Inspeção de Uniforme (RUD / DSA)',
+    titulo: 'Ficha Oficial de Inspeção de Uniforme — Clube de Desbravadores (RUD / DSA)',
     categoria: 'forms',
     link: 'https://drive.google.com/file/d/1dk7Kh-Y57v8yPz9_oKM5c6zSHiM0ZrWy/view',
-    descricao: 'Checklist Oficial de Avaliação do Uniforme de Gala e Uniforme de Atividades (DSA)',
-    icone: 'ALL'
+    descricao: 'Checklist Oficial de Avaliação do Uniforme de Gala e Uniforme de Atividades dos Desbravadores (DSA)',
+    icone: 'DBV'
   },
   {
     id: 24,
     created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Regulamento Interno e Código de Disciplina do Clube (DSA)',
+    titulo: 'Regulamento Interno e Código de Disciplina — Clube de Desbravadores (DSA)',
     categoria: 'forms',
     link: 'https://drive.google.com/file/d/1ZZc4OVCpC_PhTGgJc7YJ-uxOBxZ6quCK/view',
-    descricao: 'Normas Oficiais de Conduta, Direitos, Deveres e Sistema de Mérito do Clube (DSA)',
-    icone: 'ALL'
+    descricao: 'Normas Oficiais de Conduta, Direitos, Deveres e Sistema de Mérito do Clube de Desbravadores (DSA)',
+    icone: 'DBV'
   },
   {
     id: 25,
@@ -827,11 +1200,11 @@ export const DEFAULT_FORMULARIOS: Formulario[] = [
   {
     id: 29,
     created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Certificado Oficial de Conclusão do Ano Bíblico (DSA)',
+    titulo: 'Certificado Oficial de Conclusão do Ano Bíblico Juvenil — Desbravadores (DSA)',
     categoria: 'certificados',
     link: 'https://drive.google.com/file/d/1zbAFN0gmAaRak6paZe7mHrR9mheP2KBR/view',
-    descricao: 'Certificado Oficial de Leitura Completa do Ano Bíblico Juvenil/Jovem (DSA)',
-    icone: 'ALL'
+    descricao: 'Certificado Oficial de Leitura Completa do Ano Bíblico Juvenil/Jovem para Desbravadores (DSA)',
+    icone: 'DBV'
   },
   {
     id: 30,
@@ -914,134 +1287,166 @@ export const DEFAULT_FORMULARIOS: Formulario[] = [
     descricao: 'Certificado Oficial de Conclusão de Especialidades Infantis (Ministério de Aventureiros DSA)',
     icone: 'AVT'
   },
-
-  // =========================================================================
-  // 4. MATERIAIS GRÁFICOS (IDENTIDADE VISUAL, REGULAMENTOS, FOLDERS E EMBLEMAS - DSA)
-  // =========================================================================
   {
-    id: 39,
+    id: 53,
     created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Regulamento Oficial de Uniformes e Identidade Visual MDA (DSA)',
-    categoria: 'graficos',
-    link: 'https://drive.google.com/file/d/1WZpUbi4R2yAsMJJO0w_G4aOBdDkMMr-6/view',
-    descricao: 'Padrões Gráficos Oficiais dos Emblemas D1–D5 e A1–A5, Insígnias, Tiras e Uniformes (DSA)',
-    icone: 'ALL'
-  },
-  {
-    id: 40,
-    created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Manual Gráfico Oficial de Bandeiras, Bandeirins de Unidade e Mastros (DSA)',
-    categoria: 'graficos',
-    link: 'https://drive.google.com/file/d/1PpinqGUX6TJUZLVuyaxUgj6-Ycjc9GSo/view',
-    descricao: 'Medidas Exatas, Proporções, Cores e Diagramação da Bandeira Oficial e Bandeirim de Unidade (DSA)',
-    icone: 'ALL'
-  },
-  {
-    id: 41,
-    created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Apostila Visual de Emblemas Oficiais, Símbolos e Ideais (DSA)',
-    categoria: 'graficos',
-    link: 'https://drive.google.com/file/d/18cFv_Bw0-xzfWMR-TOAl8hd5o4475sR4/view',
-    descricao: 'Guia Gráfico Ilustrado dos Emblemas Oficiais e Simbologia do Clube (DSA)',
-    icone: 'DBV'
-  },
-  {
-    id: 42,
-    created_at: '2026-10-04T00:00:00Z',
-    titulo: 'OMA 006 — Manual Oficial de Identidade Visual e Emblemas A1 a A5 (Aventureiros DSA)',
-    categoria: 'graficos',
-    link: 'https://ministerioaventureirosases.org/wp-content/uploads/2023/03/oma_006_2017_novo_logo.pdf',
-    descricao: 'Orientação Oficial do Ministério de Aventureiros sobre Uso da Marca, Cores e Emblemas A1–A5 (DSA)',
+    titulo: 'Guia do Aspirante — Caderno de Atividades para Líder de Aventureiros (DSA)',
+    categoria: 'fichas',
+    link: 'https://drive.google.com/file/d/1CE3P4AcDUUK2DIGVan7R3QWSkXI_m2gY/view',
+    descricao: 'Caderno Oficial de Requisitos e Registro da Classe de Líder do Ministério de Aventureiros (DSA)',
     icone: 'AVT'
   },
   {
-    id: 43,
+    id: 54,
     created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Folders Gráficos Explicativos das Classes — Amigo a Guia e Líder Master (DSA)',
-    categoria: 'graficos',
-    link: 'https://drive.google.com/file/d/1MoPqCLJybRtmgd0TdH29VX9eZbCpSapj/view',
-    descricao: 'Material Gráfico Oficial de Apresentação Visual dos Requisitos e Insígnias das Classes (DSA)',
-    icone: 'DBV'
-  },
-  {
-    id: 44,
-    created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Cartão Gráfico Oficial de Avaliação — Conselheiro Excelente (DSA)',
-    categoria: 'graficos',
-    link: 'https://drive.google.com/file/d/1tQLp_kBTjcnJr8gOJwI3agDNqtjqighm/view',
-    descricao: 'Arte Oficial e Guia de Metas para Conselheiros de Unidade (Ministério de Desbravadores DSA)',
-    icone: 'DBV'
-  },
-  {
-    id: 45,
-    created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Guia e Identidade Visual Oficial — Dia Mundial dos Aventureiros 2026 (DSA)',
-    categoria: 'graficos',
-    link: 'https://ministerioaventureirosases.org/wp-content/uploads/2026/02/dia-mundial-avt-2026.pdf',
-    descricao: 'Material Gráfico, Sermão e Diretrizes Visuais para o Dia Mundial dos Aventureiros (DSA)',
+    titulo: 'Fichas e Guia da Rede Familiar dos Aventureiros (RFA • Pais e Conselheiros DSA)',
+    categoria: 'fichas',
+    link: 'https://drive.google.com/file/d/1CE3P4AcDUUK2DIGVan7R3QWSkXI_m2gY/view',
+    descricao: 'Atividades Práticas e Acompanhamento dos Pais e Responsáveis junto às Classes dos Aventureiros (DSA)',
     icone: 'AVT'
   },
   {
-    id: 46,
+    id: 55,
     created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Pacote Oficial de Logotipos e Emblemas Abertos — Desbravadores (CorelDRAW .CDR / .EPS / .AI • IASD)',
-    categoria: 'graficos',
-    link: 'https://downloads.adventistas.org/pt/desbravadores/logomarcas/logos-abertos-desbravadores/',
-    descricao: 'Arquivo Oficial IASD contendo todos os Emblemas (D1, D2, D3, D4, L1–L4) nos formatos CorelDRAW (.CDR), Illustrator (.AI), .EPS e .JPG',
-    icone: 'DBV'
-  },
-  {
-    id: 47,
-    created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Pacote Oficial de Logotipos e Emblemas Abertos — Aventureiros A1 a A4, Bandeiras e Lenços (CorelDRAW • IASD)',
-    categoria: 'graficos',
-    link: 'https://downloads.adventistas.org/pt/aventureiros/logomarcas/logos-aberto-aventureiros/',
-    descricao: 'Arquivo Oficial IASD com as artes dos Emblemas A1, A2, A3, A4, Bandeiras, Lenços e Prendedores compatíveis com CorelDRAW e Illustrator',
+    titulo: 'Avaliação e Requisitos para Cerimônia de Admissão em Lenço — Aventureiros (DSA)',
+    categoria: 'forms',
+    link: 'https://ministerioaventureirosases.org/wp-content/uploads/2025/06/ficha-de-inscricao.pdf',
+    descricao: 'Ficha Oficial de Verificação do Voto, Lei e História para Admissão em Lenço no Clube de Aventureiros (DSA)',
     icone: 'AVT'
   },
   {
-    id: 48,
+    id: 56,
     created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Kit Completo de Identidade Visual e Emblemas em Curvas — Ministério de Desbravadores (IASD / DSA)',
-    categoria: 'graficos',
-    link: 'https://downloads.adventistas.org/pt/kits/identidade-visual-do-ministerio-de-desbravadores/',
-    descricao: 'Kit Oficial do Portal Adventistas.org com Emblemas Vetoriais, Tipografia, Cores CMYK/Pantone e Aplicações em CorelDRAW',
-    icone: 'DBV'
-  },
-  {
-    id: 49,
-    created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Emblema Oficial Clube de Aventureiros A1 — Arquivo Direto CorelDRAW (.CDR)',
-    categoria: 'graficos',
-    link: 'https://wp.logos-download.com/wp-content/uploads/2022/01/Clube_de_Aventureiros_Logo.cdr?dl',
-    descricao: 'Download Direto do Emblema Oficial do Clube de Aventureiros em Formato Nativo CorelDRAW (.CDR em Curvas)',
+    titulo: 'Caderneta de Controle da Unidade e Rede Familiar — Cantinho dos Aventureiros (DSA)',
+    categoria: 'forms',
+    link: 'https://ministerioaventureirosases.org/wp-content/uploads/2025/06/ficha-de-inscricao-diretoria.pdf',
+    descricao: 'Ficha de Chamada, Presença dos Pais (RFA), Pontuação e Relatório do Conselheiro de Aventureiros (DSA)',
     icone: 'AVT'
   },
   {
-    id: 50,
+    id: 57,
     created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Emblema Oficial D1 — Clube de Desbravadores (Vetor em Curvas .SVG p/ CorelDRAW • DSA)',
-    categoria: 'graficos',
-    link: 'https://mda.wiki.br/site/@imgs_wiki/imagem@emblema_d1.svg',
-    descricao: 'Arquivo Vetorial Oficial em Curvas (.SVG importável diretamente no CorelDRAW sem perda de qualidade)',
-    icone: 'DBV'
-  },
-  {
-    id: 51,
-    created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Emblema Oficial A1 — Clube de Aventureiros (Vetor em Curvas .SVG p/ CorelDRAW • DSA)',
-    categoria: 'graficos',
-    link: 'https://mda.wiki.br/site/@imgs_wiki/imagem@emblema_a1.svg',
-    descricao: 'Arquivo Vetorial Oficial em Curvas (.SVG importável diretamente no CorelDRAW sem perda de qualidade)',
+    titulo: 'Certificado Individual — Classe de Abelhinhas Laboriosas (6 Anos • Aventureiros DSA)',
+    categoria: 'certificados',
+    link: 'https://arquivosadventistas.org/arquivos/Aventureiros/certificados%20aventureiros.pdf',
+    descricao: 'Certificado Oficial de Investidura para a Classe de Abelhinhas Laboriosas (Ministério de Aventureiros DSA)',
     icone: 'AVT'
   },
   {
-    id: 52,
+    id: 58,
     created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Central de Logomarcas Oficiais do Ministério de Aventureiros — Portal IASD (CorelDRAW / Vetor)',
-    categoria: 'graficos',
-    link: 'https://downloads.adventistas.org/pt/aventureiros/logomarcas/logos-do-ministerio-de-aventureiros/',
-    descricao: 'Acervo Oficial de Logomarcas e Emblemas Vetoriais no Portal de Downloads da IASD (adventistas.org)',
+    titulo: 'Certificado Individual — Classe de Luminares (7 Anos • Aventureiros DSA)',
+    categoria: 'certificados',
+    link: 'https://arquivosadventistas.org/arquivos/Aventureiros/certificados%20aventureiros.pdf',
+    descricao: 'Certificado Oficial de Investidura para a Classe de Luminares (Ministério de Aventureiros DSA)',
+    icone: 'AVT'
+  },
+  {
+    id: 59,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Certificado Individual — Classe de Edificadores (8 Anos • Aventureiros DSA)',
+    categoria: 'certificados',
+    link: 'https://arquivosadventistas.org/arquivos/Aventureiros/certificados%20aventureiros.pdf',
+    descricao: 'Certificado Oficial de Investidura para a Classe de Edificadores (Ministério de Aventureiros DSA)',
+    icone: 'AVT'
+  },
+  {
+    id: 60,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Certificado Individual — Classe de Mãos Ajudadoras (9 Anos • Aventureiros DSA)',
+    categoria: 'certificados',
+    link: 'https://arquivosadventistas.org/arquivos/Aventureiros/certificados%20aventureiros.pdf',
+    descricao: 'Certificado Oficial de Investidura para a Classe de Mãos Ajudadoras (Ministério de Aventureiros DSA)',
+    icone: 'AVT'
+  },
+  {
+    id: 61,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Ficha Médica e de Saúde Oficial — Clube de Desbravadores (DSA)',
+    categoria: 'forms',
+    link: 'https://arquivosadventistas.org/arquivos/DESBRAVADORES/fichas/Ficha%20M%C3%A9dica%20OFICIAL%20EM%20BRANCO.pdf',
+    descricao: 'Histórico Médico, Alergias, Vacinas, Restrições, Tipo Sanguíneo e Contato de Emergência — Desbravadores (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 62,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Ficha Oficial de Inscrição da Diretoria — Clube de Desbravadores (+16 Anos • DSA)',
+    categoria: 'forms',
+    link: 'https://arquivosadventistas.org/arquivos/DESBRAVADORES/Secretaria_Modelo%20documentos%20diversos.pdf',
+    descricao: 'Formulário Oficial de Cadastro de Membros da Diretoria, Conselheiros e Instrutores de Desbravadores (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 63,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Ficha Oficial de Avaliação para Investidura em Líder — Desbravadores (DSA)',
+    categoria: 'fichas',
+    link: 'https://arquivosadventistas.org/arquivos/DESBRAVADORES/fichas/Ficha%20de%20Avalia%C3%A7%C3%A3o%20para%20Investidura%20em%20L%C3%ADder.pdf',
+    descricao: 'Checklist Oficial de Requisitos para Investidura no Cartão de Líder de Desbravadores (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 64,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Ficha Oficial de Avaliação — Líder Master de Desbravadores (DSA)',
+    categoria: 'fichas',
+    link: 'https://arquivosadventistas.org/arquivos/DESBRAVADORES/fichas/Avaliacao_Lider_Master.pdf',
+    descricao: 'Checklist Oficial de Requisitos para Investidura em Líder Master de Desbravadores (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 65,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Ficha Oficial de Avaliação — Líder Master Avançado de Desbravadores (DSA)',
+    categoria: 'fichas',
+    link: 'https://arquivosadventistas.org/arquivos/DESBRAVADORES/fichas/Avaliacao_Lider_Master_Avancado.pdf',
+    descricao: 'Checklist Oficial de Requisitos para Investidura em Líder Master Avançado de Desbravadores (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 66,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Autorização dos Pais para Passeio, Acantonamento e Aventuri — Aventureiros (ECA / DSA)',
+    categoria: 'forms',
+    link: 'https://ministerioaventureirosases.org/wp-content/uploads/2025/06/ficha-de-inscricao.pdf',
+    descricao: 'Termo Oficial de Autorização de Saída para Crianças de 6 a 9 Anos em Atividades do Clube de Aventureiros (DSA)',
+    icone: 'AVT'
+  },
+  {
+    id: 67,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Termo Oficial de Consentimento dos Pais e Uso de Imagem/Dados — Aventureiros (LGPD • IASD)',
+    categoria: 'forms',
+    link: 'https://ministerioaventureirosases.org/wp-content/uploads/2025/06/ficha-de-inscricao.pdf',
+    descricao: 'Termo de Concessão de Consentimento e Proteção de Dados dos Pais/Responsáveis no Clube de Aventureiros (SGC / ACMS)',
+    icone: 'AVT'
+  },
+  {
+    id: 68,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Ficha Oficial de Inspeção de Uniforme — Clube de Aventureiros (RUD / DSA)',
+    categoria: 'forms',
+    link: 'https://drive.google.com/file/d/1byGcvvqO_rNbMNPV7em19p2wZRbyeSbY/view',
+    descricao: 'Checklist Oficial de Avaliação do Uniforme de Gala (Branco / Azul-Marinho e Lenço Vinho) e Atividades dos Aventureiros (DSA)',
+    icone: 'AVT'
+  },
+  {
+    id: 69,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Regulamento Administrativo e Compromisso da Rede Familiar — Clube de Aventureiros (DSA)',
+    categoria: 'forms',
+    link: 'https://drive.google.com/file/d/1CE3P4AcDUUK2DIGVan7R3QWSkXI_m2gY/view',
+    descricao: 'Normas Oficiais de Participação das Crianças (6 a 9 anos), Rede Familiar dos Aventureiros (RFA) e Deveres dos Pais (DSA)',
+    icone: 'AVT'
+  },
+  {
+    id: 70,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Certificado Oficial de Conclusão do Ano Bíblico Infantil — Aventureiros (DSA)',
+    categoria: 'certificados',
+    link: 'https://arquivosadventistas.org/arquivos/Aventureiros/certificados%20aventureiros.pdf',
+    descricao: 'Certificado Oficial de Leitura do Ano Bíblico Infantil e Histórias Bíblicas do Clube de Aventureiros (DSA)',
     icone: 'AVT'
   }
 ];
@@ -1052,12 +1457,52 @@ export async function fetchFormularios(): Promise<Formulario[]> {
     if (error || !data || data.length === 0) {
       return DEFAULT_FORMULARIOS;
     }
-    const existingLinks = new Set(data.map((item: Formulario) => (item.link || '').trim()));
-    const merged = [
-      ...data,
-      ...DEFAULT_FORMULARIOS.filter((d) => !existingLinks.has(d.link.trim()))
-    ];
-    return merged;
+
+    // Usa o catálogo oficial DEFAULT_FORMULARIOS (100% separado entre DBV e AVT) como base autoritativa
+    // e adiciona apenas formulários customizados novos criados pelo admin (id > 53) que ainda não estejam na base
+    const defaultTitles = new Set(DEFAULT_FORMULARIOS.map((d) => d.titulo.trim().toLowerCase()));
+    const defaultLinksByClub = new Set(
+      DEFAULT_FORMULARIOS.map((d) => `${(d.icone || '').toUpperCase()}::${(d.link || '').trim().toLowerCase()}`)
+    );
+
+    const customItems: Formulario[] = [];
+    for (const rawItem of data as Formulario[]) {
+      if (!rawItem || Number(rawItem.id) <= 53) continue;
+      const titleLower = (rawItem.titulo || '').trim().toLowerCase();
+      const linkLower = (rawItem.link || '').trim().toLowerCase();
+      const textCombined = `${titleLower} ${(rawItem.descricao || '').toLowerCase()} ${linkLower}`;
+
+      let resolvedMinistry: 'DBV' | 'AVT' =
+        (rawItem.icone || '').toUpperCase().trim() === 'AVT' ? 'AVT' : 'DBV';
+
+      if (
+        linkLower.includes('ministerioaventureiros') ||
+        linkLower.includes('/aventureiros/') ||
+        textCombined.includes('aventureir') ||
+        textCombined.includes('abelhinha') ||
+        textCombined.includes('luminar') ||
+        textCombined.includes('edificador') ||
+        textCombined.includes('mãos ajudadoras') ||
+        textCombined.includes('maos ajudadoras')
+      ) {
+        resolvedMinistry = 'AVT';
+      } else if (
+        linkLower.includes('/desbravadores/') ||
+        textCombined.includes('desbravador')
+      ) {
+        resolvedMinistry = 'DBV';
+      }
+
+      const clubLinkKey = `${resolvedMinistry}::${linkLower}`;
+      if (defaultTitles.has(titleLower) || defaultLinksByClub.has(clubLinkKey)) continue;
+
+      customItems.push({
+        ...rawItem,
+        icone: resolvedMinistry
+      });
+    }
+
+    return [...DEFAULT_FORMULARIOS, ...customItems];
   } catch {
     return DEFAULT_FORMULARIOS;
   }
@@ -3004,7 +3449,17 @@ function upgradeTrunfosWithEmbroideredPatches(list: Trunfo[], deletedIds: Set<nu
       continue;
     }
 
-    upgraded.push(item);
+    const combinedText = `${item.titulo || ''} ${item.historia || ''} ${item.imagem || ''}`.toLowerCase();
+    const resolvedClub: 'PATHFINDER' | 'ADVENTURER' =
+      defItem?.club === 'ADVENTURER' ||
+      item.club === 'ADVENTURER' ||
+      combinedText.includes('aventuri') ||
+      combinedText.includes('aventureir') ||
+      combinedText.includes('avt-')
+        ? 'ADVENTURER'
+        : 'PATHFINDER';
+
+    upgraded.push({ ...item, club: resolvedClub });
     seenIds.add(numId);
   }
 
@@ -3092,7 +3547,7 @@ export async function fetchTrunfos(club?: string): Promise<Trunfo[]> {
           localStorage.setItem('dbv_tudo_trunfos', JSON.stringify(validData));
           localList = validData;
           if (club) {
-            return localList.filter(t => !t.club || t.club === club || t.club === 'ALL');
+            return localList.filter(t => t.club === club);
           }
           return localList;
         }
@@ -3117,7 +3572,10 @@ export async function fetchTrunfos(club?: string): Promise<Trunfo[]> {
                 for (const item of parsed) {
                   if (item && item.id && !seenIds.has(Number(item.id)) && !deletedIds.has(Number(item.id))) {
                     seenIds.add(Number(item.id));
-                    combinedTrunfos.push(item);
+                    combinedTrunfos.push({
+                      ...item,
+                      club: item.club && item.club !== 'ALL' ? item.club : (row.club_type || 'PATHFINDER')
+                    });
                   }
                 }
               }
@@ -3136,7 +3594,7 @@ export async function fetchTrunfos(club?: string): Promise<Trunfo[]> {
     localStorage.setItem('dbv_tudo_trunfos', JSON.stringify(localList));
 
     if (club) {
-      return localList.filter(t => !t.club || t.club === club || t.club === 'ALL');
+      return localList.filter(t => t.club === club);
     }
     return localList;
   } catch {
@@ -3155,7 +3613,7 @@ export async function fetchTrunfos(club?: string): Promise<Trunfo[]> {
       localList = DEFAULT_TRUNFOS.filter(item => !deletedIds.has(Number(item.id)));
     }
     if (club) {
-      return localList.filter(t => !t.club || t.club === club || t.club === 'ALL');
+      return localList.filter(t => t.club === club);
     }
     return localList;
   }

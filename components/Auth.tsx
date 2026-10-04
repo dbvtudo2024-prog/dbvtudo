@@ -567,7 +567,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
   );
 
   return (
-    <div className="h-full flex flex-col bg-[#F8FAFC] dark:bg-slate-900 transition-colors duration-500 overflow-y-auto scrollbar-hide">
+    <div className="h-full flex flex-col bg-transparent transition-colors duration-500 overflow-y-auto scrollbar-hide">
       {view === 'LOGIN' ? renderLogin() : renderSignup()}
     </div>
   );

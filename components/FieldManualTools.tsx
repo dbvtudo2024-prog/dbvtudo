@@ -3369,18 +3369,28 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
           ======================================================================== */}
       {activeTab === 'NOS_AMARRAS' && (
         <div className="space-y-4">
-          {/* Filtro por Classe (Amigo, Companheiro e Pesquisador a Guia) */}
+          {/* Filtro por Classe / Nível */}
           <div className="bg-white dark:bg-slate-800 rounded-[24px] p-3.5 sm:p-4 border border-slate-100 dark:border-slate-700 shadow-xs space-y-2.5">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block px-1">
-              Nós e Amarras Oficiais dos Cartões das Classes (Amigo a Guia)
+              {isPathfinder
+                ? 'Nós e Amarras Oficiais dos Cartões das Classes (Amigo a Guia)'
+                : 'Nós e Amarras Básicos para Atividades dos Aventureiros'}
             </span>
             <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pb-0.5">
-              {[
-                { id: 'TODOS', label: `Todos das Classes (${KNOTS_DATABASE.length})` },
-                { id: 'AMIGO', label: 'Classe de Amigo (14 Nós)' },
-                { id: 'COMPANHEIRO', label: 'Classe de Companheiro (9 Nós)' },
-                { id: 'PESQUISADOR_GUIA', label: 'Pesquisador a Guia (4 Amarras)' }
-              ].map((cls) => (
+              {(isPathfinder
+                ? [
+                    { id: 'TODOS', label: `Todos das Classes (${KNOTS_DATABASE.length})` },
+                    { id: 'AMIGO', label: 'Classe de Amigo (14 Nós)' },
+                    { id: 'COMPANHEIRO', label: 'Classe de Companheiro (9 Nós)' },
+                    { id: 'PESQUISADOR_GUIA', label: 'Pesquisador a Guia (4 Amarras)' }
+                  ]
+                : [
+                    { id: 'TODOS', label: `Todos os Nós e Amarras (${KNOTS_DATABASE.length})` },
+                    { id: 'AMIGO', label: 'Nós Básicos Nível 1 (14 Nós)' },
+                    { id: 'COMPANHEIRO', label: 'Nós Intermediários Nível 2 (9 Nós)' },
+                    { id: 'PESQUISADOR_GUIA', label: 'Amarras Básicas (4 Amarras)' }
+                  ]
+              ).map((cls) => (
                 <button
                   key={cls.id}
                   type="button"
@@ -5427,11 +5437,27 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
             </span>
             {standaloneDrill ? (
               <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
-                Conteúdo técnico extraído do <strong>Manual de Ordem Unida do Ministério de Desbravadores (Divisão Sul-Americana da IASD — DSA)</strong>, <strong>Manual Administrativo do Clube de Desbravadores e Aventureiros (DSA)</strong>, <strong>Regulamento de Uniformes MDA (RUD)</strong>, <strong>MDA Wiki (mda.wiki.br)</strong> e diretrizes de Cadência e Evoluções da <strong>DSA (adventistas.org/pt/desbravadores)</strong>.
+                {isPathfinder ? (
+                  <>
+                    Conteúdo técnico extraído do <strong>Manual de Ordem Unida do Ministério de Desbravadores (Divisão Sul-Americana da IASD — DSA)</strong>, <strong>Manual Administrativo do Clube de Desbravadores (DSA)</strong>, <strong>Regulamento de Uniformes do Ministério de Desbravadores (RUD)</strong>, <strong>MDA Wiki (mda.wiki.br)</strong> e diretrizes de Cadência e Evoluções da <strong>DSA (adventistas.org/pt/desbravadores)</strong>.
+                  </>
+                ) : (
+                  <>
+                    Conteúdo técnico extraído do <strong>Manual Administrativo do Clube de Aventureiros (Divisão Sul-Americana da IASD — DSA)</strong>, <strong>Regulamento de Uniformes do Ministério de Aventureiros (RUD)</strong>, <strong>MDA Wiki (mda.wiki.br)</strong> e diretrizes de Formação e Civismo Infantil da <strong>DSA (adventistas.org/pt/aventureiros)</strong>.
+                  </>
+                )}
               </p>
             ) : (
               <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
-                Informações técnicas compiladas dos <strong>Manuais Oficiais da Divisão Sul-Americana (DSA — Ministério de Desbravadores e Aventureiros)</strong>, <strong>Manual de Especialidades e Classes MDA (mda.wiki.br)</strong>, <strong>União dos Escoteiros do Brasil (UEB — Sinais de Pista e Pioneiria)</strong>, <strong>Portal Desbrava7 (Tabela de Sinais de Pista)</strong>, <strong>Instituto Nacional de Educação de Surdos (INES — Alfabeto Manual Brasileiro de Libras)</strong>, <strong>Animated Knots / 3D Knots</strong> e protocolos de Primeiros Socorros do <strong>Ministério da Saúde / Corpo de Bombeiros</strong>.
+                {isPathfinder ? (
+                  <>
+                    Informações técnicas compiladas dos <strong>Manuais Oficiais da Divisão Sul-Americana (DSA — Ministério de Desbravadores)</strong>, <strong>Manual de Especialidades e Classes dos Desbravadores (mda.wiki.br)</strong>, <strong>União dos Escoteiros do Brasil (UEB — Sinais de Pista e Pioneiria)</strong>, <strong>Portal Desbrava7 (Tabela de Sinais de Pista)</strong>, <strong>Instituto Nacional de Educação de Surdos (INES — Alfabeto Manual Brasileiro de Libras)</strong>, <strong>Animated Knots / 3D Knots</strong> e protocolos de Primeiros Socorros do <strong>Ministério da Saúde / Corpo de Bombeiros</strong>.
+                  </>
+                ) : (
+                  <>
+                    Informações técnicas compiladas dos <strong>Manuais Oficiais da Divisão Sul-Americana (DSA — Ministério de Aventureiros)</strong>, <strong>Manual de Especialidades e Classes dos Aventureiros (mda.wiki.br)</strong>, <strong>Instituto Nacional de Educação de Surdos (INES — Alfabeto Manual Brasileiro de Libras)</strong>, <strong>Animated Knots / 3D Knots</strong> e protocolos de Segurança e Primeiros Socorros Infantil do <strong>Ministério da Saúde / Corpo de Bombeiros</strong>.
+                  </>
+                )}
               </p>
             )}
           </div>

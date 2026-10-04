@@ -15,6 +15,7 @@ import {
   fetchCampingDBV, fetchFormularios, DEFAULT_FORMULARIOS, createFormulario, updateFormulario, deleteFormulario,
   fetchVideos, fetchVideoCategories,
   fetchAtividadesJogosDBV, fetchCerimoniasDBV, fetchVideosDBV,
+  fetchAtividadesJogosAVT, fetchCerimoniasAVT, fetchVideosAVT,
   createVideo, updateVideo, deleteVideo, createVideoCategory, updateVideoCategory, deleteVideoCategory,
   fetchLivrosAVT, fetchManuaisAVT, fetchAppLinks, updateAppLink, deleteAppLink,
   fetchConquistas, updateConquista, deleteConquista,
@@ -43,7 +44,7 @@ import {
   Shield, Award, User, Layers, Sparkles, Home as HomeIcon, Search,
   ChevronRight, ChevronLeft, ChevronDown, ChevronUp, ListChecks, Info, Book, Settings, Zap, Music, Flag, Shirt, Globe, Key, FileText, Library, CreditCard, MapPin, Video, Folder, BookOpen, Heart, ArrowUp, ArrowDown,
   Trash2, Plus, Save, Share2, Calendar, X, Image as ImageIcon, Download, ArrowLeft, ExternalLink, Filter, Edit2, Edit3, Check,
-  AlignLeft, AlignCenter, AlignRight, ZoomIn, ZoomOut, Minus, Trophy, PanelLeftClose, PanelLeftOpen, Menu, Presentation, RefreshCw, ClipboardCheck, Tent, Compass, Radio, HeartPulse, CheckCircle2, History
+  AlignLeft, AlignCenter, AlignRight, ZoomIn, ZoomOut, Minus, Trophy, PanelLeftClose, PanelLeftOpen, Menu, Presentation, RefreshCw, ClipboardCheck, Tent, Compass, Radio, HeartPulse, CheckCircle2, History, Palette, Play
 } from 'lucide-react';
 
 
@@ -1829,6 +1830,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   }, [activeSubView]);
   const [videos, setVideos] = useState<VideoType[]>([]);
   const [videoCategories, setVideoCategories] = useState<VideoCategory[]>([]);
+  const [selectedVideoCategoryFilter, setSelectedVideoCategoryFilter] = useState<number | 'ALL'>('ALL');
   const [bibleBooks, setBibleBooks] = useState<BibleBook[]>(() => {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
@@ -2182,12 +2184,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     }
   }, [newVideo.link]);
 
-  // Reset view state when switching clubs
+  // Preserve current page when switching clubs (only step back from item-specific details)
   useEffect(() => {
-    // Only reset to MAIN if we are NOT coming from an initialSubView request
-    if (!initialSubView) {
-      setActiveSubView('MAIN');
-    }
     setSelectedClass(null);
     setSelectedCategory(null);
     setSelectedSpecialty(null);
@@ -2623,8 +2621,42 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     }
   };
 
+  const handleMinistryButtonClick = (targetClub: ClubType) => {
+    if (club === targetClub) {
+      if (activeSubView !== 'MAIN') {
+        setActiveSubView('MAIN');
+      }
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    } else {
+      onSwitchClub(targetClub);
+    }
+  };
+
   useEffect(() => {
     setAllSpecialtiesList([]);
+    setSelectedVideoCategoryFilter('ALL');
+    setCustomCertConfig((prev) => ({
+      ...prev,
+      ministry: club === ClubType.ADVENTURER ? 'AVT' : 'DBV',
+      achievementName:
+        club === ClubType.ADVENTURER
+          ? 'Classes e Especialidades de Aventureiros'
+          : 'Classes e Especialidades de Desbravadores'
+    }));
+
+    // Ao trocar de ministério, mantém a seção atual (ex: VIDEOS, CLASSES, SPECIALTIES, FORMULARIOS, LIBRARY, etc.)
+    // e apenas retorna para a lista principal da seção caso estivesse em um item específico do ministério anterior
+    if (activeSubView === 'VIDEO_PLAYER') {
+      setActiveSubView('VIDEOS');
+    } else if (activeSubView === 'SPECIALTY_DETAILS' || activeSubView === 'SPECIALTIES_LIST') {
+      setActiveSubView('SPECIALTIES');
+    } else if (activeSubView === 'CLASS_DETAILS') {
+      setActiveSubView('CLASSES');
+    } else if (activeSubView === 'PDF_VIEWER') {
+      setActiveSubView(pdfReturnSubView || 'LIBRARY');
+    }
   }, [club]);
 
   const openSpecialtySearch = () => {
@@ -2821,9 +2853,19 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           console.warn("Erro ao carregar vídeos:", err);
         }).finally(() => setIsLoading(false));
       } else {
-        Promise.all(promises).then(([v, c]) => {
-          setVideos(v);
-          setVideoCategories(c);
+        Promise.all([
+          ...promises,
+          fetchAtividadesJogosAVT(),
+          fetchCerimoniasAVT(),
+          fetchVideosAVT()
+        ]).then(([v, c, ajAvt, cerAvt, vAvt]) => {
+          const virtualCategoriesAvt: VideoCategory[] = [
+            { id: -3, nome: 'Tutorial de Especialidades', icone: 'Video', club: ClubType.ADVENTURER },
+            { id: -1, nome: 'Atividades e Jogos', icone: 'Zap', club: ClubType.ADVENTURER },
+            { id: -2, nome: 'Cerimônias', icone: 'Award', club: ClubType.ADVENTURER }
+          ];
+          setVideos([...v, ...ajAvt, ...cerAvt, ...vAvt]);
+          setVideoCategories([...virtualCategoriesAvt, ...c]);
         }).catch(err => {
           console.warn("Erro ao carregar vídeos:", err);
         }).finally(() => setIsLoading(false));
@@ -5260,7 +5302,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     {RUD_CREDITS.titulo}
                   </h5>
                   <p className="text-xs font-bold text-slate-600 dark:text-slate-300 leading-relaxed">
-                    {RUD_CREDITS.regulamento}
+                    {club === ClubType.ADVENTURER
+                      ? 'Regulamento de Uniformes do Ministério de Aventureiros — Divisão Sul-Americana (DSA / IASD)'
+                      : 'Regulamento de Uniformes do Ministério de Desbravadores — Divisão Sul-Americana (DSA / IASD)'}
                   </p>
                   <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
                     {RUD_CREDITS.acervo}
@@ -5287,7 +5331,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
   const renderEmblems = () => {
     const rawList = normalizeCulturaList(culturaData?.emblemas_list);
-    const filtered = rawList.filter(item => !item.club || item.club === club);
+    const filtered = rawList.filter(item => item.club === club);
     const emblems = filtered.length > 0 ? filtered : getOfficialRudEmblems(club);
     const wikiUrl = club === ClubType.ADVENTURER ? RUD_CREDITS.urlWikiEmblemasAvt : RUD_CREDITS.urlWikiEmblemasDbv;
     
@@ -5319,7 +5363,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     {RUD_CREDITS.titulo}
                   </h5>
                   <p className="text-xs font-bold text-slate-600 dark:text-slate-300 leading-relaxed">
-                    {RUD_CREDITS.regulamento}
+                    {club === ClubType.ADVENTURER
+                      ? 'Regulamento de Uniformes do Ministério de Aventureiros — Divisão Sul-Americana (DSA / IASD)'
+                      : 'Regulamento de Uniformes do Ministério de Desbravadores — Divisão Sul-Americana (DSA / IASD)'}
                   </p>
                   <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
                     {RUD_CREDITS.acervo}
@@ -5595,7 +5641,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
   const renderMaterialsMenu = () => {
     const materialsItems = [
-      { id: 'CAMPING', label: 'Camping', subtitle: 'Atividades e Nós', icon: MapPin, gradient: 'from-[#f12711] via-[#f5576c] to-[#f0932b]' },
+      ...(club === ClubType.PATHFINDER
+        ? [{ id: 'CAMPING', label: 'Camping', subtitle: 'Atividades e Nós', icon: MapPin, gradient: 'from-[#f12711] via-[#f5576c] to-[#f0932b]' }]
+        : []),
       { id: 'FORMULARIOS', label: 'Formulários', subtitle: 'Fichas e Documentos', icon: FileText, gradient: 'from-[#e11d48] via-[#f43f5e] to-[#fb7185]' }
     ];
 
@@ -5672,19 +5720,77 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   );
 
   const renderFormularios = () => {
+    const activeMinistry: 'DBV' | 'AVT' = club === ClubType.ADVENTURER ? 'AVT' : 'DBV';
+    const isAvtArea = activeMinistry === 'AVT';
+
     const categories = [
-      { id: 'fichas', label: 'Fichas de Atividades', subtitle: 'Cadernos de Classes Regulares, Avançadas, Líder e Controle do Instrutor', icon: <FileText size={18} /> },
-      { id: 'forms', label: 'Formulários', subtitle: 'Secretaria, Matrícula, Ficha Médica, Autorizações ECA/LGPD e Cantinho', icon: <Layers size={18} /> },
-      { id: 'certificados', label: 'Certificados', subtitle: 'Investidura de Classes, Especialidades, Mestrados e Ano Bíblico', icon: <Award size={18} /> },
-      { id: 'graficos', label: 'Materiais Gráficos', subtitle: 'Identidade Visual MDA, Emblemas Oficiais, Bandeiras, Mastros e Folders', icon: <Sparkles size={18} /> }
+      {
+        id: 'fichas',
+        label: 'Fichas de Atividades',
+        subtitle: isAvtArea
+          ? 'Cadernos das Classes (Abelhinhas a Mãos Ajudadoras), Líder e Rede Familiar (RFA)'
+          : 'Cadernos de Classes Regulares, Avançadas, Líder e Controle do Instrutor',
+        icon: <FileText size={18} />
+      },
+      {
+        id: 'forms',
+        label: 'Formulários',
+        subtitle: isAvtArea
+          ? 'Secretaria, Matrícula Infantil, Ficha Médica, Autorizações ECA/LGPD e Rede Familiar'
+          : 'Secretaria, Matrícula, Ficha Médica, Autorizações ECA/LGPD e Cantinho da Unidade',
+        icon: <Layers size={18} />
+      },
+      {
+        id: 'certificados',
+        label: 'Certificados',
+        subtitle: isAvtArea
+          ? 'Investidura das Classes de Aventureiros, Especialidades Infantis e Ano Bíblico'
+          : 'Investidura de Classes Regulares/Avançadas, Especialidades, Mestrados e Ano Bíblico',
+        icon: <Award size={18} />
+      },
+      {
+        id: 'graficos',
+        label: 'Materiais Gráficos',
+        subtitle: isAvtArea
+          ? 'Emblemas Oficiais de Aventureiros (A1 a A5 e L A1) em CorelDRAW'
+          : 'Emblemas Oficiais de Desbravadores (D1 a D5 e L1 a L3) em CorelDRAW',
+        icon: <Sparkles size={18} />
+      }
     ];
 
+    const resolveFormMinistry = (f: Formulario): 'DBV' | 'AVT' => {
+      const linkLower = (f.link || '').toLowerCase();
+      const text = `${f.titulo || ''} ${f.descricao || ''} ${linkLower}`.toLowerCase();
+      if (
+        linkLower.includes('ministerioaventureiros') ||
+        linkLower.includes('/aventureiros/') ||
+        text.includes('aventureir') ||
+        text.includes('abelhinha') ||
+        text.includes('luminar') ||
+        text.includes('edificador') ||
+        text.includes('mãos ajudadoras') ||
+        text.includes('maos ajudadoras')
+      ) {
+        return 'AVT';
+      }
+      if (
+        linkLower.includes('/desbravadores/') ||
+        text.includes('desbravador') ||
+        text.includes('pioneiro') ||
+        text.includes('excursionista') ||
+        text.includes('pesquisador')
+      ) {
+        return 'DBV';
+      }
+      const raw = (f.icone || '').toUpperCase().trim();
+      if (raw === 'AVT') return 'AVT';
+      return 'DBV';
+    };
+
     const filteredAll = formularios.filter((f) => {
-      const iconTag = (f.icone || 'ALL').toUpperCase();
-      const matchesMinistry =
-        formularioMinistryFilter === 'TODOS' ||
-        iconTag === 'ALL' ||
-        iconTag === formularioMinistryFilter;
+      if (f.categoria === 'graficos') return false;
+      const itemMinistry = resolveFormMinistry(f);
+      const matchesMinistry = itemMinistry === activeMinistry;
       const q = formularioSearchQuery.trim().toLowerCase();
       const matchesSearch =
         !q ||
@@ -5693,61 +5799,54 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       return matchesMinistry && matchesSearch;
     });
 
+    const filteredCorelEmblemsAll = OFFICIAL_COREL_EMBLEMS.filter((emb) => {
+      if (emb.ministry !== activeMinistry) return false;
+      const q = formularioSearchQuery.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        emb.title.toLowerCase().includes(q) ||
+        emb.code.toLowerCase().includes(q) ||
+        emb.subtitle.toLowerCase().includes(q)
+      );
+    });
+
+    const totalItemsCount = filteredAll.length + filteredCorelEmblemsAll.length;
+
     return (
       <div className="animate-slide-in space-y-6 pt-2 pb-28">
-        {/* Cabeçalho com Filtro Oficial dos Ministérios (Desbravadores & Aventureiros - DSA) e Busca */}
+        {/* Cabeçalho Oficial do Ministério Atual (Desbravadores ou Aventureiros) e Busca */}
         <div className="bg-white dark:bg-slate-800 rounded-[28px] p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-sm space-y-3.5">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 text-[10px] font-black uppercase tracking-widest">
-                Acervo Oficial dos Ministérios • DSA
+                Acervo Oficial • {isAvtArea ? 'Ministério de Aventureiros (DSA)' : 'Ministério de Desbravadores (DSA)'}
               </span>
               <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-tight text-sm sm:text-base mt-1">
-                Central de Fichas, Formulários, Certificados e Materiais Gráficos ({filteredAll.length})
+                Central de Fichas, Formulários, Certificados e Emblemas — {isAvtArea ? 'Aventureiros' : 'Desbravadores'} ({totalItemsCount})
               </h3>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-2.5">
-            <div className="relative flex-1">
-              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={formularioSearchQuery}
-                onChange={(e) => setFormularioSearchQuery(e.target.value)}
-                placeholder="Buscar caderno de classe, ficha médica, autorização, certificado, bandeira..."
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-red-500"
-              />
-            </div>
-
-            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide shrink-0">
-              {[
-                { id: 'TODOS' as const, label: 'Todos os Ministérios' },
-                { id: 'DBV' as const, label: 'Desbravadores (DSA)' },
-                { id: 'AVT' as const, label: 'Aventureiros (DSA)' }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setFormularioMinistryFilter(tab.id)}
-                  className={`px-3.5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider whitespace-nowrap transition-all cursor-pointer ${
-                    formularioMinistryFilter === tab.id
-                      ? 'bg-red-500 text-white shadow-xs'
-                      : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+          <div className="relative">
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={formularioSearchQuery}
+              onChange={(e) => setFormularioSearchQuery(e.target.value)}
+              placeholder={
+                isAvtArea
+                  ? 'Buscar caderno de classe de aventureiros, ficha médica, autorização, certificado, emblema A1...'
+                  : 'Buscar caderno de classe de desbravadores, ficha médica, autorização, certificado, emblema D1...'
+              }
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-red-500"
+            />
           </div>
         </div>
 
         {categories.map((cat) => {
           const catItems = filteredAll.filter((f) => f.categoria === cat.id);
-          const filteredCorelEmblems = OFFICIAL_COREL_EMBLEMS.filter(
-            (emb) => formularioMinistryFilter === 'TODOS' || emb.ministry === formularioMinistryFilter
-          );
+          const filteredCorelEmblems = filteredCorelEmblemsAll;
+          const displayCount = cat.id === 'graficos' ? filteredCorelEmblems.length : catItems.length;
 
           return (
             <div key={cat.id} className="space-y-3">
@@ -5766,7 +5865,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                   </div>
                 </div>
                 <span className="px-2.5 py-1 rounded-full bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 text-[10px] font-black uppercase tracking-wider shrink-0">
-                  {catItems.length} {catItems.length === 1 ? 'item' : 'itens'}
+                  {displayCount} {displayCount === 1 ? 'item' : 'itens'}
                 </span>
               </div>
 
@@ -5779,10 +5878,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-700 pb-3">
                       <div>
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-[9px] font-black uppercase tracking-widest">
-                          Padrão Oficial DSA • Personalizável na Hora de Baixar
+                          Padrão Oficial {isAvtArea ? 'Aventureiros' : 'Desbravadores'} • Personalizável na Hora de Baixar
                         </span>
                         <h4 className="text-xs sm:text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight mt-1">
-                          Modelo Padrão de Certificado & Personalização (Clube e Associação)
+                          Modelo Padrão de Certificado & Personalização ({isAvtArea ? 'Clube de Aventureiros' : 'Clube de Desbravadores'})
                         </h4>
                         <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-bold">
                           Visualize o modelo padrão abaixo e personalize com o nome do seu Clube e Associação/Missão antes de baixar em PDF A4 ou PNG.
@@ -5803,7 +5902,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                         <div className="flex justify-center">
                           <img
                             src={
-                              customCertConfig.ministry === 'AVT'
+                              isAvtArea
                                 ? 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png'
                                 : 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png'
                             }
@@ -5819,7 +5918,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                         </p>
                         <div className="inline-block px-4 py-1 rounded-full bg-amber-100 border border-amber-400 text-red-800 text-[11px] sm:text-xs font-black uppercase tracking-wider">
                           {customCertConfig.clubName.trim() ||
-                            (customCertConfig.ministry === 'AVT'
+                            (isAvtArea
                               ? 'CLUBE DE AVENTUREIROS (NOME DO CLUBE)'
                               : 'CLUBE DE DESBRAVADORES (NOME DO CLUBE)')}
                         </div>
@@ -5834,7 +5933,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                         </div>
                         <p className="text-[10px] sm:text-[11px] text-slate-600">
                           cumpriu todos os requisitos oficiais exigidos pelo Ministério de{' '}
-                          {customCertConfig.ministry === 'AVT' ? 'Aventureiros' : 'Desbravadores'} da DSA para:
+                          {isAvtArea ? 'Aventureiros' : 'Desbravadores'} da DSA para:
                         </p>
                         <p className="text-xs sm:text-sm font-black text-blue-950 uppercase tracking-wide">
                           {customCertConfig.achievementName || 'CLASSE / ESPECIALIDADE OFICIAL DSA'}
@@ -5867,7 +5966,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                               onChange={(e) =>
                                 setCustomCertConfig((prev) => ({ ...prev, clubName: e.target.value }))
                               }
-                              placeholder="Ex: Clube de Desbravadores Estrela de Davi"
+                              placeholder={
+                                isAvtArea
+                                  ? 'Ex: Clube de Aventureiros Pequenos Brilhantes'
+                                  : 'Ex: Clube de Desbravadores Estrela de Davi'
+                              }
                               className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
                             />
                           </div>
@@ -5887,25 +5990,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                          <div>
-                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-1">
-                              Ministério do Certificado
-                            </label>
-                            <select
-                              value={customCertConfig.ministry}
-                              onChange={(e) =>
-                                setCustomCertConfig((prev) => ({
-                                  ...prev,
-                                  ministry: e.target.value as 'DBV' | 'AVT'
-                                }))
-                              }
-                              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
-                            >
-                              <option value="DBV">Desbravadores (Emblema D1)</option>
-                              <option value="AVT">Aventureiros (Emblema A1)</option>
-                            </select>
-                          </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                           <div>
                             <label className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-1">
                               Classe / Especialidade / Mérito
@@ -5916,7 +6001,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                               onChange={(e) =>
                                 setCustomCertConfig((prev) => ({ ...prev, achievementName: e.target.value }))
                               }
-                              placeholder="Ex: Classe de Amigo / Especialidade"
+                              placeholder={
+                                isAvtArea
+                                  ? 'Ex: Classe de Abelhinhas Laboriosas / Especialidade'
+                                  : 'Ex: Classe de Amigo / Especialidade'
+                              }
                               className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
                             />
                           </div>
@@ -5974,7 +6063,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                             onClick={async () => {
                               setIsDownloadingCustomCert(true);
                               try {
-                                await downloadCustomizedCertificatePdf(customCertConfig);
+                                await downloadCustomizedCertificatePdf({
+                                  ...customCertConfig,
+                                  ministry: activeMinistry
+                                });
                               } finally {
                                 setIsDownloadingCustomCert(false);
                               }
@@ -5994,7 +6086,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                             onClick={async () => {
                               setIsDownloadingCustomCert(true);
                               try {
-                                await downloadCustomizedCertificatePng(customCertConfig);
+                                await downloadCustomizedCertificatePng({
+                                  ...customCertConfig,
+                                  ministry: activeMinistry
+                                });
                               } finally {
                                 setIsDownloadingCustomCert(false);
                               }
@@ -6021,112 +6116,126 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                           Vetores em Curvas • CorelDRAW (.CDR / .SVG / .EPS) • Portal IASD
                         </span>
                         <h4 className="text-xs sm:text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight mt-1">
-                          Emblemas Oficiais para Baixar no Formato CorelDRAW (DSA / IASD)
+                          Emblemas Oficiais de {isAvtArea ? 'Aventureiros (A1 a A5)' : 'Desbravadores (D1 a D5)'} em Formato CorelDRAW
                         </h4>
                         <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-bold">
-                          Baixe os pacotes oficiais abertos (.CDR / .EPS / .AI) do Portal Adventistas.org ou baixe cada emblema individualmente pronto para abrir no CorelDRAW.
+                          Baixe o pacote oficial aberto (.CDR / .EPS / .AI) do Portal Adventistas.org ou baixe cada emblema individualmente pronto para abrir no CorelDRAW.
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2 shrink-0">
-                        <a
-                          href="https://downloads.adventistas.org/pt/desbravadores/logomarcas/logos-abertos-desbravadores/"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs transition-colors"
-                        >
-                          <Download size={13} />
-                          <span>Pacote .CDR DBV (IASD)</span>
-                        </a>
-                        <a
-                          href="https://downloads.adventistas.org/pt/aventureiros/logomarcas/logos-aberto-aventureiros/"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs transition-colors"
-                        >
-                          <Download size={13} />
-                          <span>Pacote .CDR AVT (IASD)</span>
-                        </a>
+                        {isAvtArea ? (
+                          <a
+                            href="https://downloads.adventistas.org/pt/aventureiros/logomarcas/logos-aberto-aventureiros/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs transition-colors"
+                          >
+                            <Download size={13} />
+                            <span>Pacote .CDR Aventureiros (IASD)</span>
+                          </a>
+                        ) : (
+                          <a
+                            href="https://downloads.adventistas.org/pt/desbravadores/logomarcas/logos-abertos-desbravadores/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs transition-colors"
+                          >
+                            <Download size={13} />
+                            <span>Pacote .CDR Desbravadores (IASD)</span>
+                          </a>
+                        )}
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      {filteredCorelEmblems.map((emb) => (
-                        <div
-                          key={emb.id}
-                          className="rounded-2xl p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 flex items-center justify-between gap-3"
-                        >
-                          <div className="flex items-center gap-3 min-w-0 flex-1">
-                            <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1.5 flex items-center justify-center shrink-0">
-                              <img
-                                src={emb.imageUrl}
-                                alt={emb.title}
-                                className="w-full h-full object-contain"
-                                referrerPolicy="no-referrer"
-                              />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-1">
-                                <span
-                                  className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
-                                    emb.ministry === 'DBV'
-                                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
-                                      : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
-                                  }`}
-                                >
-                                  {emb.ministry} • {emb.code}
-                                </span>
-                                <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 text-[8px] font-black uppercase">
-                                  CorelDRAW
-                                </span>
-                              </div>
-                              <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-tight truncate mt-0.5">
-                                {emb.title}
-                              </p>
-                              <p className="text-[9.5px] font-bold text-slate-500 dark:text-slate-400 truncate">
-                                {emb.dimensions}
-                              </p>
-                            </div>
+                      {filteredCorelEmblems.length === 0 ? (
+                        <div className="col-span-full bg-slate-50 dark:bg-slate-900 rounded-[18px] p-4 flex items-center space-x-3 border border-slate-100 dark:border-slate-700">
+                          <div className="w-10 h-10 bg-red-50 dark:bg-red-950/40 rounded-xl flex items-center justify-center text-red-400">
+                            <Calendar size={20} />
                           </div>
+                          <span className="text-xs font-black text-slate-400 uppercase tracking-tight">
+                            Nenhum emblema encontrado para este filtro
+                          </span>
+                        </div>
+                      ) : (
+                        filteredCorelEmblems.map((emb) => (
+                          <div
+                            key={emb.id}
+                            className="rounded-2xl p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 flex items-center justify-between gap-3"
+                          >
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1.5 flex items-center justify-center shrink-0">
+                                <img
+                                  src={emb.imageUrl}
+                                  alt={emb.title}
+                                  className="w-full h-full object-contain"
+                                  referrerPolicy="no-referrer"
+                                />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-1">
+                                  <span
+                                    className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                                      emb.ministry === 'DBV'
+                                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                                        : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                                    }`}
+                                  >
+                                    {emb.ministry} • {emb.code}
+                                  </span>
+                                  <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 text-[8px] font-black uppercase">
+                                    CorelDRAW
+                                  </span>
+                                </div>
+                                <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-tight truncate mt-0.5">
+                                  {emb.title}
+                                </p>
+                                <p className="text-[9.5px] font-bold text-slate-500 dark:text-slate-400 truncate">
+                                  {emb.dimensions}
+                                </p>
+                              </div>
+                            </div>
 
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {emb.directCdrUrl && (
-                              <a
-                                href={emb.directCdrUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors"
-                                title="Baixar Arquivo Nativo .CDR CorelDRAW"
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {emb.directCdrUrl && (
+                                <a
+                                  href={emb.directCdrUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors"
+                                  title="Baixar Arquivo Nativo .CDR CorelDRAW"
+                                >
+                                  <Download size={12} />
+                                  <span>.CDR</span>
+                                </a>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => downloadEmblemForCorelDraw(emb)}
+                                className="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer"
+                                title="Baixar Vetor em Curvas para abrir no CorelDRAW"
                               >
                                 <Download size={12} />
-                                <span>.CDR</span>
+                                <span>Baixar Corel</span>
+                              </button>
+                              <a
+                                href={emb.corelPortalUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-7 h-7 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-700 dark:text-slate-200 flex items-center justify-center transition-colors"
+                                title="Abrir Pacote Oficial .CDR no Portal Adventistas.org (IASD)"
+                              >
+                                <ExternalLink size={12} />
                               </a>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => downloadEmblemForCorelDraw(emb)}
-                              className="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer"
-                              title="Baixar Vetor em Curvas para abrir no CorelDRAW"
-                            >
-                              <Download size={12} />
-                              <span>Baixar Corel</span>
-                            </button>
-                            <a
-                              href={emb.corelPortalUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="w-7 h-7 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-700 dark:text-slate-200 flex items-center justify-center transition-colors"
-                              title="Abrir Pacote Oficial .CDR no Portal Adventistas.org (IASD)"
-                            >
-                              <ExternalLink size={12} />
-                            </a>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))
+                      )}
                     </div>
                   </div>
                 )}
 
-                {catItems.length === 0 ? (
+                {cat.id !== 'graficos' && (catItems.length === 0 ? (
                   <div className="bg-white dark:bg-slate-800 rounded-[18px] p-4 flex items-center justify-between shadow-sm border border-slate-100 dark:border-slate-700">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-red-50 dark:bg-red-950/40 rounded-xl flex items-center justify-center text-red-400">
@@ -6139,19 +6248,16 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                   </div>
                 ) : (
                   catItems.map((form) => {
-                    const ministryCode = (form.icone || 'ALL').toUpperCase();
-                    const ministryLabel =
-                      ministryCode === 'DBV'
-                        ? 'Oficial DSA • Desbravadores'
-                        : ministryCode === 'AVT'
-                        ? 'Oficial DSA • Aventureiros'
-                        : 'Oficial DSA • DBV & AVT';
-                    const ministryBadgeColor =
-                      ministryCode === 'DBV'
-                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
-                        : ministryCode === 'AVT'
-                        ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
-                        : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300';
+                    const ministryLabel = isAvtArea
+                      ? 'Oficial DSA • Aventureiros'
+                      : 'Oficial DSA • Desbravadores';
+                    const ministryBadgeColor = isAvtArea
+                      ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                      : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300';
+                    const displayTitle = (form.titulo || '').replace(
+                      /Desbravadores e Aventureiros/gi,
+                      isAvtArea ? 'Clube de Aventureiros' : 'Clube de Desbravadores'
+                    );
                     const isExternalPortalOrCdr =
                       form.link.includes('downloads.adventistas.org') ||
                       form.link.includes('.cdr') ||
@@ -6167,7 +6273,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                           if (isExternalPortalOrCdr) {
                             window.open(form.link, '_blank', 'noopener,noreferrer');
                           } else {
-                            setPdfTitle(form.titulo);
+                            setPdfTitle(displayTitle);
                             setSelectedPdfUrl(formatDriveUrl(form.link));
                             setSelectedPdfThumbnail(null);
                             setPdfReturnSubView('FORMULARIOS');
@@ -6180,7 +6286,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                             if (isExternalPortalOrCdr) {
                               window.open(form.link, '_blank', 'noopener,noreferrer');
                             } else {
-                              setPdfTitle(form.titulo);
+                              setPdfTitle(displayTitle);
                               setSelectedPdfUrl(formatDriveUrl(form.link));
                               setSelectedPdfThumbnail(null);
                               setPdfReturnSubView('FORMULARIOS');
@@ -6201,7 +6307,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                               </span>
                             </div>
                             <span className="text-xs sm:text-[13px] font-black text-slate-800 dark:text-white uppercase tracking-tight block leading-snug">
-                              {form.titulo}
+                              {displayTitle}
                             </span>
                             {form.descricao && (
                               <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold block leading-snug">
@@ -6218,9 +6324,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                                 e.stopPropagation();
                                 setCustomCertConfig((prev) => ({
                                   ...prev,
-                                  ministry: ministryCode === 'AVT' ? 'AVT' : 'DBV',
-                                  certificateTitle: form.titulo.replace(/\s*\(DSA\)\s*/gi, '').toUpperCase(),
-                                  achievementName: form.titulo.replace(/Certificado (Oficial|Individual)\s*[—-]?\s*/i, '').replace(/\s*\(DSA\)\s*/gi, '')
+                                  ministry: activeMinistry,
+                                  certificateTitle: displayTitle.replace(/\s*\(DSA\)\s*/gi, '').toUpperCase(),
+                                  achievementName: displayTitle
+                                    .replace(/Certificado (Oficial|Individual)\s*[—-]?\s*/i, '')
+                                    .replace(/\s*\(DSA\)\s*/gi, '')
                                 }));
                                 setIsCertCustomizerOpen(true);
                                 const el = document.getElementById('cert-customizer-anchor');
@@ -6253,7 +6361,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                       </div>
                     );
                   })
-                )}
+                ))}
               </div>
             </div>
           );
@@ -6290,7 +6398,15 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                 Créditos e Fontes Oficiais dos Documentos
               </span>
               <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
-                Todos os cadernos de atividades, fichas médicas, termos de autorização, certificados de investidura e manuais de identidade visual disponibilizados nesta seção são documentos oficiais do <strong>Ministério de Desbravadores e Aventureiros da Divisão Sul-Americana da IASD (DSA — adventistas.org/pt/desbravadores e adventistas.org/pt/aventureiros)</strong>, <strong>Sistema de Gerenciamento de Clubes (SGC / ACMS)</strong>, <strong>Acervo Oficial Arquivos Adventistas (arquivosadventistas.org)</strong>, <strong>Ministério de Aventureiros ASES</strong> e <strong>MDA Wiki (mda.wiki.br)</strong>.
+                {isAvtArea ? (
+                  <>
+                    Todos os cadernos de atividades das classes (Abelhinhas Laboriosas a Mãos Ajudadoras), fichas médicas infantis, termos de autorização, certificados de investidura e manuais de identidade visual disponibilizados nesta seção são documentos oficiais do <strong>Ministério de Aventureiros da Divisão Sul-Americana da IASD (DSA — adventistas.org/pt/aventureiros)</strong>, <strong>Sistema de Gerenciamento de Clubes (SGC / ACMS)</strong>, <strong>Acervo Oficial Arquivos Adventistas (arquivosadventistas.org)</strong>, <strong>Ministério de Aventureiros ASES</strong> e <strong>MDA Wiki (mda.wiki.br)</strong>.
+                  </>
+                ) : (
+                  <>
+                    Todos os cadernos de atividades das classes (Amigo a Guia), fichas médicas, termos de autorização, certificados de investidura e manuais de identidade visual disponibilizados nesta seção são documentos oficiais do <strong>Ministério de Desbravadores da Divisão Sul-Americana da IASD (DSA — adventistas.org/pt/desbravadores)</strong>, <strong>Sistema de Gerenciamento de Clubes (SGC / ACMS)</strong>, <strong>Acervo Oficial Arquivos Adventistas (arquivosadventistas.org)</strong> e <strong>MDA Wiki (mda.wiki.br)</strong>.
+                  </>
+                )}
               </p>
             </div>
           </div>
@@ -9015,7 +9131,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           </div>
         </div>
 
-        {/* Aparência */}
+        {/* Aparência (Modo Escuro + Cores de Realce) */}
         <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[32px] p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -9033,6 +9149,77 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">{bibleSettings.darkMode ? 'Ligado' : 'Desligado'}</span>
             </div>
           </div>
+
+          {/* Cores de Realce dentro do container do Modo Escuro */}
+          {(() => {
+            const currentAccentId = (typeof window !== 'undefined' && localStorage.getItem('dbv_tudo_accent_color')) || 'gold';
+            const accentOptions = [
+              { id: 'gold', label: 'Âmbar Dourado', hex: '#dca048', rgb: '220, 160, 72' },
+              { id: 'coral', label: 'Coral Terracota', hex: '#dc8253', rgb: '220, 130, 83' },
+              { id: 'teal', label: 'Turquesa Real', hex: '#49b3a8', rgb: '73, 179, 168' },
+              { id: 'green', label: 'Verde Sálvia', hex: '#6bb07b', rgb: '107, 176, 123' }
+            ];
+            const activeOpt = accentOptions.find((o) => o.id === currentAccentId) || accentOptions[0];
+            const isDark = bibleSettings.darkMode;
+            return (
+              <div
+                className="rounded-2xl py-2.5 px-3 border transition-all relative overflow-hidden"
+                style={{
+                  backgroundColor: isDark ? '#14161d' : '#ffffff',
+                  backgroundImage: isDark
+                    ? `radial-gradient(circle at 18% 50%, rgba(${activeOpt.rgb}, 0.20) 0%, rgba(${activeOpt.rgb}, 0.05) 48%, transparent 80%)`
+                    : `radial-gradient(circle at 18% 50%, rgba(${activeOpt.rgb}, 0.16) 0%, rgba(${activeOpt.rgb}, 0.04) 50%, transparent 85%)`,
+                  borderColor: isDark
+                    ? `rgba(${activeOpt.rgb}, 0.28)`
+                    : `rgba(${activeOpt.rgb}, 0.32)`
+                }}
+              >
+                <div className="flex items-center space-x-1.5 mb-2">
+                  <Palette size={14} style={{ color: activeOpt.hex }} className="shrink-0 transition-colors duration-300" />
+                  <span className={`text-[11px] sm:text-xs font-extrabold tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                    Cores de Realce
+                  </span>
+                </div>
+                <div className="flex items-center justify-around px-3 py-0.5">
+                  {accentOptions.map((option) => {
+                    const isSelected = currentAccentId === option.id;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => {
+                          try {
+                            localStorage.setItem('dbv_tudo_accent_color', option.id);
+                            window.dispatchEvent(new CustomEvent('dbv_accent_color_changed', { detail: option.id }));
+                          } catch {}
+                          setBibleSettings({ ...bibleSettings });
+                        }}
+                        title={option.label}
+                        aria-label={`Cor de realce ${option.label}`}
+                        className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer relative shrink-0 ${
+                          isSelected ? 'scale-110' : 'hover:scale-105 opacity-90 hover:opacity-100 active:scale-95'
+                        }`}
+                        style={{
+                          width: '24px',
+                          height: '24px',
+                          minWidth: '24px',
+                          minHeight: '24px',
+                          backgroundColor: option.hex,
+                          boxShadow: isSelected
+                            ? isDark
+                              ? `0 0 0 2px rgba(255, 255, 255, 0.95), 0 0 10px 2px rgba(${option.rgb}, 0.65)`
+                              : `0 0 0 2px #ffffff, 0 0 0 3.5px rgba(${option.rgb}, 0.75), 0 2px 6px rgba(${option.rgb}, 0.35)`
+                            : '0 1px 3px rgba(0, 0, 0, 0.25)'
+                        }}
+                      >
+                        {isSelected && <Check size={12} strokeWidth={3} className="text-white drop-shadow-xs" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="space-y-2 pt-2">
             <div className="flex justify-between items-center">
@@ -9258,18 +9445,36 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   };
 
   const getYouTubeId = (url: string) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    if (!url) return null;
+    const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts|live)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i;
     const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
+    return match && match[1] ? match[1] : null;
+  };
+
+  const getYouTubeThumbnail = (url: string) => {
+    const id = getYouTubeId(url);
+    return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : null;
+  };
+
+  const getChannelInitials = (channelName: string) => {
+    const clean = (channelName || 'DBV').trim();
+    const parts = clean.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return clean.slice(0, 2).toUpperCase();
   };
 
   const renderVideoPlayer = () => {
     if (!selectedVideo) return null;
     const videoId = getYouTubeId(selectedVideo.link);
+    const relatedVideos = videos
+      .filter(v => v.club === club && (v.id !== selectedVideo.id || v.categoria_id !== selectedVideo.categoria_id))
+      .sort((a, b) => (a.categoria_id === selectedVideo.categoria_id ? -1 : b.categoria_id === selectedVideo.categoria_id ? 1 : 0));
 
     return (
-      <div className="animate-slide-in space-y-6 pt-4 pb-28">
-        <div className="bg-white dark:bg-slate-800 rounded-[32px] overflow-hidden shadow-lg border border-slate-100 dark:border-slate-700">
+      <div className="animate-slide-in space-y-6 pt-3 pb-28">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl overflow-hidden shadow-lg border border-slate-100 dark:border-slate-800">
           <div className="aspect-video bg-black">
             {videoId ? (
               <iframe 
@@ -9294,37 +9499,118 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               </div>
             )}
           </div>
-          <div className="p-6 space-y-4">
-            <div>
-              <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight leading-tight">{selectedVideo.titulo}</h3>
-              <p className="text-red-600 dark:text-red-400 text-xs font-black uppercase tracking-widest mt-1">{selectedVideo.canal}</p>
-            </div>
-            <div className="flex items-center space-x-6 pt-2 border-t border-slate-50 dark:border-slate-700">
-              <div className="flex flex-col">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Duração</span>
-                <span className="text-sm font-black text-slate-700 dark:text-slate-200 uppercase">{selectedVideo.duracao}</span>
+          <div className="p-4 sm:p-5 space-y-3.5">
+            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-snug">
+              {selectedVideo.titulo}
+            </h3>
+
+            <div className="flex items-center justify-between gap-3 pt-1">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-full bg-red-600 text-white flex items-center justify-center font-black text-xs shadow-sm shrink-0">
+                  {getChannelInitials(selectedVideo.canal)}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm font-black text-slate-800 dark:text-white truncate">
+                    {selectedVideo.canal || 'Canal Oficial'}
+                  </p>
+                  <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                    {selectedVideo.visualizacoes?.toLowerCase().includes('visualiza')
+                      ? selectedVideo.visualizacoes
+                      : `${selectedVideo.visualizacoes || '0'} visualizações`}
+                    {selectedVideo.duracao ? ` • ${selectedVideo.duracao}` : ''}
+                  </p>
+                </div>
               </div>
-              <div className="flex flex-col">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Visualizações</span>
-                <span className="text-sm font-black text-slate-700 dark:text-slate-200 uppercase">{selectedVideo.visualizacoes}</span>
-              </div>
+
+              <a
+                href={selectedVideo.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3.5 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-colors shrink-0"
+              >
+                <Play size={12} fill="currentColor" />
+                <span>YouTube</span>
+              </a>
             </div>
           </div>
         </div>
 
-        <div className="bg-red-50 dark:bg-slate-800 rounded-[28px] p-6 border border-red-100/50 dark:border-slate-700">
-          <div className="flex items-start space-x-4">
-            <div className="w-10 h-10 bg-white dark:bg-slate-700 rounded-xl flex items-center justify-center text-red-500 shadow-sm flex-shrink-0">
-              <Sparkles size={20} />
+        <div className="bg-red-50 dark:bg-slate-800/90 rounded-2xl p-4 border border-red-100/60 dark:border-slate-700">
+          <div className="flex items-start space-x-3.5">
+            <div className="w-9 h-9 bg-white dark:bg-slate-700 rounded-xl flex items-center justify-center text-red-500 shadow-sm flex-shrink-0">
+              <Sparkles size={18} />
             </div>
             <div>
-              <h4 className="text-sm font-black text-red-900 dark:text-white uppercase tracking-tight">Dica de Estudo</h4>
-              <p className="text-red-700/70 dark:text-slate-300 text-xs font-medium leading-relaxed mt-1">
-                Assista ao vídeo com atenção e faça anotações. Se for um requisito de classe, lembre-se de preencher seu relatório após assistir.
+              <h4 className="text-xs font-black text-red-900 dark:text-white uppercase tracking-tight">Dica de Estudo</h4>
+              <p className="text-red-700/80 dark:text-slate-300 text-xs font-medium leading-relaxed mt-0.5">
+                Assista ao vídeo com atenção e faça anotações. Se for um requisito de classe ou especialidade, lembre-se de registrar seu resumo após assistir.
               </p>
             </div>
           </div>
         </div>
+
+        {relatedVideos.length > 0 && (
+          <div className="space-y-3">
+            <h4 className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest px-1">
+              Próximos Vídeos
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              {relatedVideos.map((rel) => {
+                const relThumb = getYouTubeThumbnail(rel.link);
+                return (
+                  <button
+                    key={`${rel.categoria_id}-${rel.id}`}
+                    onClick={() => {
+                      setSelectedVideo(rel);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="w-full flex items-start gap-3 p-2 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-100 dark:border-slate-700/80 hover:border-red-300 dark:hover:border-red-800 transition-all text-left group"
+                  >
+                    <div className="w-28 sm:w-32 aspect-video rounded-xl overflow-hidden bg-slate-900 relative shrink-0">
+                      {relThumb ? (
+                        <img
+                          src={relThumb}
+                          alt={rel.titulo}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            if (target.src.includes('hqdefault.jpg')) {
+                              target.src = target.src.replace('hqdefault.jpg', 'mqdefault.jpg');
+                            }
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-slate-800 text-red-500">
+                          <Video size={18} />
+                        </div>
+                      )}
+                      {rel.duracao && (
+                        <span className="absolute bottom-1 right-1 px-1 py-0.5 rounded bg-black/85 text-white text-[9px] font-bold leading-none">
+                          {rel.duracao}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0 py-0.5">
+                      <h5 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white line-clamp-2 leading-snug group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
+                        {rel.titulo}
+                      </h5>
+                      <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-1 truncate">
+                        {rel.canal}
+                      </p>
+                      <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 mt-0.5">
+                        {rel.visualizacoes?.toLowerCase().includes('visualiza')
+                          ? rel.visualizacoes
+                          : `${rel.visualizacoes || '0'} visualizações`}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -9348,64 +9634,177 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       return result;
     };
 
+    const categoriesWithVideos = categories.filter(cat =>
+      clubVideos.some(v => v.categoria_id === cat.id)
+    );
+
+    const visibleCategories =
+      selectedVideoCategoryFilter === 'ALL'
+        ? categoriesWithVideos
+        : categoriesWithVideos.filter(c => c.id === selectedVideoCategoryFilter);
+
     return (
-      <div className="animate-slide-in space-y-8 pt-4 pb-28">
+      <div className="animate-slide-in space-y-5 pt-2 pb-28">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="w-8 h-8 border-3 border-slate-100 dark:border-slate-700 border-t-red-500 rounded-full animate-spin"></div>
           </div>
-        ) : categories.length === 0 ? (
+        ) : categoriesWithVideos.length === 0 ? (
           <div className="bg-white dark:bg-slate-800 rounded-[32px] p-12 text-center border border-slate-100 dark:border-slate-700 shadow-sm">
             <Video size={48} className="text-slate-100 dark:text-slate-700 mx-auto mb-4" />
             <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Nenhum vídeo disponível no momento.</p>
           </div>
         ) : (
-          <div className="space-y-10">
-            {categories.map(category => {
-              const categoryVideos = getDailyVideos(clubVideos.filter(v => v.categoria_id === category.id));
-              if (categoryVideos.length === 0) return null;
+          <div className="space-y-6">
+            {/* Barra de Categorias Estilo YouTube (Chips Horizontais) */}
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1">
+              <button
+                type="button"
+                onClick={() => setSelectedVideoCategoryFilter('ALL')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+                  selectedVideoCategoryFilter === 'ALL'
+                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                }`}
+              >
+                Todos ({clubVideos.length})
+              </button>
+              {categoriesWithVideos.map((cat) => {
+                const count = clubVideos.filter(v => v.categoria_id === cat.id).length;
+                const isActive = selectedVideoCategoryFilter === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() =>
+                      setSelectedVideoCategoryFilter(isActive ? 'ALL' : cat.id)
+                    }
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+                      isActive
+                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    {cat.nome} ({count})
+                  </button>
+                );
+              })}
+            </div>
 
-              return (
-                <div key={category.id} className="space-y-4">
-                  <div className="flex items-center space-x-3 px-2">
-                    <div className="w-10 h-10 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 rounded-2xl flex items-center justify-center shadow-sm">
-                      <Folder size={20} strokeWidth={2.5} />
+            {/* Seções por Categoria com Lista Compacta Estilo YouTube e Miniaturas Reais */}
+            <div className="space-y-6">
+              {visibleCategories.map(category => {
+                const allCatVideos = clubVideos.filter(v => v.categoria_id === category.id);
+                const categoryVideos = allCatVideos;
+                if (categoryVideos.length === 0) return null;
+
+                return (
+                  <div key={category.id} className="space-y-3">
+                    {/* Cabeçalho da Categoria */}
+                    <div className="flex items-center justify-between px-1">
+                      <div className="flex items-center space-x-2.5">
+                        <div className="w-8 h-8 bg-red-600 text-white rounded-xl flex items-center justify-center shadow-xs">
+                          <Play size={14} fill="currentColor" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm sm:text-base font-black text-slate-900 dark:text-white uppercase tracking-tight leading-tight">
+                            {category.nome}
+                          </h4>
+                          <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
+                            {allCatVideos.length} {allCatVideos.length === 1 ? 'vídeo' : 'vídeos'}
+                          </p>
+                        </div>
+                      </div>
+                      {allCatVideos.length > 4 && selectedVideoCategoryFilter === 'ALL' && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedVideoCategoryFilter(category.id)}
+                          className="text-xs font-bold text-red-600 dark:text-red-400 hover:underline cursor-pointer"
+                        >
+                          Ver todos
+                        </button>
+                      )}
                     </div>
-                    <h4 className="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight">{category.nome}</h4>
-                  </div>
 
-                  <div className="bg-white dark:bg-slate-800 rounded-[32px] p-4 shadow-sm border border-slate-100 dark:border-slate-700 space-y-3">
-                    {categoryVideos.map(video => (
-                      <button 
-                        key={video.id}
-                        onClick={() => {
-                          setSelectedVideo(video);
-                          setActiveSubView('VIDEO_PLAYER');
-                        }}
-                        className="w-full flex items-center space-x-4 p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all active:scale-[0.98] group"
-                      >
-                        <div className="w-16 h-12 bg-red-600 rounded-xl flex items-center justify-center text-white shadow-md flex-shrink-0 group-hover:scale-105 transition-transform">
-                          <Video size={24} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h5 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight whitespace-normal break-words">{video.titulo}</h5>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{video.canal}</p>
-                          <div className="flex items-center space-x-3 mt-1">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">{video.duracao}</span>
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">
-                              {video.visualizacoes.toLowerCase().includes('visualiza') 
-                                ? video.visualizacoes 
-                                : `${video.visualizacoes} visualizações`}
-                            </span>
-                          </div>
-                        </div>
-                        <ChevronRight size={18} className="text-slate-200 dark:text-slate-600 group-hover:translate-x-1 transition-transform" />
-                      </button>
-                    ))}
+                    {/* Container da Categoria com Miniaturas Compactas 16:9 (1 coluna no celular, 2 colunas no PC) */}
+                    <div className="bg-white dark:bg-slate-800/90 rounded-[26px] p-2.5 sm:p-3 shadow-xs border border-slate-100 dark:border-slate-700/80 grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                      {categoryVideos.map(video => {
+                        const thumbUrl = getYouTubeThumbnail(video.link);
+                        const viewsText = video.visualizacoes?.toLowerCase().includes('visualiza')
+                          ? video.visualizacoes
+                          : `${video.visualizacoes || '0'} visualizações`;
+
+                        return (
+                          <button
+                            key={`${video.categoria_id}-${video.id}`}
+                            type="button"
+                            onClick={() => {
+                              setSelectedVideo(video);
+                              setActiveSubView('VIDEO_PLAYER');
+                            }}
+                            className="w-full flex items-center gap-3 p-2 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all active:scale-[0.99] text-left group cursor-pointer"
+                          >
+                            {/* Miniatura Compacta 16:9 Estilo YouTube */}
+                            <div className="w-28 sm:w-32 aspect-video rounded-xl bg-slate-900 relative overflow-hidden shrink-0 shadow-xs">
+                              {thumbUrl ? (
+                                <img
+                                  src={thumbUrl}
+                                  alt={video.titulo}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                  loading="lazy"
+                                  referrerPolicy="no-referrer"
+                                  onError={(e) => {
+                                    const target = e.currentTarget;
+                                    if (target.src.includes('hqdefault.jpg')) {
+                                      target.src = target.src.replace('hqdefault.jpg', 'mqdefault.jpg');
+                                    }
+                                  }}
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-slate-800 text-red-500">
+                                  <Video size={20} />
+                                </div>
+                              )}
+
+                              {/* Botão Play discreto e Badge de Duração no canto inferior direito */}
+                              <div className="absolute inset-0 bg-black/15 group-hover:bg-black/25 transition-colors flex items-center justify-center">
+                                <div className="w-7 h-5 rounded-md bg-red-600/90 text-white flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                                  <Play size={10} fill="currentColor" className="ml-0.5" />
+                                </div>
+                              </div>
+
+                              {video.duracao && (
+                                <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/85 text-white text-[9px] font-bold tracking-tight leading-none">
+                                  {video.duracao}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Informações à direita da miniatura */}
+                            <div className="flex-1 min-w-0 py-0.5">
+                              <h5 className="text-xs sm:text-sm font-black text-slate-800 dark:text-white leading-snug line-clamp-2 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
+                                {video.titulo}
+                              </h5>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="w-4 h-4 rounded-full bg-red-600 text-white flex items-center justify-center text-[7px] font-black shrink-0">
+                                  {getChannelInitials(video.canal)}
+                                </span>
+                                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">
+                                  {video.canal || 'Canal Oficial'}
+                                </span>
+                              </div>
+                              <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 mt-0.5">
+                                {viewsText}
+                              </p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
@@ -9532,21 +9931,26 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
   const handleCreateForm = async () => {
     if (!newForm.titulo || !newForm.link) return;
+    const defaultMinistry: 'DBV' | 'AVT' = club === ClubType.ADVENTURER ? 'AVT' : 'DBV';
+    const payload = {
+      ...newForm,
+      icone: newForm.icone === 'AVT' || newForm.icone === 'DBV' ? newForm.icone : defaultMinistry
+    };
     setIsLoading(true);
     if (editingFormId) {
-      const { data, error } = await updateFormulario({ ...(newForm as Partial<Formulario>), id: editingFormId });
+      const { data, error } = await updateFormulario({ ...(payload as Partial<Formulario>), id: editingFormId });
       if (!error) {
         setFormularios(formularios.map(f => f.id === editingFormId ? (data as Formulario) : f));
         setEditingFormId(null);
-        setNewForm({ titulo: '', categoria: '', link: '', descricao: '', icone: 'FileText' });
+        setNewForm({ titulo: '', categoria: 'forms', link: '', descricao: '', icone: defaultMinistry });
       } else {
         console.error("Erro ao atualizar formulário:", error);
       }
     } else {
-      const { data, error } = await createFormulario(newForm as Omit<Formulario, 'id' | 'created_at'>);
+      const { data, error } = await createFormulario(payload as Omit<Formulario, 'id' | 'created_at'>);
       if (!error) {
         setFormularios([...formularios, data as Formulario]);
-        setNewForm({ titulo: '', categoria: '', link: '', descricao: '', icone: 'FileText' });
+        setNewForm({ titulo: '', categoria: 'forms', link: '', descricao: '', icone: defaultMinistry });
       } else {
         console.error("Erro ao criar formulário:", error);
       }
@@ -9729,18 +10133,29 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                 {categoryVideos.length === 0 ? (
                   <p className="text-center py-4 text-slate-400 text-xs font-bold uppercase">Nenhum vídeo</p>
                 ) : (
-                  categoryVideos.map(video => (
-                    <div key={video.id} className={`flex items-center justify-between p-3 rounded-2xl ${editingVideoId === video.id ? 'bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'} transition-all`}>
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-8 bg-red-600 rounded-lg flex items-center justify-center text-white">
-                          <Video size={16} />
+                  categoryVideos.map(video => {
+                    const adminThumb = getYouTubeThumbnail(video.link);
+                    return (
+                    <div key={`${video.categoria_id}-${video.id}`} className={`flex items-center justify-between p-3 rounded-2xl ${editingVideoId === video.id ? 'bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'} transition-all`}>
+                      <div className="flex items-center space-x-3 min-w-0 flex-1">
+                        <div className="w-20 aspect-video bg-slate-900 rounded-lg overflow-hidden flex items-center justify-center text-white shrink-0 relative">
+                          {adminThumb ? (
+                            <img src={adminThumb} alt={video.titulo} className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />
+                          ) : (
+                            <Video size={16} />
+                          )}
+                          {video.duracao && (
+                            <span className="absolute bottom-0.5 right-0.5 px-1 py-0.2 rounded bg-black/85 text-white text-[8px] font-bold">
+                              {video.duracao}
+                            </span>
+                          )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-black text-slate-800 dark:text-white uppercase whitespace-normal break-words">{video.titulo}</p>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase">{video.canal}</p>
+                          <p className="text-xs font-black text-slate-800 dark:text-white whitespace-normal break-words line-clamp-2">{video.titulo}</p>
+                          <p className="text-[10px] font-bold text-slate-400">{video.canal}</p>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-1">
+                      <div className="flex items-center space-x-1 shrink-0">
                         {video.categoria_id > 0 && (
                           <button 
                             onClick={() => {
@@ -9772,7 +10187,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                         )}
                       </div>
                     </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -9783,6 +10199,20 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   };
 
   const renderFormAdmin = () => {
+    const activeMinistry: 'DBV' | 'AVT' = club === ClubType.ADVENTURER ? 'AVT' : 'DBV';
+    const filteredAdminForms = formularios.filter((f) => {
+      const linkLower = (f.link || '').toLowerCase();
+      if (linkLower.includes('ministerioaventureiros') || linkLower.includes('/aventureiros/')) {
+        return activeMinistry === 'AVT';
+      }
+      if (linkLower.includes('/desbravadores/')) {
+        return activeMinistry === 'DBV';
+      }
+      const tag = (f.icone || '').toUpperCase().trim();
+      if (tag === 'AVT') return activeMinistry === 'AVT';
+      return activeMinistry === 'DBV';
+    });
+
     return (
       <div className="animate-slide-in space-y-8 pt-4 pb-28">
         {/* Novo Formulário / Editar Formulário */}
@@ -9790,13 +10220,17 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           <div className="flex items-center justify-between">
             <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-tight flex items-center space-x-2">
               {editingFormId ? <Edit2 size={20} className="text-amber-500" /> : <FileText size={20} className="text-amber-600" />}
-              <span>{editingFormId ? 'Editar Formulário' : 'Novo Formulário'}</span>
+              <span>
+                {editingFormId
+                  ? 'Editar Formulário'
+                  : `Novo Formulário (${activeMinistry === 'AVT' ? 'Aventureiros' : 'Desbravadores'})`}
+              </span>
             </h4>
             {editingFormId && (
               <button 
                 onClick={() => {
                   setEditingFormId(null);
-                  setNewForm({ titulo: '', categoria: '', link: '', descricao: '', icone: 'FileText' });
+                  setNewForm({ titulo: '', categoria: 'forms', link: '', descricao: '', icone: activeMinistry });
                 }}
                 className="px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-slate-200 transition-all"
               >
@@ -9812,16 +10246,33 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               onChange={e => setNewForm({...newForm, titulo: e.target.value})}
               className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 dark:text-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500 transition-all placeholder:text-slate-400"
             />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <select
+                value={newForm.categoria || 'forms'}
+                onChange={e => setNewForm({...newForm, categoria: e.target.value})}
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 dark:text-white rounded-2xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-amber-500 transition-all"
+              >
+                <option value="fichas">Fichas de Atividades</option>
+                <option value="forms">Formulários</option>
+                <option value="certificados">Certificados</option>
+                <option value="graficos">Materiais Gráficos</option>
+              </select>
+              <select
+                value={
+                  newForm.icone === 'DBV' || newForm.icone === 'AVT'
+                    ? newForm.icone
+                    : activeMinistry
+                }
+                onChange={e => setNewForm({...newForm, icone: e.target.value})}
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 dark:text-white rounded-2xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-amber-500 transition-all"
+              >
+                <option value="DBV">Exclusivo Desbravadores (DBV)</option>
+                <option value="AVT">Exclusivo Aventureiros (AVT)</option>
+              </select>
+            </div>
             <input 
               type="text" 
-              placeholder="Categoria (ex: Inscrição, Saúde)"
-              value={newForm.categoria}
-              onChange={e => setNewForm({...newForm, categoria: e.target.value})}
-              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 dark:text-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500 transition-all placeholder:text-slate-400"
-            />
-            <input 
-              type="text" 
-              placeholder="Link do Google Forms / PDF"
+              placeholder="Link do Google Drive / PDF"
               value={newForm.link}
               onChange={e => setNewForm({...newForm, link: e.target.value})}
               className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 dark:text-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500 transition-all placeholder:text-slate-400"
@@ -9845,7 +10296,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                 <button 
                   onClick={() => {
                     setEditingFormId(null);
-                    setNewForm({ titulo: '', categoria: '', link: '', descricao: '', icone: 'FileText' });
+                    setNewForm({ titulo: '', categoria: 'forms', link: '', descricao: '', icone: activeMinistry });
                   }}
                   className="px-5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-2xl font-black uppercase text-xs active:scale-95 transition-all"
                 >
@@ -9864,14 +10315,16 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           </div>
         </div>
 
-        {/* Lista de Formulários */}
+        {/* Lista de Formulários do Clube Atual */}
         <div className="space-y-4">
-          <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-tight px-2">Formulários Ativos</h4>
+          <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-tight px-2">
+            Formulários Ativos ({activeMinistry === 'AVT' ? 'Aventureiros' : 'Desbravadores'})
+          </h4>
           <div className="bg-white dark:bg-slate-800 rounded-[32px] p-4 shadow-sm border border-slate-100 dark:border-slate-700 space-y-2">
-            {formularios.length === 0 ? (
+            {filteredAdminForms.length === 0 ? (
               <p className="text-center py-8 text-slate-400 text-xs font-bold uppercase tracking-widest">Nenhum formulário cadastrado</p>
             ) : (
-              formularios.map(form => (
+              filteredAdminForms.map(form => (
                 <div key={form.id} className={`flex items-center justify-between p-4 rounded-2xl ${editingFormId === form.id ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50 border-slate-50 dark:border-slate-700'} transition-all border`}>
                   <div className="flex items-center space-x-4">
                     <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 rounded-xl flex items-center justify-center">
@@ -10414,7 +10867,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   };
 
   return (
-    <div className="flex flex-row h-full w-full bg-[#F8FAFC] dark:bg-slate-900 animate-slide-in overflow-hidden relative transition-colors duration-500">
+    <div className="flex flex-row h-full w-full bg-transparent animate-slide-in overflow-hidden relative transition-colors duration-500">
       {/* MENU LATERAL ESQUERDO PARA PC (MD+) */}
       <aside 
         ref={sidebarRef}
@@ -10423,7 +10876,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             setIsSidebarOpen(true);
           }
         }}
-        className={`hidden md:flex flex-col h-full bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 shrink-0 z-30 select-none shadow-sm transition-all duration-300 ease-in-out justify-between overflow-y-auto scrollbar-hide relative ${
+        className={`hidden md:flex flex-col h-full bg-white/80 dark:bg-slate-900/75 backdrop-blur-xl border-r border-slate-200/80 dark:border-slate-800 shrink-0 z-30 select-none shadow-sm transition-all duration-300 ease-in-out justify-between overflow-y-auto scrollbar-hide relative ${
           isSidebarOpen 
             ? 'w-64 lg:w-72 p-5 lg:p-6 cursor-default' 
             : 'w-[78px] lg:w-[84px] px-2.5 py-4 cursor-pointer'
@@ -10526,8 +10979,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               {/* Botão Desbravadores (sem imagem à esquerda, com emblema sombreado à direita estilo tela inicial) */}
               <button
                 onClick={() => {
-                  onSwitchClub(ClubType.PATHFINDER);
-                  if (activeSubView !== 'MAIN') setActiveSubView('MAIN');
+                  handleMinistryButtonClick(ClubType.PATHFINDER);
                 }}
                 className={`w-full relative overflow-hidden flex items-center px-5 py-4 rounded-2xl font-black text-xs lg:text-sm uppercase tracking-wider transition-all text-left group active:scale-[0.98] ${
                   isPathfinder
@@ -10553,8 +11005,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               {/* Botão Aventureiros (sem imagem à esquerda, com emblema sombreado à direita estilo tela inicial) */}
               <button
                 onClick={() => {
-                  onSwitchClub(ClubType.ADVENTURER);
-                  if (activeSubView !== 'MAIN') setActiveSubView('MAIN');
+                  handleMinistryButtonClick(ClubType.ADVENTURER);
                 }}
                 className={`w-full relative overflow-hidden flex items-center px-5 py-4 rounded-2xl font-black text-xs lg:text-sm uppercase tracking-wider transition-all text-left group active:scale-[0.98] ${
                   !isPathfinder
@@ -10654,8 +11105,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onSwitchClub(ClubType.PATHFINDER);
-                  if (activeSubView !== 'MAIN') setActiveSubView('MAIN');
+                  handleMinistryButtonClick(ClubType.PATHFINDER);
                 }}
                 className={`w-12 h-12 lg:w-13 lg:h-13 rounded-2xl flex flex-col items-center justify-center transition-all relative group active:scale-90 ${
                   isPathfinder
@@ -10681,8 +11131,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onSwitchClub(ClubType.ADVENTURER);
-                  if (activeSubView !== 'MAIN') setActiveSubView('MAIN');
+                  handleMinistryButtonClick(ClubType.ADVENTURER);
                 }}
                 className={`w-12 h-12 lg:w-13 lg:h-13 rounded-2xl flex flex-col items-center justify-center transition-all relative group active:scale-90 ${
                   !isPathfinder
@@ -10837,7 +11286,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       {/* ÁREA DE CONTEÚDO PRINCIPAL (À DIREITA DO MENU NO PC) */}
       <div className="flex flex-col flex-1 h-full min-w-0 overflow-hidden relative">
         {activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && !selectedTrunfoModal && (
-          <div className="px-3.5 sm:px-6 md:px-10 lg:px-12 pt-3 sm:pt-4 md:pt-8 lg:pt-9 pb-2 sm:pb-3 md:pb-5 landscape:py-1.5 landscape:px-4 flex items-center justify-between z-10 bg-[#F8FAFC] dark:bg-slate-900 transition-colors duration-500">
+          <div className="px-3.5 sm:px-6 md:px-10 lg:px-12 pt-3 sm:pt-4 md:pt-8 lg:pt-9 pb-2 sm:pb-3 md:pb-5 landscape:py-1.5 landscape:px-4 flex items-center justify-between z-10 bg-transparent transition-colors duration-500">
             <div className="w-11 h-11 md:w-12 md:h-12 landscape:w-9 landscape:h-9 flex items-center justify-center flex-shrink-0">
               {activeSubView === 'MAIN' ? (
                 /* No PC, o logo já está em destaque na barra lateral esquerda */
@@ -11160,6 +11609,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         {activeSubView === 'FIELD_TRAINING' && renderFieldTraining()}
         {activeSubView === 'QUIZ' && (
           <ClubQuiz
+            key={club}
             club={club}
             specialties={specialties}
             getImageUrl={getImageUrl}
@@ -11171,12 +11621,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         )}
         {activeSubView === 'UNIT_CORNER' && (
           <UnitCornerCamping
+            key={club}
             club={club}
             onBack={() => setActiveSubView('FIELD_TRAINING')}
           />
         )}
         {activeSubView === 'FIELD_MANUAL' && (
           <FieldManualTools
+            key={club}
             club={club}
             initialTab={fieldManualTab}
             onBack={() => setActiveSubView('FIELD_TRAINING')}
@@ -11184,6 +11636,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         )}
         {activeSubView === 'ORDEM_UNIDA' && (
           <FieldManualTools
+            key={club}
             club={club}
             initialTab="ORDEM_UNIDA"
             standaloneDrill={true}
@@ -11423,7 +11876,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               )}
               <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md h-16 landscape:h-11 w-full max-w-[320px] landscape:max-w-[270px] rounded-full shadow-2xl flex p-2 landscape:p-1.5 items-center border border-white dark:border-slate-700 space-x-2 pointer-events-auto">
                 <button 
-                  onClick={() => onSwitchClub(ClubType.PATHFINDER)} 
+                  onClick={() => handleMinistryButtonClick(ClubType.PATHFINDER)} 
                   className={`relative overflow-hidden flex-1 h-full rounded-full text-[11px] landscape:text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center group ${isPathfinder ? 'bg-[#dc371b] text-white shadow-lg' : 'text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'}`}
                 >
                   <div className={`absolute -left-1 -bottom-1.5 pointer-events-none select-none grayscale transition-transform duration-500 group-hover:scale-110 ${isPathfinder ? 'opacity-25' : 'opacity-15 dark:opacity-15'}`}>
@@ -11439,7 +11892,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                   <HomeIcon size={20} className="landscape:w-4 landscape:h-4" />
                 </button>
                 <button 
-                  onClick={() => onSwitchClub(ClubType.ADVENTURER)} 
+                  onClick={() => handleMinistryButtonClick(ClubType.ADVENTURER)} 
                   className={`relative overflow-hidden flex-1 h-full rounded-full text-[11px] landscape:text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center group ${!isPathfinder ? 'bg-[#800000] text-white shadow-lg' : 'text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'}`}
                 >
                   <div className={`absolute -right-1 -bottom-1.5 pointer-events-none select-none grayscale transition-transform duration-500 group-hover:scale-110 ${!isPathfinder ? 'opacity-25' : 'opacity-15 dark:opacity-15'}`}>
