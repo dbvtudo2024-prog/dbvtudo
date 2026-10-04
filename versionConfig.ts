@@ -6,14 +6,119 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.39';
+export const APP_VERSION = '3.0.49';
 export const APP_BUILD_DATE = '4 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
-    version: '3.0.39',
+    version: '3.0.49',
     date: '04/10/2026',
     tag: 'NOVO',
+    title: 'Aleatorização Balanceada de Alternativas (A, B, C, D) e Filtro Exclusivo do Livro Nisto Cremos para Desbravadores',
+    changes: [
+      'Restrição das categorias do livro "Nisto Cremos" (Capítulos 1-10, 11-20 e 21-28) exclusivamente para a área de Desbravadores.',
+      'Novo algoritmo criptográfico de embaralhamento balanceado das alternativas (A, B, C, D) no Quiz e nas Avaliações de Especialidade, distribuindo uniformemente a resposta correta e evitando repetições da opção A.'
+    ]
+  },
+  {
+    version: '3.0.48',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Otimização Visual do Quiz em Tela Cheia Sem Rolagem e 2 Colunas no Celular',
+    changes: [
+      'Layout do Quiz e Simulado 100% ajustado à tela sem necessidade de rolagem vertical.',
+      'Grade de modalidades organizada em 2 colunas no celular para visualização rápida e direta.',
+      'Ocultação do menu flutuante inferior no celular durante o Quiz e remoção do botão "Sair" redundante (integrado ao botão Voltar do cabeçalho).',
+      'Exibição limpa da insígnia no modo "Qual é esta Especialidade?" sem container em volta.'
+    ]
+  },
+  {
+    version: '3.0.47',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Novas Categorias no Quiz: Livro "Nisto Cremos" (Capítulos 1-10, 11-20 e 21-28) e Manual Administrativo dos Desbravadores',
+    changes: [
+      'Adicionada a categoria "Livro Nisto Cremos • Capítulos 1 ao 10" (Escrituras Sagradas, Trindade, Pai, Filho, Espírito Santo, Criação, Natureza da Humanidade, Grande Conflito, Vida/Morte/Ressurreição de Cristo e Experiência da Salvação).',
+      'Adicionada a categoria "Livro Nisto Cremos • Capítulos 11 ao 20" (Crescer em Cristo, Igreja, Remanescente e Sua Missão, Unidade no Corpo de Cristo, Batismo, Ceia do Senhor, Dons e Ministérios Espirituais, Dom de Profecia, Lei de Deus e Sábado).',
+      'Adicionada a categoria "Livro Nisto Cremos • Capítulos 21 ao 28" (Mordomia, Conduta Cristã, Casamento e Família, Ministério de Cristo no Santuário Celestial, Segunda Vinda, Morte e Ressurreição, Milênio e Fim do Pecado, e Nova Terra).',
+      'Adicionada a categoria dedicada "Manual Administrativo dos Desbravadores" (Filosofia, Faixa Etária, Eleição da Diretoria, Comissões Executiva e Regular, Sistema de Unidades, Conselheiros, Capitão e Secretário, Cerimônias, Finanças, Seguro Anual/SGC, Bandeira, Banderim e Disciplina Redentiva).'
+    ]
+  },
+  {
+    version: '3.0.46',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Quiz Interativo, Simulado "Bom de Bíblia" e Concursos do Clube',
+    changes: [
+      'Nova área de Quiz e Simulado com perguntas cronometradas, recordes pessoais, sistema de combo e ajudas estratégicas (Eliminar 2 alternativas, +15 Segundos e Dica/Referência).',
+      'Trilha História, Ideais, Emblemas e Manual Administrativo (Desbravadores e Aventureiros) com explicação comentada e referência oficial.',
+      'Simulado estilo "Bom de Bíblia", Livro do Ano e Ano Bíblico com gerador opcional de perguntas inéditas sob demanda.',
+      'Modo visual "Qual é esta Especialidade?" que exibe apenas a insígnia oficial do catálogo para acertar o nome da especialidade contra o relógio.'
+    ]
+  },
+  {
+    version: '3.0.45',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Ajuste no Cabeçalho da Prova de Especialidade (Desbravadores / Aventureiros)',
+    changes: [
+      'Simplificação da faixa superior do cabeçalho no PDF da prova para exibir diretamente "DESBRAVADORES • AVALIAÇÃO DE ESPECIALIDADE" ou "AVENTUREIROS • AVALIAÇÃO DE ESPECIALIDADE" conforme o clube ativo.'
+    ]
+  },
+  {
+    version: '3.0.44',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Gerador de Provas Oficiais das Especialidades com Folha de Gabarito Comentado (.pdf)',
+    changes: [
+      'Novo Gerador de Provas nas Especialidades (exclusivo para liderança, instrutores, conselheiros e diretores) com elaboração inteligente baseada nos requisitos oficiais de Desbravadores e Aventureiros.',
+      'Três modos de avaliação configuráveis: Mista (Múltipla Escolha + Verdadeiro/Falso + Discursivas/Práticas), 100% Objetiva (A, B, C, D) e Discursiva + Prática (com linhas pautadas e quadro de parecer prático do avaliador).',
+      'Folha de Gabarito Oficial do Instrutor destacável ao final do PDF (com resumo rápido do cartão-resposta, respostas comentadas e critérios de correção) e pré-visualização interativa das questões dentro do aplicativo.'
+    ]
+  },
+  {
+    version: '3.0.43',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Otimização de Especialidades e Faixa: -77% de Peso SQL e -98% de Consumo de Imagens no Modal',
+    changes: [
+      'Consultas leves de Especialidades no Perfil e Catálogo (sem baixar os 700 KB de textos da coluna Questoes até que o usuário abra uma especialidade específica), reduzindo o consumo da tabela em 77%.',
+      'Cache inteligente em memória e LocalStorage (12h) para evitar consultas repetidas ao Supabase ao alternar entre telas.',
+      'Paginação progressiva sob demanda (40 itens por lote ao rolar) e carregamento assíncrono (lazy loading) nos modais de Minha Faixa e Pesquisa de Especialidades, evitando baixar as 534 imagens (~84 MB) de uma só vez.'
+    ]
+  },
+  {
+    version: '3.0.42',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Ícone do Topo do App com Navegação Direta para o Início',
+    changes: [
+      'Ao clicar no ícone/logo do aplicativo no topo da tela, o usuário agora é direcionado imediatamente para a tela de Início.'
+    ]
+  },
+  {
+    version: '3.0.41',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Cartão de Classes com a Cor Oficial dos Aventureiros (#800000)',
+    changes: [
+      'Ajuste da cor do cartão de Classes na Área de Gestão de Aventureiros (Mobile e PC) para a cor oficial vinho/bordô dos Aventureiros (#800000).'
+    ]
+  },
+  {
+    version: '3.0.40',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Emblemas Sombreados no Menu Inferior (DBV / AVT) e Menu Principal',
+    changes: [
+      'Adição dos emblemas oficiais sombreados em marca d\'água à direita nos botões DBV (Desbravadores) e AVT (Aventureiros) da barra de navegação inferior.',
+      'Alinhamento visual dos botões do Menu Principal sem ícones frontais duplicados, mantendo apenas o texto e o emblema sombreado à direita no estilo da tela inicial.'
+    ]
+  },
+  {
+    version: '3.0.39',
+    date: '04/10/2026',
+    tag: 'ATUAL',
     title: 'Novo Visual do Menu Principal com Ícones/Brasões Livres e Marca d\'Água Sombreada à Direita',
     changes: [
       'Remoção dos containers quadrados internos em volta do ícone de Início e dos brasões de Desbravadores e Aventureiros no Menu Principal.',

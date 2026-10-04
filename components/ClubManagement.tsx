@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { jsPDF } from 'jspdf';
 import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, BibleNote, Devocional, Cultura, UserProfile, CulturaItem, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario, Video as VideoType, VideoCategory, LivroAVT, ManualAVT, AppLink, Conquista, Trunfo } from '../types';
 import { 
-  fetchCategories, fetchEspecialidades, fetchClasses, fetchDesbravaMais, 
+  fetchCategories, fetchEspecialidades, fetchEspecialidadeRequisitos, fetchClasses, fetchDesbravaMais, 
   fetchBibleBooks, fetchBibleVerses, fetchBibleDictionary, fetchDevocionais, 
   CANONICAL_BIBLE_BOOKS,
   createDevocional, updateDevocional, deleteDevocional, fetchUserSpecialties, updateUserSpecialties, 
@@ -27,11 +27,13 @@ import { calculateAge } from './Profile';
 import { MASTERY_RULES } from '../masteryRules';
 import { APP_VERSION } from '../versionConfig';
 import { generateSpecialtyPowerPoint, parseAndNormalizeRequirements, isRequirementSubItem } from '../services/presentationService';
+import { generateSpecialtyExamPdf, generateSpecialtyExamQuestions, ExamFormatMode, ExamQuestion } from '../services/examService';
+import ClubQuiz from './ClubQuiz';
 import { 
   Shield, Award, User, Layers, Sparkles, Home as HomeIcon, Search,
   ChevronRight, ChevronLeft, ChevronDown, ChevronUp, ListChecks, Info, Book, Settings, Zap, Music, Flag, Shirt, Globe, Key, FileText, Library, CreditCard, MapPin, Video, Folder, BookOpen, Heart, ArrowUp, ArrowDown,
   Trash2, Plus, Save, Share2, Calendar, X, Image as ImageIcon, Download, ArrowLeft, ExternalLink, Filter, Edit2, Edit3, Check,
-  AlignLeft, AlignCenter, AlignRight, ZoomIn, ZoomOut, Minus, Trophy, PanelLeftClose, PanelLeftOpen, Menu, Presentation, RefreshCw
+  AlignLeft, AlignCenter, AlignRight, ZoomIn, ZoomOut, Minus, Trophy, PanelLeftClose, PanelLeftOpen, Menu, Presentation, RefreshCw, ClipboardCheck
 } from 'lucide-react';
 
 
@@ -1745,7 +1747,7 @@ export type SubViewType =
   | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' 
   | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' 
   | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS' | 'PDF_VIEWER' | 'LIBRARY_BOOKS_MENU' 
-  | 'VIDEOS' | 'VIDEO_ADMIN' | 'FORM_ADMIN' | 'VIDEO_PLAYER' | 'LINKS_ADMIN' | 'ACHIEVEMENTS_ADMIN' | 'TRUNFOS' | 'TRUNFOS_ADMIN' | 'WEB_VIEWER' | 'FAIXA_ADMIN';
+  | 'VIDEOS' | 'VIDEO_ADMIN' | 'FORM_ADMIN' | 'VIDEO_PLAYER' | 'LINKS_ADMIN' | 'ACHIEVEMENTS_ADMIN' | 'TRUNFOS' | 'TRUNFOS_ADMIN' | 'WEB_VIEWER' | 'FAIXA_ADMIN' | 'QUIZ';
 
 interface ClubManagementProps {
   club: ClubType;
@@ -1791,6 +1793,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   const [allSpecialtiesList, setAllSpecialtiesList] = useState<Especialidade[]>([]);
   const [isLoadingSearchSpecialties, setIsLoadingSearchSpecialties] = useState(false);
   const [selectedSearchArea, setSelectedSearchArea] = useState<string>('TODAS');
+  const [visibleSearchCount, setVisibleSearchCount] = useState<number>(40);
+  const quizBackHandlerRef = useRef<(() => boolean) | null>(null);
+
+  useEffect(() => {
+    setVisibleSearchCount(40);
+  }, [specialtySearchQuery, selectedSearchArea, isSpecialtySearchOpen, club]);
 
   useEffect(() => {
     setIsHeaderScrolled(false);
@@ -1912,6 +1920,22 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   const [pptxProgressMsg, setPptxProgressMsg] = useState('');
   const [pptxProgressPercent, setPptxProgressPercent] = useState(0);
   const [pptxError, setPptxError] = useState<string | null>(null);
+  const [isGeneratingExam, setIsGeneratingExam] = useState(false);
+  const [isExamModalOpen, setIsExamModalOpen] = useState(false);
+  const [examFormatMode, setExamFormatMode] = useState<ExamFormatMode>('MISTA');
+  const [examQuestionCount, setExamQuestionCount] = useState<number | 'ALL'>(10);
+  const [examIncludeAnswerKey, setExamIncludeAnswerKey] = useState(true);
+  const [examIncludePracticalChecklist, setExamIncludePracticalChecklist] = useState(true);
+  const [examInstructorName, setExamInstructorName] = useState('');
+  const [examClubName, setExamClubName] = useState('');
+  const [examUnitName, setExamUnitName] = useState('');
+  const [examDate, setExamDate] = useState(() => new Date().toLocaleDateString('pt-BR'));
+  const [examMinGrade, setExamMinGrade] = useState('7,0 (70%)');
+  const [examProgressMsg, setExamProgressMsg] = useState('');
+  const [examProgressPercent, setExamProgressPercent] = useState(0);
+  const [examError, setExamError] = useState<string | null>(null);
+  const [examPreviewQuestions, setExamPreviewQuestions] = useState<ExamQuestion[]>([]);
+  const [showExamPreviewGabarito, setShowExamPreviewGabarito] = useState(true);
   const [classRequirements, setClassRequirements] = useState<string[]>([]);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
@@ -2534,7 +2558,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     setIsSpecialtySearchOpen(true);
     if (allSpecialtiesList.length === 0) {
       setIsLoadingSearchSpecialties(true);
-      fetchEspecialidades(club)
+      fetchEspecialidades(club, undefined, { excludeQuestions: true })
         .then(setAllSpecialtiesList)
         .catch(err => console.warn("Erro ao buscar especialidades:", err))
         .finally(() => setIsLoadingSearchSpecialties(false));
@@ -2546,7 +2570,19 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     if (!target) return;
     setIsLoadingRequirements(true);
     try {
-      const table = (target.club === ClubType.ADVENTURER || club === ClubType.ADVENTURER)
+      const targetClub = target.club || club;
+      if (target.id) {
+        const directReqs = await fetchEspecialidadeRequisitos(targetClub, Number(target.id));
+        if (directReqs.length > 0) {
+          setSelectedSpecialty(prev => prev ? {
+            ...prev,
+            requisitos: directReqs
+          } : null);
+          return;
+        }
+      }
+
+      const table = (targetClub === ClubType.ADVENTURER)
         ? 'EspecialidadesAVT'
         : 'EspecialidadesDBV';
       
@@ -2574,20 +2610,6 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           return;
         }
       }
-
-      // Fallback resiliente via fetchEspecialidades (usa REST anônimo se o JWT móvel estiver expirado)
-      const allList = await fetchEspecialidades(target.club || club);
-      const matched = allList.find(
-        s => String(s.id) === String(target.id) || (s.nome && target.nome && s.nome.toLowerCase() === target.nome.toLowerCase())
-      );
-      if (matched && matched.requisitos && matched.requisitos.length > 0) {
-        setSelectedSpecialty(prev => prev ? {
-          ...prev,
-          requisitos: matched.requisitos,
-          logo: prev.logo || matched.logo,
-          area: prev.area || matched.area
-        } : null);
-      }
     } catch (err) {
       console.warn("Erro ao recarregar requisitos do banco:", err);
     } finally {
@@ -2597,6 +2619,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
   // Garante que a especialidade selecionada sempre possua os requisitos oficiais do banco de dados carregados
   useEffect(() => {
+    setExamPreviewQuestions([]);
+    setExamError(null);
     if (selectedSpecialty && (!selectedSpecialty.requisitos || selectedSpecialty.requisitos.length === 0)) {
       reloadSpecialtyRequirements(selectedSpecialty);
     }
@@ -2618,7 +2642,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           .finally(() => setIsLoading(false));
       }
       if (allSpecialtiesList.length === 0) {
-        fetchEspecialidades(club)
+        fetchEspecialidades(club, undefined, { excludeQuestions: true })
           .then(setAllSpecialtiesList)
           .catch(err => console.warn("Erro ao carregar especialidades:", err));
       }
@@ -2775,16 +2799,17 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     if (activeSubView === 'SPECIALTIES_LIST' && selectedCategory) {
       setIsLoading(true);
       if (selectedCategory.id === -100) {
-        // Para favoritas, buscamos todas e filtramos pelas curtidas
-        fetchEspecialidades(club).then(all => {
+        // Para favoritas, buscamos todas (modo leve sem Questoes) e filtramos pelas curtidas
+        fetchEspecialidades(club, undefined, { excludeQuestions: true }).then(all => {
           const liked = all.filter(s => completedSpecialties.includes(s.id.toString()));
           setSpecialties(liked);
         }).catch(err => {
           console.warn("Erro ao carregar favoritas:", err);
         }).finally(() => setIsLoading(false));
       } else {
-        // Filtra pelo nome (Mestrado) que é o que aparece no botão
-        fetchEspecialidades(club, selectedCategory.nome)
+        // Filtra pelo nome da categoria
+        const isMasteryCategory = selectedCategory.nome.toLowerCase().includes('mestrado');
+        fetchEspecialidades(club, selectedCategory.nome, { excludeQuestions: !isMasteryCategory })
           .then(setSpecialties)
           .catch(err => {
             console.warn("Erro ao carregar especialidades por categoria:", err);
@@ -3207,7 +3232,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                 >
                   <div className="w-16 h-16 bg-transparent rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0">
                     {esp.logo ? (
-                      <img src={esp.logo} className="w-14 h-14 object-contain" alt={esp.nome} />
+                      <img src={esp.logo} loading="lazy" decoding="async" className="w-14 h-14 object-contain" alt={esp.nome} />
                     ) : (
                       <Award size={24} className="text-slate-200 dark:text-slate-600" />
                     )}
@@ -3371,16 +3396,19 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     });
   };
 
-  // Fechar modal do PowerPoint com a tecla Escape
+  // Fechar modal do PowerPoint ou Gerador de Provas com a tecla Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isPptxModalOpen && !isGeneratingPptx) {
         setIsPptxModalOpen(false);
       }
+      if (e.key === 'Escape' && isExamModalOpen && !isGeneratingExam) {
+        setIsExamModalOpen(false);
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPptxModalOpen, isGeneratingPptx]);
+  }, [isPptxModalOpen, isGeneratingPptx, isExamModalOpen, isGeneratingExam]);
 
   const handleGeneratePptx = async () => {
     if (!selectedSpecialty || isGeneratingPptx) return;
@@ -3662,6 +3690,479 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             </button>
           </div>
 
+        </div>
+      </div>
+    );
+
+    return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
+  };
+
+  const handlePreviewExamQuestions = async () => {
+    if (!selectedSpecialty || isGeneratingExam) return;
+    setIsGeneratingExam(true);
+    setExamError(null);
+    setExamProgressMsg('Elaborando questões e gabarito oficial...');
+    setExamProgressPercent(15);
+
+    try {
+      const generated = await generateSpecialtyExamQuestions(selectedSpecialty, {
+        instructorName: examInstructorName.trim() || userProfile?.nome || '',
+        clubName: examClubName.trim() || userProfile?.clube || '',
+        unitName: examUnitName.trim() || '',
+        examDate: examDate.trim() || new Date().toLocaleDateString('pt-BR'),
+        minPassingGrade: examMinGrade,
+        questionCount: examQuestionCount,
+        formatMode: examFormatMode,
+        includeAnswerKey: examIncludeAnswerKey,
+        includePracticalChecklist: examIncludePracticalChecklist,
+        clubType: club,
+        onProgress: (status, percent) => {
+          setExamProgressMsg(status);
+          setExamProgressPercent(percent);
+        }
+      });
+      setExamPreviewQuestions(generated);
+    } catch (err: any) {
+      console.error('Erro ao pré-visualizar questões da prova:', err);
+      setExamError(err?.message || 'Não foi possível elaborar a prévia das questões. Tente novamente.');
+    } finally {
+      setIsGeneratingExam(false);
+      setExamProgressMsg('');
+      setExamProgressPercent(0);
+    }
+  };
+
+  const handleGenerateExamPdf = async () => {
+    if (!selectedSpecialty || isGeneratingExam) return;
+    setIsGeneratingExam(true);
+    setExamError(null);
+    setExamProgressMsg('Iniciando elaboração da prova...');
+    setExamProgressPercent(10);
+
+    try {
+      const generated = await generateSpecialtyExamPdf(selectedSpecialty, {
+        instructorName: examInstructorName.trim() || userProfile?.nome || '',
+        clubName: examClubName.trim() || userProfile?.clube || '',
+        unitName: examUnitName.trim() || '',
+        examDate: examDate.trim() || new Date().toLocaleDateString('pt-BR'),
+        minPassingGrade: examMinGrade,
+        questionCount: examQuestionCount,
+        formatMode: examFormatMode,
+        includeAnswerKey: examIncludeAnswerKey,
+        includePracticalChecklist: examIncludePracticalChecklist,
+        clubType: club,
+        preGeneratedQuestions: examPreviewQuestions.length > 0 ? examPreviewQuestions : undefined,
+        onProgress: (status, percent) => {
+          setExamProgressMsg(status);
+          setExamProgressPercent(percent);
+        }
+      });
+      setExamPreviewQuestions(generated);
+      setIsExamModalOpen(false);
+    } catch (err: any) {
+      console.error('Erro ao gerar PDF da prova:', err);
+      setExamError(err?.message || 'Ocorreu um erro ao gerar o PDF da prova. Tente novamente.');
+    } finally {
+      setIsGeneratingExam(false);
+      setExamProgressMsg('');
+      setExamProgressPercent(0);
+    }
+  };
+
+  const renderExamModal = () => {
+    if (!isExamModalOpen || !selectedSpecialty || !canGenerateSpecialtyPptx) return null;
+
+    const parsedSpecialty = parseAndNormalizeRequirements(selectedSpecialty.requisitos || []);
+    const totalRealReqs = parsedSpecialty.items.length;
+
+    const modalContent = (
+      <div
+        className="fixed inset-0 z-[99999] bg-slate-950/80 backdrop-blur-sm flex justify-center items-center p-2.5 sm:p-4 overflow-y-auto animate-fade-in"
+        onClick={(e) => {
+          if (e.target === e.currentTarget && !isGeneratingExam) {
+            setIsExamModalOpen(false);
+          }
+        }}
+      >
+        <div
+          className="relative w-full max-w-lg bg-white dark:bg-slate-800 rounded-3xl p-4 sm:p-5 shadow-2xl border border-slate-100 dark:border-slate-700/80 m-auto max-h-[92vh] overflow-y-auto flex flex-col space-y-3.5"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Topo do Modal */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/20 shrink-0">
+                <ClipboardCheck size={20} />
+              </div>
+              <div>
+                <h3 className="font-black text-slate-800 dark:text-white text-sm sm:text-base uppercase tracking-tight leading-snug">
+                  Gerador de Prova Oficial
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                  Avaliação impressa em A4 + Folha de Gabarito do Instrutor (.pdf)
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => !isGeneratingExam && setIsExamModalOpen(false)}
+              disabled={isGeneratingExam}
+              className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center justify-center text-slate-500 dark:text-slate-300 transition-colors shrink-0 disabled:opacity-40"
+              title="Fechar"
+            >
+              <X size={15} />
+            </button>
+          </div>
+
+          {/* Card Resumo da Especialidade */}
+          <div className="p-2.5 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-700/60 flex items-center space-x-3">
+            <div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl p-1 border border-slate-200/60 dark:border-slate-700 flex items-center justify-center shrink-0">
+              {selectedSpecialty.logo ? (
+                <img src={getImageUrl(selectedSpecialty.logo)} alt={selectedSpecialty.nome} className="w-full h-full object-contain" />
+              ) : (
+                <Award size={18} className="text-emerald-600" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="font-black text-slate-800 dark:text-white text-xs uppercase tracking-tight truncate">
+                {selectedSpecialty.nome}
+              </h4>
+              <div className="flex items-center space-x-2 mt-0.5">
+                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase truncate">
+                  {selectedSpecialty.area}
+                </span>
+                <span className="text-slate-300 dark:text-slate-600">•</span>
+                <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                  {totalRealReqs} Requisitos Oficiais
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* 1. Estilo / Formato da Prova */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+              1. Formato das Questões:
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[
+                {
+                  id: 'MISTA' as ExamFormatMode,
+                  title: 'Mista (Recomendada)',
+                  desc: 'Múltipla escolha, V/F e abertas'
+                },
+                {
+                  id: 'MULTIPLA_ESCOLHA' as ExamFormatMode,
+                  title: '100% Objetiva',
+                  desc: 'Apenas alternativas (A, B, C, D)'
+                },
+                {
+                  id: 'DISCURSIVA_PRATICA' as ExamFormatMode,
+                  title: 'Discursiva + Prática',
+                  desc: 'Linhas pautadas e parecer prático'
+                }
+              ].map((mode) => {
+                const active = examFormatMode === mode.id;
+                return (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    disabled={isGeneratingExam}
+                    onClick={() => {
+                      setExamFormatMode(mode.id);
+                      setExamPreviewQuestions([]);
+                    }}
+                    className={`p-2.5 rounded-xl border text-left transition-all ${
+                      active
+                        ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-500 text-emerald-900 dark:text-emerald-200 ring-1 ring-emerald-500/40'
+                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <div className="text-[11px] font-black uppercase tracking-tight leading-tight">
+                      {mode.title}
+                    </div>
+                    <div className="text-[9.5px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                      {mode.desc}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 2. Quantidade de Questões e Nota Mínima */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                2. Quantidade de Questões:
+              </label>
+              <div className="grid grid-cols-4 gap-1.5 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200/70 dark:border-slate-700">
+                {([5, 8, 10, 'ALL'] as const).map((cnt) => {
+                  const active = examQuestionCount === cnt;
+                  return (
+                    <button
+                      key={String(cnt)}
+                      type="button"
+                      disabled={isGeneratingExam}
+                      onClick={() => {
+                        setExamQuestionCount(cnt);
+                        setExamPreviewQuestions([]);
+                      }}
+                      className={`py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
+                        active
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      {cnt === 'ALL' ? `Todas (${totalRealReqs || 'Auto'})` : `${cnt} Q`}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                Nota Mínima de Aprovação:
+              </label>
+              <select
+                value={examMinGrade}
+                onChange={(e) => setExamMinGrade(e.target.value)}
+                disabled={isGeneratingExam}
+                className="w-full text-xs font-bold px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+              >
+                <option value="7,0 (70%)">Nota 7,0 (70% de acerto)</option>
+                <option value="8,0 (80%)">Nota 8,0 (80% de acerto)</option>
+                <option value="6,0 (60%)">Nota 6,0 (60% de acerto)</option>
+                <option value="100% dos requisitos">100% de aproveitamento</option>
+              </select>
+            </div>
+          </div>
+
+          {/* 3. Recursos do Avaliador */}
+          <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200/70 dark:border-slate-700/70 space-y-2">
+            <label className="flex items-center justify-between cursor-pointer select-none">
+              <div className="pr-2">
+                <span className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-tight block">
+                  Incluir Folha de Gabarito Oficial do Instrutor
+                </span>
+                <span className="text-[9.5px] text-slate-500 dark:text-slate-400 block">
+                  Gera uma página separada no final do PDF com respostas exatas e critérios de correção
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={examIncludeAnswerKey}
+                onChange={(e) => setExamIncludeAnswerKey(e.target.checked)}
+                disabled={isGeneratingExam}
+                className="w-4 h-4 accent-emerald-600 rounded cursor-pointer shrink-0"
+              />
+            </label>
+
+            <div className="h-px bg-slate-200/70 dark:bg-slate-800" />
+
+            <label className="flex items-center justify-between cursor-pointer select-none">
+              <div className="pr-2">
+                <span className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-tight block">
+                  Quadro de Parecer Prático nos Requisitos Demonstrativos
+                </span>
+                <span className="text-[9.5px] text-slate-500 dark:text-slate-400 block">
+                  Adiciona campos de homologação prática (100% / Parcial / Refazer) para itens práticos
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={examIncludePracticalChecklist}
+                onChange={(e) => setExamIncludePracticalChecklist(e.target.checked)}
+                disabled={isGeneratingExam}
+                className="w-4 h-4 accent-emerald-600 rounded cursor-pointer shrink-0"
+              />
+            </label>
+          </div>
+
+          {/* 4. Cabeçalho Personalizado da Prova */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+              3. Identificação no Cabeçalho da Folha:
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <input
+                type="text"
+                placeholder="Nome do Instrutor(a) / Avaliador(a)"
+                value={examInstructorName}
+                onChange={(e) => setExamInstructorName(e.target.value)}
+                disabled={isGeneratingExam}
+                className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+              />
+              <input
+                type="text"
+                placeholder="Data da Prova (ex: 04/10/2026)"
+                value={examDate}
+                onChange={(e) => setExamDate(e.target.value)}
+                disabled={isGeneratingExam}
+                className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+              />
+              <input
+                type="text"
+                placeholder="Nome do Clube"
+                value={examClubName}
+                onChange={(e) => setExamClubName(e.target.value)}
+                disabled={isGeneratingExam}
+                className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+              />
+              <input
+                type="text"
+                placeholder="Unidade / Classe (Opcional)"
+                value={examUnitName}
+                onChange={(e) => setExamUnitName(e.target.value)}
+                disabled={isGeneratingExam}
+                className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+              />
+            </div>
+          </div>
+
+          {/* 5. Pré-visualização Interativa das Questões e Gabarito no App */}
+          <div className="border border-slate-200 dark:border-slate-700/80 rounded-2xl overflow-hidden bg-slate-50/70 dark:bg-slate-900/50">
+            <div className="px-3.5 py-2.5 flex items-center justify-between gap-2 bg-slate-100/70 dark:bg-slate-800/60">
+              <div className="flex items-center gap-2 min-w-0">
+                <ListChecks size={15} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span className="text-[11px] font-black uppercase tracking-tight text-slate-800 dark:text-white truncate">
+                  {examPreviewQuestions.length > 0
+                    ? `Prévia da Prova (${examPreviewQuestions.length} Questões Prontas)`
+                    : 'Prévia Interativa das Questões (Opcional)'}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {examPreviewQuestions.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowExamPreviewGabarito(prev => !prev)}
+                    className="px-2 py-1 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-[9.5px] font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors"
+                  >
+                    {showExamPreviewGabarito ? 'Ocultar Gabarito' : 'Ver Gabarito'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  disabled={isGeneratingExam}
+                  onClick={handlePreviewExamQuestions}
+                  className="px-2.5 py-1 rounded-lg bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1 transition-colors disabled:opacity-40"
+                >
+                  <RefreshCw size={11} className={isGeneratingExam ? 'animate-spin' : ''} />
+                  <span>{examPreviewQuestions.length > 0 ? 'Gerar Novas' : 'Gerar Prévia'}</span>
+                </button>
+              </div>
+            </div>
+
+            {examPreviewQuestions.length > 0 && (
+              <div className="p-3 max-h-60 overflow-y-auto space-y-2.5 scrollbar-thin">
+                {examPreviewQuestions.map((q) => (
+                  <div
+                    key={q.number}
+                    className="bg-white dark:bg-slate-800 rounded-xl p-3 border border-slate-200/80 dark:border-slate-700 text-[11px] space-y-1.5 shadow-2xs"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 font-black text-[9.5px] uppercase">
+                        Questão {String(q.number).padStart(2, '0')} • {q.requirementRef}
+                      </span>
+                      <span className="text-[9.5px] font-bold text-slate-400 uppercase">
+                        {q.weight.toFixed(1).replace('.', ',')} pt
+                      </span>
+                    </div>
+                    <p className="font-bold text-slate-800 dark:text-slate-100 leading-snug">
+                      {q.stem}
+                    </p>
+                    {q.type === 'MULTIPLA_ESCOLHA' && q.options && (
+                      <div className="space-y-1 pt-1">
+                        {q.options.map((opt) => {
+                          const isCorrect = showExamPreviewGabarito && q.correctOption === opt.letter;
+                          return (
+                            <div
+                              key={opt.letter}
+                              className={`px-2 py-1 rounded-lg text-[10px] flex items-start gap-1.5 ${
+                                isCorrect
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-900 dark:text-emerald-200 font-bold border border-emerald-300 dark:border-emerald-800'
+                                  : 'text-slate-600 dark:text-slate-300'
+                              }`}
+                            >
+                              <span className="font-black shrink-0">{opt.letter})</span>
+                              <span>{opt.text}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {q.type === 'VERDADEIRO_FALSO' && q.vfStatements && (
+                      <div className="space-y-1 pt-1">
+                        {q.vfStatements.map((st, sIdx) => (
+                          <div key={sIdx} className="text-[10px] text-slate-600 dark:text-slate-300 flex items-start gap-1.5">
+                            <span className="font-black text-emerald-700 dark:text-emerald-400 shrink-0">
+                              ({showExamPreviewGabarito ? (st.isTrue ? 'V' : 'F') : ' '})
+                            </span>
+                            <span>{st.text}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {showExamPreviewGabarito && (
+                      <div className="mt-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-700/70 text-[10px] text-emerald-800 dark:text-emerald-300 bg-emerald-50/60 dark:bg-emerald-950/30 p-2 rounded-lg">
+                        <span className="font-black uppercase tracking-wider block text-[9px] text-emerald-600 dark:text-emerald-400">
+                          Gabarito Oficial do Instrutor:
+                        </span>
+                        <span className="font-medium leading-relaxed">{q.expectedAnswer}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Barra de Progresso */}
+          {isGeneratingExam && (
+            <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 rounded-xl space-y-1.5">
+              <div className="flex items-center justify-between text-xs font-bold text-emerald-900 dark:text-emerald-200">
+                <span className="flex items-center gap-1.5 truncate">
+                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                  <span className="truncate">{examProgressMsg || 'Elaborando avaliação...'}</span>
+                </span>
+                <span className="shrink-0 ml-2">{examProgressPercent}%</span>
+              </div>
+              <div className="w-full h-1.5 bg-emerald-200/80 dark:bg-emerald-900/60 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-emerald-600 to-teal-500 transition-all duration-300 rounded-full"
+                  style={{ width: `${Math.max(5, examProgressPercent)}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Mensagem de Erro */}
+          {examError && (
+            <div className="p-2.5 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900 rounded-xl text-xs text-red-700 dark:text-red-300 font-medium">
+              {examError}
+            </div>
+          )}
+
+          {/* Botões do Rodapé */}
+          <div className="flex items-center justify-end space-x-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setIsExamModalOpen(false)}
+              disabled={isGeneratingExam}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-40"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleGenerateExamPdf}
+              disabled={isGeneratingExam}
+              className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-md hover:shadow-emerald-500/20 active:scale-95 transition-all flex items-center space-x-1.5 disabled:opacity-50"
+            >
+              <ClipboardCheck size={15} />
+              <span>{isGeneratingExam ? 'Gerando Prova...' : 'Baixar Prova + Gabarito (.pdf)'}</span>
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -4086,17 +4587,37 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           </div>
         </div>
 
-        {/* Ações de Exportação: PDF (apenas usuários logados com 16+ anos) e Apresentação PowerPoint Didática (oculta para sem login, <16 anos, Aspirante, Desbravador e Capitão) */}
+        {/* Ações de Exportação: PDF (apenas usuários logados com 16+ anos), Apresentação PowerPoint Didática e Gerador de Prova Oficial (ocultos para sem login, <16 anos, Aspirante, Desbravador e Capitão) */}
         {(canGenerateSpecialtyPdf || canGenerateSpecialtyPptx) && (
-          <div className={`grid grid-cols-1 ${canGenerateSpecialtyPdf && canGenerateSpecialtyPptx ? 'sm:grid-cols-2' : ''} gap-3 pt-2`}>
+          <div className={`grid grid-cols-1 ${canGenerateSpecialtyPdf && canGenerateSpecialtyPptx ? 'sm:grid-cols-3' : ''} gap-3 pt-2`}>
             {canGenerateSpecialtyPdf && (
               <button 
                 onClick={generateSpecialtyPDF}
-                disabled={isGeneratingPDF || isGeneratingPptx}
-                className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+                disabled={isGeneratingPDF || isGeneratingPptx || isGeneratingExam}
+                className="w-full py-4 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
               >
-                <Download size={18} />
-                <span>{isGeneratingPDF ? 'Gerando PDF...' : 'Gerar PDF da Especialidade'}</span>
+                <Download size={18} className="shrink-0" />
+                <span>{isGeneratingPDF ? 'Gerando PDF...' : 'PDF de Requisitos'}</span>
+              </button>
+            )}
+
+            {canGenerateSpecialtyPptx && (
+              <button 
+                onClick={() => {
+                  setExamError(null);
+                  if (!examInstructorName && userProfile?.nome) {
+                    setExamInstructorName(userProfile.nome);
+                  }
+                  if (!examClubName && userProfile?.clube) {
+                    setExamClubName(userProfile.clube);
+                  }
+                  setIsExamModalOpen(true);
+                }}
+                disabled={isGeneratingPDF || isGeneratingPptx || isGeneratingExam}
+                className="w-full py-4 px-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-500 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-lg hover:shadow-emerald-500/25 active:scale-95 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+              >
+                <ClipboardCheck size={18} className="shrink-0" />
+                <span>{isGeneratingExam ? 'Gerando Prova...' : 'Gerador de Prova (.pdf)'}</span>
               </button>
             )}
 
@@ -4109,11 +4630,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                   }
                   setIsPptxModalOpen(true);
                 }}
-                disabled={isGeneratingPDF || isGeneratingPptx}
-                className="w-full py-4 bg-gradient-to-r from-orange-600 via-amber-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-lg hover:shadow-orange-500/25 active:scale-95 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+                disabled={isGeneratingPDF || isGeneratingPptx || isGeneratingExam}
+                className="w-full py-4 px-3 bg-gradient-to-r from-orange-600 via-amber-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-lg hover:shadow-orange-500/25 active:scale-95 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
               >
-                <Presentation size={18} />
-                <span>{isGeneratingPptx ? 'Gerando Slides...' : 'Apresentação PowerPoint (.pptx)'}</span>
+                <Presentation size={18} className="shrink-0" />
+                <span>{isGeneratingPptx ? 'Gerando Slides...' : 'Slides PowerPoint (.pptx)'}</span>
               </button>
             )}
           </div>
@@ -8514,6 +9035,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   const renderDashboard = () => {
     const quickAccessButtons = [
       { 
+        label: 'Quiz e Simulado', 
+        subtitle: isPathfinder ? 'Bom de Bíblia e Desafios' : 'Desafios e Concursos', 
+        icon: Zap, 
+        gradient: 'from-[#4f46e5] via-[#6366f1] to-[#818cf8]', 
+        view: 'QUIZ', 
+        show: true 
+      },
+      { 
         label: 'Cultura', 
         subtitle: 'História e Ideais', 
         icon: Info, 
@@ -8596,7 +9125,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             className={`w-full relative overflow-hidden ${
               isPathfinder 
                 ? 'bg-gradient-to-br from-[#dc2626] via-[#b91c1c] to-[#ef4444]' 
-                : 'bg-gradient-to-br from-[#0284c7] via-[#0369a1] to-[#38bdf8]'
+                : 'bg-gradient-to-br from-[#800000] via-[#660000] to-[#991b1b]'
             } rounded-[26px] p-5 flex flex-col justify-between text-left text-white shadow-lg active:scale-[0.98] transition-all group min-h-[120px] border border-white/20`}
           >
             <div className="absolute -bottom-3 -right-3 text-white/15 pointer-events-none group-hover:scale-110 transition-transform">
@@ -8677,7 +9206,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               className={`w-full aspect-[16/10] min-h-[145px] lg:min-h-[175px] xl:min-h-[195px] ${
                 isPathfinder 
                   ? 'bg-gradient-to-br from-[#dc2626] via-[#b91c1c] to-[#ef4444]' 
-                  : 'bg-gradient-to-br from-[#0284c7] via-[#0369a1] to-[#38bdf8]'
+                  : 'bg-gradient-to-br from-[#800000] via-[#660000] to-[#991b1b]'
               } rounded-[24px] lg:rounded-[30px] p-4 lg:p-6 shadow-lg hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98] transition-all group flex flex-col justify-between text-white text-left relative overflow-hidden border border-white/20`}
             >
               <div className="absolute -bottom-4 -right-4 text-white/15 pointer-events-none group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">
@@ -8843,7 +9372,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             <div 
               onClick={() => {
                 triggerLogoWobble();
-                if (activeSubView !== 'MAIN') setActiveSubView('MAIN');
+                onBack();
               }}
               className="w-full flex flex-col items-center text-center cursor-pointer group transition-transform duration-300 py-1 select-none"
               title="DBV Tudo - Ir para Início"
@@ -8916,90 +9445,69 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               {/* Botão Início (Ação de navegação para a Home geral) */}
               <button
                 onClick={() => onBack()}
-                className="w-full relative overflow-hidden flex items-center px-4 py-3.5 rounded-2xl font-black text-xs lg:text-sm uppercase tracking-wider transition-all text-left group active:scale-[0.98] bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60"
+                className="w-full relative overflow-hidden flex items-center px-5 py-4 rounded-2xl font-black text-xs lg:text-sm uppercase tracking-wider transition-all text-left group active:scale-[0.98] bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60"
                 title="Voltar para a página inicial"
               >
                 {/* Ícone sombreado de fundo à direita (estilo tela inicial) */}
-                <div className="absolute -right-3 top-1/2 -translate-y-1/2 opacity-[0.07] dark:opacity-[0.06] pointer-events-none group-hover:scale-125 transition-transform duration-700">
-                  <HomeIcon className="w-16 h-16 stroke-[1.5]" />
+                <div className="absolute -right-2 -bottom-2 opacity-15 dark:opacity-15 pointer-events-none group-hover:scale-125 transition-transform duration-700">
+                  <HomeIcon className="w-16 h-16 stroke-[1.75]" />
                 </div>
 
-                <div className="relative z-10 flex items-center gap-3.5 min-w-0">
-                  <HomeIcon 
-                    size={22} 
-                    strokeWidth={2.5} 
-                    className="shrink-0 text-slate-600 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:scale-110 transition-all drop-shadow-[0_2px_4px_rgba(0,0,0,0.2)]" 
-                  />
-                  <span className="truncate">Início</span>
-                </div>
+                <span className="relative z-10 truncate">Início</span>
               </button>
 
-              {/* Botão Desbravadores (brasão direto sem container interno + imagem sombreada à direita) */}
+              {/* Botão Desbravadores (sem imagem à esquerda, com emblema sombreado à direita estilo tela inicial) */}
               <button
                 onClick={() => {
                   onSwitchClub(ClubType.PATHFINDER);
                   if (activeSubView !== 'MAIN') setActiveSubView('MAIN');
                 }}
-                className={`w-full relative overflow-hidden flex items-center px-4 py-3.5 rounded-2xl font-black text-xs lg:text-sm uppercase tracking-wider transition-all text-left group active:scale-[0.98] ${
+                className={`w-full relative overflow-hidden flex items-center px-5 py-4 rounded-2xl font-black text-xs lg:text-sm uppercase tracking-wider transition-all text-left group active:scale-[0.98] ${
                   isPathfinder
                     ? 'bg-[#dc371b] text-white shadow-lg shadow-red-600/35 ring-2 ring-red-400 scale-[1.02]'
                     : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60'
                 }`}
                 title="Área de Desbravadores"
               >
-                {/* Imagem sombreada de fundo à direita (estilo tela inicial) */}
-                <div className={`absolute -right-3 top-1/2 -translate-y-1/2 grayscale pointer-events-none group-hover:scale-125 transition-transform duration-700 ${
-                  isPathfinder ? 'opacity-20' : 'opacity-[0.08] dark:opacity-[0.06]'
+                {/* Emblema sombreado à direita (estilo tela inicial) */}
+                <div className={`absolute -right-2 -bottom-2 grayscale pointer-events-none group-hover:scale-125 transition-transform duration-700 ${
+                  isPathfinder ? 'opacity-25' : 'opacity-15 dark:opacity-15'
                 }`}>
                   <img 
                     src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png" 
                     alt="" 
-                    className="w-18 h-18 object-contain drop-shadow-md"
+                    className="w-16 h-16 object-contain"
                   />
                 </div>
 
-                <div className="relative z-10 flex items-center gap-3.5 min-w-0">
-                  <img 
-                    src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png" 
-                    alt="Brasão Desbravadores" 
-                    className="w-8 h-8 object-contain shrink-0 drop-shadow-[0_3px_6px_rgba(0,0,0,0.35)] group-hover:scale-110 transition-transform duration-300"
-                  />
-                  <span className="truncate">Desbravadores</span>
-                </div>
+                <span className="relative z-10 truncate">Desbravadores</span>
               </button>
 
-              {/* Botão Aventureiros (brasão direto sem container interno + imagem sombreada à direita) */}
+              {/* Botão Aventureiros (sem imagem à esquerda, com emblema sombreado à direita estilo tela inicial) */}
               <button
                 onClick={() => {
                   onSwitchClub(ClubType.ADVENTURER);
                   if (activeSubView !== 'MAIN') setActiveSubView('MAIN');
                 }}
-                className={`w-full relative overflow-hidden flex items-center px-4 py-3.5 rounded-2xl font-black text-xs lg:text-sm uppercase tracking-wider transition-all text-left group active:scale-[0.98] ${
+                className={`w-full relative overflow-hidden flex items-center px-5 py-4 rounded-2xl font-black text-xs lg:text-sm uppercase tracking-wider transition-all text-left group active:scale-[0.98] ${
                   !isPathfinder
                     ? 'bg-[#800000] text-white shadow-lg shadow-red-950/45 ring-2 ring-amber-400/80 scale-[1.02]'
                     : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60'
                 }`}
                 title="Área de Aventureiros"
               >
-                {/* Imagem sombreada de fundo à direita (estilo tela inicial) */}
-                <div className={`absolute -right-3 top-1/2 -translate-y-1/2 grayscale pointer-events-none group-hover:scale-125 transition-transform duration-700 ${
-                  !isPathfinder ? 'opacity-20' : 'opacity-[0.08] dark:opacity-[0.06]'
+                {/* Emblema sombreado à direita (estilo tela inicial) */}
+                <div className={`absolute -right-2 -bottom-2 grayscale pointer-events-none group-hover:scale-125 transition-transform duration-700 ${
+                  !isPathfinder ? 'opacity-25' : 'opacity-15 dark:opacity-15'
                 }`}>
                   <img 
                     src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png" 
                     alt="" 
-                    className="w-18 h-18 object-contain drop-shadow-md"
+                    className="w-16 h-16 object-contain"
                   />
                 </div>
 
-                <div className="relative z-10 flex items-center gap-3.5 min-w-0">
-                  <img 
-                    src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png" 
-                    alt="Brasão Aventureiros" 
-                    className="w-8 h-8 object-contain shrink-0 drop-shadow-[0_3px_6px_rgba(0,0,0,0.35)] group-hover:scale-110 transition-transform duration-300"
-                  />
-                  <span className="truncate">Aventureiros</span>
-                </div>
+                <span className="relative z-10 truncate">Aventureiros</span>
               </button>
             </nav>
           </div>
@@ -9266,10 +9774,16 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             <div className="w-11 h-11 md:w-12 md:h-12 landscape:w-9 landscape:h-9 flex items-center justify-center flex-shrink-0">
               {activeSubView === 'MAIN' ? (
                 /* No PC, o logo já está em destaque na barra lateral esquerda */
-                <div
-                  onClick={triggerLogoWobble}
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerLogoWobble();
+                    onBack();
+                  }}
                   onAnimationEnd={() => setIsLogoWobbling(false)}
-                  className={`w-full h-full flex items-center justify-center cursor-pointer select-none md:hidden ${
+                  title="Voltar ao Início"
+                  aria-label="Voltar ao Início"
+                  className={`w-full h-full flex items-center justify-center cursor-pointer select-none md:hidden active:scale-90 transition-transform ${
                     isLogoWobbling ? 'animate-logo-wobble' : ''
                   }`}
                 >
@@ -9279,7 +9793,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     draggable={false}
                     className="w-full h-full object-contain select-none" 
                   />
-                </div>
+                </button>
               ) : (
               <button 
                 onClick={() => {
@@ -9358,6 +9872,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     setActiveSubView('VIDEOS');
                   } else if (activeSubView === 'TRUNFOS') {
                     setActiveSubView('MAIN');
+                  } else if (activeSubView === 'QUIZ') {
+                    if (quizBackHandlerRef.current && quizBackHandlerRef.current()) {
+                      return;
+                    }
+                    setActiveSubView('MAIN');
                   } else {
                     setActiveSubView('MAIN');
                   }
@@ -9433,6 +9952,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                activeSubView === 'VIDEO_PLAYER' ? 'Assistir Vídeo' :
                activeSubView === 'VIDEO_ADMIN' ? 'Gestão de Vídeos' :
                activeSubView === 'FORM_ADMIN' ? 'Gestão de Formulários' :
+               activeSubView === 'QUIZ' ? 'Quiz & Bom de Bíblia' :
                activeSubView}
             </p>
           </div>
@@ -9474,10 +9994,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         ref={scrollContainerRef}
         onScroll={handleScroll}
         style={{ overflowAnchor: 'none' }}
-        className={`flex-grow overflow-y-auto scrollbar-hide ${
-          activeSubView === 'DESBRAVA_PLUS_PDF' || activeSubView === 'PDF_VIEWER' 
-            ? 'p-0 md:px-6 md:pb-6 lg:px-10 lg:pb-8 flex flex-col h-full min-h-0' 
-            : 'px-3.5 sm:px-5 md:px-8 lg:px-10 py-1.5 md:py-4'
+        className={`flex-grow ${
+          activeSubView === 'QUIZ'
+            ? 'overflow-hidden px-2.5 sm:px-5 md:px-8 lg:px-10 py-1 md:py-2 flex flex-col h-full min-h-0'
+            : activeSubView === 'DESBRAVA_PLUS_PDF' || activeSubView === 'PDF_VIEWER' 
+            ? 'overflow-y-auto scrollbar-hide p-0 md:px-6 md:pb-6 lg:px-10 lg:pb-8 flex flex-col h-full min-h-0' 
+            : 'overflow-y-auto scrollbar-hide px-3.5 sm:px-5 md:px-8 lg:px-10 py-1.5 md:py-4'
         }`}
       >
         {activeSubView === 'MAIN' && renderDashboard()}
@@ -9539,10 +10061,21 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         {activeSubView === 'TRUNFOS_ADMIN' && renderTrunfosAdmin()}
         {activeSubView === 'FAIXA_ADMIN' && renderFaixaAdmin()}
         {activeSubView === 'WEB_VIEWER' && renderWebViewer()}
+        {activeSubView === 'QUIZ' && (
+          <ClubQuiz
+            club={club}
+            specialties={specialties}
+            getImageUrl={getImageUrl}
+            onBack={() => setActiveSubView('MAIN')}
+            onRegisterBackHandler={(fn) => {
+              quizBackHandlerRef.current = fn;
+            }}
+          />
+        )}
       </div>
 
       {/* Botão Voltar ao Topo */}
-      {showScrollTop && (
+      {showScrollTop && activeSubView !== 'QUIZ' && (
         <button 
           onClick={scrollToTop}
           className="fixed bottom-28 right-6 w-12 h-12 bg-white dark:bg-slate-800 rounded-full shadow-2xl border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-400 dark:text-slate-300 active:scale-90 transition-all z-[60] animate-bounce-in"
@@ -9592,23 +10125,37 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         </div>
       )}
 
-      {activeSubView !== 'DESBRAVA_PLUS_PDF' && activeSubView !== 'PDF_VIEWER' && activeSubView !== 'BIBLE' && activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && !selectedTrunfoModal && (
+      {activeSubView !== 'QUIZ' && activeSubView !== 'DESBRAVA_PLUS_PDF' && activeSubView !== 'PDF_VIEWER' && activeSubView !== 'BIBLE' && activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && !selectedTrunfoModal && (
         <div className="absolute bottom-2 sm:bottom-3 landscape:bottom-1 left-0 right-0 px-8 landscape:px-4 flex justify-center z-50 pointer-events-none md:hidden">
           <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md h-16 landscape:h-11 w-full max-w-[320px] landscape:max-w-[270px] rounded-full shadow-2xl flex p-2 landscape:p-1.5 items-center border border-white dark:border-slate-700 space-x-2 pointer-events-auto">
             <button 
               onClick={() => onSwitchClub(ClubType.PATHFINDER)} 
-              className={`flex-1 h-full rounded-full text-[11px] landscape:text-[10px] font-black uppercase tracking-widest transition-all ${isPathfinder ? 'bg-[#dc371b] text-white shadow-lg' : 'text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'}`}
+              className={`relative overflow-hidden flex-1 h-full rounded-full text-[11px] landscape:text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center group ${isPathfinder ? 'bg-[#dc371b] text-white shadow-lg' : 'text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'}`}
             >
-              DBV
+              <div className={`absolute -right-1 -bottom-1.5 pointer-events-none select-none grayscale transition-transform duration-500 group-hover:scale-110 ${isPathfinder ? 'opacity-25' : 'opacity-15 dark:opacity-15'}`}>
+                <img 
+                  src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png" 
+                  alt="" 
+                  className="w-11 h-11 landscape:w-8 landscape:h-8 object-contain"
+                />
+              </div>
+              <span className="relative z-10">DBV</span>
             </button>
-            <button onClick={onBack} className="w-12 h-12 landscape:w-8 landscape:h-8 flex-shrink-0 rounded-full bg-slate-50 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300">
+            <button onClick={onBack} className="w-12 h-12 landscape:w-8 landscape:h-8 flex-shrink-0 rounded-full bg-slate-50 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 active:scale-90 transition-all">
               <HomeIcon size={20} className="landscape:w-4 landscape:h-4" />
             </button>
             <button 
               onClick={() => onSwitchClub(ClubType.ADVENTURER)} 
-              className={`flex-1 h-full rounded-full text-[11px] landscape:text-[10px] font-black uppercase tracking-widest transition-all ${!isPathfinder ? 'bg-[#800000] text-white shadow-lg' : 'text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'}`}
+              className={`relative overflow-hidden flex-1 h-full rounded-full text-[11px] landscape:text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center group ${!isPathfinder ? 'bg-[#800000] text-white shadow-lg' : 'text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'}`}
             >
-              AVT
+              <div className={`absolute -right-1 -bottom-1.5 pointer-events-none select-none grayscale transition-transform duration-500 group-hover:scale-110 ${!isPathfinder ? 'opacity-25' : 'opacity-15 dark:opacity-15'}`}>
+                <img 
+                  src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png" 
+                  alt="" 
+                  className="w-11 h-11 landscape:w-8 landscape:h-8 object-contain"
+                />
+              </div>
+              <span className="relative z-10">AVT</span>
             </button>
           </div>
         </div>
@@ -10015,7 +10562,15 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             </div>
 
             {/* Lista de Resultados */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-2.5 scrollbar-hide">
+            <div 
+              className="flex-1 overflow-y-auto p-4 space-y-2.5 scrollbar-hide"
+              onScroll={(e) => {
+                const el = e.currentTarget;
+                if (el.scrollHeight - el.scrollTop - el.clientHeight < 250 && visibleSearchCount < filteredSearchSpecialties.length) {
+                  setVisibleSearchCount(prev => Math.min(prev + 40, filteredSearchSpecialties.length));
+                }
+              }}
+            >
               {isLoadingSearchSpecialties ? (
                 <div className="flex flex-col items-center justify-center py-20 space-y-3">
                   <div className="w-8 h-8 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
@@ -10055,7 +10610,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                       {filteredSearchSpecialties.length} {filteredSearchSpecialties.length === 1 ? 'Especialidade encontrada' : 'Especialidades encontradas'}
                     </span>
                   </div>
-                  {filteredSearchSpecialties.map((esp) => {
+                  {filteredSearchSpecialties.slice(0, visibleSearchCount).map((esp) => {
                     const isCompleted = completedSpecialties.includes(esp.id.toString());
                     return (
                       <div 
@@ -10072,6 +10627,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                             <img 
                               src={getImageUrl(esp.logo)} 
                               alt={esp.nome} 
+                              loading="lazy"
+                              decoding="async"
                               className="w-full h-full object-contain filter drop-shadow-sm group-hover:scale-105 transition-transform" 
                               referrerPolicy="no-referrer"
                             />
@@ -10115,6 +10672,15 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                       </div>
                     );
                   })}
+                  {visibleSearchCount < filteredSearchSpecialties.length && (
+                    <button
+                      type="button"
+                      onClick={() => setVisibleSearchCount(prev => Math.min(prev + 40, filteredSearchSpecialties.length))}
+                      className="w-full py-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[11px] font-black uppercase tracking-wider transition-all active:scale-95"
+                    >
+                      Mostrar mais ({filteredSearchSpecialties.length - visibleSearchCount} restantes)
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -10124,6 +10690,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
       {/* Modal de Configuração e Geração da Apresentação PowerPoint Didática */}
       {renderPptxModal()}
+
+      {/* Modal do Gerador de Provas das Especialidades */}
+      {renderExamModal()}
     </div>
   );
 };

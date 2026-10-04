@@ -644,9 +644,19 @@ export async function fetchClasses(club: ClubType): Promise<ClubClass[]> {
 }
 
 const ESPECIALIDADES_CACHE_KEY_PREFIX = 'dbv_tudo_cached_specialties_';
+const ESPECIALIDADES_LIGHT_CACHE_KEY_PREFIX = 'dbv_tudo_cached_specialties_light_';
+const ESPECIALIDADES_CACHE_TS_PREFIX = 'dbv_tudo_cached_specialties_ts_';
 const ESPECIALIDADES_ALL_CACHE_KEY = 'dbv_tudo_cached_specialties_all';
+const ESPECIALIDADES_CACHE_TTL_MS = 1000 * 60 * 60 * 12; // 12 horas
 
-export function getCachedEspecialidades(club?: ClubType | null): Especialidade[] {
+const _memoryEspecialidadesCache: Partial<Record<ClubType, { full?: Especialidade[]; light?: Especialidade[]; ts: number }>> = {};
+
+export function getCachedEspecialidades(club?: ClubType | null, allowLight: boolean = false): Especialidade[] {
+  if (club && _memoryEspecialidadesCache[club]) {
+    const mem = _memoryEspecialidadesCache[club]!;
+    if (mem.full && mem.full.length > 0) return mem.full;
+    if (allowLight && mem.light && mem.light.length > 0) return mem.light;
+  }
   if (typeof window === 'undefined' || !window.localStorage) return [];
   try {
     if (club) {
@@ -654,6 +664,13 @@ export function getCachedEspecialidades(club?: ClubType | null): Especialidade[]
       if (specific) {
         const parsed = JSON.parse(specific);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      if (allowLight) {
+        const specificLight = localStorage.getItem(ESPECIALIDADES_LIGHT_CACHE_KEY_PREFIX + club);
+        if (specificLight) {
+          const parsedLight = JSON.parse(specificLight);
+          if (Array.isArray(parsedLight) && parsedLight.length > 0) return parsedLight;
+        }
       }
     }
     const all = localStorage.getItem(ESPECIALIDADES_ALL_CACHE_KEY);
@@ -668,29 +685,112 @@ export function getCachedEspecialidades(club?: ClubType | null): Especialidade[]
   return [];
 }
 
-export async function fetchAllEspecialidades(): Promise<Especialidade[]> {
+function isEspecialidadesCacheFresh(club: ClubType, requireFull: boolean): Especialidade[] | null {
+  const now = Date.now();
+  const mem = _memoryEspecialidadesCache[club];
+  if (mem && (now - mem.ts < ESPECIALIDADES_CACHE_TTL_MS)) {
+    if (mem.full && mem.full.length > 0) return mem.full;
+    if (!requireFull && mem.light && mem.light.length > 0) return mem.light;
+  }
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const tsStr = localStorage.getItem(ESPECIALIDADES_CACHE_TS_PREFIX + club);
+      const ts = tsStr ? Number(tsStr) : 0;
+      if (ts > 0 && (now - ts < ESPECIALIDADES_CACHE_TTL_MS)) {
+        const fullRaw = localStorage.getItem(ESPECIALIDADES_CACHE_KEY_PREFIX + club);
+        if (fullRaw) {
+          const parsed = JSON.parse(fullRaw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            _memoryEspecialidadesCache[club] = { ...(mem || {}), full: parsed, ts };
+            return parsed;
+          }
+        }
+        if (!requireFull) {
+          const lightRaw = localStorage.getItem(ESPECIALIDADES_LIGHT_CACHE_KEY_PREFIX + club);
+          if (lightRaw) {
+            const parsedLight = JSON.parse(lightRaw);
+            if (Array.isArray(parsedLight) && parsedLight.length > 0) {
+              _memoryEspecialidadesCache[club] = { ...(mem || {}), light: parsedLight, ts };
+              return parsedLight;
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+  return null;
+}
+
+export async function fetchAllEspecialidades(options?: { excludeQuestions?: boolean }): Promise<Especialidade[]> {
   try {
     const [dbv, avt] = await Promise.all([
-      fetchEspecialidades(ClubType.PATHFINDER),
-      fetchEspecialidades(ClubType.ADVENTURER)
+      fetchEspecialidades(ClubType.PATHFINDER, undefined, options),
+      fetchEspecialidades(ClubType.ADVENTURER, undefined, options)
     ]);
     const combined = [...dbv, ...avt];
     if (combined.length > 0) {
-      try {
-        localStorage.setItem(ESPECIALIDADES_ALL_CACHE_KEY, JSON.stringify(combined));
-      } catch {}
+      if (!options?.excludeQuestions) {
+        try {
+          localStorage.setItem(ESPECIALIDADES_ALL_CACHE_KEY, JSON.stringify(combined));
+        } catch {}
+      }
       return combined;
     }
-    return getCachedEspecialidades();
+    return getCachedEspecialidades(null, !!options?.excludeQuestions);
   } catch {
-    return getCachedEspecialidades();
+    return getCachedEspecialidades(null, !!options?.excludeQuestions);
   }
 }
 
-export async function fetchEspecialidades(club: ClubType, categoryFilter?: string): Promise<Especialidade[]> {
+export async function fetchEspecialidadeRequisitos(club: ClubType, id: number): Promise<string[]> {
+  const table = club === ClubType.PATHFINDER ? 'EspecialidadesDBV' : 'EspecialidadesAVT';
   try {
+    const { data, error } = await supabase.from(table).select('Questoes').eq('id', id).maybeSingle();
+    if (!error && data?.Questoes) {
+      return data.Questoes.split(/\r?\n/).map((r: string) => r.trim()).filter((r: string) => r.length > 0);
+    }
+  } catch {}
+  try {
+    const res = await fetch(`${DEFAULT_URL}/rest/v1/${table}?select=Questoes&id=eq.${id}&limit=1`, {
+      headers: {
+        'apikey': DEFAULT_KEY,
+        'authorization': `Bearer ${DEFAULT_KEY}`
+      }
+    });
+    if (res.ok) {
+      const rows = await res.json();
+      const q = rows?.[0]?.Questoes;
+      if (q) {
+        return q.split(/\r?\n/).map((r: string) => r.trim()).filter((r: string) => r.length > 0);
+      }
+    }
+  } catch {}
+  return [];
+}
+
+export async function fetchEspecialidades(
+  club: ClubType,
+  categoryFilter?: string,
+  options?: { excludeQuestions?: boolean; forceRefresh?: boolean }
+): Promise<Especialidade[]> {
+  const excludeQuestions = !!options?.excludeQuestions;
+  try {
+    // 1. Reutiliza cache fresco em memória/localStorage para evitar consultas repetidas ao banco
+    if (!options?.forceRefresh) {
+      const cached = isEspecialidadesCacheFresh(club, !excludeQuestions);
+      if (cached && cached.length > 0) {
+        return categoryFilter
+          ? cached.filter(item => item.area === categoryFilter)
+          : cached;
+      }
+    }
+
     const table = club === ClubType.PATHFINDER ? 'EspecialidadesDBV' : 'EspecialidadesAVT';
-    let query = supabase.from(table).select('*');
+    const selectCols = excludeQuestions
+      ? 'id,ID,Nome,Categoria,Imagem,Sigla,Nivel,Ano,Origem'
+      : '*';
+
+    let query = supabase.from(table).select(selectCols);
     if (categoryFilter) query = query.eq('Categoria', categoryFilter);
     
     const { data, error } = await query.order('ID', { ascending: true });
@@ -710,7 +810,7 @@ export async function fetchEspecialidades(club: ClubType, categoryFilter?: strin
 
       // 1. Tenta fallback direto via REST API oficial do Supabase
       try {
-        let directUrl = `${DEFAULT_URL}/rest/v1/${table}?select=*&order=ID.asc`;
+        let directUrl = `${DEFAULT_URL}/rest/v1/${table}?select=${encodeURIComponent(selectCols)}&order=ID.asc`;
         if (categoryFilter) directUrl += `&Categoria=eq.${encodeURIComponent(categoryFilter)}`;
         const res = await fetch(directUrl, {
           headers: {
@@ -735,7 +835,16 @@ export async function fetchEspecialidades(club: ClubType, categoryFilter?: strin
               codigo: item.ID
             }));
             if (!categoryFilter && mappedProxy.length > 0) {
-              try { localStorage.setItem(ESPECIALIDADES_CACHE_KEY_PREFIX + club, JSON.stringify(mappedProxy)); } catch {}
+              const now = Date.now();
+              const prevMem = _memoryEspecialidadesCache[club] || { ts: now };
+              _memoryEspecialidadesCache[club] = excludeQuestions
+                ? { ...prevMem, light: mappedProxy, ts: now }
+                : { ...prevMem, full: mappedProxy, light: mappedProxy, ts: now };
+              try {
+                const key = (excludeQuestions ? ESPECIALIDADES_LIGHT_CACHE_KEY_PREFIX : ESPECIALIDADES_CACHE_KEY_PREFIX) + club;
+                localStorage.setItem(key, JSON.stringify(mappedProxy));
+                localStorage.setItem(ESPECIALIDADES_CACHE_TS_PREFIX + club, String(now));
+              } catch {}
             }
             return mappedProxy;
           }
@@ -746,7 +855,7 @@ export async function fetchEspecialidades(club: ClubType, categoryFilter?: strin
 
       // 2. Tenta fallback via same-origin proxy (dev)
       try {
-        let proxyUrl = `/supabase-proxy/rest/v1/${table}?select=*&order=ID.asc`;
+        let proxyUrl = `/supabase-proxy/rest/v1/${table}?select=${encodeURIComponent(selectCols)}&order=ID.asc`;
         if (categoryFilter) proxyUrl += `&Categoria=eq.${encodeURIComponent(categoryFilter)}`;
         const res = await fetch(proxyUrl, {
           headers: {
@@ -771,16 +880,25 @@ export async function fetchEspecialidades(club: ClubType, categoryFilter?: strin
               codigo: item.ID
             }));
             if (!categoryFilter && mappedProxy.length > 0) {
-              try { localStorage.setItem(ESPECIALIDADES_CACHE_KEY_PREFIX + club, JSON.stringify(mappedProxy)); } catch {}
+              const now = Date.now();
+              const prevMem = _memoryEspecialidadesCache[club] || { ts: now };
+              _memoryEspecialidadesCache[club] = excludeQuestions
+                ? { ...prevMem, light: mappedProxy, ts: now }
+                : { ...prevMem, full: mappedProxy, light: mappedProxy, ts: now };
+              try {
+                const key = (excludeQuestions ? ESPECIALIDADES_LIGHT_CACHE_KEY_PREFIX : ESPECIALIDADES_CACHE_KEY_PREFIX) + club;
+                localStorage.setItem(key, JSON.stringify(mappedProxy));
+                localStorage.setItem(ESPECIALIDADES_CACHE_TS_PREFIX + club, String(now));
+              } catch {}
             }
             return mappedProxy;
           }
         }
       } catch {}
 
-      return getCachedEspecialidades(club);
+      return getCachedEspecialidades(club, excludeQuestions);
     }
-    const mapped: Especialidade[] = (data || []).map(item => ({
+    const mapped: Especialidade[] = (data || []).map((item: any) => ({
       id: item.id,
       nome: item.Nome,
       area: item.Categoria,
@@ -795,14 +913,21 @@ export async function fetchEspecialidades(club: ClubType, categoryFilter?: strin
     }));
 
     if (!categoryFilter && mapped.length > 0) {
+      const now = Date.now();
+      const prevMem = _memoryEspecialidadesCache[club] || { ts: now };
+      _memoryEspecialidadesCache[club] = excludeQuestions
+        ? { ...prevMem, light: mapped, ts: now }
+        : { ...prevMem, full: mapped, light: mapped, ts: now };
       try {
-        localStorage.setItem(ESPECIALIDADES_CACHE_KEY_PREFIX + club, JSON.stringify(mapped));
+        const key = (excludeQuestions ? ESPECIALIDADES_LIGHT_CACHE_KEY_PREFIX : ESPECIALIDADES_CACHE_KEY_PREFIX) + club;
+        localStorage.setItem(key, JSON.stringify(mapped));
+        localStorage.setItem(ESPECIALIDADES_CACHE_TS_PREFIX + club, String(now));
       } catch {}
     }
 
     return mapped;
   } catch {
-    return getCachedEspecialidades(club);
+    return getCachedEspecialidades(club, excludeQuestions);
   }
 }
 

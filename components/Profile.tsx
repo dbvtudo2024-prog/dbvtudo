@@ -480,11 +480,12 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     try {
       const initialData = getInitialData();
       const initialClubType = initialData.tipo === "Desbravador" ? ClubType.PATHFINDER : ClubType.ADVENTURER;
-      return getCachedEspecialidades(initialClubType);
+      return getCachedEspecialidades(initialClubType, true);
     } catch {
       return [];
     }
   });
+  const [visibleSashModalCount, setVisibleSashModalCount] = useState<number>(40);
   const [allConquistas, setAllConquistas] = useState<Conquista[]>(DEFAULT_CONQUISTAS_FALLBACK);
   const [userAchievements, setUserAchievements] = useState<number[]>(() => {
     try {
@@ -906,13 +907,13 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     };
   }, [userData.email, userClubType]);
 
-  // Carregar apenas as especialidades do clube ativo (Desbravador ou Aventureiro) para a faixa
+  // Carregar apenas os metadados leves das especialidades do clube ativo (sem a coluna pesada Questoes) para a faixa
   useEffect(() => {
     let isMounted = true;
     const loadSpecialties = async () => {
       setIsLoading(true);
       try {
-        const data = await fetchEspecialidades(userClubType);
+        const data = await fetchEspecialidades(userClubType, undefined, { excludeQuestions: true });
         if (isMounted && data && data.length > 0) {
           const clubOnly = data.filter(s => s.club === userClubType);
           const sorted = [...clubOnly].sort((a, b) => a.nome.localeCompare(b.nome));
@@ -928,6 +929,10 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     loadSpecialties();
     return () => { isMounted = false; };
   }, [userClubType, isSashView]);
+
+  useEffect(() => {
+    setVisibleSashModalCount(40);
+  }, [searchTerm, isSashView, userClubType]);
 
   // Salvar especialidades da faixa no localStorage ao alterar
   useEffect(() => {
@@ -1352,41 +1357,60 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
               )}
             </div>
 
-            <div className="flex-grow overflow-y-auto p-6 pt-2 space-y-3 scrollbar-hide">
-              {isLoading ? (
+            <div 
+              className="flex-grow overflow-y-auto p-6 pt-2 space-y-3 scrollbar-hide"
+              onScroll={(e) => {
+                const el = e.currentTarget;
+                if (el.scrollHeight - el.scrollTop - el.clientHeight < 250 && visibleSashModalCount < filteredSpecialties.length) {
+                  setVisibleSashModalCount(prev => Math.min(prev + 40, filteredSpecialties.length));
+                }
+              }}
+            >
+              {isLoading && allSpecialties.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20">
                   <div className="w-8 h-8 border-3 border-slate-100 dark:border-slate-700 border-t-indigo-500 rounded-full animate-spin"></div>
                 </div>
               ) : filteredSpecialties.length > 0 ? (
-                filteredSpecialties.map((esp) => (
-                  <div key={esp.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-4 flex items-center space-x-4 shadow-sm hover:border-slate-200 dark:hover:border-slate-600 transition-all">
-                    <div className="w-14 h-14 bg-slate-50 dark:bg-slate-700 rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0 shrink-0 border border-slate-50 dark:border-slate-600">
-                      {esp.logo ? (
-                        <img src={esp.logo} className="w-10 h-10 object-contain" alt={esp.nome} />
-                      ) : (
-                        <Award size={24} className="text-slate-300 dark:text-slate-400" />
-                      )}
+                <>
+                  {filteredSpecialties.slice(0, visibleSashModalCount).map((esp) => (
+                    <div key={esp.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-4 flex items-center space-x-4 shadow-sm hover:border-slate-200 dark:hover:border-slate-600 transition-all">
+                      <div className="w-14 h-14 bg-slate-50 dark:bg-slate-700 rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0 shrink-0 border border-slate-50 dark:border-slate-600">
+                        {esp.logo ? (
+                          <img src={esp.logo} loading="lazy" decoding="async" className="w-10 h-10 object-contain" alt={esp.nome} />
+                        ) : (
+                          <Award size={24} className="text-slate-300 dark:text-slate-400" />
+                        )}
+                      </div>
+                      <div className="flex-grow text-left min-w-0 pr-1">
+                        <h4 className="font-black text-slate-700 dark:text-slate-200 text-[12px] uppercase tracking-tight leading-tight">
+                          {esp.nome}
+                        </h4>
+                        <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mt-1">
+                          {esp.codigo}
+                        </p>
+                      </div>
+                      <button 
+                        onClick={() => toggleLike(esp.id)}
+                        className={`w-11 h-11 min-w-[44px] max-w-[44px] min-h-[44px] max-h-[44px] shrink-0 flex-shrink-0 aspect-square rounded-2xl flex items-center justify-center transition-all active:scale-90 ${
+                          likedIds.includes(esp.id.toString()) 
+                            ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-500 shadow-sm' 
+                            : 'bg-slate-50 dark:bg-slate-700 text-slate-300 dark:text-slate-500'
+                        }`}
+                      >
+                        <Heart size={20} className="shrink-0" fill={likedIds.includes(esp.id.toString()) ? "currentColor" : "none"} />
+                      </button>
                     </div>
-                    <div className="flex-grow text-left min-w-0 pr-1">
-                      <h4 className="font-black text-slate-700 dark:text-slate-200 text-[12px] uppercase tracking-tight leading-tight">
-                        {esp.nome}
-                      </h4>
-                      <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mt-1">
-                        {esp.codigo}
-                      </p>
-                    </div>
-                    <button 
-                      onClick={() => toggleLike(esp.id)}
-                      className={`w-11 h-11 min-w-[44px] max-w-[44px] min-h-[44px] max-h-[44px] shrink-0 flex-shrink-0 aspect-square rounded-2xl flex items-center justify-center transition-all active:scale-90 ${
-                        likedIds.includes(esp.id.toString()) 
-                          ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-500 shadow-sm' 
-                          : 'bg-slate-50 dark:bg-slate-700 text-slate-300 dark:text-slate-500'
-                      }`}
+                  ))}
+                  {visibleSashModalCount < filteredSpecialties.length && (
+                    <button
+                      type="button"
+                      onClick={() => setVisibleSashModalCount(prev => Math.min(prev + 40, filteredSpecialties.length))}
+                      className="w-full py-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[11px] font-black uppercase tracking-wider transition-all active:scale-95"
                     >
-                      <Heart size={20} className="shrink-0" fill={likedIds.includes(esp.id.toString()) ? "currentColor" : "none"} />
+                      Mostrar mais ({filteredSpecialties.length - visibleSashModalCount} restantes)
                     </button>
-                  </div>
-                ))
+                  )}
+                </>
               ) : (
                 <div className="text-center py-20">
                   <p className="text-slate-500 dark:text-slate-400 font-bold text-sm">Nenhuma especialidade encontrada.</p>
@@ -2773,6 +2797,8 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                                         {mGroup.logo ? (
                                           <img 
                                             src={mGroup.logo} 
+                                            loading="lazy"
+                                            decoding="async"
                                             className="w-full h-full object-contain filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.75)]" 
                                             alt={mGroup.name} 
                                           />
@@ -2796,6 +2822,8 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                                         {esp.logo ? (
                                           <img 
                                             src={esp.logo} 
+                                            loading="lazy"
+                                            decoding="async"
                                             className="w-full h-full object-contain filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.65)]" 
                                             alt={esp.nome} 
                                           />

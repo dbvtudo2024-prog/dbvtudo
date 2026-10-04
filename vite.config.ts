@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '3.0.39';
+const appVersion = '3.0.49';
 
 function versionPlugin(): Plugin {
   return {
@@ -19,9 +19,9 @@ function versionPlugin(): Plugin {
           buildDate: new Date(buildTime).toISOString(),
           timestamp: buildTime,
           highlights: [
-            "Menu Principal com brasões e ícones livres (sem container quadrado interno) e imagem sombreada à direita no estilo da tela inicial",
-            "Distintivo de Líder no perfil liberado somente a partir dos 18 anos (idade de investidura) e quando todas as 6 Classes Regulares estiverem ativas",
-            "Otimização extrema do banco de dados: substituição de todas as imagens Base64 por URLs diretas (redução de 8,64 MB para 28,9 KB na tabela Cultura)"
+            "Aleatorização balanceada das opções de resposta (A, B, C, D) sem repetição da opção A e categorias do livro 'Nisto Cremos' exclusivas para Desbravadores",
+            "Layout do Quiz 100% ajustado à tela sem rolagem, 2 colunas de modalidades no celular e insígnia da especialidade sem container",
+            "Gerador de Provas Oficiais das Especialidades em PDF (A4) com gabarito comentado destacável para o instrutor"
           ]
         }, null, 2)
       });
@@ -37,9 +37,9 @@ function versionPlugin(): Plugin {
             buildDate: new Date(buildTime).toISOString(),
             timestamp: buildTime,
             highlights: [
-              "Menu Principal com brasões e ícones livres (sem container quadrado interno) e imagem sombreada à direita no estilo da tela inicial",
-              "Distintivo de Líder no perfil liberado somente a partir dos 18 anos (idade de investidura) e quando todas as 6 Classes Regulares estiverem ativas",
-              "Otimização extrema do banco de dados: substituição de todas as imagens Base64 por URLs diretas (redução de 8,64 MB para 28,9 KB na tabela Cultura)"
+              "Aleatorização balanceada das opções de resposta (A, B, C, D) sem repetição da opção A e categorias do livro 'Nisto Cremos' exclusivas para Desbravadores",
+              "Layout do Quiz 100% ajustado à tela sem rolagem, 2 colunas de modalidades no celular e insígnia da especialidade sem container",
+              "Gerador de Provas Oficiais das Especialidades em PDF (A4) com gabarito comentado destacável para o instrutor"
             ]
           }));
           return;
@@ -70,7 +70,14 @@ function versionPlugin(): Plugin {
               }
 
               const { GoogleGenAI } = await import('@google/genai');
-              const ai = new GoogleGenAI({ apiKey });
+              const ai = new GoogleGenAI({
+                apiKey,
+                httpOptions: {
+                  headers: {
+                    'User-Agent': 'aistudio-build',
+                  }
+                }
+              });
               const models = ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
               
               let resultText = '';

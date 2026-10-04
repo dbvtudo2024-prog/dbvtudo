@@ -635,7 +635,7 @@ export function buildDetailedSubItems(
 }
 
 // Gerador semântico local de alta fidelidade (elimina respostas padrão/genéricas)
-function buildDetailedDidacticData(
+export function buildDetailedDidacticData(
   item: ParsedRequirementItem,
   displayIndex: number,
   totalCount: number,
