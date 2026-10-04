@@ -43,30 +43,34 @@ export async function askAdvisor(prompt: string): Promise<string> {
     console.warn("Tentativa server-side no Desbravinho falhou, usando fallback direto:", srvErr);
   }
 
-  // 2. Fallback direto com chave resolvida (ambiente ou configuração sincronizada no Supabase)
+  // 2. Fallback direto com chave resolvida (ambiente ou configuração sincronizada)
   try {
     const apiKey = await resolveGeminiApiKey();
     if (!apiKey) {
       return "Olá! O Desbravinho está pronto. Para ativar as respostas com inteligência artificial, configure sua chave de API Gemini.";
     }
 
-    const { GoogleGenAI } = await import("@google/genai");
-    const ai = new GoogleGenAI({ apiKey });
     const models = ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
 
     for (const modelName of models) {
       try {
-        const response = await ai.models.generateContent({
-          model: modelName,
-          contents: prompt,
-          config: {
-            systemInstruction: SYSTEM_INSTRUCTION,
-            temperature: 0.7,
-          },
-        });
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+              generationConfig: { temperature: 0.7 }
+            })
+          }
+        );
 
-        if (response && response.text) {
-          return response.text;
+        if (response.ok) {
+          const data = await response.json();
+          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) return text;
         }
       } catch (e) {
         console.warn(`Tentativa com ${modelName} falhou no Desbravinho:`, e);

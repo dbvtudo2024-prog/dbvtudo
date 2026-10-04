@@ -1,11 +1,11 @@
 {
-  "version": 1759548000000,
-  "versionName": "3.0.30",
-  "buildDate": "2026-10-04T03:20:00.000Z",
-  "timestamp": 1759548000000,
+  "version": 1759550300000,
+  "versionName": "3.0.33",
+  "buildDate": "2026-10-04T03:58:20.000Z",
+  "timestamp": 1759550300000,
   "highlights": [
-    "Limite de idade (16+ anos) para PDF de especialidades e PowerPoint",
-    "Ocultação dos botões de abrir em outra janela nos leitores de PDF de livros e materiais",
-    "Abertura direta da História Mundial no Clube de Aventureiros"
+    "Rolagem automática para o topo do tópico recém-aberto em Emblemas e Uniformes",
+    "Fechamento automático do tópico anterior ao abrir outro em Emblemas e Uniformes",
+    "Correção do login no celular e botão 'Fazer Login' em Ajustes no modo sem login"
   ]
 }

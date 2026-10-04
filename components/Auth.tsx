@@ -10,7 +10,7 @@ interface AuthProps {
   onViewChange: (view: 'LOGIN' | 'SIGNUP') => void;
 }
 
-const InputField = ({ icon: Icon, label, name, type = "text", placeholder, required = false, value, onChange }: any) => (
+const InputField = ({ icon: Icon, label, name, type = "text", placeholder, required = false, value, onChange, autoCapitalize, autoCorrect, spellCheck, inputMode, autoComplete }: any) => (
   <div className="space-y-1.5 w-full">
     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">
       {label} {required && <span className="text-red-500">*</span>}
@@ -25,6 +25,11 @@ const InputField = ({ icon: Icon, label, name, type = "text", placeholder, requi
         value={value}
         onChange={onChange}
         placeholder={placeholder}
+        autoCapitalize={autoCapitalize}
+        autoCorrect={autoCorrect}
+        spellCheck={spellCheck}
+        inputMode={inputMode}
+        autoComplete={autoComplete}
         className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 pl-12 pr-4 text-sm text-slate-800 dark:text-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
       />
     </div>
@@ -45,9 +50,15 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
     phone: ''
   });
 
-  const [loginData, setLoginData] = useState({
-    email: '',
-    password: ''
+  const [loginData, setLoginData] = useState(() => {
+    let savedEmail = '';
+    try {
+      savedEmail = localStorage.getItem('dbv_last_login_email') || '';
+    } catch {}
+    return {
+      email: savedEmail,
+      password: ''
+    };
   });
 
   const [cargos, setCargos] = useState<string[]>(() => getCachedFuncoes());
@@ -69,6 +80,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -76,18 +88,22 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
   };
 
   const handleSignup = async () => {
-    if (!formData.email || !formData.password || !formData.name) {
+    const cleanEmail = formData.email.trim().toLowerCase();
+    const cleanPassword = formData.password.trim();
+
+    if (!cleanEmail || !cleanPassword || !formData.name.trim()) {
       setError("Preencha os campos obrigatórios.");
       return;
     }
 
     setIsLoading(true);
     setError(null);
+    setResetMessage(null);
 
     try {
       const { data, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
+        email: cleanEmail,
+        password: cleanPassword,
       });
 
       if (authError) throw authError;
@@ -96,9 +112,9 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
         // Criar perfil na tabela Usuarios
         const profile: Partial<UserProfile> = {
           user_id: data.user.id,
-          nome: formData.name,
-          telefone: formData.phone,
-          clube: formData.clubName,
+          nome: formData.name.trim(),
+          telefone: formData.phone.trim(),
+          clube: formData.clubName.trim(),
           funçao: formData.cargo,
           clubes: clubType === ClubType.PATHFINDER ? "Desbravador" : "Aventureiro",
         };
@@ -106,14 +122,18 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
         const { error: profileError } = await updateUserProfile(profile);
         if (profileError) console.error("Erro ao criar perfil:", profileError);
 
+        try {
+          localStorage.setItem('dbv_last_login_email', cleanEmail);
+        } catch {}
+
         // Salvar no localStorage para compatibilidade legada
         localStorage.setItem(`dbv_tudo_global_user_profile`, JSON.stringify({
-          name: formData.name,
-          email: formData.email,
+          name: formData.name.trim(),
+          email: cleanEmail,
           tipo: profile.clubes,
-          clube: formData.clubName,
+          clube: formData.clubName.trim(),
           cargo: formData.cargo,
-          telefone: formData.phone,
+          telefone: formData.phone.trim(),
           avatar: ""
         }));
 
@@ -146,7 +166,21 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
           </div>
         )}
         <InputField name="name" icon={User} label="Nome Completo" placeholder="Seu nome completo" required value={formData.name} onChange={handleInputChange} />
-        <InputField name="email" icon={Mail} label="E-mail" placeholder="seu@email.com" required value={formData.email} onChange={handleInputChange} />
+        <InputField 
+          name="email" 
+          type="email"
+          inputMode="email"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          autoComplete="email"
+          icon={Mail} 
+          label="E-mail" 
+          placeholder="seu@email.com" 
+          required 
+          value={formData.email} 
+          onChange={handleInputChange} 
+        />
         
         <div className="space-y-1.5 w-full">
           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Senha <span className="text-red-500">*</span></label>
@@ -160,6 +194,10 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
               value={formData.password}
               onChange={handleInputChange}
               placeholder="Sua senha secreta"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              autoComplete="new-password"
               className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 pl-12 pr-12 text-sm text-slate-800 dark:text-slate-200 shadow-sm focus:outline-none focus:border-emerald-500 transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
             />
             <button 
@@ -232,24 +270,82 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
     </div>
   );
 
+  const handleForgotPassword = async () => {
+    const cleanEmail = loginData.email.trim().toLowerCase();
+    if (!cleanEmail) {
+      setError("Digite seu e-mail no campo acima antes de tocar em 'Esqueci'.");
+      setResetMessage(null);
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    setResetMessage(null);
+    try {
+      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+        redirectTo: window.location.origin
+      });
+      if (resetErr) throw resetErr;
+      setResetMessage(`Enviamos um link de redefinição de senha para ${cleanEmail}. Verifique sua caixa de entrada e spam.`);
+    } catch (err: any) {
+      setError(err?.message || "Não foi possível enviar o e-mail de recuperação. Tente novamente.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleLogin = async () => {
-    if (!loginData.email || !loginData.password) {
+    const cleanEmail = loginData.email.trim().toLowerCase();
+    const rawPassword = loginData.password;
+    const trimmedPassword = loginData.password.trim();
+
+    if (!cleanEmail || !rawPassword) {
       setError("Preencha e-mail e senha.");
       return;
     }
 
     setIsLoading(true);
     setError(null);
+    setResetMessage(null);
 
     try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: loginData.email,
-        password: loginData.password,
+      // 1ª tentativa: e-mail limpo (sem espaços/maiúsculas do teclado do celular) e senha digitada
+      let { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: rawPassword,
       });
+
+      // 2ª tentativa automática: caso o teclado do celular tenha inserido espaço no início/fim da senha
+      if (authError && trimmedPassword !== rawPassword && trimmedPassword.length > 0) {
+        const retryTrimmed = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password: trimmedPassword,
+        });
+        if (!retryTrimmed.error && retryTrimmed.data?.user) {
+          data = retryTrimmed.data;
+          authError = null;
+        }
+      }
+
+      // 3ª tentativa automática: caso a senha tenha sido digitada com a 1ª letra maiúscula pelo corretor do celular
+      if (authError && trimmedPassword.length > 1 && /^[A-Z]/.test(trimmedPassword)) {
+        const uncapitalizedPassword = trimmedPassword.charAt(0).toLowerCase() + trimmedPassword.slice(1);
+        const retryUncap = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password: uncapitalizedPassword,
+        });
+        if (!retryUncap.error && retryUncap.data?.user) {
+          data = retryUncap.data;
+          authError = null;
+        }
+      }
 
       if (authError) throw authError;
 
       if (data.user) {
+        try {
+          localStorage.setItem('dbv_last_login_email', cleanEmail);
+        } catch {}
+
         // Buscar perfil para atualizar localStorage
         const { data: profile } = await supabase
           .from('Usuarios')
@@ -259,24 +355,26 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
 
         if (profile) {
           const uClub = profile.clubes === "Aventureiro" ? ClubType.ADVENTURER : ClubType.PATHFINDER;
-          const uEmail = profile.email || (profile as any)['e - mail'] || data.user.email;
+          const uEmail = profile.email || (profile as any)['e - mail'] || data.user.email || cleanEmail;
           let birthDate = profile.data_nascimento || (profile as any)['data de nascimento'] || data.user.user_metadata?.data_nascimento || "";
-          if (!birthDate && profile.fundo) {
+          let cargoFromFundo = "";
+          if (profile.fundo) {
             try {
               const pf = JSON.parse(profile.fundo);
-              if (pf?.data_nascimento) birthDate = pf.data_nascimento;
+              if (!birthDate && pf?.data_nascimento) birthDate = pf.data_nascimento;
+              if (pf?.cargo) cargoFromFundo = pf.cargo;
             } catch {
-              if (/^\d{4}-\d{2}-\d{2}$/.test(profile.fundo)) birthDate = profile.fundo;
+              if (!birthDate && /^\d{4}-\d{2}-\d{2}$/.test(profile.fundo)) birthDate = profile.fundo;
             }
           }
 
           localStorage.setItem(`dbv_tudo_global_user_profile`, JSON.stringify({
-            name: profile.nome,
+            name: profile.nome || data.user.user_metadata?.nome || cleanEmail.split('@')[0],
             email: uEmail,
-            tipo: profile.clubes,
+            tipo: profile.clubes || "Desbravador",
             clube: profile.clube || profile.clube_de || (profile as any)['clube de'] || "",
-            cargo: profile.funçao,
-            telefone: profile.telefone,
+            cargo: profile.funçao || (profile as any).cargo || cargoFromFundo || data.user.user_metadata?.cargo || "",
+            telefone: profile.telefone || "",
             avatar: profile.foto || "",
             cidade: profile.cidade || "",
             estado: profile.estado || "",
@@ -296,6 +394,21 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
               saveLocalFaixaSpecialties(parsedIds, uEmail, uClub);
             }
           }
+        } else {
+          // Garantir perfil salvo no localStorage mesmo se a linha na tabela Usuarios ainda não existir
+          localStorage.setItem(`dbv_tudo_global_user_profile`, JSON.stringify({
+            name: data.user.user_metadata?.nome || cleanEmail.split('@')[0],
+            email: data.user.email || cleanEmail,
+            tipo: "Desbravador",
+            clube: "",
+            cargo: data.user.user_metadata?.cargo || "",
+            telefone: "",
+            avatar: "",
+            cidade: "",
+            estado: "",
+            data_nascimento: data.user.user_metadata?.data_nascimento || "",
+            isAdmin: false
+          }));
         }
 
         onLoginSuccess(false);
@@ -303,6 +416,8 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
     } catch (err: any) {
       if (err?.message === 'Failed to fetch' || err?.name === 'AuthRetryableFetchError' || err?.message?.includes('Failed to fetch')) {
         setError("Não foi possível conectar ao servidor. Verifique sua conexão com a internet.");
+      } else if (err?.message?.toLowerCase().includes('invalid login credentials') || err?.message?.toLowerCase().includes('invalid_credentials')) {
+        setError("E-mail ou senha incorretos. Use o ícone de olho no campo de senha para conferir o que foi digitado ou toque em 'Esqueci' para redefinir.");
       } else {
         setError(err.message || "Erro ao entrar.");
       }
@@ -331,8 +446,19 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
             {error}
           </div>
         )}
+        {resetMessage && (
+          <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-300 p-4 rounded-2xl text-xs font-bold animate-slide-up">
+            {resetMessage}
+          </div>
+        )}
         <InputField 
           icon={Mail} 
+          type="email"
+          inputMode="email"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          autoComplete="email"
           label="E-mail" 
           placeholder="seu@email.com" 
           value={loginData.email}
@@ -341,7 +467,13 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
         <div className="space-y-1.5 w-full">
           <div className="flex justify-between items-center px-1">
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Senha</label>
-            <button className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Esqueci</button>
+            <button 
+              type="button"
+              onClick={handleForgotPassword}
+              className="text-[10px] font-black text-emerald-600 uppercase tracking-widest hover:underline active:scale-95 transition-all"
+            >
+              Esqueci
+            </button>
           </div>
           <div className="relative group">
             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors">
@@ -352,8 +484,24 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
               placeholder="Sua senha"
               value={loginData.password}
               onChange={(e) => setLoginData({...loginData, password: e.target.value})}
-              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 pl-12 pr-4 text-sm text-slate-800 dark:text-slate-200 shadow-sm focus:outline-none focus:border-emerald-500 transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              autoComplete="current-password"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleLogin();
+              }}
+              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 pl-12 pr-12 text-sm text-slate-800 dark:text-slate-200 shadow-sm focus:outline-none focus:border-emerald-500 transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
             />
+            <button 
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+              title={showPassword ? "Ocultar senha" : "Mostrar senha"}
+              aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
           </div>
         </div>
       </div>

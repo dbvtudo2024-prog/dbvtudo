@@ -1,5 +1,5 @@
 // Service Worker for DBV Tudo
-const CACHE_NAME = 'dbv-tudo-v1';
+const CACHE_NAME = 'dbv-tudo-v3.0.31';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

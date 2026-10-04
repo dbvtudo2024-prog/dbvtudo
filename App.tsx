@@ -6,7 +6,7 @@ import ClubManagement, { SubViewType } from './components/ClubManagement';
 import Auth from './components/Auth';
 import Profile from './components/Profile';
 import UpdateNotification from './components/UpdateNotification';
-import { Settings, X, ChevronLeft, Moon, Sun, Bell, BellOff, LogOut, Sparkles, History, ChevronDown, ChevronUp, CheckCircle2, RefreshCw, Layers, PanelLeft } from 'lucide-react';
+import { Settings, X, ChevronLeft, Moon, Sun, Bell, BellOff, LogOut, LogIn, Sparkles, History, ChevronDown, ChevronUp, CheckCircle2, RefreshCw, Layers, PanelLeft } from 'lucide-react';
 import { APP_VERSION, APP_BUILD_DATE, VERSION_HISTORY } from './versionConfig';
 
 import { PROFILE_KEY } from './constants';
@@ -77,11 +77,35 @@ const App: React.FC = () => {
 
   const [activeSubView, setActiveSubView] = useState<SubViewType | undefined>(undefined);
   const [selectedClub, setSelectedClub] = useState<ClubType | null>(null);
-  const [isGuest, setIsGuest] = useState<boolean>(false);
+  const [isGuest, setIsGuest] = useState<boolean>(() => {
+    try {
+      if (localStorage.getItem('dbv_is_guest') === 'true') return true;
+      const savedProfile = localStorage.getItem(PROFILE_KEY);
+      if (savedProfile) {
+        const parsed = JSON.parse(savedProfile);
+        if (parsed && ((parsed.email && parsed.email !== 'email@exemplo.com') || parsed.name)) {
+          return false;
+        }
+      }
+    } catch {}
+    return false;
+  });
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
   const [showVersionHistory, setShowVersionHistory] = useState<boolean>(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState<boolean>(false);
   const [updateCheckMessage, setUpdateCheckMessage] = useState<string | null>(null);
+
+  const isUserLoggedIn = React.useMemo(() => {
+    if (isGuest) return false;
+    try {
+      const savedProfile = localStorage.getItem(PROFILE_KEY);
+      if (savedProfile) {
+        const parsed = JSON.parse(savedProfile);
+        return Boolean((parsed?.email && parsed.email !== 'email@exemplo.com') || parsed?.name);
+      }
+    } catch {}
+    return false;
+  }, [isGuest, currentView, isSettingsModalOpen]);
 
   const handleManualCheckUpdate = async () => {
     setIsCheckingUpdate(true);
@@ -398,9 +422,24 @@ const App: React.FC = () => {
     setIsGuest(asGuest);
     if (asGuest) {
       try {
+        localStorage.setItem('dbv_is_guest', 'true');
         localStorage.removeItem(PROFILE_KEY);
         localStorage.removeItem('dbv_tudo_global_user_profile');
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('sb-') || key.includes('auth-token') || key.includes('supabase'))) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(k => {
+          try { localStorage.removeItem(k); } catch (e) {}
+        });
         supabase.auth.signOut().catch(() => {});
+      } catch (e) {}
+    } else {
+      try {
+        localStorage.removeItem('dbv_is_guest');
       } catch (e) {}
     }
     // Use replaceState ao fazer login para que o botão voltar não retorne à tela de login
@@ -422,6 +461,16 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
     try {
+      const savedProfile = localStorage.getItem(PROFILE_KEY);
+      if (savedProfile) {
+        try {
+          const parsed = JSON.parse(savedProfile);
+          if (parsed?.email && parsed.email !== 'email@exemplo.com') {
+            localStorage.setItem('dbv_last_login_email', String(parsed.email).trim().toLowerCase());
+          }
+        } catch {}
+      }
+      localStorage.removeItem('dbv_is_guest');
       localStorage.removeItem(PROFILE_KEY);
       localStorage.removeItem('dbv_tudo_global_user_profile');
       localStorage.removeItem('dbv_tudo_app_state');
@@ -562,7 +611,7 @@ const App: React.FC = () => {
       {/* Modal de Ajustes */}
       {isSettingsModalOpen && (
         <div 
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-fade-in"
+          className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-fade-in"
           onClick={() => setIsSettingsModalOpen(false)}
         >
           <div 
@@ -675,10 +724,10 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              {/* Botão Fixar Menu Lateral (PC) */}
+              {/* Botão Fixar Menu Lateral (Exclusivo para PC / Desktop) */}
               <button 
                 onClick={handleTogglePinSidebar}
-                className={`w-full p-4 rounded-2xl flex items-center justify-between border transition-all text-left group active:scale-[0.98] ${
+                className={`hidden md:flex w-full p-4 rounded-2xl items-center justify-between border transition-all text-left group active:scale-[0.98] ${
                   darkMode 
                     ? 'bg-slate-800/80 border-slate-700 hover:border-slate-600' 
                     : 'bg-slate-50 border-slate-200/80 hover:border-slate-300'
@@ -820,35 +869,67 @@ const App: React.FC = () => {
                 <div className="h-px w-full bg-slate-100 dark:bg-slate-800" />
               </div>
 
-              {/* Botão Sair da Conta */}
-              <button 
-                onClick={() => {
-                  setIsSettingsModalOpen(false);
-                  handleLogout();
-                }}
-                className={`w-full p-4 rounded-2xl flex items-center justify-between border transition-all text-left active:scale-[0.98] ${
-                  darkMode 
-                    ? 'bg-red-500/10 border-red-500/20 hover:bg-red-500/15 text-red-300' 
-                    : 'bg-red-50/70 border-red-100 hover:bg-red-50 text-red-600'
-                }`}
-              >
-                <div className="flex items-center space-x-3.5">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                    darkMode ? 'bg-red-500/20 text-red-400' : 'bg-red-100 text-red-600'
-                  }`}>
-                    <LogOut size={18} />
+              {/* Botão Fazer Login (se estiver sem login) ou Sair da Conta (se estiver logado) */}
+              {isUserLoggedIn ? (
+                <button 
+                  onClick={() => {
+                    setIsSettingsModalOpen(false);
+                    handleLogout();
+                  }}
+                  className={`w-full p-4 rounded-2xl flex items-center justify-between border transition-all text-left active:scale-[0.98] ${
+                    darkMode 
+                      ? 'bg-red-500/10 border-red-500/20 hover:bg-red-500/15 text-red-300' 
+                      : 'bg-red-50/70 border-red-100 hover:bg-red-50 text-red-600'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3.5">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      darkMode ? 'bg-red-500/20 text-red-400' : 'bg-red-100 text-red-600'
+                    }`}>
+                      <LogOut size={18} />
+                    </div>
+                    <div>
+                      <span className="block text-sm font-bold">
+                        Sair da Conta
+                      </span>
+                      <span className="text-[11px] opacity-75">
+                        Desconectar usuário deste dispositivo
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <span className="block text-sm font-bold">
-                      Sair da Conta
-                    </span>
-                    <span className="text-[11px] opacity-75">
-                      Desconectar usuário deste dispositivo
-                    </span>
+                  <ChevronLeft className="rotate-180 opacity-50" size={18} />
+                </button>
+              ) : (
+                <button 
+                  onClick={() => {
+                    setIsSettingsModalOpen(false);
+                    setIsGuest(false);
+                    setCurrentView('LOGIN');
+                  }}
+                  className={`w-full p-4 rounded-2xl flex items-center justify-between border transition-all text-left active:scale-[0.98] ${
+                    darkMode 
+                      ? 'bg-emerald-500/15 border-emerald-500/30 hover:bg-emerald-500/20 text-emerald-300' 
+                      : 'bg-emerald-50/80 border-emerald-200/80 hover:bg-emerald-100/70 text-[#004d40]'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3.5">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      darkMode ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-[#004d40]'
+                    }`}>
+                      <LogIn size={18} />
+                    </div>
+                    <div>
+                      <span className="block text-sm font-bold">
+                        Fazer Login
+                      </span>
+                      <span className="text-[11px] opacity-75">
+                        Entrar na sua conta ou criar cadastro
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <ChevronLeft className="rotate-180 opacity-50" size={18} />
-              </button>
+                  <ChevronLeft className="rotate-180 opacity-50" size={18} />
+                </button>
+              )}
 
               {/* Identificação de Rodapé do Modal */}
               <div className="text-center pt-2 pb-1">

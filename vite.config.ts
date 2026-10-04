@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '3.0.30';
+const appVersion = '3.0.33';
 
 function versionPlugin(): Plugin {
   return {
@@ -19,9 +19,9 @@ function versionPlugin(): Plugin {
           buildDate: new Date(buildTime).toISOString(),
           timestamp: buildTime,
           highlights: [
-            "Limite de idade (16+ anos) para PDF de especialidades e PowerPoint",
-            "Ocultação dos botões de abrir em outra janela nos leitores de PDF de livros e materiais",
-            "Abertura direta da História Mundial no Clube de Aventureiros"
+            "Rolagem automática para o topo do tópico recém-aberto em Emblemas e Uniformes",
+            "Fechamento automático do tópico anterior ao abrir outro em Emblemas e Uniformes",
+            "Correção do login no celular e botão 'Fazer Login' em Ajustes no modo sem login"
           ]
         }, null, 2)
       });
@@ -37,9 +37,9 @@ function versionPlugin(): Plugin {
             buildDate: new Date(buildTime).toISOString(),
             timestamp: buildTime,
             highlights: [
-              "Limite de idade (16+ anos) para PDF de especialidades e PowerPoint",
-              "Ocultação dos botões de abrir em outra janela nos leitores de PDF de livros e materiais",
-              "Abertura direta da História Mundial no Clube de Aventureiros"
+              "Rolagem automática para o topo do tópico recém-aberto em Emblemas e Uniformes",
+              "Fechamento automático do tópico anterior ao abrir outro em Emblemas e Uniformes",
+              "Correção do login no celular e botão 'Fazer Login' em Ajustes no modo sem login"
             ]
           }));
           return;

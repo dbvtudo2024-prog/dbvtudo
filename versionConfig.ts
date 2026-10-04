@@ -6,14 +6,46 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.30';
+export const APP_VERSION = '3.0.33';
 export const APP_BUILD_DATE = '3 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
-    version: '3.0.30',
+    version: '3.0.33',
     date: '03/10/2026',
     tag: 'NOVO',
+    title: 'Rolagem Automática para o Topo ao Abrir Tópicos em Emblemas e Uniformes',
+    changes: [
+      'Ao abrir um tópico em Emblemas ou Uniformes (fechando o anterior), a página rola suavemente de forma automática para posicionar o início do novo tópico exatamente no topo da área de leitura.'
+    ]
+  },
+  {
+    version: '3.0.32',
+    date: '03/10/2026',
+    tag: 'ATUAL',
+    title: 'Acordeão Único em Emblemas/Uniformes, Correção de Login Mobile e Ajustes para Visitantes',
+    changes: [
+      'Emblemas e Uniformes com abertura exclusiva: Ao abrir um novo tópico (ex: Insígnias e Tiras → outro tópico), o tópico anterior é fechado automaticamente.',
+      'Correção do login no celular: Desativada a capitalização/espaço automático do teclado móvel no e-mail e na senha, adicionado botão de olho para visualizar a senha no login e preenchimento automático do último e-mail utilizado.',
+      'Menu de Ajustes inteligente: Exibe o botão "Fazer Login" quando o usuário entra sem login (em vez de "Sair da Conta") e oculta a opção "Fixar Menu Lateral" (exclusiva de computador) no celular.',
+      'Organização do Painel Administrativo: Removido o card duplicado do Painel Administrativo do meio da tela inicial dos clubes, mantendo-o centralizado dentro do Perfil.'
+    ]
+  },
+  {
+    version: '3.0.31',
+    date: '03/10/2026',
+    tag: 'ATUAL',
+    title: 'Geração de PowerPoint com IA Otimizada e Ultrarrápida no Celular',
+    changes: [
+      'Processamento paralelo em lotes na IA do PowerPoint: As questões e sub-itens agora são respondidos simultaneamente em lotes compactos (4 a 7 segundos no celular), eliminando o timeout de 10 segundos da Vercel.',
+      'Conexão REST direta e resolução instantânea de chave (0ms) no aplicativo móvel (PWA/Android/iOS), evitando demora ao salvar e garantindo respostas reais da IA em vez de respostas padrão.',
+      'Parser JSON resiliente e carregamento simultâneo de insígnias com controle de tempo limite em redes móveis.'
+    ]
+  },
+  {
+    version: '3.0.30',
+    date: '03/10/2026',
+    tag: 'ATUAL',
     title: 'Limite de Idade (16+), Leitor de PDF Interno e História Direta dos Aventureiros',
     changes: [
       'Limite de idade (16+ anos) nas Especialidades: As funções de Gerar PDF da Especialidade e Apresentação PowerPoint (.pptx) ficam disponíveis apenas para usuários logados a partir de 16 anos (e respeitando os cargos permitidos no PowerPoint).',

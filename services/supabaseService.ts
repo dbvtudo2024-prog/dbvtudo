@@ -2881,7 +2881,7 @@ export const DEFAULT_FAIXA_CONFIG: FaixaConfig = {
   globo_lider: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/insignias/L1%20Lider.png',
 };
 
-let _cachedRemoteAiKey = '';
+const DEFAULT_ENCODED_AI_CFG = 'JSsMPicMJVoPdWZAWRILRFgQNCAlAgNQJzFdWXByDQEBKxwhKSYf';
 
 function decodeAiCfg(encoded: string): string {
   try {
@@ -2897,6 +2897,8 @@ function decodeAiCfg(encoded: string): string {
   }
 }
 
+let _cachedRemoteAiKey = decodeAiCfg(DEFAULT_ENCODED_AI_CFG);
+
 export async function resolveGeminiApiKey(): Promise<string> {
   const envKey = (typeof process !== 'undefined' && (process.env?.GEMINI_API_KEY || process.env?.VITE_GEMINI_API_KEY || process.env?.API_KEY)) ||
     ((import.meta as any).env?.VITE_GEMINI_API_KEY) || '';
@@ -2904,27 +2906,29 @@ export async function resolveGeminiApiKey(): Promise<string> {
   if (_cachedRemoteAiKey && _cachedRemoteAiKey.length > 10) return _cachedRemoteAiKey;
 
   try {
-    const { data, error } = await supabase
-      .from('Cultura')
-      .select('insignias_tiras')
-      .eq('club_type', 'PATHFINDER')
-      .single();
-
-    if (!error && data?.insignias_tiras) {
-      const parsed = typeof data.insignias_tiras === 'string'
-        ? JSON.parse(data.insignias_tiras)
-        : data.insignias_tiras;
-      if (parsed && parsed._ai_cfg) {
-        const decoded = decodeAiCfg(parsed._ai_cfg);
-        if (decoded && decoded.length > 10) {
-          _cachedRemoteAiKey = decoded;
-          return decoded;
+    const res = await fetch(`${DEFAULT_URL}/rest/v1/Cultura?club_type=eq.PATHFINDER&select=insignias_tiras&limit=1`, {
+      headers: {
+        apikey: DEFAULT_KEY,
+        Authorization: `Bearer ${DEFAULT_KEY}`
+      }
+    });
+    if (res.ok) {
+      const rows = await res.json();
+      const raw = rows?.[0]?.insignias_tiras;
+      if (raw) {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (parsed && parsed._ai_cfg) {
+          const decoded = decodeAiCfg(parsed._ai_cfg);
+          if (decoded && decoded.length > 10) {
+            _cachedRemoteAiKey = decoded;
+            return decoded;
+          }
         }
       }
     }
   } catch {}
 
-  return '';
+  return decodeAiCfg(DEFAULT_ENCODED_AI_CFG);
 }
 
 export async function fetchFaixaConfig(): Promise<FaixaConfig> {

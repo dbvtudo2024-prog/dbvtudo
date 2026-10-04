@@ -2101,8 +2101,39 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     }
   }, [activeSubView]);
 
+  // Ao abrir um tópico em Emblemas ou Uniformes (fechando o anterior), rolar automaticamente para posicionar o início do novo tópico no topo da tela
+  useEffect(() => {
+    if (activeAccordions.length === 1 && (activeSubView === 'EMBLEMS' || activeSubView === 'UNIFORMS')) {
+      const openedId = activeAccordions[0];
+      const scrollToTopicStart = () => {
+        const container = scrollContainerRef.current;
+        const topicEl = document.getElementById(`cultura-topic-${openedId}`);
+        if (container && topicEl) {
+          const containerRect = container.getBoundingClientRect();
+          const topicRect = topicEl.getBoundingClientRect();
+          const targetTop = container.scrollTop + (topicRect.top - containerRect.top) - 12;
+          container.scrollTo({
+            top: Math.max(0, targetTop),
+            behavior: 'smooth'
+          });
+        } else if (topicEl) {
+          topicEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      };
+
+      const rafId = requestAnimationFrame(() => {
+        scrollToTopicStart();
+      });
+      return () => cancelAnimationFrame(rafId);
+    }
+  }, [activeAccordions, activeSubView]);
+
   const loadProfile = useCallback(() => {
-    if (isGuest) {
+    let isGuestStored = false;
+    try {
+      isGuestStored = localStorage.getItem('dbv_is_guest') === 'true';
+    } catch {}
+    if (isGuest || isGuestStored) {
       setUserAvatar(null);
       setUserEmail(null);
       setIsUserAdmin(false);
@@ -2259,7 +2290,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     window.addEventListener('dbv_catalog_favs_changed', handleCatalogSync);
 
     // Sincronizar perfil completo do usuário logado com o Supabase
-    if (!isGuest) {
+    const hasLocalProfile = Boolean(localStorage.getItem(PROFILE_KEY));
+    const isGuestStored = localStorage.getItem('dbv_is_guest') === 'true';
+    if (!isGuest && !isGuestStored && hasLocalProfile) {
       supabase.auth.getUser()
         .then(({ data, error }) => {
           if (!error && data?.user) {
@@ -2503,7 +2536,22 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             logo: prev.logo || data[0].Imagem,
             area: prev.area || data[0].Categoria
           } : null);
+          return;
         }
+      }
+
+      // Fallback resiliente via fetchEspecialidades (usa REST anônimo se o JWT móvel estiver expirado)
+      const allList = await fetchEspecialidades(target.club || club);
+      const matched = allList.find(
+        s => String(s.id) === String(target.id) || (s.nome && target.nome && s.nome.toLowerCase() === target.nome.toLowerCase())
+      );
+      if (matched && matched.requisitos && matched.requisitos.length > 0) {
+        setSelectedSpecialty(prev => prev ? {
+          ...prev,
+          requisitos: matched.requisitos,
+          logo: prev.logo || matched.logo,
+          area: prev.area || matched.area
+        } : null);
       }
     } catch (err) {
       console.warn("Erro ao recarregar requisitos do banco:", err);
@@ -4333,7 +4381,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
     const toggleAccordion = (id: string) => {
       setActiveAccordions(prev => 
-        prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        prev.includes(id) ? [] : [id]
       );
     };
 
@@ -4495,7 +4543,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     };
 
     return (
-      <div key={item.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[32px] shadow-sm overflow-hidden mb-4">
+      <div key={item.id} id={`cultura-topic-${item.id}`} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[32px] shadow-sm overflow-hidden mb-4 scroll-mt-4">
         <button 
           onClick={() => toggleAccordion(item.id)}
           className={`w-full p-6 flex items-center justify-between transition-all text-left ${isExpanded ? 'bg-slate-50/30 dark:bg-slate-700/30' : 'bg-white dark:bg-slate-800'}`}
@@ -8482,31 +8530,6 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               <p className="text-[10px] font-bold text-white/80 uppercase tracking-wider mt-0.5">Manual, Áreas e Requisitos</p>
             </div>
           </button>
-
-          {/* Botão Gestão Mobile (se for admin) */}
-          {isUserAdmin && (
-            <button 
-              onClick={() => setActiveSubView('BIBLE_ADMIN')}
-              className="w-full relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-[26px] p-5 flex flex-col justify-between text-left text-white shadow-md active:scale-[0.98] transition-all group min-h-[120px] border border-slate-700/80"
-            >
-              <div className="absolute -bottom-3 -right-3 text-white/10 pointer-events-none group-hover:scale-110 transition-transform">
-                <Settings className="w-32 h-32 stroke-[1.4]" />
-              </div>
-              <div className="flex items-center justify-between w-full relative z-10">
-                <div className="w-11 h-11 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-white shadow-xs">
-                  <Settings size={22} strokeWidth={2.4} />
-                </div>
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-[10px] font-black uppercase tracking-wider">
-                  <span>Gerenciar</span>
-                  <ChevronRight size={14} strokeWidth={2.5} />
-                </div>
-              </div>
-              <div className="relative z-10 mt-3">
-                <h3 className="text-base font-black uppercase tracking-tight leading-tight">Painel Administrativo</h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Administração do Clube</p>
-              </div>
-            </button>
-          )}
         </div>
 
         {/* Visualização para PC / Desktop: Lado a lado horizontalmente com retângulos estilizados */}
@@ -8597,30 +8620,6 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               </div>
             </button>
           </div>
-
-          {/* Painel Administrativo no PC (se for admin) */}
-          {isUserAdmin && (
-            <div className="mt-4">
-              <button 
-                onClick={() => setActiveSubView('BIBLE_ADMIN')}
-                className="w-full relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-[24px] lg:rounded-[28px] p-5 shadow-sm border border-slate-700/80 flex items-center justify-between active:scale-[0.98] hover:border-slate-500 transition-all group"
-              >
-                <div className="absolute -bottom-3 -right-3 text-white/5 pointer-events-none group-hover:scale-110 transition-transform">
-                  <Settings className="w-28 h-28 stroke-[1.4]" />
-                </div>
-                <div className="flex items-center space-x-4 relative z-10">
-                  <div className="w-12 h-12 bg-slate-800 dark:bg-slate-700 rounded-2xl flex items-center justify-center text-white border border-slate-700">
-                    <Settings size={24} strokeWidth={2.4} />
-                  </div>
-                  <div className="text-left">
-                    <h3 className="font-black text-base text-white uppercase tracking-tight">Painel Administrativo</h3>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Administração do Clube</p>
-                  </div>
-                </div>
-                <ChevronRight size={18} className="text-slate-400 group-hover:translate-x-1 transition-transform relative z-10" />
-              </button>
-            </div>
-          )}
         </div>
 
         {/* ========================================================
@@ -8769,20 +8768,22 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                       <User size={26} className="text-slate-400 dark:text-slate-300" />
                     )}
                   </div>
-                  <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-800 flex items-center justify-center shadow-xs" title="Conectado">
-                    <div className="w-1.5 h-1.5 rounded-full bg-white" />
-                  </div>
+                  {isUserLoggedIn && (
+                    <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-800 flex items-center justify-center shadow-xs" title="Conectado">
+                      <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex-1 min-w-0">
                   <span className="block font-black text-xs lg:text-sm text-slate-800 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    {userProfile?.nome || (isGuest ? 'Convidado' : 'Meu Perfil')}
+                    {userProfile?.nome || (!isUserLoggedIn ? 'Visitante' : 'Meu Perfil')}
                   </span>
                   <span className="block text-[9px] lg:text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider truncate mt-0.5">
                     {userProfile?.funçao || (isPathfinder ? 'Desbravador' : 'Aventureiro')}
                   </span>
                   <span className="inline-flex items-center text-[8px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest mt-1">
-                    Ver Perfil →
+                    {isUserLoggedIn ? 'Ver Perfil →' : 'Fazer Login →'}
                   </span>
                 </div>
               </button>
@@ -8902,10 +8903,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                 )}
               </button>
               {/* Bolinha de status posicionada fora do overflow-hidden para não ser cortada */}
-              <div 
-                className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 pointer-events-none z-10 shadow-xs" 
-                title="Conectado"
-              />
+              {isUserLoggedIn && (
+                <div 
+                  className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 pointer-events-none z-10 shadow-xs" 
+                  title="Conectado"
+                />
+              )}
             </div>
 
             <div className="my-3.5 h-[1px] w-8 bg-slate-200/70 dark:bg-slate-800/80" />

@@ -1,6 +1,6 @@
 import pptxgen from 'pptxgenjs';
 import { Especialidade, ClubType } from '../types';
-import { resolveGeminiApiKey } from './supabaseService';
+import { resolveGeminiApiKey, fetchEspecialidades } from './supabaseService';
 
 export interface PresentationOptions {
   instructorName?: string;
@@ -71,21 +71,27 @@ export const loadImageDataUrl = async (url: string | undefined | null): Promise<
   if (!processedUrl) return null;
 
   try {
-    const response = await fetch(processedUrl, { mode: 'cors' });
-    if (response.ok) {
-      const blob = await response.blob();
-      return await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          if (typeof reader.result === 'string') {
-            resolve(reader.result);
-          } else {
-            resolve('');
-          }
-        };
-        reader.onerror = () => resolve('');
-        reader.readAsDataURL(blob);
-      });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3500);
+    try {
+      const response = await fetch(processedUrl, { mode: 'cors', signal: controller.signal });
+      if (response.ok) {
+        const blob = await response.blob();
+        return await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            if (typeof reader.result === 'string') {
+              resolve(reader.result);
+            } else {
+              resolve('');
+            }
+          };
+          reader.onerror = () => resolve('');
+          reader.readAsDataURL(blob);
+        });
+      }
+    } finally {
+      clearTimeout(timer);
     }
   } catch {
     // Continua para fallback via Image + Canvas se fetch falhar (CORS)
@@ -93,9 +99,18 @@ export const loadImageDataUrl = async (url: string | undefined | null): Promise<
 
   if (typeof document !== 'undefined') {
     return new Promise<string | null>((resolve) => {
+      let settled = false;
+      const done = (val: string | null) => {
+        if (!settled) {
+          settled = true;
+          resolve(val);
+        }
+      };
+      const timer = setTimeout(() => done(null), 3500);
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
+        clearTimeout(timer);
         try {
           const canvas = document.createElement('canvas');
           canvas.width = img.naturalWidth || img.width || 600;
@@ -104,15 +119,18 @@ export const loadImageDataUrl = async (url: string | undefined | null): Promise<
           if (ctx) {
             ctx.drawImage(img, 0, 0);
             const dataUrl = canvas.toDataURL('image/png');
-            resolve(dataUrl);
+            done(dataUrl);
             return;
           }
         } catch (err) {
           console.warn('Erro ao desenhar imagem em canvas para PowerPoint:', err);
         }
-        resolve(null);
+        done(null);
       };
-      img.onerror = () => resolve(null);
+      img.onerror = () => {
+        clearTimeout(timer);
+        done(null);
+      };
       img.src = processedUrl;
     });
   }
@@ -777,7 +795,138 @@ function buildDetailedDidacticData(
   };
 }
 
-// Enriquecimento pedagógico via Gemini com alta resiliência e modelo 3.5 Flash Lite
+// Extrai e faz parse resiliente de JSON retornado pela IA (mesmo se houver blocos markdown ou quebras de linha literais)
+function extractAndParseJsonArray(rawText: string): any[] {
+  if (!rawText || typeof rawText !== 'string') return [];
+  let text = rawText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+
+  const firstBracket = text.indexOf('[');
+  const lastBracket = text.lastIndexOf(']');
+  if (firstBracket !== -1 && lastBracket > firstBracket) {
+    text = text.substring(firstBracket, lastBracket + 1);
+  }
+
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed && typeof parsed === 'object') {
+      const arrVal = Object.values(parsed).find(v => Array.isArray(v));
+      if (Array.isArray(arrVal)) return arrVal;
+    }
+  } catch {
+    // Sanitiza quebras de linha literais não escapadas dentro de strings JSON
+    try {
+      let inString = false;
+      let escaped = false;
+      let sanitized = '';
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (escaped) {
+          sanitized += ch;
+          escaped = false;
+          continue;
+        }
+        if (ch === '\\') {
+          sanitized += ch;
+          escaped = true;
+          continue;
+        }
+        if (ch === '"') {
+          inString = !inString;
+          sanitized += ch;
+          continue;
+        }
+        if (inString && (ch === '\n' || ch === '\r' || ch === '\t')) {
+          sanitized += ch === '\t' ? ' ' : '\\n';
+          continue;
+        }
+        sanitized += ch;
+      }
+      const parsedSanitized = JSON.parse(sanitized);
+      if (Array.isArray(parsedSanitized)) return parsedSanitized;
+    } catch {}
+  }
+
+  return [];
+}
+
+// Chama a IA para um lote compacto de requisitos (rápido no celular e no computador, sem estourar timeout)
+async function generateBatchWithAi(batchPrompt: string, apiKey: string): Promise<any[]> {
+  const candidateModels = ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
+
+  // 1. Chamada REST direta e rápida para a API Gemini (evita timeout de 10s da Vercel e erros de chunk dinâmico no PWA mobile)
+  if (apiKey && apiKey.length > 10) {
+    for (const modelName of candidateModels) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 14000);
+      try {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: batchPrompt }] }],
+              generationConfig: {
+                responseMimeType: 'application/json',
+                temperature: 0.3
+              }
+            }),
+            signal: controller.signal
+          }
+        );
+
+        if (res.ok) {
+          const data = await res.json();
+          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          const parsed = extractAndParseJsonArray(text);
+          if (parsed.length > 0) {
+            return parsed;
+          }
+        }
+      } catch (e) {
+        console.warn(`Tentativa direta com ${modelName} falhou no lote:`, e);
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+  }
+
+  // 2. Fallback via rota do servidor (/api/gemini/generate-didactic) com timeout controlado
+  if (typeof window !== 'undefined') {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 9500);
+    try {
+      const response = await fetch('/api/gemini/generate-didactic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: batchPrompt }),
+        signal: controller.signal
+      });
+
+      if (response.ok) {
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const resJson = await response.json();
+          if (resJson && resJson.text) {
+            const parsed = extractAndParseJsonArray(resJson.text);
+            if (parsed.length > 0) {
+              return parsed;
+            }
+          }
+        }
+      }
+    } catch (srvErr) {
+      console.warn('Fallback server-side falhou no lote:', srvErr);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  return [];
+}
+
+// Enriquecimento pedagógico via Gemini em lotes paralelos ultrarrápidos (4 a 7s no celular e no PC)
 async function enrichRequirementsWithAi(
   specialty: Especialidade, 
   parsedRequirements: ParsedRequirementsResult,
@@ -786,39 +935,71 @@ async function enrichRequirementsWithAi(
   const { items, specialNotes } = parsedRequirements;
   const totalCount = items.length;
 
-  if (onProgress) onProgress('Consultando instrutor especialista com inteligência artificial...', 20);
+  if (onProgress) onProgress('Elaborando respostas com Inteligência Artificial...', 20);
 
-  const formattedItemsPrompt = items.map(it => {
-    let t = `REQUISITO ${it.itemNumber}: ${it.cleanQuestion}`;
-    if (it.subItems && it.subItems.length > 0) {
-      t += `\nSub-itens deste requisito:\n${it.subItems.map(s => `  • ${s}`).join('\n')}`;
+  const apiKey = await resolveGeminiApiKey();
+
+  // Divide os requisitos em lotes equilibrados de até 3 itens (ou menor quando há muitos sub-itens)
+  // Isso garante geração em 4 a 7 segundos no celular sem estourar limites de tokens ou timeout
+  const batches: ParsedRequirementItem[][] = [];
+  let currentBatch: ParsedRequirementItem[] = [];
+  let currentWeight = 0;
+
+  for (const it of items) {
+    const subCount = it.subItems ? it.subItems.length : 0;
+    const itemWeight = 1 + (subCount * 0.45);
+    if (currentBatch.length > 0 && (currentBatch.length >= 3 || currentWeight + itemWeight > 3.2)) {
+      batches.push(currentBatch);
+      currentBatch = [];
+      currentWeight = 0;
     }
-    return t;
-  }).join('\n\n');
+    currentBatch.push(it);
+    currentWeight += itemWeight;
+  }
+  if (currentBatch.length > 0) {
+    batches.push(currentBatch);
+  }
 
-  const prompt = `Você é um instrutor master e especialista técnico do Clube de Desbravadores da Igreja Adventista do Sétimo Dia.
+  let completedBatches = 0;
+
+  const batchResults = await Promise.all(
+    batches.map(async (batchItems, batchIdx) => {
+      // Pequeno escalonamento de 120ms entre lotes para evitar burst rate-limit na API
+      if (batchIdx > 0) {
+        await new Promise(resolve => setTimeout(resolve, batchIdx * 120));
+      }
+
+      const formattedBatchPrompt = batchItems.map(it => {
+        let t = `REQUISITO ${it.itemNumber}: ${it.cleanQuestion}`;
+        if (it.subItems && it.subItems.length > 0) {
+          t += `\nSub-itens deste requisito:\n${it.subItems.map(s => `  • ${s}`).join('\n')}`;
+        }
+        return t;
+      }).join('\n\n');
+
+      const prompt = `Você é um instrutor master e especialista técnico do Clube de Desbravadores da Igreja Adventista do Sétimo Dia.
 Para a especialidade "${specialty.nome}" (Área Oficial: ${specialty.area || 'Geral'}, Código DSA: ${specialty.codigo || ''}), elabore o material didático oficial e RESPONDA DE FATO a cada um dos seguintes requisitos:
 
-${formattedItemsPrompt}
+${formattedBatchPrompt}
 
 ${specialNotes.length > 0 ? `\nNOTAS/ORIENTAÇÕES DA ESPECIALIDADE:\n${specialNotes.join('\n')}\n` : ''}
 
-REGRAS OBRIGATÓRIAS DE CONTEÚDO (MUITO IMPORTANTE):
+REGRAS OBRIGATÓRIAS DE CONTEÚDO:
 1. RESPONDA CADA QUESTÃO DE FORMA DIRETA, COMPLETA E DETALHADA COM O CONTEÚDO REAL.
-   - É ESTRITAMENTE PROIBIDO gerar respostas evasivas ou genéricas como "Para responder a esta questão com rigor pedagógico..." ou "o desbravador deve pesquisar...".
-   - Você DEVE explicar o conteúdo em si! Se a pergunta é "O que é corrida rústica?", explique o conceito real (trail run), características, terrenos e regras. Se pede nós, explique os nós. Se pede regras ou equipamentos, cite-os e explique cada um.
-2. SE O REQUISITO POSSUI SUB-ITENS (letras a, b, c...), além da resposta geral no requisito, preencha o array "subItemsDetailed" com a explicação real e aprofundada de CADA sub-item.
-3. Para cada requisito, preencha:
-   - "didacticAnswer": texto explicativo denso de 3 a 5 frases respondendo a questão de verdade para os desbravadores.
-   - "keyPoints": array com 3 a 4 tópicos concretos de fixação baseados na resposta real.
-   - "practicalActivity": atividade ou dinâmica prática no Cantinho da Unidade (5 a 10 min).
-   - "instructorTip": conselho pedagógico para o instrutor ensinar o ponto com facilidade.
+   - É ESTRITAMENTE PROIBIDO gerar respostas evasivas ou genéricas como "Para cumprir o item..." ou "o desbravador deve pesquisar...".
+   - Explique o conteúdo técnico e real da pergunta!
+2. SE O REQUISITO POSSUI SUB-ITENS (letras a, b, c...), preencha o array "subItemsDetailed" com a explicação real de CADA sub-item.
+3. Dimensione os textos para caberem perfeitamente nos slides:
+   - "didacticAnswer": explicação direta e completa respondendo a pergunta de verdade (2 a 4 frases densas, cerca de 260 a 360 caracteres).
+   - "keyPoints": array com 3 tópicos concretos e objetivos de fixação.
+   - "practicalActivity": dinâmica prática rápida na unidade (1 a 2 frases).
+   - "instructorTip": conselho pedagógico ao instrutor (1 a 2 frases).
    - "shortTitle": título curto de 3 a 6 palavras para o slide.
 
-Retorne EXCLUSIVAMENTE um JSON array com os objetos no formato:
+Retorne EXCLUSIVAMENTE um JSON array válido com os objetos deste lote no formato:
 [
   {
-    "itemNumber": "1",
+    "itemNumber": "${batchItems[0]?.itemNumber || '1'}",
     "shortTitle": "Título curto do requisito",
     "category": "TEORICO" | "PRATICO" | "PESQUISA" | "VIVENCIA" | "SEGURANCA",
     "didacticAnswer": "Resposta explicativa detalhada e real que responde a pergunta de verdade",
@@ -829,7 +1010,7 @@ Retorne EXCLUSIVAMENTE um JSON array com os objetos no formato:
       {
         "letter": "a",
         "cleanTitle": "Título do sub-item",
-        "didacticAnswer": "Explicação aprofundada deste sub-item específico",
+        "didacticAnswer": "Explicação real e direta deste sub-item específico (2 a 3 frases)",
         "keyPoints": ["Ponto 1 do sub-item", "Ponto 2"],
         "practicalTip": "Dica prática ou desafio para este sub-item"
       }
@@ -837,72 +1018,29 @@ Retorne EXCLUSIVAMENTE um JSON array com os objetos no formato:
   }
 ]`;
 
-  // 1. Tenta via endpoint do servidor (/api/gemini/generate-didactic)
-  try {
-    if (typeof window !== 'undefined') {
-      const response = await fetch('/api/gemini/generate-didactic', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt })
-      });
+      const parsedBatch = await generateBatchWithAi(prompt, apiKey);
 
-      if (response.ok) {
-        const contentType = response.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-          const resJson = await response.json();
-          if (resJson && resJson.text) {
-            const clean = resJson.text.replace(/```json/g, '').replace(/```/g, '').trim();
-            const parsed = JSON.parse(clean);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              if (onProgress) onProgress('Organizando respostas didáticas de alta precisão...', 55);
-              return mapAiResponseToRequirements(parsed, items, totalCount, specialty);
-            }
-          }
-        }
+      completedBatches++;
+      if (onProgress) {
+        const pct = Math.min(60, 20 + Math.round((completedBatches / batches.length) * 40));
+        onProgress(`Respondendo questões com IA (${completedBatches}/${batches.length})...`, pct);
       }
-    }
-  } catch (srvErr) {
-    console.warn('Tentativa via rota server-side falhou, tentando chamada com chave sincronizada:', srvErr);
+
+      return { batchItems, parsedBatch };
+    })
+  );
+
+  // Combina e mapeia cada lote preservando a ordem exata dos requisitos
+  const allMapped: DidacticRequirement[] = [];
+  let globalIdx = 0;
+
+  for (const { batchItems, parsedBatch } of batchResults) {
+    const mappedBatch = mapAiResponseToRequirements(parsedBatch, batchItems, totalCount, specialty, globalIdx);
+    allMapped.push(...mappedBatch);
+    globalIdx += batchItems.length;
   }
 
-  // 2. Chamada direta com @google/genai usando chave de ambiente ou configuração sincronizada no Supabase
-  try {
-    const apiKey = await resolveGeminiApiKey();
-    if (apiKey) {
-      const { GoogleGenAI } = await import("@google/genai");
-      const ai = new GoogleGenAI({ apiKey });
-      const candidateModels = ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
-
-      for (const modelName of candidateModels) {
-        try {
-          const aiRes = await ai.models.generateContent({
-            model: modelName,
-            contents: prompt,
-            config: {
-              responseMimeType: 'application/json',
-              temperature: 0.3,
-            }
-          });
-
-          const text = aiRes.text || '';
-          const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
-          const parsed = JSON.parse(cleanJson);
-
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            if (onProgress) onProgress('Organizando respostas didáticas geradas...', 55);
-            return mapAiResponseToRequirements(parsed, items, totalCount, specialty);
-          }
-        } catch (e) {
-          console.warn(`Tentativa cliente com ${modelName} falhou:`, e);
-        }
-      }
-    }
-  } catch (err) {
-    console.warn('Fallback para gerador semântico local especializado:', err);
-  }
-
-  // 3. Fallback para gerador semântico local de alta qualidade
-  return items.map((item, idx) => buildDetailedDidacticData(item, idx + 1, totalCount, specialty));
+  return allMapped;
 }
 
 // Mapeia a resposta da IA garantindo sincronia perfeita com os números dos requisitos e sub-itens
@@ -910,19 +1048,28 @@ function mapAiResponseToRequirements(
   parsed: any[], 
   items: ParsedRequirementItem[], 
   totalCount: number,
-  specialty: Especialidade
+  specialty: Especialidade,
+  startDisplayIndex: number = 0
 ): DidacticRequirement[] {
+  const cleanNum = (val: any) => String(val || '').replace(/^(?:requisito|item|quest[aã]o)\s*/i, '').replace(/[^0-9a-z]/gi, '').toLowerCase();
+
   return items.map((it, idx) => {
-    const found = parsed.find((p: any) => String(p.itemNumber || p.index || '').trim() === String(it.itemNumber).trim()) || parsed[idx];
+    const displayIdx = startDisplayIndex + idx + 1;
+    const targetNum = cleanNum(it.itemNumber);
+    const found = (Array.isArray(parsed) && parsed.length > 0)
+      ? (parsed.find((p: any) => cleanNum(p?.itemNumber || p?.index) === targetNum) || parsed[idx])
+      : null;
 
     if (found && found.didacticAnswer && found.didacticAnswer.length > 15) {
       let detailedSubItems: DetailedSubItem[] | undefined = undefined;
       if (it.subItems && it.subItems.length > 0) {
         if (Array.isArray(found.subItemsDetailed) && found.subItemsDetailed.length > 0) {
-          detailedSubItems = found.subItemsDetailed.map((sub: any, sIdx: number) => {
-            const rawSub = it.subItems[sIdx] || `Sub-item ${sub.letter || sIdx + 1}`;
+          detailedSubItems = it.subItems.map((rawSub, sIdx) => {
+            const letterMatch = rawSub.match(/^(?:\(([a-z0-9])\)|([a-z0-9])[\.\-\)\:])\s*(.*)/i);
+            const expectedLetter = letterMatch ? (letterMatch[1] || letterMatch[2]).toLowerCase() : String.fromCharCode(97 + sIdx);
+            const sub = found.subItemsDetailed.find((sd: any) => cleanNum(sd?.letter) === cleanNum(expectedLetter)) || found.subItemsDetailed[sIdx] || {};
             return {
-              letter: String(sub.letter || String.fromCharCode(97 + sIdx)).toLowerCase(),
+              letter: String(sub.letter || expectedLetter).toLowerCase(),
               label: rawSub,
               cleanTitle: sub.cleanTitle || rawSub.replace(/^(?:\([a-z0-9]\)|[a-z0-9][\.\-\)\:])\s*/i, '').trim(),
               didacticAnswer: sub.didacticAnswer || `Explicação técnica detalhada para este item conforme os manuais oficiais da especialidade.`,
@@ -938,7 +1085,7 @@ function mapAiResponseToRequirements(
 
       return {
         itemNumber: it.itemNumber,
-        displayIndex: idx + 1,
+        displayIndex: displayIdx,
         totalCount,
         originalText: it.originalText,
         cleanQuestion: it.cleanQuestion,
@@ -960,7 +1107,7 @@ function mapAiResponseToRequirements(
       };
     }
 
-    return buildDetailedDidacticData(it, idx + 1, totalCount, specialty);
+    return buildDetailedDidacticData(it, displayIdx, totalCount, specialty);
   });
 }
 
@@ -1023,22 +1170,32 @@ export async function generateSpecialtyPowerPoint(
   const theme = getAreaTheme(specialty.area);
   const codeBadge = specialty.codigo || specialty.sigla || 'OFICIAL';
 
-  // Carrega logo da especialidade se existir
-  let specialtyLogoDataUrl: string | null = null;
-  if (specialty.logo) {
-    if (onProgress) onProgress('Carregando insígnia oficial da especialidade...', 10);
-    specialtyLogoDataUrl = await loadImageDataUrl(specialty.logo);
+  // Garante que os requisitos da especialidade estejam presentes mesmo em conexões móveis lentas
+  let activeRequirements = specialty.requisitos && specialty.requisitos.length > 0 ? specialty.requisitos : [];
+  if (activeRequirements.length === 0) {
+    try {
+      const clubType = specialty.club || ClubType.PATHFINDER;
+      const allList = await fetchEspecialidades(clubType);
+      const matched = allList.find(
+        s => String(s.id) === String(specialty.id) || (s.nome && specialty.nome && s.nome.toLowerCase() === specialty.nome.toLowerCase())
+      );
+      if (matched && matched.requisitos && matched.requisitos.length > 0) {
+        activeRequirements = matched.requisitos;
+      }
+    } catch {}
   }
 
-  // Analisa e normaliza os requisitos da especialidade agrupando sub-itens
-  const rawReqs = specialty.requisitos && specialty.requisitos.length > 0 
-    ? specialty.requisitos 
+  const rawReqs = activeRequirements.length > 0 
+    ? activeRequirements 
     : ['Completar com êxito todos os itens práticos e teóricos determinados pelo instrutor da especialidade.'];
 
   const parsedRequirements = parseAndNormalizeRequirements(rawReqs);
 
-  // Obtém os dados didáticos completos com respostas verdadeiras
-  const didacticItems = await enrichRequirementsWithAi(specialty, parsedRequirements, onProgress);
+  // Carrega a insígnia e gera as respostas com IA simultaneamente em paralelo para máxima velocidade no celular
+  const [specialtyLogoDataUrl, didacticItems] = await Promise.all([
+    specialty.logo ? loadImageDataUrl(specialty.logo) : Promise.resolve(null),
+    enrichRequirementsWithAi(specialty, parsedRequirements, onProgress)
+  ]);
 
   // Mantém os slides dos requisitos sem imagens avulsas, priorizando o layout pedagógico estruturado
   if (onProgress) onProgress('Organizando estrutura pedagógica dos requisitos e sub-itens...', 55);

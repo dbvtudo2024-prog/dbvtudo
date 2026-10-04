@@ -2,8 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'http';
 
 const SUPABASE_FALLBACK_URL = 'https://dembhtmryutggifbpuka.supabase.co';
 const SUPABASE_FALLBACK_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlbWJodG1yeXV0Z2dpZmJwdWthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MDQ0NjUsImV4cCI6MjA5NTM4MDQ2NX0.PVAqzmvqo4wDO2_i_MCF1lw8yxXzLxJj1Uj_gcyKTRI';
-
-let cachedServerAiKey = '';
+const DEFAULT_ENCODED_AI_CFG = 'JSsMPicMJVoPdWZAWRILRFgQNCAlAgNQJzFdWXByDQEBKxwhKSYf';
 
 function decodeAiCfg(encoded: string): string {
   try {
@@ -18,6 +17,8 @@ function decodeAiCfg(encoded: string): string {
     return '';
   }
 }
+
+let cachedServerAiKey = decodeAiCfg(DEFAULT_ENCODED_AI_CFG);
 
 async function resolveServerApiKey(): Promise<string> {
   const envKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_GEMINI_API_KEY || '';
@@ -49,7 +50,7 @@ async function resolveServerApiKey(): Promise<string> {
     console.warn('Erro ao recuperar configuração remota da IA no serverless:', e);
   }
 
-  return '';
+  return decodeAiCfg(DEFAULT_ENCODED_AI_CFG);
 }
 
 export default async function handler(req: IncomingMessage & { body?: any }, res: ServerResponse) {
@@ -107,32 +108,51 @@ export default async function handler(req: IncomingMessage & { body?: any }, res
       return;
     }
 
-    const { GoogleGenAI } = await import('@google/genai');
-    const ai = new GoogleGenAI({ apiKey });
     const models = ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
-
     let resultText = '';
     let lastError: any = null;
 
     for (const modelName of models) {
       try {
-        const configObj: any = { temperature };
+        const generationConfig: any = { temperature };
         if (responseMimeType) {
-          configObj.responseMimeType = responseMimeType;
+          generationConfig.responseMimeType = responseMimeType;
         }
+
+        const payload: any = {
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig
+        };
+
         if (systemInstruction) {
-          configObj.systemInstruction = systemInstruction;
+          payload.systemInstruction = { parts: [{ text: systemInstruction }] };
         }
 
-        const response = await ai.models.generateContent({
-          model: modelName,
-          contents: prompt,
-          config: configObj
-        });
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 8500);
+        try {
+          const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+              signal: controller.signal
+            }
+          );
 
-        if (response && response.text) {
-          resultText = response.text;
-          break;
+          if (response.ok) {
+            const data = await response.json();
+            const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) {
+              resultText = text;
+              break;
+            }
+          } else {
+            lastError = new Error(`HTTP ${response.status}`);
+          }
+        } finally {
+          clearTimeout(timer);
         }
       } catch (err) {
         lastError = err;

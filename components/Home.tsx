@@ -14,10 +14,12 @@ interface HomeProps {
 
 const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile, isGuest = false }) => {
   const [userAvatar, setUserAvatar] = React.useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = React.useState<boolean>(false);
 
   React.useEffect(() => {
     if (isGuest) {
       setUserAvatar(null);
+      setIsLoggedIn(false);
       return;
     }
     const loadProfile = () => {
@@ -26,11 +28,14 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
         if (saved) {
           const parsed = JSON.parse(saved);
           setUserAvatar(parsed.avatar || null);
+          setIsLoggedIn(Boolean((parsed.email && parsed.email !== 'email@exemplo.com') || parsed.name));
         } else {
           setUserAvatar(null);
+          setIsLoggedIn(false);
         }
       } catch { 
         setUserAvatar(null);
+        setIsLoggedIn(false);
       }
     };
 
@@ -48,8 +53,8 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
           <div className="relative">
             <button
               onClick={onOpenProfile}
-              title="Meu Perfil"
-              aria-label="Meu Perfil"
+              title={isLoggedIn ? "Meu Perfil" : "Fazer Login"}
+              aria-label={isLoggedIn ? "Meu Perfil" : "Fazer Login"}
               className="w-12 h-12 lg:w-13 lg:h-13 rounded-full overflow-hidden ring-2 ring-indigo-500/20 hover:ring-indigo-500/70 shadow-sm flex items-center justify-center bg-slate-200 dark:bg-slate-700 text-slate-400 active:scale-95 transition-all group"
             >
               {userAvatar ? (
@@ -58,10 +63,12 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
                 <User size={22} className="text-slate-400 dark:text-slate-300" />
               )}
             </button>
-            <div 
-              className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 pointer-events-none z-10 shadow-xs" 
-              title="Conectado"
-            />
+            {isLoggedIn && (
+              <div 
+                className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 pointer-events-none z-10 shadow-xs" 
+                title="Conectado"
+              />
+            )}
           </div>
         </div>
 
