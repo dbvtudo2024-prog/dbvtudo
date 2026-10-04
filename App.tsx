@@ -357,6 +357,7 @@ const App: React.FC = () => {
           setActiveSubView(undefined);
         }
         if (event.state.club) setSelectedClub(event.state.club);
+        if (event.state.guest !== undefined) setIsGuest(Boolean(event.state.guest));
       } else {
         // Se não houver estado e não for LOGIN, tentamos manter ou ir para HOME
         if (currentView !== 'LOGIN' && currentView !== 'SIGNUP') {
@@ -371,22 +372,22 @@ const App: React.FC = () => {
     // Inicializar o estado inicial do histórico
     try {
       if (!window.history.state) {
-        window.history.replaceState({ view: currentView, subView: activeSubView, club: selectedClub }, '', '');
+        window.history.replaceState({ view: currentView, subView: activeSubView, club: selectedClub, guest: isGuest }, '', '');
       }
     } catch (e) {}
 
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [currentView, activeSubView, selectedClub]);
+  }, [currentView, activeSubView, selectedClub, isGuest]);
 
   // Sincronizar histórico quando a view ou subView muda
   useEffect(() => {
     try {
       const state = window.history.state;
-      if (state?.view !== currentView || state?.subView !== activeSubView || state?.club !== selectedClub) {
-        window.history.pushState({ view: currentView, subView: activeSubView, club: selectedClub }, '', '');
+      if (state?.view !== currentView || state?.subView !== activeSubView || state?.club !== selectedClub || state?.guest !== isGuest) {
+        window.history.pushState({ view: currentView, subView: activeSubView, club: selectedClub, guest: isGuest }, '', '');
       }
     } catch (e) {}
-  }, [currentView, activeSubView, selectedClub]);
+  }, [currentView, activeSubView, selectedClub, isGuest]);
 
   const navigateToClub = (club: ClubType) => {
     setSelectedClub(club);

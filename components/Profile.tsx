@@ -1085,13 +1085,14 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
       // Salvar no Supabase se tiver userId ou email
       if (userData.email && userData.email !== "email@exemplo.com") {
-        // Salvar data_nascimento, tipo_sanguineo e fator_rh no Supabase Auth metadata para persistência definitiva na nuvem
+        // Salvar data_nascimento, tipo_sanguineo, fator_rh e cargo no Supabase Auth metadata para persistência definitiva na nuvem
         try {
           await supabase.auth.updateUser({
             data: { 
               data_nascimento: userData.data_nascimento,
               tipo_sanguineo: userData.tipo_sanguineo,
-              fator_rh: userData.fator_rh
+              fator_rh: userData.fator_rh,
+              cargo: userData.cargo
             }
           });
         } catch (authErr) {
@@ -1115,7 +1116,8 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
           fundo: JSON.stringify({ 
             data_nascimento: userData.data_nascimento,
             tipo_sanguineo: userData.tipo_sanguineo,
-            fator_rh: userData.fator_rh
+            fator_rh: userData.fator_rh,
+            cargo: userData.cargo
           }),
           ADM: userData.isAdmin
         };

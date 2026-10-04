@@ -6,14 +6,36 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.28';
+export const APP_VERSION = '3.0.30';
 export const APP_BUILD_DATE = '3 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
-    version: '3.0.28',
+    version: '3.0.30',
     date: '03/10/2026',
     tag: 'NOVO',
+    title: 'Limite de Idade (16+), Leitor de PDF Interno e História Direta dos Aventureiros',
+    changes: [
+      'Limite de idade (16+ anos) nas Especialidades: As funções de Gerar PDF da Especialidade e Apresentação PowerPoint (.pptx) ficam disponíveis apenas para usuários logados a partir de 16 anos (e respeitando os cargos permitidos no PowerPoint).',
+      'Leitura de PDF 100% interna nos livros e materiais: Ocultados os botões de "Abrir em Nova Aba / Outra Janela" no cabeçalho, no rodapé e no canto superior direito do visualizador.',
+      'História dos Aventureiros com abertura direta: Ao tocar em História nos Aventureiros, a História Mundial é aberta diretamente sem o botão intermediário.'
+    ]
+  },
+  {
+    version: '3.0.29',
+    date: '03/10/2026',
+    tag: 'ATUAL',
+    title: 'Controle de Acesso por Cargo no PowerPoint e PDF de Especialidades',
+    changes: [
+      'Ocultação do gerador de apresentações PowerPoint (.pptx) para os cargos Aspirante, Desbravador(a) e Capitão(ã), mantendo o recurso exclusivo para instrutores, conselheiros e diretoria.',
+      'Ocultação do gerador de PDF das especialidades e do PowerPoint para visitantes que acessam o aplicativo na opção "Entrar sem login".',
+      'Sincronização em tempo real do cargo/função do perfil com o banco de dados e armazenamento local.'
+    ]
+  },
+  {
+    version: '3.0.28',
+    date: '03/10/2026',
+    tag: 'ATUAL',
     title: 'IA Funcionando Automaticamente na Vercel Após Deploy',
     changes: [
       'Resolução automática de credenciais na Vercel: Mesmo que a variável não esteja configurada manualmente no painel da Vercel, a função Serverless e o app recuperam a configuração codificada sincronizada com o banco Supabase.',

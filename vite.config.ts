@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '3.0.28';
+const appVersion = '3.0.30';
 
 function versionPlugin(): Plugin {
   return {
@@ -19,9 +19,9 @@ function versionPlugin(): Plugin {
           buildDate: new Date(buildTime).toISOString(),
           timestamp: buildTime,
           highlights: [
-            "Funcionamento automático da IA na Vercel após deploy (com sincronização segura via banco de dados)",
-            "Suporte de até 60s para funções Serverless na Vercel (vercel.json)",
-            "Apresentações PPT 100% focadas em conteúdo pedagógico estruturado e sem imagens desconexas"
+            "Limite de idade (16+ anos) para PDF de especialidades e PowerPoint",
+            "Ocultação dos botões de abrir em outra janela nos leitores de PDF de livros e materiais",
+            "Abertura direta da História Mundial no Clube de Aventureiros"
           ]
         }, null, 2)
       });
@@ -37,9 +37,9 @@ function versionPlugin(): Plugin {
             buildDate: new Date(buildTime).toISOString(),
             timestamp: buildTime,
             highlights: [
-              "Funcionamento automático da IA na Vercel após deploy (com sincronização segura via banco de dados)",
-              "Suporte de até 60s para funções Serverless na Vercel (vercel.json)",
-              "Apresentações PPT 100% focadas em conteúdo pedagógico estruturado e sem imagens desconexas"
+              "Limite de idade (16+ anos) para PDF de especialidades e PowerPoint",
+              "Ocultação dos botões de abrir em outra janela nos leitores de PDF de livros e materiais",
+              "Abertura direta da História Mundial no Clube de Aventureiros"
             ]
           }));
           return;

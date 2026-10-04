@@ -22,6 +22,7 @@ import {
   fetchFaixaConfig, updateFaixaConfig, uploadFaixaImage, FaixaConfig, DEFAULT_FAIXA_CONFIG
 } from '../services/supabaseService';
 import { PROFILE_KEY } from '../constants';
+import { calculateAge } from './Profile';
 import { MASTERY_RULES } from '../masteryRules';
 import { APP_VERSION } from '../versionConfig';
 import { generateSpecialtyPowerPoint, parseAndNormalizeRequirements, isRequirementSubItem } from '../services/presentationService';
@@ -2105,6 +2106,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       setUserAvatar(null);
       setUserEmail(null);
       setIsUserAdmin(false);
+      setUserProfile(null);
       return;
     }
     const saved = localStorage.getItem(PROFILE_KEY);
@@ -2114,13 +2116,115 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         setUserAvatar(parsed.avatar || null);
         setUserEmail(parsed.email || null);
         setIsUserAdmin(parsed.isAdmin || false);
+        setUserProfile(prev => ({
+          ...prev,
+          user_id: prev?.user_id || '',
+          nome: parsed.name || prev?.nome || '',
+          email: parsed.email || prev?.email || '',
+          funçao: parsed.cargo || parsed.funçao || prev?.funçao || '',
+          clube: parsed.clube || prev?.clube || '',
+          clubes: parsed.tipo || prev?.clubes || '',
+          foto: parsed.avatar || prev?.foto || '',
+          data_nascimento: parsed.data_nascimento || prev?.data_nascimento || '',
+          ADM: Boolean(parsed.isAdmin ?? prev?.ADM)
+        }));
       } catch { }
     } else {
       setUserAvatar(null);
       setUserEmail(null);
       setIsUserAdmin(false);
+      setUserProfile(null);
     }
   }, [isGuest]);
+
+  // Verifica se o usuário entrou com login válido (não está no modo "Entrar sem login")
+  const isUserLoggedIn = React.useMemo(() => {
+    if (isGuest) return false;
+    if (userEmail && userEmail !== 'email@exemplo.com') return true;
+    if (userProfile?.user_id || (userProfile?.email && userProfile.email !== 'email@exemplo.com') || userProfile?.nome) return true;
+    try {
+      const saved = localStorage.getItem(PROFILE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return Boolean((parsed?.email && parsed.email !== 'email@exemplo.com') || parsed?.name);
+      }
+    } catch {}
+    return false;
+  }, [isGuest, userEmail, userProfile]);
+
+  // Calcula a idade do usuário logado a partir da data de nascimento
+  const userAge = React.useMemo(() => {
+    let birthDate = userProfile?.data_nascimento || '';
+    if (!birthDate && userProfile?.fundo) {
+      try {
+        const pf = JSON.parse(userProfile.fundo);
+        if (pf?.data_nascimento) birthDate = pf.data_nascimento;
+      } catch {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(userProfile.fundo)) birthDate = userProfile.fundo;
+      }
+    }
+    if (!birthDate) {
+      try {
+        const saved = localStorage.getItem(PROFILE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed?.data_nascimento) birthDate = parsed.data_nascimento;
+        }
+      } catch {}
+    }
+    return calculateAge(birthDate);
+  }, [userProfile]);
+
+  // Cargo normalizado do usuário
+  const normalizedUserRole = React.useMemo(() => {
+    let rawRole = userProfile?.funçao || (userProfile as any)?.cargo || (userProfile as any)?.funcao || '';
+    if (!rawRole) {
+      try {
+        const saved = localStorage.getItem(PROFILE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          rawRole = parsed?.cargo || parsed?.funçao || parsed?.funcao || '';
+        }
+      } catch {}
+    }
+    return String(rawRole || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+  }, [userProfile]);
+
+  // Verifica se o usuário tem 16 anos ou mais (limite de idade para PDF de especialidade e PowerPoint)
+  const isAgeAllowedForSpecialtyDocs = React.useMemo(() => {
+    if (userAge !== null) {
+      return userAge >= 16;
+    }
+    // Caso ainda não tenha data de nascimento preenchida, bloqueia se o cargo for juvenil (Desbravador/Aspirante)
+    if (normalizedUserRole.includes('desbravador') || normalizedUserRole.includes('aspirante')) {
+      return false;
+    }
+    return true;
+  }, [userAge, normalizedUserRole]);
+
+  // Gerador de PDF das Especialidades: oculto para quem entrar sem login e para menores de 16 anos
+  const canGenerateSpecialtyPdf = React.useMemo(() => {
+    return isUserLoggedIn && isAgeAllowedForSpecialtyDocs;
+  }, [isUserLoggedIn, isAgeAllowedForSpecialtyDocs]);
+
+  // Apresentação PowerPoint: oculta para sem login, menores de 16 anos e cargos Aspirante, Desbravador(a) e Capitão(ã)
+  const canGenerateSpecialtyPptx = React.useMemo(() => {
+    if (!isUserLoggedIn || !isAgeAllowedForSpecialtyDocs) return false;
+
+    if (!normalizedUserRole) return true;
+
+    const isRestrictedRole =
+      normalizedUserRole.includes('aspirante') ||
+      normalizedUserRole.includes('desbravador') ||
+      normalizedUserRole.includes('capitao') ||
+      normalizedUserRole.includes('capita');
+
+    return !isRestrictedRole;
+  }, [isUserLoggedIn, isAgeAllowedForSpecialtyDocs, normalizedUserRole]);
 
   useEffect(() => {
     loadProfile();
@@ -2154,37 +2258,72 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     };
     window.addEventListener('dbv_catalog_favs_changed', handleCatalogSync);
 
-    // If isUserAdmin is not set yet, try to fetch from Supabase
-    if (userEmail && !isUserAdmin) {
-      const savedState = localStorage.getItem('dbv_tudo_app_state');
-      if (savedState) {
-        try {
-          const { guest } = JSON.parse(savedState);
-          if (!guest) {
-            // Get current user session to get ID
-            supabase.auth.getUser()
-              .then(({ data, error }) => {
-                if (!error && data?.user) {
-                  fetchUserProfile(data.user.id)
-                    .then(profile => {
-                      if (profile?.ADM) {
-                        setIsUserAdmin(true);
-                        // Update local storage for next time
-                        const savedProfile = localStorage.getItem(PROFILE_KEY);
-                        if (savedProfile) {
-                          const parsed = JSON.parse(savedProfile);
-                          parsed.isAdmin = true;
-                          localStorage.setItem(PROFILE_KEY, JSON.stringify(parsed));
-                        }
-                      }
-                    })
-                    .catch(err => console.warn("Erro ao buscar perfil:", err));
+    // Sincronizar perfil completo do usuário logado com o Supabase
+    if (!isGuest) {
+      supabase.auth.getUser()
+        .then(({ data, error }) => {
+          if (!error && data?.user) {
+            fetchUserProfile(data.user.id)
+              .then(profile => {
+                if (profile) {
+                  let localParsed: any = null;
+                  try {
+                    const savedProfile = localStorage.getItem(PROFILE_KEY);
+                    if (savedProfile) localParsed = JSON.parse(savedProfile);
+                  } catch {}
+
+                  let fundoCargo = '';
+                  let fundoBirthDate = '';
+                  if (profile.fundo) {
+                    try {
+                      const pf = JSON.parse(profile.fundo);
+                      if (pf?.cargo) fundoCargo = pf.cargo;
+                      if (pf?.data_nascimento) fundoBirthDate = pf.data_nascimento;
+                    } catch {
+                      if (/^\d{4}-\d{2}-\d{2}$/.test(profile.fundo)) fundoBirthDate = profile.fundo;
+                    }
+                  }
+
+                  const effectiveCargo = localParsed?.cargo || profile.funçao || (profile as any).cargo || fundoCargo || data.user.user_metadata?.cargo || '';
+                  const effectiveBirthDate = localParsed?.data_nascimento || profile.data_nascimento || (profile as any)['data de nascimento'] || (profile as any)['nascimento'] || fundoBirthDate || data.user.user_metadata?.data_nascimento || '';
+                  const effectiveName = localParsed?.name || profile.nome || '';
+                  const effectiveClube = localParsed?.clube || profile.clube || profile.clube_de || '';
+                  const effectiveAvatar = localParsed?.avatar || profile.foto || '';
+                  const effectiveAdmin = Boolean(profile.ADM || localParsed?.isAdmin);
+
+                  setUserProfile({
+                    ...profile,
+                    nome: effectiveName,
+                    funçao: effectiveCargo,
+                    clube: effectiveClube,
+                    foto: effectiveAvatar,
+                    data_nascimento: effectiveBirthDate,
+                    email: data.user.email || localParsed?.email || profile.email,
+                    ADM: effectiveAdmin
+                  });
+
+                  if (effectiveAdmin) {
+                    setIsUserAdmin(true);
+                  }
+                  if (!userEmail && data.user.email) {
+                    setUserEmail(data.user.email);
+                  }
+                  if (localParsed) {
+                    localParsed.isAdmin = effectiveAdmin;
+                    if (!localParsed.cargo && effectiveCargo) localParsed.cargo = effectiveCargo;
+                    if (!localParsed.data_nascimento && effectiveBirthDate) localParsed.data_nascimento = effectiveBirthDate;
+                    if (!localParsed.name && effectiveName) localParsed.name = effectiveName;
+                    if (!localParsed.clube && effectiveClube) localParsed.clube = effectiveClube;
+                    try {
+                      localStorage.setItem(PROFILE_KEY, JSON.stringify(localParsed));
+                    } catch {}
+                  }
                 }
               })
-              .catch(err => console.warn("Erro ao verificar sessão:", err));
+              .catch(err => console.warn("Erro ao buscar perfil:", err));
           }
-        } catch {}
-      }
+        })
+        .catch(err => console.warn("Erro ao verificar sessão:", err));
     }
 
     return () => {
@@ -3190,7 +3329,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   };
 
   const renderPptxModal = () => {
-    if (!isPptxModalOpen || !selectedSpecialty) return null;
+    if (!isPptxModalOpen || !selectedSpecialty || !canGenerateSpecialtyPptx) return null;
 
     // Calcula os requisitos reais usando parseAndNormalizeRequirements para não contar sub-itens como novos requisitos
     const parsedSpecialty = parseAndNormalizeRequirements(selectedSpecialty.requisitos || []);
@@ -3864,39 +4003,58 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           </div>
         </div>
 
-        {/* Ações de Exportação: PDF e Apresentação PowerPoint Didática */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-          <button 
-            onClick={generateSpecialtyPDF}
-            disabled={isGeneratingPDF || isGeneratingPptx}
-            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
-          >
-            <Download size={18} />
-            <span>{isGeneratingPDF ? 'Gerando PDF...' : 'Gerar PDF da Especialidade'}</span>
-          </button>
+        {/* Ações de Exportação: PDF (apenas usuários logados com 16+ anos) e Apresentação PowerPoint Didática (oculta para sem login, <16 anos, Aspirante, Desbravador e Capitão) */}
+        {(canGenerateSpecialtyPdf || canGenerateSpecialtyPptx) && (
+          <div className={`grid grid-cols-1 ${canGenerateSpecialtyPdf && canGenerateSpecialtyPptx ? 'sm:grid-cols-2' : ''} gap-3 pt-2`}>
+            {canGenerateSpecialtyPdf && (
+              <button 
+                onClick={generateSpecialtyPDF}
+                disabled={isGeneratingPDF || isGeneratingPptx}
+                className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+              >
+                <Download size={18} />
+                <span>{isGeneratingPDF ? 'Gerando PDF...' : 'Gerar PDF da Especialidade'}</span>
+              </button>
+            )}
 
-          <button 
-            onClick={() => {
-              setPptxError(null);
-              if (!pptxInstructorName && userProfile?.nome) {
-                setPptxInstructorName(userProfile.nome);
-              }
-              setIsPptxModalOpen(true);
-            }}
-            disabled={isGeneratingPDF || isGeneratingPptx}
-            className="w-full py-4 bg-gradient-to-r from-orange-600 via-amber-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-lg hover:shadow-orange-500/25 active:scale-95 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
-          >
-            <Presentation size={18} />
-            <span>{isGeneratingPptx ? 'Gerando Slides...' : 'Apresentação PowerPoint (.pptx)'}</span>
-          </button>
-        </div>
+            {canGenerateSpecialtyPptx && (
+              <button 
+                onClick={() => {
+                  setPptxError(null);
+                  if (!pptxInstructorName && userProfile?.nome) {
+                    setPptxInstructorName(userProfile.nome);
+                  }
+                  setIsPptxModalOpen(true);
+                }}
+                disabled={isGeneratingPDF || isGeneratingPptx}
+                className="w-full py-4 bg-gradient-to-r from-orange-600 via-amber-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-lg hover:shadow-orange-500/25 active:scale-95 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+              >
+                <Presentation size={18} />
+                <span>{isGeneratingPptx ? 'Gerando Slides...' : 'Apresentação PowerPoint (.pptx)'}</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
     );
   };
   const renderCultureMenu = () => {
     const cultureItems = [
       { label: 'Ideais e Hino', subtitle: 'Voto, Lei e Música', icon: Music, gradient: 'from-[#0052D4] via-[#4364F7] to-[#6FB1FC]', action: () => setActiveSubView('IDEALS_ANTHEM') },
-      { label: 'História', subtitle: 'Origem e Pioneiros', icon: Globe, gradient: 'from-[#fd7e14] via-[#f59e0b] to-[#fbbf24]', action: () => setActiveSubView('HISTORY_LIST') },
+      { 
+        label: 'História', 
+        subtitle: 'Origem e Pioneiros', 
+        icon: Globe, 
+        gradient: 'from-[#fd7e14] via-[#f59e0b] to-[#fbbf24]', 
+        action: () => {
+          if (club === ClubType.ADVENTURER) {
+            setSelectedHistory('historia_mundial');
+            setActiveSubView('HISTORY_DETAIL');
+          } else {
+            setActiveSubView('HISTORY_LIST');
+          }
+        }
+      },
       { label: 'Uniformes', subtitle: 'Oficial e de Atividades', icon: Shirt, gradient: 'from-[#059669] via-[#10b981] to-[#34d399]', action: () => { setActiveAccordions([]); setActiveSubView('UNIFORMS'); } },
       { label: 'Emblemas', subtitle: 'Insígnias e Significados', icon: Shield, gradient: 'from-[#6a11cb] via-[#7F00FF] to-[#9d4edd]', action: () => { setActiveAccordions([]); setActiveSubView('EMBLEMS'); } }
     ];
@@ -4053,6 +4211,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   };
 
   const renderHistoryList = () => {
+    if (club === ClubType.ADVENTURER) {
+      return renderHistoryDetail();
+    }
+
     const availableHistories = [
       { id: 'historia_mundial', label: 'Mundial' },
       { id: 'historia_america_sul', label: 'América do Sul' },
@@ -4126,9 +4288,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       historia_uruguai: 'Uruguai'
     };
 
-    const title = selectedHistory ? historyMap[selectedHistory] : '';
-    const content = selectedHistory ? (culturaData as any)?.[selectedHistory] : '';
-    const historyImage = selectedHistory ? (culturaData as any)?.[`${selectedHistory}_img`] : '';
+    const effectiveHistoryKey = selectedHistory || (club === ClubType.ADVENTURER ? 'historia_mundial' : '');
+    const title = effectiveHistoryKey ? historyMap[effectiveHistoryKey] : '';
+    const content = effectiveHistoryKey ? (culturaData as any)?.[effectiveHistoryKey] : '';
+    const historyImage = effectiveHistoryKey ? (culturaData as any)?.[`${effectiveHistoryKey}_img`] : '';
 
     return (
       <div className="animate-slide-in space-y-6 pt-4 pb-28">
@@ -4652,27 +4815,20 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       <div className="flex-grow flex flex-col relative h-full min-h-[500px]">
         {selectedPdfUrl ? (
           <>
+            {/* Bloqueia e oculta o botão flutuante de abrir em outra janela do Google Drive no canto superior direito */}
+            <div 
+              className="absolute top-2 right-2 w-12 h-12 z-20 bg-slate-900/95 dark:bg-slate-900 rounded-xl flex items-center justify-center text-white/80 shadow-md select-none pointer-events-auto"
+              title={pdfTitle || 'Leitura no App'}
+            >
+              <BookOpen size={18} />
+            </div>
             <iframe 
               src={selectedPdfUrl} 
               className="w-full h-full border-none flex-grow bg-slate-50 dark:bg-slate-900"
               title={pdfTitle}
               allow="autoplay"
+              sandbox="allow-scripts allow-same-origin"
             />
-            {/* Barra inferior de resgate para visualização externa */}
-            <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs border-t border-slate-200 dark:border-slate-800 p-2.5 px-4 flex items-center justify-between text-xs text-slate-500 shrink-0">
-              <span className="truncate max-w-[220px] font-medium text-[11px] text-slate-600 dark:text-slate-300">
-                {pdfTitle}
-              </span>
-              <a
-                href={selectedPdfUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1.5 active:scale-95 transition-all shadow-xs"
-              >
-                <span>Abrir em Nova Aba</span>
-                <ExternalLink size={12} />
-              </a>
-            </div>
           </>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-slate-400 dark:text-slate-500 font-bold text-sm p-6 text-center space-y-2">
@@ -5044,11 +5200,19 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     return (
       <div className="animate-slide-in h-full flex flex-col flex-grow w-full bg-slate-100 dark:bg-slate-950 md:rounded-3xl overflow-hidden md:border md:border-slate-200/80 md:dark:border-slate-800 md:shadow-md">
         <div className="flex-grow flex flex-col relative h-full min-h-[500px]">
+          {/* Bloqueia e oculta o botão flutuante de abrir em outra janela do Google Drive no canto superior direito */}
+          <div 
+            className="absolute top-2 right-2 w-12 h-12 z-20 bg-slate-900/95 dark:bg-slate-900 rounded-xl flex items-center justify-center text-white/80 shadow-md select-none pointer-events-auto"
+            title={selectedDesbravaPlusItem.Nome || 'Leitura no App'}
+          >
+            <BookOpen size={18} />
+          </div>
           <iframe 
             src={formattedUrl} 
             className="w-full h-full border-none flex-grow bg-slate-50 dark:bg-slate-900"
             title={selectedDesbravaPlusItem.Nome}
             allow="autoplay"
+            sandbox="allow-scripts allow-same-origin"
           />
         </div>
       </div>
@@ -8993,7 +9157,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                   } else if (activeSubView === 'HISTORY_LIST') {
                     setActiveSubView('CULTURE');
                   } else if (activeSubView === 'HISTORY_DETAIL') {
-                    setActiveSubView('HISTORY_LIST');
+                    setActiveSubView(club === ClubType.ADVENTURER ? 'CULTURE' : 'HISTORY_LIST');
                   } else if (activeSubView === 'UNIFORMS') {
                     setActiveAccordions([]);
                     setActiveSubView('CULTURE');
@@ -9141,17 +9305,6 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               >
                 <Heart size={20} fill={completedSpecialties.includes(selectedSpecialty.id.toString()) ? "currentColor" : "none"} />
               </button>
-            )}
-            {(activeSubView === 'PDF_VIEWER' || activeSubView === 'DESBRAVA_PLUS_PDF') && (
-              <a 
-                href={activeSubView === 'PDF_VIEWER' ? (selectedPdfUrl || '#') : (selectedDesbravaPlusItem?.PDF || selectedDesbravaPlusItem?.Conteudo || '#')} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-11 h-11 md:w-12 md:h-12 landscape:w-9 landscape:h-9 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/70 text-blue-600 dark:text-blue-400 rounded-2xl shadow-sm border border-blue-200/60 dark:border-blue-900/50 flex items-center justify-center transition-all active:scale-90"
-                title="Abrir em Nova Aba"
-              >
-                <ExternalLink size={20} strokeWidth={2.4} className="landscape:w-4 landscape:h-4" />
-              </a>
             )}
           </div>
         </div>

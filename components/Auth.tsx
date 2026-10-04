@@ -260,6 +260,15 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
         if (profile) {
           const uClub = profile.clubes === "Aventureiro" ? ClubType.ADVENTURER : ClubType.PATHFINDER;
           const uEmail = profile.email || (profile as any)['e - mail'] || data.user.email;
+          let birthDate = profile.data_nascimento || (profile as any)['data de nascimento'] || data.user.user_metadata?.data_nascimento || "";
+          if (!birthDate && profile.fundo) {
+            try {
+              const pf = JSON.parse(profile.fundo);
+              if (pf?.data_nascimento) birthDate = pf.data_nascimento;
+            } catch {
+              if (/^\d{4}-\d{2}-\d{2}$/.test(profile.fundo)) birthDate = profile.fundo;
+            }
+          }
 
           localStorage.setItem(`dbv_tudo_global_user_profile`, JSON.stringify({
             name: profile.nome,
@@ -271,6 +280,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
             avatar: profile.foto || "",
             cidade: profile.cidade || "",
             estado: profile.estado || "",
+            data_nascimento: birthDate,
             isAdmin: profile.ADM || false
           }));
 
