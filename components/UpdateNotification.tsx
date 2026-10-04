@@ -5,7 +5,11 @@ import { APP_VERSION } from '../versionConfig';
 
 declare const __APP_BUILD_TIME__: number | string | undefined;
 
-export const UpdateNotification: React.FC = () => {
+interface UpdateNotificationProps {
+  onOpenVersionHistory?: () => void;
+}
+
+export const UpdateNotification: React.FC<UpdateNotificationProps> = ({ onOpenVersionHistory }) => {
   const [hasUpdate, setHasUpdate] = useState(false);
   const [newVersionName, setNewVersionName] = useState<string>('');
   const [updateHighlights, setUpdateHighlights] = useState<string[]>([]);
@@ -286,84 +290,69 @@ export const UpdateNotification: React.FC = () => {
         </div>
       )}
 
-      {/* Alerta de Nova Versão Disponível */}
+      {/* Alerta Compacto de Nova Versão Disponível */}
       {hasUpdate && !isDismissed && (
-        <div className="fixed top-4 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-md z-[9999] animate-slide-up pointer-events-auto">
-          <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md rounded-2xl shadow-2xl border-2 border-indigo-500/40 dark:border-indigo-500/50 p-4 text-slate-800 dark:text-slate-100 flex flex-col gap-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-indigo-600 flex items-center justify-center text-white shrink-0 shadow-md">
-                  <Sparkles size={20} className="animate-pulse" />
+        <div className="fixed top-3 left-3 right-3 sm:left-auto sm:right-6 sm:max-w-sm z-[9999] animate-slide-up pointer-events-auto">
+          <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-indigo-500/40 dark:border-indigo-500/50 p-3.5 text-slate-800 dark:text-slate-100 flex flex-col gap-2.5">
+            <div className="flex items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-indigo-600 flex items-center justify-center text-white shrink-0 shadow-sm">
+                  <Sparkles size={17} className="animate-pulse" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">
-                      {newVersionName ? `Nova versão v${newVersionName}` : 'Nova versão disponível!'}
+                    <h4 className="font-extrabold text-sm text-slate-900 dark:text-white leading-tight">
+                      {newVersionName ? `Nova versão v${newVersionName}` : 'Nova versão disponível'}
                     </h4>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
                       v{newVersionName || 'NOVA'}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                    A versão atual instalada é <strong className="text-slate-700 dark:text-slate-200 font-semibold">v{APP_VERSION}</strong>. Atualize agora para carregar as alterações mais recentes.
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                    Novidades em{' '}
+                    {onOpenVersionHistory ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsDismissed(true);
+                          onOpenVersionHistory();
+                        }}
+                        className="font-bold text-indigo-600 dark:text-indigo-400 underline hover:text-indigo-500"
+                      >
+                        Ajustes &gt; Histórico de Versões
+                      </button>
+                    ) : (
+                      <strong className="text-slate-700 dark:text-slate-200">Ajustes &gt; Histórico de Versões</strong>
+                    )}
                   </p>
-
-                  {/* Lista de novidades caso disponível */}
-                  {updateHighlights.length > 0 && (
-                    <div className="mt-2.5 p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-700/60 text-[11px] space-y-1">
-                      <p className="font-bold text-slate-700 dark:text-slate-300 text-[10px] uppercase tracking-wider">
-                        O que há de novo:
-                      </p>
-                      {updateHighlights.map((item, idx) => (
-                        <div key={idx} className="flex items-start gap-1.5 text-slate-600 dark:text-slate-400">
-                          <CheckCircle2 size={12} className="text-emerald-500 mt-0.5 shrink-0" />
-                          <span>{item}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </div>
-              
+
               <button
                 onClick={() => setIsDismissed(true)}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg transition-colors shrink-0"
-                title="Lembrar mais tarde"
+                title="Fechar"
                 aria-label="Fechar aviso de atualização"
               >
-                <X size={16} />
+                <X size={15} />
               </button>
             </div>
 
-            <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
-              {notificationPermission === 'default' ? (
-                <button
-                  onClick={requestNotificationPermission}
-                  className="flex items-center gap-1.5 text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold hover:underline"
-                >
-                  <BellRing size={13} />
-                  Ativar no celular
-                </button>
-              ) : (
-                <span className="text-[10px] text-slate-400 font-medium">Instalada: v{APP_VERSION}</span>
-              )}
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setIsDismissed(true)}
-                  className="px-3 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
-                >
-                  Depois
-                </button>
-                <button
-                  onClick={handleUpdateNow}
-                  disabled={isUpdating}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-600/20 transition-all cursor-pointer disabled:opacity-75"
-                >
-                  <RefreshCw size={14} className={isUpdating ? "animate-spin" : ""} />
-                  {isUpdating ? "Atualizando..." : "Atualizar Agora"}
-                </button>
-              </div>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                onClick={() => setIsDismissed(true)}
+                className="px-3 py-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+              >
+                Depois
+              </button>
+              <button
+                onClick={handleUpdateNow}
+                disabled={isUpdating}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-600/20 transition-all cursor-pointer disabled:opacity-75"
+              >
+                <RefreshCw size={13} className={isUpdating ? "animate-spin" : ""} />
+                <span>{isUpdating ? "Atualizando..." : "Atualizar"}</span>
+              </button>
             </div>
           </div>
         </div>

@@ -492,7 +492,7 @@ export const MANUAL_ADMINISTRATIVO_DBV_QUESTIONS: Omit<QuizQuestionItem, 'id'>[]
     subCategory: 'Sistema de Unidades',
     question: 'No Manual Administrativo, qual é o papel do Conselheiro(a) de Unidade dentro do Clube de Desbravadores?',
     options: [
-      'É o líder adulto (mínimo 16/18 anos) que acompanha de perto os 6 a 8 desbravadores da unidade, sendo exemplo espiritual, amigo, mentor, visitando os lares e acompanhando as classes',
+      'É o líder adulto (18 anos ou mais, podendo contar com um Conselheiro Associado de 16-17 anos) que acompanha os 6 a 8 desbravadores da unidade, sendo exemplo espiritual, visitando os lares e avaliando as classes',
       'Apenas cobrar mensalidades na porta da reunião e aplicar punições físicas',
       'Atuar somente uma vez por ano no dia da investidura',
       'Substituir o pastor na realização de casamentos e batismos'

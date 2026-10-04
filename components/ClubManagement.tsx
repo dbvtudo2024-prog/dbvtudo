@@ -25,17 +25,18 @@ import {
 import { PROFILE_KEY } from '../constants';
 import { calculateAge } from './Profile';
 import { MASTERY_RULES } from '../masteryRules';
-import { APP_VERSION } from '../versionConfig';
+import { APP_VERSION, APP_BUILD_DATE, VERSION_HISTORY } from '../versionConfig';
 import { generateSpecialtyPowerPoint, parseAndNormalizeRequirements, isRequirementSubItem } from '../services/presentationService';
 import { generateSpecialtyExamPdf, generateSpecialtyExamQuestions, ExamFormatMode, ExamQuestion } from '../services/examService';
 import ClubQuiz from './ClubQuiz';
 import UnitCornerCamping from './UnitCornerCamping';
 import FieldManualTools from './FieldManualTools';
+import { DESBRAVA_MAIS_OFFICIAL_MATERIALS, DESBRAVA_MAIS_CHECKLIST } from '../services/desbravaMaisOfficialData';
 import { 
   Shield, Award, User, Layers, Sparkles, Home as HomeIcon, Search,
   ChevronRight, ChevronLeft, ChevronDown, ChevronUp, ListChecks, Info, Book, Settings, Zap, Music, Flag, Shirt, Globe, Key, FileText, Library, CreditCard, MapPin, Video, Folder, BookOpen, Heart, ArrowUp, ArrowDown,
   Trash2, Plus, Save, Share2, Calendar, X, Image as ImageIcon, Download, ArrowLeft, ExternalLink, Filter, Edit2, Edit3, Check,
-  AlignLeft, AlignCenter, AlignRight, ZoomIn, ZoomOut, Minus, Trophy, PanelLeftClose, PanelLeftOpen, Menu, Presentation, RefreshCw, ClipboardCheck, Tent, Compass, Radio, HeartPulse
+  AlignLeft, AlignCenter, AlignRight, ZoomIn, ZoomOut, Minus, Trophy, PanelLeftClose, PanelLeftOpen, Menu, Presentation, RefreshCw, ClipboardCheck, Tent, Compass, Radio, HeartPulse, CheckCircle2, History
 } from 'lucide-react';
 
 
@@ -43,6 +44,14 @@ const getImageUrl = (url: string | undefined | null) => {
   if (!url || typeof url !== 'string') return '';
   const trimmed = url.trim();
   if (trimmed.startsWith('//')) return `https:${trimmed}`;
+  if (
+    trimmed.startsWith('/trunfos/') ||
+    trimmed.startsWith('/libras/') ||
+    trimmed.startsWith('/knots/') ||
+    trimmed.startsWith('/knots3d/')
+  ) {
+    return trimmed;
+  }
   if (trimmed.startsWith('/')) return `https://mda.wiki.br${trimmed}`;
   if (trimmed.includes('drive.google.com')) {
     const match = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || trimmed.match(/id=([a-zA-Z0-9_-]+)/);
@@ -1749,7 +1758,7 @@ export type SubViewType =
   | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' 
   | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' 
   | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS' | 'PDF_VIEWER' | 'LIBRARY_BOOKS_MENU' 
-  | 'VIDEOS' | 'VIDEO_ADMIN' | 'FORM_ADMIN' | 'VIDEO_PLAYER' | 'LINKS_ADMIN' | 'ACHIEVEMENTS_ADMIN' | 'TRUNFOS' | 'TRUNFOS_ADMIN' | 'WEB_VIEWER' | 'FAIXA_ADMIN' | 'QUIZ' | 'UNIT_CORNER' | 'FIELD_MANUAL';
+  | 'VIDEOS' | 'VIDEO_ADMIN' | 'FORM_ADMIN' | 'VIDEO_PLAYER' | 'LINKS_ADMIN' | 'ACHIEVEMENTS_ADMIN' | 'TRUNFOS' | 'TRUNFOS_ADMIN' | 'WEB_VIEWER' | 'FAIXA_ADMIN' | 'FIELD_TRAINING' | 'QUIZ' | 'UNIT_CORNER' | 'FIELD_MANUAL' | 'ORDEM_UNIDA' | 'VERSION_HISTORY';
 
 interface ClubManagementProps {
   club: ClubType;
@@ -1858,7 +1867,43 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
   // Bible Settings State
   const [selectedHistory, setSelectedHistory] = useState<string | null>(null);
-  const [fieldManualTab, setFieldManualTab] = useState<'NOS_AMARRAS' | 'CODIGOS' | 'PRIMEIROS_SOCORROS'>('NOS_AMARRAS');
+  const [fieldManualTab, setFieldManualTab] = useState<'NOS_AMARRAS' | 'CODIGOS' | 'PRIMEIROS_SOCORROS' | 'ORDEM_UNIDA'>('NOS_AMARRAS');
+  const [versionSearchQuery, setVersionSearchQuery] = useState<string>('');
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState<boolean>(false);
+  const [updateCheckMessage, setUpdateCheckMessage] = useState<string | null>(null);
+  const [isFloatingMenuOpenInNewArea, setIsFloatingMenuOpenInNewArea] = useState<boolean>(false);
+
+  const handleManualCheckUpdate = async () => {
+    setIsCheckingUpdate(true);
+    setUpdateCheckMessage(null);
+    try {
+      const res = await fetch(`/version.json?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const serverVersion = Number(data?.version || data?.timestamp);
+        const storedTime = Number(sessionStorage.getItem('dbv_current_build_time') || 0);
+
+        if (serverVersion && storedTime && serverVersion > storedTime) {
+          setUpdateCheckMessage(`Nova versão v${data?.versionName || ''} encontrada! Recarregando...`);
+          setTimeout(() => {
+            window.location.reload();
+          }, 1200);
+          return;
+        }
+      }
+      setUpdateCheckMessage(`Você já está na versão mais recente (v${APP_VERSION})!`);
+    } catch {
+      setUpdateCheckMessage(`Versão instalada: v${APP_VERSION}. Aplicativo atualizado.`);
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
   const [bibleSettings, setBibleSettings] = useState(() => {
     const saved = localStorage.getItem('dbv_tudo_bible_settings');
     return saved ? JSON.parse(saved) : {
@@ -2143,6 +2188,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
   // Reset scroll when view changes
   useEffect(() => {
+    setIsFloatingMenuOpenInNewArea(false);
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = 0;
     }
@@ -5698,93 +5744,282 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     );
   };
 
-  const renderDesbravaPlus = () => (
-    <div className="animate-slide-in space-y-5 pt-4 pb-28">
-      {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-20">
-          <div className="w-8 h-8 border-3 border-slate-100 dark:border-slate-700 border-t-slate-300 dark:border-t-slate-500 rounded-full animate-spin"></div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-4">
-          {desbravaPlusItems.map((item) => (
-            <button 
-              key={item.id} 
-              onClick={() => {
-                setSelectedDesbravaPlusItem(item);
-                const thumb = item.Capa || (item as any).Imagem || (item as any).capa || '';
-                setSelectedPdfThumbnail(thumb ? getImageUrl(thumb) : null);
-                // Se o PDF ou o conteúdo for um link, abre o PDF viewer diretamente
-                const hasPdfLink = item.PDF && (item.PDF.startsWith('http') || item.PDF.includes('.pdf'));
-                const hasConteudoLink = item.Conteudo && (item.Conteudo.startsWith('http') || item.Conteudo.includes('.pdf'));
-                
-                if (hasPdfLink || hasConteudoLink) {
-                  setActiveSubView('DESBRAVA_PLUS_PDF');
-                } else {
-                  setActiveSubView('DESBRAVA_PLUS_DETAILS');
-                }
-              }}
-              className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[32px] flex flex-col p-5 relative shadow-sm active:scale-[0.98] transition-all overflow-hidden group"
-            >
-              <div className="flex items-center space-x-5">
-                <div className="w-20 h-20 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-inner group-hover:scale-105 transition-transform duration-500">
-                  {item.Capa ? (
-                    <img src={item.Capa} className="w-full h-full object-cover" alt={item.Nome} referrerPolicy="no-referrer" />
-                  ) : (
-                    <Sparkles size={32} className="text-slate-200 dark:text-slate-600" />
-                  )}
-                </div>
+  const [desbravaPlusTab, setDesbravaPlusTab] = useState<'MATERIAIS' | 'CHECKLIST_N1' | 'CHECKLIST_N2'>('MATERIAIS');
+  const [desbravaPlusCategoryFilter, setDesbravaPlusCategoryFilter] = useState<string>('TODOS');
+  const [desbravaPlusCheckedIds, setDesbravaPlusCheckedIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('dbv_tudo_desbrava_plus_checklist');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
-                <div className="flex-grow text-left">
-                  <h4 className="font-black text-[#1e293b] dark:text-white text-lg leading-tight tracking-tight uppercase">
-                    {item.Nome}
-                  </h4>
-                  {item.descricao && (
-                    <p className="text-[11px] text-slate-400 font-bold mt-1 line-clamp-2">
-                      {item.descricao}
-                    </p>
-                  )}
-                </div>
-                
-                <ChevronRight size={20} className="text-slate-200 dark:text-slate-600 flex-shrink-0" />
-              </div>
-            </button>
-          ))}
+  const toggleDesbravaPlusCheckItem = (id: string) => {
+    setDesbravaPlusCheckedIds((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      try {
+        localStorage.setItem('dbv_tudo_desbrava_plus_checklist', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const renderDesbravaPlus = () => {
+    // Mescla materiais oficiais do Programa Desbrava+ (DSA) com os itens cadastrados no Supabase
+    const supabaseNames = new Set(desbravaPlusItems.map((i) => (i.Nome || '').toLowerCase().trim()));
+    const mergedMaterials = [
+      ...DESBRAVA_MAIS_OFFICIAL_MATERIALS.filter((m) => !supabaseNames.has(m.Nome.toLowerCase().trim())),
+      ...desbravaPlusItems.map((item) => ({
+        ...item,
+        categoriaBadge: (item as any).categoriaBadge || 'Acervo Extra',
+        publicoAlvo: (item as any).publicoAlvo || 'Clube de Desbravadores',
+        destaqueCor: (item as any).destaqueCor || 'from-fuchsia-600 to-purple-700'
+      }))
+    ];
+
+    const availableBadges = ['TODOS', ...Array.from(new Set(mergedMaterials.map((m) => m.categoriaBadge)))];
+    const filteredMaterials =
+      desbravaPlusCategoryFilter === 'TODOS'
+        ? mergedMaterials
+        : mergedMaterials.filter((m) => m.categoriaBadge === desbravaPlusCategoryFilter);
+
+    const n1Items = DESBRAVA_MAIS_CHECKLIST.filter((c) => c.nivel === 'NIVEL_1');
+    const n2Items = DESBRAVA_MAIS_CHECKLIST.filter((c) => c.nivel === 'NIVEL_2');
+    const n1Done = n1Items.filter((c) => desbravaPlusCheckedIds.includes(c.id)).length;
+    const n2Done = n2Items.filter((c) => desbravaPlusCheckedIds.includes(c.id)).length;
+
+    return (
+      <div className="animate-slide-in space-y-5 pt-2 pb-28">
+        {/* Banner Oficial do Programa Desbrava+ (DSA) */}
+        <div className="bg-gradient-to-br from-[#831843] via-[#a21caf] to-[#6b21a8] rounded-[28px] p-5 sm:p-6 text-white shadow-lg border border-white/15 relative overflow-hidden">
+          <div className="absolute -right-6 -bottom-6 text-white/10 pointer-events-none">
+            <Sparkles size={130} />
+          </div>
+          <div className="relative z-10 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="px-3 py-1 rounded-full bg-white/20 backdrop-blur-xs text-[10px] font-black uppercase tracking-widest border border-white/25">
+                Divisão Sul-Americana • 16 e 17 Anos
+              </span>
+              <span className="px-3 py-1 rounded-full bg-amber-400/20 text-amber-200 border border-amber-300/30 text-[10px] font-black uppercase tracking-wider">
+                Nível 1: {n1Done}/{n1Items.length} • Nível 2: {n2Done}/{n2Items.length}
+              </span>
+            </div>
+            <div>
+              <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tight leading-tight">
+                Programa Desbrava+ & Liderança Aplicada
+              </h3>
+              <p className="text-xs sm:text-sm text-white/85 font-medium mt-1 leading-relaxed">
+                Guia oficial da DSA para retenção e capacitação prática de adolescentes de <strong>16 e 17 anos</strong> (Trilha do Saber, Capacitação Aplicada em Unidades e Comissão Especial) rumo à Classe de Líder aos 18 anos.
+              </p>
+            </div>
+
+            {/* Abas Internas: Materiais & Guias | Checklist Ano 1 (16 anos) | Checklist Ano 2 (17 anos) */}
+            <div className="grid grid-cols-3 gap-1.5 bg-black/25 p-1.5 rounded-2xl border border-white/10 pt-1.5">
+              {[
+                { id: 'MATERIAIS', label: 'Guias & Materiais' },
+                { id: 'CHECKLIST_N1', label: `Nível 1 • 16 Anos (${n1Done}/${n1Items.length})` },
+                { id: 'CHECKLIST_N2', label: `Nível 2 • 17 Anos (${n2Done}/${n2Items.length})` }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setDesbravaPlusTab(tab.id as any)}
+                  className={`py-2 px-2 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                    desbravaPlusTab === tab.id
+                      ? 'bg-white text-fuchsia-900 shadow-sm'
+                      : 'text-white/80 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
-      )}
-    </div>
-  );
+
+        {desbravaPlusTab === 'MATERIAIS' ? (
+          <>
+            {/* Filtro por Categoria */}
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1 cursor-grab active:cursor-grabbing select-none">
+              {availableBadges.map((badge) => (
+                <button
+                  key={badge}
+                  type="button"
+                  onClick={() => setDesbravaPlusCategoryFilter(badge)}
+                  className={`px-3.5 py-2 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider shrink-0 transition-all cursor-pointer border ${
+                    desbravaPlusCategoryFilter === badge
+                      ? 'bg-fuchsia-700 text-white border-fuchsia-700 shadow-xs'
+                      : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-fuchsia-400'
+                  }`}
+                >
+                  {badge === 'TODOS' ? `Todos (${mergedMaterials.length})` : badge}
+                </button>
+              ))}
+            </div>
+
+            {isLoading && desbravaPlusItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-6">
+                <div className="w-7 h-7 border-3 border-slate-200 dark:border-slate-700 border-t-fuchsia-600 rounded-full animate-spin" />
+              </div>
+            ) : null}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredMaterials.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setSelectedDesbravaPlusItem(item);
+                    const thumb = item.Capa || (item as any).Imagem || (item as any).capa || '';
+                    setSelectedPdfThumbnail(thumb ? getImageUrl(thumb) : null);
+                    const hasPdfLink = item.PDF && (item.PDF.startsWith('http') || item.PDF.includes('.pdf'));
+                    const hasConteudoLink = item.Conteudo && (item.Conteudo.startsWith('http') || item.Conteudo.includes('.pdf'));
+
+                    if (hasPdfLink || hasConteudoLink) {
+                      setActiveSubView('DESBRAVA_PLUS_PDF');
+                    } else {
+                      setActiveSubView('DESBRAVA_PLUS_DETAILS');
+                    }
+                  }}
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-[28px] flex flex-col justify-between p-5 relative shadow-xs hover:shadow-md active:scale-[0.99] transition-all overflow-hidden group text-left cursor-pointer"
+                >
+                  <div className="flex items-start space-x-4">
+                    <div
+                      className={`w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br ${
+                        (item as any).destaqueCor || 'from-fuchsia-600 to-purple-700'
+                      } rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm text-white group-hover:scale-105 transition-transform duration-300`}
+                    >
+                      {item.Capa ? (
+                        <img src={item.Capa} className="w-full h-full object-cover" alt={item.Nome} referrerPolicy="no-referrer" />
+                      ) : (
+                        <Sparkles size={26} />
+                      )}
+                    </div>
+
+                    <div className="flex-grow min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                        <span className="px-2 py-0.5 rounded-lg bg-fuchsia-50 dark:bg-fuchsia-950/60 text-fuchsia-700 dark:text-fuchsia-300 border border-fuchsia-200/60 dark:border-fuchsia-800/60 text-[9px] font-black uppercase tracking-wider">
+                          {(item as any).categoriaBadge || 'Desbrava+'}
+                        </span>
+                        {(item as any).publicoAlvo && (
+                          <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 truncate">
+                            • {(item as any).publicoAlvo}
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="font-black text-slate-800 dark:text-white text-sm sm:text-base leading-snug tracking-tight uppercase">
+                        {item.Nome}
+                      </h4>
+                      {item.descricao && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1.5 line-clamp-2 leading-relaxed">
+                          {item.descricao}
+                        </p>
+                      )}
+                    </div>
+
+                    <ChevronRight size={18} className="text-slate-300 dark:text-slate-600 flex-shrink-0 mt-1 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          /* ABA DE CHECKLIST DO GUIA DO PROGRAMA DESBRAVA+ (NÍVEL 1 OU NÍVEL 2) */
+          <div className="space-y-3.5">
+            {(() => {
+              const activeLevel = desbravaPlusTab === 'CHECKLIST_N1' ? 'NIVEL_1' : 'NIVEL_2';
+              const items = DESBRAVA_MAIS_CHECKLIST.filter((c) => c.nivel === activeLevel);
+              const doneCount = items.filter((c) => desbravaPlusCheckedIds.includes(c.id)).length;
+              const pct = Math.round((doneCount / Math.max(1, items.length)) * 100);
+
+              return (
+                <>
+                  <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-700 shadow-xs space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-fuchsia-600 dark:text-fuchsia-400 block">
+                          {activeLevel === 'NIVEL_1'
+                            ? 'Guia Desbrava+ • Ano 1 (16 Anos)'
+                            : 'Guia Desbrava+ • Ano 2 (17 Anos)'}
+                        </span>
+                        <h4 className="text-sm sm:text-base font-black text-slate-800 dark:text-white uppercase">
+                          {activeLevel === 'NIVEL_1'
+                            ? 'Capacitação Aplicada em Unidade & Instrução'
+                            : 'Gestão do Clube, Eventos & Preparação para Líder'}
+                        </h4>
+                      </div>
+                      <span className="px-3 py-1 rounded-xl bg-fuchsia-100 dark:bg-fuchsia-950/70 text-fuchsia-800 dark:text-fuchsia-300 font-black text-xs">
+                        {pct}% ({doneCount}/{items.length})
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-fuchsia-600 to-purple-600 transition-all duration-300 rounded-full"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {items.map((req) => {
+                      const isDone = desbravaPlusCheckedIds.includes(req.id);
+                      return (
+                        <button
+                          key={req.id}
+                          type="button"
+                          onClick={() => toggleDesbravaPlusCheckItem(req.id)}
+                          className={`w-full text-left p-4 rounded-2xl border transition-all flex items-start gap-3.5 cursor-pointer ${
+                            isDone
+                              ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700/70'
+                              : 'bg-white dark:bg-slate-800 border-slate-200/80 dark:border-slate-700 hover:border-fuchsia-300'
+                          }`}
+                        >
+                          <div
+                            className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5 border transition-colors ${
+                              isDone
+                                ? 'bg-emerald-600 border-emerald-600 text-white'
+                                : 'bg-slate-50 dark:bg-slate-900 border-slate-300 dark:border-slate-600 text-transparent'
+                            }`}
+                          >
+                            <Check size={14} strokeWidth={3} />
+                          </div>
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[9px] font-black uppercase tracking-wider">
+                                Req. {req.codigo} • {req.secao}
+                              </span>
+                            </div>
+                            <p
+                              className={`text-xs sm:text-sm font-black leading-snug ${
+                                isDone
+                                  ? 'line-through text-emerald-900 dark:text-emerald-200'
+                                  : 'text-slate-800 dark:text-white'
+                              }`}
+                            >
+                              {req.titulo}
+                            </p>
+                            <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                              {req.detalhe}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderDesbravaPlusDetails = () => {
     if (!selectedDesbravaPlusItem) return null;
 
     return (
       <div className="animate-slide-in space-y-4 pt-1 pb-28">
-        {/* Barra Sticky com Botão Voltar */}
-        <div className={`sticky top-0 z-30 flex items-center justify-between py-2 -mx-3.5 sm:-mx-5 px-3.5 sm:px-5 transition-all duration-300 ${
-          isHeaderScrolled 
-            ? 'bg-[#F8FAFC]/95 dark:bg-slate-900/95 backdrop-blur-md shadow-sm border-b border-slate-100 dark:border-slate-800' 
-            : 'bg-transparent -mb-[64px] pointer-events-none'
-        }`}>
-          <button 
-            onClick={() => setActiveSubView('DESBRAVA_PLUS')}
-            className={`w-11 h-11 rounded-2xl active:scale-90 transition-all flex items-center justify-center pointer-events-auto ${
-              isHeaderScrolled
-                ? 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-200 border border-slate-100 dark:border-slate-700 shadow-sm ml-0'
-                : 'bg-black/40 hover:bg-black/60 text-white backdrop-blur-md border border-white/20 shadow-sm ml-3 sm:ml-4'
-            }`}
-            title="Voltar"
-            aria-label="Voltar"
-          >
-            <ChevronLeft size={22} strokeWidth={3} />
-          </button>
-          <div className={`text-center flex-1 px-3 truncate transition-all duration-300 ${isHeaderScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'}`}>
-            <h4 className="font-black text-slate-800 dark:text-white text-xs sm:text-sm uppercase tracking-tight truncate">
-              {selectedDesbravaPlusItem.Nome}
-            </h4>
-          </div>
-          <div className="w-11 h-11" />
-        </div>
-
         <div className="bg-white dark:bg-slate-800 rounded-[40px] overflow-hidden shadow-sm border border-slate-100 dark:border-slate-700">
           <div className="h-56 w-full relative">
             {selectedDesbravaPlusItem.Capa ? (
@@ -5907,6 +6142,84 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       localStorage.setItem('dbv_tudo_bible_last_read', JSON.stringify(reading));
     }
   }, [selectedBibleBook, selectedBibleChapter]);
+
+  // Suporte global a rolagem horizontal pelo mouse (roda do mouse + clique e arraste) em todos os menus horizontais no PC
+  useEffect(() => {
+    const findHorizontalScrollable = (target: EventTarget | null): HTMLElement | null => {
+      let el = target as HTMLElement | null;
+      while (el && el !== document.body && el !== document.documentElement) {
+        if (el.classList && el.classList.contains('overflow-x-auto') && el.scrollWidth > el.clientWidth + 2) {
+          return el;
+        }
+        el = el.parentElement;
+      }
+      return null;
+    };
+
+    const handleGlobalWheel = (e: WheelEvent) => {
+      if (e.defaultPrevented) return;
+      const el = findHorizontalScrollable(e.target);
+      if (!el) return;
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && e.deltaY !== 0) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+      }
+    };
+
+    let activeEl: HTMLElement | null = null;
+    let isDown = false;
+    let startX = 0;
+    let scrollLeft = 0;
+    let dragged = false;
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      const el = findHorizontalScrollable(e.target);
+      if (!el) return;
+      activeEl = el;
+      isDown = true;
+      dragged = false;
+      startX = e.pageX - el.offsetLeft;
+      scrollLeft = el.scrollLeft;
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDown || !activeEl) return;
+      const x = e.pageX - activeEl.offsetLeft;
+      const walk = (x - startX) * 1.4;
+      if (Math.abs(walk) > 6) {
+        dragged = true;
+        activeEl.scrollLeft = scrollLeft - walk;
+      }
+    };
+
+    const handleMouseUp = () => {
+      isDown = false;
+      activeEl = null;
+    };
+
+    const handleClickCapture = (e: MouseEvent) => {
+      if (dragged) {
+        e.preventDefault();
+        e.stopPropagation();
+        dragged = false;
+      }
+    };
+
+    window.addEventListener('wheel', handleGlobalWheel, { passive: false });
+    window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('click', handleClickCapture, true);
+
+    return () => {
+      window.removeEventListener('wheel', handleGlobalWheel);
+      window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('click', handleClickCapture, true);
+    };
+  }, []);
 
   const renderBible = () => {
     const handleShareVerse = () => {
@@ -9032,26 +9345,127 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           </div>
         </button>
       ))}
-
-      <button
-        onClick={() => setActiveSubView('UNIT_CORNER')}
-        className="w-full bg-gradient-to-br from-emerald-800 via-teal-700 to-emerald-600 text-white rounded-[28px] p-5 flex items-center space-x-5 shadow-lg active:scale-[0.98] transition-all group border border-white/15"
-      >
-        <div className="w-14 h-14 bg-white/20 backdrop-blur-xs border border-white/30 rounded-2xl flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform shrink-0">
-          <Tent size={26} />
-        </div>
-        <div className="text-left flex-1 min-w-0">
-          <h4 className="font-black text-white uppercase tracking-tight text-sm sm:text-base truncate">
-            Cantinho da Unidade & Acampamento
-          </h4>
-          <p className="text-emerald-100 text-[10px] font-black uppercase tracking-widest mt-0.5">
-            Chamada de Domingo • Escala & Cardápio • Checklist Mochila
-          </p>
-        </div>
-        <ChevronRight size={20} className="text-white/80 shrink-0" />
-      </button>
     </div>
   );
+
+  const fieldAndPracticeButtons = [
+    { 
+      label: 'Quiz e Simulado', 
+      subtitle: isPathfinder ? 'Bom de Bíblia, Classes e Desafios' : 'Desafios, Bíblia e Concursos',
+      description: 'Treine para o Bom de Bíblia, classes regulares/progressivas, especialidades e história do clube.',
+      badge: 'Interativo',
+      icon: Zap, 
+      gradient: 'from-[#4f46e5] via-[#6366f1] to-[#818cf8]', 
+      view: 'QUIZ', 
+      show: true 
+    },
+    { 
+      label: 'Cantinho & Acamp.', 
+      subtitle: 'Unidade, Escala e Mochila',
+      description: 'Checklist inteligente de acampamento, escala de cozinha/limpeza, cardápio e ata do cantinho da unidade.',
+      badge: 'Unidade',
+      icon: Tent, 
+      gradient: 'from-[#0f766e] via-[#0d9488] to-[#14b8a6]', 
+      view: 'UNIT_CORNER', 
+      show: true 
+    },
+    { 
+      label: 'Guia de Campo', 
+      subtitle: 'Nós 3D, Códigos, Libras e Socorros',
+      description: 'Passo a passo de nós e amarras, tradutor de Morse, Semáforo, Libras Brasileira, pistas e primeiros socorros.',
+      badge: 'Manual Prático',
+      icon: Compass, 
+      gradient: 'from-[#9a3412] via-[#c2410c] to-[#ea580c]', 
+      view: 'FIELD_MANUAL',
+      manualTab: 'NOS_AMARRAS' as const,
+      show: true 
+    },
+    { 
+      label: 'Ordem Unida', 
+      subtitle: 'Vozes, Marcha, Posições e Evoluções',
+      description: 'Simulador das 3 partes da voz de comando, metrônomo 116 BPM, posições ilustradas e comandos de apito DSA.',
+      badge: 'Padrão DSA',
+      icon: Flag, 
+      gradient: 'from-[#1e3a8a] via-[#1d4ed8] to-[#2563eb]', 
+      view: 'ORDEM_UNIDA',
+      show: true 
+    }
+  ].filter(b => b.show);
+
+  const renderFieldTraining = () => {
+    return (
+      <div className="w-full max-w-5xl lg:max-w-6xl mx-auto px-2 sm:px-4 space-y-5 animate-slide-in pt-1 pb-24">
+        {/* Banner da Central de Treinamento em Campo */}
+        <div className="bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#334155] rounded-[28px] p-5 sm:p-6 text-white shadow-lg border border-white/10 relative overflow-hidden">
+          <div className="absolute -right-6 -bottom-6 text-white/10 pointer-events-none">
+            <Compass size={130} />
+          </div>
+          <div className="relative z-10 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="px-3 py-1 rounded-full bg-amber-400/20 text-amber-300 border border-amber-300/30 text-[10px] font-black uppercase tracking-widest">
+                Central Prática • {isPathfinder ? 'Desbravadores' : 'Aventureiros'}
+              </span>
+              <span className="px-3 py-1 rounded-full bg-white/10 text-white/80 text-[10px] font-black uppercase tracking-wider">
+                4 Módulos de Treinamento
+              </span>
+            </div>
+            <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tight leading-tight">
+              Treinamento em Campo
+            </h3>
+            <p className="text-xs sm:text-sm text-white/80 font-medium max-w-2xl leading-relaxed">
+              Escolha abaixo a área prática que deseja acessar para instrução da unidade, acampamento, simulados ou treino de Ordem Unida:
+            </p>
+          </div>
+        </div>
+
+        {/* Grid com as 4 novas áreas dentro de Treinamento em Campo */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+          {fieldAndPracticeButtons.map((item, i) => {
+            const IconComp = item.icon;
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => {
+                  if ((item as any).manualTab) {
+                    setFieldManualTab((item as any).manualTab);
+                  }
+                  setActiveSubView(item.view as any);
+                }}
+                className={`w-full relative overflow-hidden bg-gradient-to-br ${item.gradient} rounded-[28px] p-5 sm:p-6 flex flex-col justify-between text-left text-white shadow-md hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98] transition-all group min-h-[168px] sm:min-h-[184px] border border-white/20 cursor-pointer`}
+              >
+                <div className="absolute -bottom-4 -right-4 text-white/15 pointer-events-none group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">
+                  <IconComp className="w-28 h-28 sm:w-32 sm:h-32 stroke-[1.4]" />
+                </div>
+
+                <div className="relative z-10 flex items-center justify-between w-full">
+                  <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition-transform">
+                    <IconComp className="w-6 h-6" strokeWidth={2.4} />
+                  </div>
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/25 backdrop-blur-xs border border-white/20 text-[10px] font-black uppercase tracking-wider">
+                    <span>{item.badge}</span>
+                    <ChevronRight size={14} strokeWidth={2.5} />
+                  </div>
+                </div>
+
+                <div className="relative z-10 mt-4 space-y-1">
+                  <h4 className="text-base sm:text-lg md:text-xl font-black text-white uppercase tracking-tight leading-tight drop-shadow-xs">
+                    {item.label}
+                  </h4>
+                  <p className="text-[10px] sm:text-[11px] font-black text-amber-200 uppercase tracking-wider">
+                    {item.subtitle}
+                  </p>
+                  <p className="text-xs text-white/85 font-medium leading-relaxed pt-1 line-clamp-2">
+                    {item.description}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   const renderDashboard = () => {
     const quickAccessButtons = [
@@ -9081,7 +9495,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       },
       { 
         label: 'Trunfos', 
-        subtitle: 'Coleção Histórica', 
+        subtitle: 'Coleção de Bordados', 
         icon: Trophy, 
         gradient: 'from-[#e11d48] via-[#f43f5e] to-[#fb7185]', 
         view: 'TRUNFOS', 
@@ -9101,31 +9515,6 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         icon: Video, 
         gradient: 'from-[#059669] via-[#10b981] to-[#34d399]', 
         view: 'VIDEOS', 
-        show: true 
-      },
-      { 
-        label: 'Quiz e Simulado', 
-        subtitle: isPathfinder ? 'Bom de Bíblia e Desafios' : 'Desafios e Concursos', 
-        icon: Zap, 
-        gradient: 'from-[#4f46e5] via-[#6366f1] to-[#818cf8]', 
-        view: 'QUIZ', 
-        show: true 
-      },
-      { 
-        label: 'Cantinho & Acamp.', 
-        subtitle: 'Unidade, Escala e Mochila', 
-        icon: Tent, 
-        gradient: 'from-[#0f766e] via-[#0d9488] to-[#14b8a6]', 
-        view: 'UNIT_CORNER', 
-        show: true 
-      },
-      { 
-        label: 'Guia de Campo', 
-        subtitle: 'Nós, Códigos e Socorros', 
-        icon: Compass, 
-        gradient: 'from-[#9a3412] via-[#c2410c] to-[#ea580c]', 
-        view: 'FIELD_MANUAL',
-        manualTab: 'NOS_AMARRAS' as const,
         show: true 
       }
     ].filter(b => b.show);
@@ -9345,6 +9734,50 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               );
             })}
           </div>
+        </div>
+
+        {/* ========================================================
+            BOTÃO ÚNICO: TREINAMENTO EM CAMPO (AGRUPA AS NOVAS ÁREAS)
+           ======================================================== */}
+        <div className="w-full max-w-5xl lg:max-w-6xl mx-auto px-4">
+          <button
+            type="button"
+            onClick={() => setActiveSubView('FIELD_TRAINING')}
+            className="w-full relative overflow-hidden bg-gradient-to-br from-[#0f766e] via-[#0284c7] to-[#1e40af] rounded-[24px] sm:rounded-[28px] md:rounded-[30px] p-5 sm:p-6 flex items-center justify-between text-left text-white shadow-lg hover:shadow-2xl hover:-translate-y-0.5 active:scale-[0.99] transition-all group border border-white/20 cursor-pointer"
+          >
+            {/* Marca d'água grande vazada no fundo direito */}
+            <div className="absolute -bottom-4 -right-4 text-white/15 pointer-events-none group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">
+              <Compass className="w-28 h-28 sm:w-36 sm:h-36 stroke-[1.3]" />
+            </div>
+
+            <div className="relative z-10 flex items-center gap-4 sm:gap-5 min-w-0">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shadow-xs shrink-0 group-hover:scale-105 transition-transform">
+                <Compass className="w-6 h-6 sm:w-7 sm:h-7" strokeWidth={2.4} />
+              </div>
+
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-400/25 border border-amber-300/40 text-amber-200 text-[9px] sm:text-[10px] font-black uppercase tracking-widest">
+                    Central Prática
+                  </span>
+                  <span className="text-[10px] font-bold text-white/80 hidden sm:inline">
+                    • 4 Áreas Integradas
+                  </span>
+                </div>
+                <h4 className="text-base sm:text-lg md:text-xl font-black text-white uppercase tracking-tight leading-tight drop-shadow-xs">
+                  Treinamento em Campo
+                </h4>
+                <p className="text-[10px] sm:text-xs font-bold text-white/85 uppercase tracking-wider mt-0.5 truncate">
+                  Quiz & Simulado • Cantinho & Acamp. • Guia de Campo • Ordem Unida
+                </p>
+              </div>
+            </div>
+
+            <div className="relative z-10 flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 text-[10px] sm:text-xs font-black uppercase tracking-wider shrink-0 ml-3 group-hover:bg-white group-hover:text-slate-900 transition-colors">
+              <span className="hidden sm:inline">Abrir</span>
+              <ChevronRight size={16} strokeWidth={2.5} />
+            </div>
+          </button>
         </div>
 
         {/* Links Dinâmicos */}
@@ -9915,14 +10348,20 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     setActiveSubView('VIDEOS');
                   } else if (activeSubView === 'TRUNFOS') {
                     setActiveSubView('MAIN');
+                  } else if (activeSubView === 'FIELD_TRAINING') {
+                    setActiveSubView('MAIN');
                   } else if (activeSubView === 'QUIZ') {
                     if (quizBackHandlerRef.current && quizBackHandlerRef.current()) {
                       return;
                     }
-                    setActiveSubView('MAIN');
+                    setActiveSubView('FIELD_TRAINING');
                   } else if (activeSubView === 'UNIT_CORNER') {
-                    setActiveSubView('MAIN');
+                    setActiveSubView('FIELD_TRAINING');
                   } else if (activeSubView === 'FIELD_MANUAL') {
+                    setActiveSubView('FIELD_TRAINING');
+                  } else if (activeSubView === 'ORDEM_UNIDA') {
+                    setActiveSubView('FIELD_TRAINING');
+                  } else if (activeSubView === 'VERSION_HISTORY') {
                     setActiveSubView('MAIN');
                   } else {
                     setActiveSubView('MAIN');
@@ -9946,6 +10385,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                 ? (pdfTitle || 'Visualizador de Documento')
                 : activeSubView === 'DESBRAVA_PLUS_PDF'
                 ? (selectedDesbravaPlusItem?.Nome || 'Visualizador de Documento')
+                : activeSubView === 'VERSION_HISTORY'
+                ? 'Atualizações'
                 : (isPathfinder ? 'Desbravadores' : 'Aventureiros')}
             </h2>
             <p className="text-[10px] sm:text-[11px] landscape:text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em] mt-1.5 landscape:mt-0.5 truncate">
@@ -9999,9 +10440,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                activeSubView === 'VIDEO_PLAYER' ? 'Assistir Vídeo' :
                activeSubView === 'VIDEO_ADMIN' ? 'Gestão de Vídeos' :
                activeSubView === 'FORM_ADMIN' ? 'Gestão de Formulários' :
+               activeSubView === 'FIELD_TRAINING' ? 'Treinamento em Campo' :
                activeSubView === 'QUIZ' ? 'Quiz & Bom de Bíblia' :
                activeSubView === 'UNIT_CORNER' ? 'Cantinho da Unidade & Acampamento' :
-               activeSubView === 'FIELD_MANUAL' ? 'Nós e Amarras • Códigos • Primeiros Socorros' :
+               activeSubView === 'FIELD_MANUAL' ? 'Nós • Códigos • Primeiros Socorros' :
+               activeSubView === 'ORDEM_UNIDA' ? 'Guia de Ordem Unida & Vozes de Comando (DSA)' :
+               activeSubView === 'VERSION_HISTORY' ? `Versão v${APP_VERSION}` :
                activeSubView}
             </p>
           </div>
@@ -10009,6 +10453,18 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             {activeSubView === 'MAIN' && (
               <button onClick={onOpenProfile} className="w-11 h-11 md:w-12 md:h-12 landscape:w-9 landscape:h-9 bg-white dark:bg-slate-800 rounded-full shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-300 overflow-hidden active:scale-90 transition-all md:hidden">
                 {userAvatar ? <img src={userAvatar} className="w-full h-full object-cover" /> : <User size={22} className="landscape:w-4 landscape:h-4" />}
+              </button>
+            )}
+            {activeSubView === 'VERSION_HISTORY' && (
+              <button
+                type="button"
+                onClick={handleManualCheckUpdate}
+                disabled={isCheckingUpdate}
+                className="w-11 h-11 md:w-12 md:h-12 landscape:w-9 landscape:h-9 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-indigo-600 dark:text-indigo-400 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center hover:bg-indigo-50 dark:hover:bg-slate-700 cursor-pointer disabled:opacity-60"
+                title="Buscar Atualização"
+                aria-label="Buscar Atualização"
+              >
+                <RefreshCw size={19} strokeWidth={2.5} className={`landscape:w-4 landscape:h-4 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
               </button>
             )}
             {(activeSubView === 'SPECIALTIES' || activeSubView === 'SPECIALTIES_LIST') && (
@@ -10110,12 +10566,13 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         {activeSubView === 'TRUNFOS_ADMIN' && renderTrunfosAdmin()}
         {activeSubView === 'FAIXA_ADMIN' && renderFaixaAdmin()}
         {activeSubView === 'WEB_VIEWER' && renderWebViewer()}
+        {activeSubView === 'FIELD_TRAINING' && renderFieldTraining()}
         {activeSubView === 'QUIZ' && (
           <ClubQuiz
             club={club}
             specialties={specialties}
             getImageUrl={getImageUrl}
-            onBack={() => setActiveSubView('MAIN')}
+            onBack={() => setActiveSubView('FIELD_TRAINING')}
             onRegisterBackHandler={(fn) => {
               quizBackHandlerRef.current = fn;
             }}
@@ -10124,15 +10581,163 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         {activeSubView === 'UNIT_CORNER' && (
           <UnitCornerCamping
             club={club}
-            onBack={() => setActiveSubView('MAIN')}
+            onBack={() => setActiveSubView('FIELD_TRAINING')}
           />
         )}
         {activeSubView === 'FIELD_MANUAL' && (
           <FieldManualTools
             club={club}
             initialTab={fieldManualTab}
-            onBack={() => setActiveSubView('MAIN')}
+            onBack={() => setActiveSubView('FIELD_TRAINING')}
           />
+        )}
+        {activeSubView === 'ORDEM_UNIDA' && (
+          <FieldManualTools
+            club={club}
+            initialTab="ORDEM_UNIDA"
+            standaloneDrill={true}
+            onBack={() => setActiveSubView('FIELD_TRAINING')}
+          />
+        )}
+        {activeSubView === 'VERSION_HISTORY' && (
+          <div className="max-w-5xl mx-auto space-y-4 pb-28 animate-fade-in">
+            {updateCheckMessage && (
+              <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center gap-2">
+                <CheckCircle2 size={16} className="shrink-0" />
+                <span>{updateCheckMessage}</span>
+              </div>
+            )}
+
+            {/* Resumo Geral dos Dados das Atualizações */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+              <div className="bg-white dark:bg-slate-800/90 rounded-2xl p-3.5 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
+                  Versão Atual
+                </span>
+                <span className="text-base sm:text-lg font-black text-indigo-600 dark:text-indigo-400 mt-0.5 block">
+                  v{APP_VERSION}
+                </span>
+              </div>
+              <div className="bg-white dark:bg-slate-800/90 rounded-2xl p-3.5 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
+                  Publicação
+                </span>
+                <span className="text-xs sm:text-sm font-black text-slate-800 dark:text-white mt-1 block truncate">
+                  {VERSION_HISTORY[0]?.date || APP_BUILD_DATE}
+                </span>
+              </div>
+              <div className="bg-white dark:bg-slate-800/90 rounded-2xl p-3.5 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
+                  Versões Lançadas
+                </span>
+                <span className="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5 block">
+                  {VERSION_HISTORY.length}
+                </span>
+              </div>
+              <div className="bg-white dark:bg-slate-800/90 rounded-2xl p-3.5 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
+                  Total de Melhorias
+                </span>
+                <span className="text-base sm:text-lg font-black text-amber-600 dark:text-amber-400 mt-0.5 block">
+                  {VERSION_HISTORY.reduce((acc, item) => acc + item.changes.length, 0)}
+                </span>
+              </div>
+            </div>
+
+            {/* Barra de Pesquisa de Versões e Botão de Atualizar no PC */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+              <div className="flex-1 bg-white dark:bg-slate-800/90 rounded-2xl p-3 border border-slate-200 dark:border-slate-700/80 shadow-2xs flex items-center gap-2.5">
+                <Search size={16} className="text-slate-400 ml-1 shrink-0" />
+                <input
+                  type="text"
+                  value={versionSearchQuery}
+                  onChange={(e) => setVersionSearchQuery(e.target.value)}
+                  placeholder="Pesquisar por versão (ex: 3.0.65), data ou recurso..."
+                  className="w-full bg-transparent text-xs sm:text-sm font-semibold text-slate-800 dark:text-white outline-none placeholder:text-slate-400"
+                />
+                {versionSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setVersionSearchQuery('')}
+                    className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  >
+                    <X size={15} />
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleManualCheckUpdate}
+                disabled={isCheckingUpdate}
+                className="hidden sm:flex px-4 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-wider items-center justify-center gap-2 shadow-sm transition-all active:scale-95 disabled:opacity-70 cursor-pointer shrink-0"
+              >
+                <RefreshCw size={15} className={isCheckingUpdate ? 'animate-spin' : ''} />
+                <span>{isCheckingUpdate ? 'Verificando...' : 'Buscar Atualização'}</span>
+              </button>
+            </div>
+
+            {/* Lista Completa de Versões */}
+            <div className="space-y-3.5">
+              {VERSION_HISTORY.filter((rel) => {
+                if (!versionSearchQuery.trim()) return true;
+                const q = versionSearchQuery.toLowerCase();
+                return (
+                  rel.version.toLowerCase().includes(q) ||
+                  rel.date.toLowerCase().includes(q) ||
+                  rel.title.toLowerCase().includes(q) ||
+                  rel.changes.some((c) => c.toLowerCase().includes(q))
+                );
+              }).map((rel, i) => (
+                <div
+                  key={rel.version}
+                  className={`p-4 sm:p-5 rounded-3xl border transition-all ${
+                    i === 0
+                      ? 'bg-indigo-50/70 dark:bg-indigo-950/30 border-indigo-300 dark:border-indigo-500/40 shadow-sm'
+                      : 'bg-white dark:bg-slate-800/90 border-slate-200/80 dark:border-slate-700/80 shadow-2xs'
+                  }`}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-1 rounded-xl font-black text-xs sm:text-sm bg-indigo-600 text-white shadow-2xs">
+                        v{rel.version}
+                      </span>
+                      {rel.tag && (
+                        <span
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider ${
+                            rel.tag === 'NOVO'
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+                              : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
+                          }`}
+                        >
+                          {rel.tag}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs font-bold text-slate-400 dark:text-slate-500">
+                      📅 {rel.date}
+                    </span>
+                  </div>
+
+                  <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white mb-2.5">
+                    {rel.title}
+                  </h3>
+
+                  <ul className="space-y-2 text-xs sm:text-[13px] text-slate-600 dark:text-slate-300">
+                    {rel.changes.map((change, cIdx) => (
+                      <li key={cIdx} className="flex items-start gap-2 leading-relaxed">
+                        <CheckCircle2
+                          size={15}
+                          className="text-indigo-500 dark:text-indigo-400 shrink-0 mt-0.5"
+                        />
+                        <span>{change}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 
@@ -10187,40 +10792,78 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         </div>
       )}
 
-      {activeSubView !== 'QUIZ' && activeSubView !== 'DESBRAVA_PLUS_PDF' && activeSubView !== 'PDF_VIEWER' && activeSubView !== 'BIBLE' && activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && !selectedTrunfoModal && (
-        <div className="absolute bottom-2 sm:bottom-3 landscape:bottom-1 left-0 right-0 px-8 landscape:px-4 flex justify-center z-50 pointer-events-none md:hidden">
-          <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md h-16 landscape:h-11 w-full max-w-[320px] landscape:max-w-[270px] rounded-full shadow-2xl flex p-2 landscape:p-1.5 items-center border border-white dark:border-slate-700 space-x-2 pointer-events-auto">
-            <button 
-              onClick={() => onSwitchClub(ClubType.PATHFINDER)} 
-              className={`relative overflow-hidden flex-1 h-full rounded-full text-[11px] landscape:text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center group ${isPathfinder ? 'bg-[#dc371b] text-white shadow-lg' : 'text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'}`}
-            >
-              <div className={`absolute -right-1 -bottom-1.5 pointer-events-none select-none grayscale transition-transform duration-500 group-hover:scale-110 ${isPathfinder ? 'opacity-25' : 'opacity-15 dark:opacity-15'}`}>
-                <img 
-                  src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png" 
-                  alt="" 
-                  className="w-11 h-11 landscape:w-8 landscape:h-8 object-contain"
-                />
+      {activeSubView !== 'VERSION_HISTORY' && activeSubView !== 'DESBRAVA_PLUS_PDF' && activeSubView !== 'PDF_VIEWER' && activeSubView !== 'BIBLE' && activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && !selectedTrunfoModal && (
+        (() => {
+          const isNewAreaWithHiddenFloatingMenu =
+            activeSubView === 'FIELD_TRAINING' ||
+            activeSubView === 'QUIZ' ||
+            activeSubView === 'UNIT_CORNER' ||
+            activeSubView === 'FIELD_MANUAL' ||
+            activeSubView === 'ORDEM_UNIDA';
+
+          if (isNewAreaWithHiddenFloatingMenu && !isFloatingMenuOpenInNewArea) {
+            return (
+              <div className="absolute bottom-1.5 left-0 right-0 flex justify-center z-50 pointer-events-none md:hidden">
+                <button
+                  type="button"
+                  onClick={() => setIsFloatingMenuOpenInNewArea(true)}
+                  className="pointer-events-auto w-7 h-7 rounded-full bg-white/75 dark:bg-slate-800/75 hover:bg-white dark:hover:bg-slate-800 backdrop-blur-sm shadow-sm border border-slate-200/60 dark:border-slate-700/60 text-slate-400 dark:text-slate-400 flex items-center justify-center active:scale-90 transition-all cursor-pointer"
+                  title="Ativar menu flutuante"
+                  aria-label="Ativar menu flutuante"
+                >
+                  <ChevronUp size={15} strokeWidth={2.5} />
+                </button>
               </div>
-              <span className="relative z-10">DBV</span>
-            </button>
-            <button onClick={onBack} className="w-12 h-12 landscape:w-8 landscape:h-8 flex-shrink-0 rounded-full bg-slate-50 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 active:scale-90 transition-all">
-              <HomeIcon size={20} className="landscape:w-4 landscape:h-4" />
-            </button>
-            <button 
-              onClick={() => onSwitchClub(ClubType.ADVENTURER)} 
-              className={`relative overflow-hidden flex-1 h-full rounded-full text-[11px] landscape:text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center group ${!isPathfinder ? 'bg-[#800000] text-white shadow-lg' : 'text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'}`}
-            >
-              <div className={`absolute -right-1 -bottom-1.5 pointer-events-none select-none grayscale transition-transform duration-500 group-hover:scale-110 ${!isPathfinder ? 'opacity-25' : 'opacity-15 dark:opacity-15'}`}>
-                <img 
-                  src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png" 
-                  alt="" 
-                  className="w-11 h-11 landscape:w-8 landscape:h-8 object-contain"
-                />
+            );
+          }
+
+          return (
+            <div className="absolute bottom-2 sm:bottom-3 landscape:bottom-1 left-0 right-0 px-8 landscape:px-4 flex flex-col items-center z-50 pointer-events-none md:hidden">
+              {isNewAreaWithHiddenFloatingMenu && (
+                <button
+                  type="button"
+                  onClick={() => setIsFloatingMenuOpenInNewArea(false)}
+                  className="pointer-events-auto mb-1 w-7 h-7 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm shadow-sm border border-slate-200/60 dark:border-slate-700/60 text-slate-400 dark:text-slate-400 flex items-center justify-center active:scale-90 transition-all cursor-pointer"
+                  title="Ocultar menu flutuante"
+                  aria-label="Ocultar menu flutuante"
+                >
+                  <ChevronDown size={15} strokeWidth={2.5} />
+                </button>
+              )}
+              <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md h-16 landscape:h-11 w-full max-w-[320px] landscape:max-w-[270px] rounded-full shadow-2xl flex p-2 landscape:p-1.5 items-center border border-white dark:border-slate-700 space-x-2 pointer-events-auto">
+                <button 
+                  onClick={() => onSwitchClub(ClubType.PATHFINDER)} 
+                  className={`relative overflow-hidden flex-1 h-full rounded-full text-[11px] landscape:text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center group ${isPathfinder ? 'bg-[#dc371b] text-white shadow-lg' : 'text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'}`}
+                >
+                  <div className={`absolute -left-1 -bottom-1.5 pointer-events-none select-none grayscale transition-transform duration-500 group-hover:scale-110 ${isPathfinder ? 'opacity-25' : 'opacity-15 dark:opacity-15'}`}>
+                    <img 
+                      src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png" 
+                      alt="" 
+                      className="w-11 h-11 landscape:w-8 landscape:h-8 object-contain"
+                    />
+                  </div>
+                  <span className="relative z-10">DBV</span>
+                </button>
+                <button onClick={onBack} className="w-12 h-12 landscape:w-8 landscape:h-8 flex-shrink-0 rounded-full bg-slate-50 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 active:scale-90 transition-all">
+                  <HomeIcon size={20} className="landscape:w-4 landscape:h-4" />
+                </button>
+                <button 
+                  onClick={() => onSwitchClub(ClubType.ADVENTURER)} 
+                  className={`relative overflow-hidden flex-1 h-full rounded-full text-[11px] landscape:text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center group ${!isPathfinder ? 'bg-[#800000] text-white shadow-lg' : 'text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'}`}
+                >
+                  <div className={`absolute -right-1 -bottom-1.5 pointer-events-none select-none grayscale transition-transform duration-500 group-hover:scale-110 ${!isPathfinder ? 'opacity-25' : 'opacity-15 dark:opacity-15'}`}>
+                    <img 
+                      src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png" 
+                      alt="" 
+                      className="w-11 h-11 landscape:w-8 landscape:h-8 object-contain"
+                    />
+                  </div>
+                  <span className="relative z-10">AVT</span>
+                </button>
               </div>
-              <span className="relative z-10">AVT</span>
-            </button>
-          </div>
-        </div>
+            </div>
+          );
+        })()
       )}
 
       {/* Fim da Área de Conteúdo Principal */}

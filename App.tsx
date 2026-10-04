@@ -6,7 +6,7 @@ import ClubManagement, { SubViewType } from './components/ClubManagement';
 import Auth from './components/Auth';
 import Profile from './components/Profile';
 import UpdateNotification from './components/UpdateNotification';
-import { Settings, X, ChevronLeft, Moon, Sun, Bell, BellOff, LogOut, LogIn, Sparkles, History, ChevronDown, ChevronUp, CheckCircle2, RefreshCw, Layers, PanelLeft } from 'lucide-react';
+import { Settings, X, ChevronLeft, ChevronRight, Search, Moon, Sun, Bell, BellOff, LogOut, LogIn, Sparkles, History, CheckCircle2, RefreshCw, Layers, PanelLeft } from 'lucide-react';
 import { APP_VERSION, APP_BUILD_DATE, VERSION_HISTORY } from './versionConfig';
 
 import { PROFILE_KEY } from './constants';
@@ -105,6 +105,7 @@ const App: React.FC = () => {
   });
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
   const [showVersionHistory, setShowVersionHistory] = useState<boolean>(false);
+  const [versionSearchQuery, setVersionSearchQuery] = useState<string>('');
   const [isCheckingUpdate, setIsCheckingUpdate] = useState<boolean>(false);
   const [updateCheckMessage, setUpdateCheckMessage] = useState<string | null>(null);
 
@@ -119,6 +120,17 @@ const App: React.FC = () => {
     } catch {}
     return false;
   }, [isGuest, currentView, isSettingsModalOpen]);
+
+  const handleOpenVersionHistory = () => {
+    setIsSettingsModalOpen(false);
+    setShowVersionHistory(false);
+    if (!selectedClub) {
+      setSelectedClub(ClubType.PATHFINDER);
+    }
+    setPendingSubView('VERSION_HISTORY');
+    setActiveSubView('VERSION_HISTORY');
+    setCurrentView('CLUB_LIST');
+  };
 
   const handleManualCheckUpdate = async () => {
     setIsCheckingUpdate(true);
@@ -584,7 +596,9 @@ const App: React.FC = () => {
   return (
     <div className={`app-root-wrapper h-[100dvh] h-screen w-screen flex flex-col p-0 m-0 overflow-hidden transition-colors duration-500 ${darkMode ? 'bg-slate-950' : 'bg-[#f8fafc]'}`}>
       <style>{styles}</style>
-      <UpdateNotification />
+      <UpdateNotification
+        onOpenVersionHistory={handleOpenVersionHistory}
+      />
 
       {/* Banner de Restrição do Supabase (Cota de Tráfego HTTP 402) */}
       {supabaseRestrictedInfo?.isRestricted && (
@@ -819,64 +833,24 @@ const App: React.FC = () => {
                   </div>
                 )}
 
-                {/* Botão de Expansão do Histórico de Versões */}
+                {/* Botão para Abrir a Página Completa de Histórico de Versões */}
                 <button
-                  onClick={() => setShowVersionHistory(!showVersionHistory)}
-                  className={`w-full py-2.5 px-3 rounded-xl flex items-center justify-between text-xs font-bold transition-all ${
+                  onClick={handleOpenVersionHistory}
+                  className={`w-full py-3 px-3.5 rounded-xl flex items-center justify-between text-xs font-bold transition-all active:scale-[0.98] cursor-pointer ${
                     darkMode 
-                      ? 'bg-slate-700/60 hover:bg-slate-700 text-slate-300' 
-                      : 'bg-white hover:bg-slate-100 border border-slate-200/80 text-slate-700'
+                      ? 'bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-200' 
+                      : 'bg-white hover:bg-indigo-50/60 border border-slate-200/90 text-slate-800 shadow-2xs'
                   }`}
                 >
-                  <div className="flex items-center space-x-2">
-                    <History size={14} className="text-indigo-500" />
+                  <div className="flex items-center space-x-2.5">
+                    <History size={15} className="text-indigo-500 shrink-0" />
                     <span>Histórico de Versões & Modificações</span>
                   </div>
-                  {showVersionHistory ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                </button>
-
-                {/* Lista Expansível de Changelog */}
-                {showVersionHistory && (
-                  <div className="mt-3 space-y-3 pt-2 border-t border-slate-200 dark:border-slate-700/60 animate-fade-in max-h-56 overflow-y-auto pr-1">
-                    {VERSION_HISTORY.map((rel, i) => (
-                      <div 
-                        key={rel.version}
-                        className={`p-3 rounded-xl border text-left text-xs ${
-                          i === 0 
-                            ? (darkMode ? 'bg-indigo-950/30 border-indigo-500/40' : 'bg-indigo-50/70 border-indigo-200')
-                            : (darkMode ? 'bg-slate-900/50 border-slate-700/50' : 'bg-white border-slate-100')
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-extrabold text-indigo-600 dark:text-indigo-400 text-xs">
-                              v{rel.version}
-                            </span>
-                            {rel.tag && (
-                              <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase tracking-wider bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300">
-                                {rel.tag}
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-[10px] text-slate-400">
-                            {rel.date}
-                          </span>
-                        </div>
-                        <p className={`font-semibold mb-1.5 ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}>
-                          {rel.title}
-                        </p>
-                        <ul className="space-y-1 text-[11px] text-slate-500 dark:text-slate-400 pl-1">
-                          {rel.changes.map((change, cIdx) => (
-                            <li key={cIdx} className="flex items-start gap-1.5 leading-relaxed">
-                              <span className="text-indigo-500 font-bold">•</span>
-                              <span>{change}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
+                  <div className="flex items-center space-x-1 text-[10px] font-black uppercase tracking-wider text-indigo-500 dark:text-indigo-400">
+                    <span>Ver Página</span>
+                    <ChevronRight size={14} />
                   </div>
-                )}
+                </button>
               </div>
 
               {/* Separador */}

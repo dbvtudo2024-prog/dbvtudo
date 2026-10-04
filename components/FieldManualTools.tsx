@@ -33,13 +33,16 @@ import { ClubType } from '../types';
 
 interface FieldManualToolsProps {
   club: ClubType;
-  initialTab?: 'NOS_AMARRAS' | 'CODIGOS' | 'PRIMEIROS_SOCORROS';
+  initialTab?: 'NOS_AMARRAS' | 'CODIGOS' | 'PRIMEIROS_SOCORROS' | 'ORDEM_UNIDA';
+  standaloneDrill?: boolean;
   onBack?: () => void;
 }
 
-type ManualTab = 'NOS_AMARRAS' | 'CODIGOS' | 'PRIMEIROS_SOCORROS';
+type ManualTab = 'NOS_AMARRAS' | 'CODIGOS' | 'PRIMEIROS_SOCORROS' | 'ORDEM_UNIDA';
 type CodeSubTab = 'TRADUTOR_MORSE' | 'SEMAFORA' | 'LIBRAS' | 'SINAIS_PISTA';
 type FirstAidCategory = 'TODOS' | 'BANDAGENS' | 'TRANSPORTE' | 'EMERGENCIAS' | 'PECONHENTOS_PLANTAS';
+type DrillSubTab = 'VOZES_ESTRUTURA' | 'COMANDOS_DSA' | 'APITO_GESTOS' | 'EVOLUCOES';
+type DrillCommandCategory = 'TODOS' | 'PE_FIRME' | 'EM_MARCHA';
 
 interface KnotStep {
   title: string;
@@ -604,28 +607,34 @@ const getSemaphoreArmDescription = (deg: number, side: 'DIREITA' | 'ESQUERDA'): 
   }
 };
 
-// Guia do Alfabeto Manual em Libras (Configuração da Mão)
+// Guia do Alfabeto Manual Brasileiro em Libras (A a Z + Ç)
+const getLibrasCharImg = (ch: string): string => {
+  if (ch === 'Ç') return '/libras/C_CEDILHA.png';
+  return `/libras/${ch}.png`;
+};
+
 const LIBRAS_GUIDE: Record<string, { handShape: string; tip: string }> = {
   A: { handShape: 'Punho fechado com o polegar encostado na lateral do indicador', tip: 'Palma voltada para frente.' },
   B: { handShape: 'Quatro dedos esticados e unidos para cima; polegar dobrado na palma', tip: 'Mão reta vertical.' },
   C: { handShape: 'Dedos curvados formando a letra "C"', tip: 'Formato idêntico à letra C impressa.' },
+  Ç: { handShape: 'Dedos curvados formando a letra "C" com leve movimento vibratório descendente (cedilha)', tip: 'Letra oficial do Alfabeto Manual Brasileiro de Libras.' },
   D: { handShape: 'Indicador apontando para cima; demais dedos unidos ao polegar em círculo', tip: 'Forma o bojo e a haste do D.' },
   E: { handShape: 'Pontas dos cinco dedos curvadas para dentro (em garra fechada)', tip: 'Sem fechar o punho totalmente.' },
-  F: { handShape: 'Indicador dobrado para frente e polegar cruzado por fora dele; outros 3 dedos erguidos', tip: 'Atenção: não cruze o polegar por dentro (que é o T).' },
-  G: { handShape: 'Indicador apontando para cima e polegar encostado na lateral; demais dedos fechados', tip: 'Mão vertical.' },
-  H: { handShape: 'Indicador e médio estendidos com polegar entre eles, fazendo um giro no ar', tip: 'Possui movimento circular curto.' },
+  F: { handShape: 'Indicador dobrado para frente e polegar cruzado por fora dele; outros 3 dedos erguidos', tip: 'Atenção: polegar por fora do indicador (por dentro é a letra T).' },
+  G: { handShape: 'Indicador apontando para cima e polegar encostado na lateral; demais dedos fechados', tip: 'Mão vertical (em Libras o G aponta para cima).' },
+  H: { handShape: 'Indicador e médio estendidos com polegar entre eles, fazendo um giro curto no ar', tip: 'Possui movimento circular curto.' },
   I: { handShape: 'Apenas o dedo mínimo (mindinho) esticado para cima', tip: 'Demais dedos fechados.' },
   J: { handShape: 'Dedo mínimo esticado desenhando a curva da letra "J" no ar', tip: 'Começa como o I e faz a curva.' },
-  K: { handShape: 'Indicador e médio em "V" com polegar no meio, movendo para cima', tip: 'Mesma mão do H, mas com impulso vertical.' },
+  K: { handShape: 'Indicador e médio estendidos com polegar entre eles, movendo verticalmente para cima', tip: 'Mesma mão do H, mas com impulso vertical para cima.' },
   L: { handShape: 'Polegar e indicador abertos em 90° formando um "L"', tip: 'Demais dedos fechados.' },
-  M: { handShape: 'Dedo indicador, médio e anelar unidos apontando para baixo (3 pernas)', tip: 'Representa as 3 hastes do M.' },
-  N: { handShape: 'Dedo indicador e médio unidos apontando para baixo (2 pernas)', tip: 'Representa as 2 hastes do N.' },
+  M: { handShape: 'Dedos indicador, médio e anelar unidos apontando para baixo (3 hastes)', tip: 'Em Libras brasileira, o M tem os 3 dedos estendidos para baixo.' },
+  N: { handShape: 'Dedos indicador e médio unidos apontando para baixo (2 hastes)', tip: 'Em Libras brasileira, o N tem os 2 dedos estendidos para baixo.' },
   O: { handShape: 'Todos os dedos curvados tocando a ponta do polegar em círculo', tip: 'Formato exato da letra O.' },
   P: { handShape: 'Mesma configuração do H/K, porém apontada horizontalmente para frente/baixo', tip: 'Estático (sem giro).' },
-  Q: { handShape: 'Igual ao G, mas com o indicador apontando para baixo', tip: 'Ponta para baixo.' },
+  Q: { handShape: 'Igual ao G, mas com o indicador apontando para baixo', tip: 'Ponta do indicador para baixo.' },
   R: { handShape: 'Dedo médio cruzado sobre o dedo indicador esticado', tip: 'Dedos trançados.' },
   S: { handShape: 'Punho fechado com o polegar cruzado na frente dos dedos dobrados', tip: 'Diferente do A (onde o polegar fica na lateral).' },
-  T: { handShape: 'Indicador dobrado e polegar passando POR DENTRO entre o indicador e o médio', tip: 'Outros 3 dedos erguidos.' },
+  T: { handShape: 'Indicador dobrado e polegar passando POR DENTRO entre o indicador e o médio', tip: 'Outros 3 dedos erguidos (diferente do F).' },
   U: { handShape: 'Indicador e médio esticados e UNIDOS para cima', tip: 'Sem separar os dois dedos.' },
   V: { handShape: 'Indicador e médio esticados e SEPARADOS formando um "V"', tip: 'Sinal clássico de vitória.' },
   W: { handShape: 'Indicador, médio e anelar esticados e separados formando um "W"', tip: 'Três dedos abertos para cima.' },
@@ -634,7 +643,7 @@ const LIBRAS_GUIDE: Record<string, { handShape: string; tip: string }> = {
   Z: { handShape: 'Dedo indicador esticado desenhando o zigue-zague da letra "Z" no ar', tip: 'Traçado visual da letra.' }
 };
 
-// Guia Ilustrado de Números em Libras (0 a 9)
+// Guia Ilustrado de Números em Libras (0 a 9) - Alfabeto/Numerais Brasileiros
 interface LibrasNumberItem {
   digit: string;
   name: string;
@@ -648,72 +657,70 @@ const LIBRAS_NUMBERS: LibrasNumberItem[] = [
   {
     digit: '0',
     name: 'Zero',
-    handSvg: '/libras/O.svg',
-    handShape: 'Todos os dedos curvados tocando a ponta do polegar em círculo fechado (mesma configuração da letra O)',
-    tip: 'Dica: No contexto de números ou telefone, a mão em "O" representa o algarismo Zero (0).'
+    handSvg: '/libras/0.png',
+    handShape: 'Todos os dedos curvados tocando a ponta do polegar em círculo fechado',
+    tip: 'Dica: Mão fechada em formato circular representando o algarismo Zero (0).'
   },
   {
     digit: '1',
     name: 'Um',
-    handSvg: '/libras/D.svg',
-    handShape: 'Quantidade: Dedo indicador erguido (demais fechados) • Cardinal/Telefone: Polegar erguido para cima',
-    tip: 'Dica: Para contar objetos (1 item) usa-se o indicador; para número de telefone/idade usa-se o polegar.'
+    handSvg: '/libras/1.png',
+    handShape: 'Cardinal em Libras: Polegar erguido • Quantidade: Dedo indicador erguido',
+    tip: 'Dica: Em Libras brasileira, números cardinais (telefone, documentos) usam o polegar para o 1.'
   },
   {
     digit: '2',
     name: 'Dois',
-    handSvg: '/libras/V.svg',
-    handShape: 'Quantidade: Indicador e médio abertos em "V" • Cardinal: Polegar e indicador abertos na horizontal',
-    tip: 'Dica: Dois dedos claramente estendidos (mantenha anelar e mínimo dobrados na palma).'
+    handSvg: '/libras/2.png',
+    handShape: 'Cardinal em Libras: Polegar e indicador abertos • Quantidade: Indicador e médio em "V"',
+    tip: 'Dica: Dois dedos claramente estendidos.'
   },
   {
     digit: '3',
     name: 'Três',
-    handSvg: '/libras/W.svg',
-    handShape: 'Três dedos estendidos e separados (indicador, médio e anelar); polegar e mínimo recolhidos',
-    tip: 'Dica: Idêntico à configuração da letra W, podendo ser feito na vertical ou horizontal.'
+    handSvg: '/libras/3.png',
+    handShape: 'Três dedos estendidos e separados (polegar, indicador e médio ou indicador, médio e anelar)',
+    tip: 'Dica: Mantenha os três dedos bem visíveis.'
   },
   {
     digit: '4',
     name: 'Quatro',
-    handSvg: '/libras/B.svg',
-    handShape: 'Quatro dedos estendidos (indicador, médio, anelar e mínimo) e polegar dobrado sobre a palma da mão',
+    handSvg: '/libras/4.png',
+    handShape: 'Quatro dedos estendidos (indicador, médio, anelar e mínimo) e polegar recolhido na palma',
     tip: 'Dica: Mantenha os quatro dedos levemente afastados para facilitar a leitura visual.'
   },
   {
     digit: '5',
     name: 'Cinco',
-    handSvg: '/libras/X.svg',
-    handShape: 'Cardinal em Libras: Dedos indicador e médio curvados em gancho na frente do corpo • Quantidade: Mão aberta (5 dedos)',
+    handSvg: '/libras/5.png',
+    handShape: 'Cardinal em Libras: Dedos indicador e médio curvados em gancho • Quantidade: 5 dedos abertos',
     tip: 'Curiosidade: No Brasil (Libras), o algarismo 5 cardinal é feito dobrando os dedos indicador e médio em gancho!'
   },
   {
     digit: '6',
     name: 'Seis',
-    handSvg: '/libras/C.svg',
-    svgRotation: '-rotate-90',
+    handSvg: '/libras/6.png',
     handShape: 'Mão deitada com os dedos fechados e o polegar encostado sobre a lateral do indicador curvado (bojo embaixo)',
     tip: 'Dica: Lembra o desenho do número 6 com o círculo na parte de baixo e o polegar em cima.'
   },
   {
     digit: '7',
     name: 'Sete',
-    handSvg: '/libras/Q.svg',
-    handShape: 'Polegar e indicador abertos apontando para baixo/diagonal, desenhando o ângulo do número "7" no ar',
-    tip: 'Dica: Mesma configuração de mão da letra Q (ou um "7" formado pelo polegar e indicador).'
+    handSvg: '/libras/7.png',
+    handShape: 'Polegar e indicador abertos apontando para baixo/diagonal, desenhando o ângulo do número "7"',
+    tip: 'Dica: Forma visualmente o ângulo do algarismo 7.'
   },
   {
     digit: '8',
     name: 'Oito',
-    handSvg: '/libras/S.svg',
-    handShape: 'Punho fechado (configuração da letra "S") com leve movimento lateral do pulso',
-    tip: 'Dica: Enquanto a letra S fica parada, o número 8 tem um leve balanço do punho.'
+    handSvg: '/libras/8.png',
+    handShape: 'Punho fechado (configuração da letra "S") com leve movimento lateral do punho',
+    tip: 'Dica: Enquanto a letra S fica parada, o número 8 tem um leve giro do punho.'
   },
   {
     digit: '9',
     name: 'Nove',
-    handSvg: '/libras/C.svg',
-    svgRotation: 'rotate-90',
+    handSvg: '/libras/9.png',
     handShape: 'Inverso do número 6: mão deitada com o indicador curvado por cima e o polegar por baixo (bojo em cima)',
     tip: 'Dica: No 6 o polegar fica em cima; no 9 o indicador fica por cima desenhando a volta superior do 9!'
   }
@@ -1393,17 +1400,661 @@ const FIRST_AID_CARDS: FirstAidCardItem[] = [
   }
 ];
 
-const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 'NOS_AMARRAS' }) => {
+// ============================================================================
+// MÓDULO 4: GUIA DE ORDEM UNIDA E VOZES DE COMANDO (MANUAL OFICIAL DSA)
+// ============================================================================
+interface DrillCommandItem {
+  id: string;
+  name: string;
+  category: 'PE_FIRME' | 'EM_MARCHA';
+  categoryLabel: string;
+  advertencia: string;
+  comandoProprio: string;
+  execucao: string;
+  footTiming: string;
+  steps: string[];
+  commonMistake: string;
+}
+
+const DRILL_COMMANDS: DrillCommandItem[] = [
+  // ================= A PÉ FIRME (11 COMANDOS OFICIAIS) =================
+  {
+    id: 'ou_sentido',
+    name: 'Sentido (Posição Fundamental)',
+    category: 'PE_FIRME',
+    categoryLabel: 'A Pé Firme',
+    advertencia: 'Clube / Unidade!',
+    comandoProprio: '— (Direto)',
+    execucao: 'SENTIDO!',
+    footTiming: 'Pé esquerdo une-se energicamente ao pé direito',
+    steps: [
+      'Em um único tempo enérgico, o desbravador traz o pé esquerdo junto ao direito, batendo os calcanhares com firmeza.',
+      'Calcanhares unidos e pontas dos pés abertas formando um ângulo de aproximadamente 45° (conforme o Manual de Ordem Unida da DSA).',
+      'Braços caídos naturalmente ao longo do corpo, mãos espalmadas coladas às coxas com os cinco dedos unidos (dedo médio sobre a costura da calça/saia).',
+      'Cabeça erguida, queixo levemente recolhido, ombros alinhados e olhar fixo à frente em imobilidade e silêncio absolutos.'
+    ],
+    commonMistake: 'Bater as mãos nas coxas fazendo barulho excessivo, deixar os dedos abertos/fechados em punho ou mexer os olhos durante a posição.'
+  },
+  {
+    id: 'ou_descansar',
+    name: 'Descansar',
+    category: 'PE_FIRME',
+    categoryLabel: 'A Pé Firme',
+    advertencia: 'Unidade!',
+    comandoProprio: '— (Direto)',
+    execucao: 'DESCANSAR!',
+    footTiming: 'Pé esquerdo desloca ~30 cm para a esquerda',
+    steps: [
+      'A partir da posição de Sentido, desloca-se o pé esquerdo cerca de 30 cm para a esquerda (largura dos ombros), distribuindo o peso igualmente nas duas pernas.',
+      'Simultaneamente, os dois braços vão para trás das costas, abaixo da linha da cintura.',
+      'A mão esquerda segura o pulso da mão direita (que fica levemente fechada ou espalmada), mantendo o silêncio e o olhar à frente.'
+    ],
+    commonMistake: 'Conversar ou sair do alinhamento (na posição de Descansar o silêncio e a imobilidade continuam obrigatórios!).'
+  },
+  {
+    id: 'ou_avontade',
+    name: 'À Vontade / Em Forma',
+    category: 'PE_FIRME',
+    categoryLabel: 'A Pé Firme',
+    advertencia: 'Clube!',
+    comandoProprio: '— (Direto)',
+    execucao: 'À VONTADE!',
+    footTiming: 'Mantém o pé direito fixo no solo como base do alinhamento',
+    steps: [
+      'Partindo da posição de Descansar, o desbravador pode relaxar a postura, movimentar os braços ou ajeitar o uniforme, mantendo obrigatoriamente o PÉ DIREITO no lugar para não perder o alinhamento.',
+      'Continua em silêncio (não é permitido conversar, a menos que o instrutor autorize expressamente).',
+      'Para retornar, o instrutor comanda "Atenção!" (todos voltam imediatamente à posição de Descansar) seguido de "Sentido!".'
+    ],
+    commonMistake: 'Sair andando do lugar ou retirar os dois pés da marcação da coluna.'
+  },
+  {
+    id: 'ou_cobrir',
+    name: 'Cobrir e Firme (Alinhamento e Cobertura)',
+    category: 'PE_FIRME',
+    categoryLabel: 'A Pé Firme',
+    advertencia: 'Unidade!',
+    comandoProprio: '— (Direto)',
+    execucao: 'COBRIR! / FIRME!',
+    footTiming: 'Execução a pé firme na posição de Sentido',
+    steps: [
+      'Ao comando "COBRIR!": todos (exceto a 1ª fileira da frente) estendem o braço esquerdo horizontalmente para a frente, palma para baixo, tocando levemente com a ponta do dedo médio a retaguarda do ombro esquerdo do desbravador da frente.',
+      'Os integrantes da 1ª fileira (testa) e da coluna-base estendem o braço esquerdo lateralmente tocando o ombro direito do colega ao lado e giram a cabeça/olhar para a direita (exceto o homem-base) para alinhar com precisão.',
+      'Ao comando "FIRME!": todos baixam o braço esquerdo energicamente colando à coxa e voltam a cabeça para a frente simultaneamente.'
+    ],
+    commonMistake: 'Empurrar o ombro do colega da frente ou bater a mão na coxa ao retornar no comando "Firme!".'
+  },
+  {
+    id: 'ou_direita_volver',
+    name: 'Direita, Volver (Giro de 90° à Direita)',
+    category: 'PE_FIRME',
+    categoryLabel: 'A Pé Firme',
+    advertencia: 'Unidade!',
+    comandoProprio: 'Direita...',
+    execucao: 'VOLVER!',
+    footTiming: 'Calcanhar Direito + Planta do Pé Esquerdo (2 Tempos)',
+    steps: [
+      '1º Tempo (na voz "VOLVER!"): Gira-se 90° para a direita sobre o CALCANHAR do pé direito e a PLANTA do pé esquerdo, mantendo os braços colados às coxas e o tronco ereto.',
+      '2º Tempo: Une-se energicamente o pé esquerdo ao pé direito, batendo os calcanhares e reassumindo a posição perfeita de Sentido na nova frente.'
+    ],
+    commonMistake: 'Abrir os braços durante o giro para se equilibrar ou girar sobre os dois calcanhares ao mesmo tempo.'
+  },
+  {
+    id: 'ou_esquerda_volver',
+    name: 'Esquerda, Volver (Giro de 90° à Esquerda)',
+    category: 'PE_FIRME',
+    categoryLabel: 'A Pé Firme',
+    advertencia: 'Unidade!',
+    comandoProprio: 'Esquerda...',
+    execucao: 'VOLVER!',
+    footTiming: 'Calcanhar Esquerdo + Planta do Pé Direito (2 Tempos)',
+    steps: [
+      '1º Tempo (na voz "VOLVER!"): Gira-se 90° para a esquerda sobre o CALCANHAR do pé esquerdo e a PLANTA do pé direito.',
+      '2º Tempo: Une-se energicamente o pé direito ao pé esquerdo pelo caminho mais curto, mantendo mãos coladas às coxas.'
+    ],
+    commonMistake: 'Dar um chute largo para trás ou para o lado antes de unir o pé direito no 2º tempo.'
+  },
+  {
+    id: 'ou_meiavolta_volver',
+    name: 'Meia-Volta, Volver (Giro de 180° pela Esquerda)',
+    category: 'PE_FIRME',
+    categoryLabel: 'A Pé Firme',
+    advertencia: 'Clube!',
+    comandoProprio: 'Meia-Volta...',
+    execucao: 'VOLVER!',
+    footTiming: 'Sempre pela ESQUERDA sobre o Calcanhar Esquerdo (2 Tempos)',
+    steps: [
+      '1º Tempo (na voz "VOLVER!"): Gira-se 180° SEMPRE PELA ESQUERDA sobre o calcanhar do pé esquerdo e a planta do pé direito, terminando o giro com o peso no pé esquerdo à frente.',
+      '2º Tempo: Traz-se energicamente o pé direito para junto do pé esquerdo, unindo os calcanhares na nova direção.'
+    ],
+    commonMistake: 'Girar meia-volta pela direita! Na Ordem Unida oficial da DSA, Meia-Volta é executada SEMPRE pelo lado esquerdo.'
+  },
+  {
+    id: 'ou_oitavo_volver',
+    name: 'Oitavo à Direita / à Esquerda, Volver (45°)',
+    category: 'PE_FIRME',
+    categoryLabel: 'A Pé Firme',
+    advertencia: 'Unidade!',
+    comandoProprio: 'Oitavo à Direita (ou Esquerda)...',
+    execucao: 'VOLVER!',
+    footTiming: 'Giro diagonal de 45° em 2 Tempos',
+    steps: [
+      '1º Tempo: Executa-se exatamente a metade de um giro normal (45° na diagonal indicada) sobre o calcanhar do lado do giro e a planta do pé oposto.',
+      '2º Tempo: Une-se o pé de trás ao pé da frente com energia.'
+    ],
+    commonMistake: 'Girar 90° completos por distração em vez de parar na diagonal de 45°.'
+  },
+  {
+    id: 'ou_olhar_direita',
+    name: 'Olhar à Direita / à Esquerda / Frente',
+    category: 'PE_FIRME',
+    categoryLabel: 'A Pé Firme',
+    advertencia: 'Pelotão!',
+    comandoProprio: 'Olhar à...',
+    execucao: 'DIREITA! / FRENTE!',
+    footTiming: 'Giro vivo da cabeça sem mover os ombros',
+    steps: [
+      'Ao comando "Olhar à DIREITA!" (ou "ESQUERDA!"): gira-se a cabeça e o olhar de forma viva e enérgica para o lado indicado, mantendo o queixo na horizontal e os ombros imóveis.',
+      'Ao comando "Olhar, FRENTE!": a cabeça retorna imediatamente à posição frontal em um único golpe firme.'
+    ],
+    commonMistake: 'Virar o tronco ou inclinar a cabeça ao olhar para o palanque/bandeira.'
+  },
+  {
+    id: 'ou_maranata',
+    name: 'Para o Voto, Posição! / Descansar, Posição! (Saudação Maranata)',
+    category: 'PE_FIRME',
+    categoryLabel: 'A Pé Firme',
+    advertencia: 'Desbravadores!',
+    comandoProprio: 'Para o Voto...',
+    execucao: 'POSIÇÃO!',
+    footTiming: '1 Tempo firme com o antebraço direito a 45°',
+    steps: [
+      'Em posição de Sentido, ao comando "Para o Voto, POSIÇÃO!": ergue-se o antebraço direito em ângulo de 45° da linha vertical, mão espalmada com os 4 dedos unidos na vertical (os 4 "A": Amar, Anunciar, Apressar e Aguardar) e o polegar recolhido sobre a palma (Saudação Maranata).',
+      'Ao comando "Descansar, POSIÇÃO!": o braço direito desce energicamente pelo caminho mais curto, voltando a colar na coxa na posição de Sentido.',
+      'Posição para Oração: Ao comando "Posição para Oração!", os desbravadores com cobertura (boné) retiram-na com a mão esquerda segurando pela aba; ao término do "Amém", recolocam a cobertura sem necessidade de novo comando.'
+    ],
+    commonMistake: 'Usar expressões bélicas como "Apresentar Arma" ou "Descansar Arma" (vedadas pelo Manual de Ordem Unida da DSA), ou abrir os dedos da mão direita durante a saudação.'
+  },
+  {
+    id: 'ou_foradeforma',
+    name: 'Fora de Forma, Marche (Encerramento)',
+    category: 'PE_FIRME',
+    categoryLabel: 'A Pé Firme',
+    advertencia: 'Clube / Unidade!',
+    comandoProprio: 'Fora de Forma...',
+    execucao: 'MARCHE!',
+    footTiming: 'Saudação + Passo firme à frente com o pé esquerdo',
+    steps: [
+      'Partindo da posição de Sentido, na voz de execução "MARCHE!": todos rompem a marcha dando um passo firme à frente com o pé esquerdo (ou executam o brado padrão do clube conforme instrução) e saem de forma ordenadamente.'
+    ],
+    commonMistake: 'Sair de forma antes da voz de execução "Marche!" ou dispersar empurrando os colegas.'
+  },
+
+  // ================= EM MARCHA (11 COMANDOS OFICIAIS) =================
+  {
+    id: 'ou_ordinario_marche',
+    name: 'Ordinário, Marche (Início do Deslocamento)',
+    category: 'EM_MARCHA',
+    categoryLabel: 'Em Marcha',
+    advertencia: 'Unidade!',
+    comandoProprio: 'Ordinário...',
+    execucao: 'MARCHE!',
+    footTiming: 'Rompimento sempre com o PÉ ESQUERDO e braço direito à frente',
+    steps: [
+      'Na palavra "Ordinário...": o desbravador transfere sutilmente o peso do corpo para o pé direito (sem mexer a cabeça ou o tronco), liberando a perna esquerda.',
+      'Na execução "MARCHE!": avança o PÉ ESQUERDO marcando o 1º passo com batida firme de planta/calcanhar e simultaneamente oscila o BRAÇO DIREITO à frente (mão fechada ou espalmada até a altura da fivela do cinto) e o braço esquerdo para trás.',
+      'Segue em cadência regulamentar de 116 passos por minuto (~75 cm por passo), mantendo alinhamento lateral e cobertura frontal.'
+    ],
+    commonMistake: 'Sair com o pé direito ou avançar o braço esquerdo junto com a perna esquerda ("marchar amblando").'
+  },
+  {
+    id: 'ou_alto',
+    name: 'Unidade, Alto! (Parada da Marcha)',
+    category: 'EM_MARCHA',
+    categoryLabel: 'Em Marcha',
+    advertencia: 'Unidade!',
+    comandoProprio: '— (Direto)',
+    execucao: 'ALTO!',
+    footTiming: 'Voz "ALTO!" dada quando o PÉ ESQUERDO toca o solo',
+    steps: [
+      'A voz de execução "ALTO!" é comandada no exato instante em que o PÉ ESQUERDO assenta no chão.',
+      'Tempo 1: O desbravador dá mais um passo completo à frente com o PÉ DIREITO para absorver o impulso da marcha.',
+      'Tempo 2: Une energicamente o PÉ ESQUERDO ao pé direito, colando simultaneamente os dois braços às coxas na posição de Sentido!'
+    ],
+    commonMistake: 'Comandar "Alto!" no pé direito ou dar passos extras depois do tempo 2.'
+  },
+  {
+    id: 'ou_marcar_passo',
+    name: 'Marcar Passo (Em Marcha ou a Pé Firme)',
+    category: 'EM_MARCHA',
+    categoryLabel: 'Em Marcha',
+    advertencia: 'Unidade!',
+    comandoProprio: 'Marcar...',
+    execucao: 'PASSO!',
+    footTiming: 'Em marcha: voz "PASSO!" no PÉ ESQUERDO (ou Direito)',
+    steps: [
+      'Quando em marcha: após a voz "PASSO!" (no pé esquerdo), dá-se mais um passo curto para conter o avanço e passa-se a elevar os pés alternadamente no mesmo lugar (coxa subindo sem avançar no terreno).',
+      'As mãos colam-se às coxas (ou mantêm pequena oscilação conforme padrão regional) enquanto a cadência dos pés continua em 116 passos/min.'
+    ],
+    commonMistake: 'Acelerar a cadência enquanto marca passo (a tendência natural da tropa é correr; o líder deve manter a contagem "Esquerdo, Direito!").'
+  },
+  {
+    id: 'ou_em_frente',
+    name: 'Em Frente! (Retomar o Avanço)',
+    category: 'EM_MARCHA',
+    categoryLabel: 'Em Marcha',
+    advertencia: 'Unidade!',
+    comandoProprio: 'Em...',
+    execucao: 'FRENTE!',
+    footTiming: 'Voz "FRENTE!" dada no PÉ ESQUERDO (ou Direito conforme padrão)',
+    steps: [
+      'Dado quando a unidade está marcando passo.',
+      'Após a voz de execução "FRENTE!", dá-se mais um passo no lugar para preparar o impulso e rompe-se o deslocamento à frente com passo firme de 75 cm e oscilação normal dos braços.'
+    ],
+    commonMistake: 'Avançar cada fileira em um tempo diferente, abrindo buracos ("sanfona") na coluna.'
+  },
+  {
+    id: 'ou_mudar_passo',
+    name: 'Mudar de Passo, Marche (Correção de Cadência)',
+    category: 'EM_MARCHA',
+    categoryLabel: 'Em Marcha',
+    advertencia: 'Unidade!',
+    comandoProprio: 'Mudar de Passo...',
+    execucao: 'MARCHE!',
+    footTiming: 'Voz "MARCHE!" quando o PÉ ESQUERDO toca o solo',
+    steps: [
+      '1º Tempo: Dá-se um passo normal com o pé direito à frente.',
+      '2º Tempo: Traz-se a ponta do pé esquerdo até encostar atrás do calcanhar direito num pequeno passo duplo rápido ("troca de pé").',
+      '3º Tempo: Avança-se novamente com o pé direito à frente, prosseguindo a marcha no novo compasso.'
+    ],
+    commonMistake: 'Parar de marchar para trocar o pé em vez de fazer o passo duplo contínuo.'
+  },
+  {
+    id: 'ou_acelerado_marche',
+    name: 'Acelerado, Marche (Passo de Trote)',
+    category: 'EM_MARCHA',
+    categoryLabel: 'Em Marcha',
+    advertencia: 'Unidade!',
+    comandoProprio: 'Acelerado...',
+    execucao: 'MARCHE!',
+    footTiming: 'Rompimento no PÉ ESQUERDO • Cadência de 160 a 180 passos/min',
+    steps: [
+      'Na voz preventiva "Acelerado...": todos erguem os antebraços a 90° na altura da cintura/peito com os punhos fechados (polegares para cima/dentro) e cotovelos junto ao corpo.',
+      'Na execução "MARCHE!": inicia-se o deslocamento em trote cadenciado com o pé esquerdo, mantendo o alinhamento das fileiras.'
+    ],
+    commonMistake: 'Disparar em corrida livre desfazendo a formação da unidade.'
+  },
+  {
+    id: 'ou_sem_cadencia',
+    name: 'Sem Cadência, Marche (Deslocamento em Trilha)',
+    category: 'EM_MARCHA',
+    categoryLabel: 'Em Marcha',
+    advertencia: 'Unidade!',
+    comandoProprio: 'Sem Cadência...',
+    execucao: 'MARCHE!',
+    footTiming: 'Rompe com o pé esquerdo e segue em passo natural',
+    steps: [
+      'Inicia-se a marcha com o pé esquerdo, mas logo em seguida os desbravadores caminham em passo normal sem obrigação de bater o mesmo pé simultaneamente.',
+      'É obrigatório manter a formação em coluna, a distância e o silêncio (usado em pontes, terrenos irregulares ou longas caminhadas).'
+    ],
+    commonMistake: 'Achar que "Sem Cadência" significa permissão para conversar ou sair da coluna.'
+  },
+  {
+    id: 'ou_conversao',
+    name: 'Conversão à Direita / à Esquerda, Marche',
+    category: 'EM_MARCHA',
+    categoryLabel: 'Em Marcha',
+    advertencia: 'Unidade!',
+    comandoProprio: 'Conversão à Direita (ou Esquerda)...',
+    execucao: 'MARCHE!',
+    footTiming: 'Arco de 90° em coluna • Segue até o comando "Em, FRENTE!" ou "ALTO!"',
+    steps: [
+      'A fileira da frente descreve um arco de círculo de 90° para o lado indicado: o desbravador do lado interno (pivô) diminui o tamanho do passo, enquanto o do lado externo alonga o passo, olhando pelo canto do olho para manter a fileira reta como uma régua.',
+      'As fileiras de trás avançam até o exato ponto onde a 1ª fileira virou antes de iniciarem seu arco.',
+      'Ao completar o giro da direção desejada, o instrutor comanda "Em, FRENTE!" (ou "Unidade, ALTO!").'
+    ],
+    commonMistake: 'As fileiras de trás virarem antes de chegar na esquina onde a 1ª fileira converteu ("cortar caminho").'
+  },
+  {
+    id: 'ou_volver_em_marcha',
+    name: 'Direita / Esquerda, Volver (Em Marcha)',
+    category: 'EM_MARCHA',
+    categoryLabel: 'Em Marcha',
+    advertencia: 'Unidade!',
+    comandoProprio: 'Direita (ou Esquerda)...',
+    execucao: 'VOLVER!',
+    footTiming: 'Direita Volver = Voz no PÉ DIREITO • Esquerda Volver = Voz no PÉ ESQUERDO',
+    steps: [
+      'Para "Direita, VOLVER!": a voz "VOLVER!" é dada no PÉ DIREITO. O desbravador apoia o pé esquerdo um passo à frente, gira 90° à direita sobre a planta do pé esquerdo e já rompe a marcha na nova direção com o pé direito.',
+      'Para "Esquerda, VOLVER!": a voz "VOLVER!" é dada no PÉ ESQUERDO. Apoia o pé direito um passo à frente, gira 90° à esquerda sobre a planta dele e segue marchando com o pé esquerdo.'
+    ],
+    commonMistake: 'Dar a voz de execução no pé trocado, fazendo a unidade tropeçar no giro.'
+  },
+  {
+    id: 'ou_meiavolta_marcha',
+    name: 'Meia-Volta, Volver (Em Marcha - 180°)',
+    category: 'EM_MARCHA',
+    categoryLabel: 'Em Marcha',
+    advertencia: 'Unidade!',
+    comandoProprio: 'Meia-Volta...',
+    execucao: 'VOLVER!',
+    footTiming: 'Voz "VOLVER!" dada quando o PÉ ESQUERDO toca o solo',
+    steps: [
+      'A voz "VOLVER!" é comandada no PÉ ESQUERDO.',
+      'Tempo 1: O desbravador avança o pé direito meio passo à frente do esquerdo.',
+      'Tempo 2: Gira 180° pela esquerda sobre as plantas dos dois pés.',
+      'Tempo 3: Rompe imediatamente a marcha na nova direção com o pé esquerdo sem interromper a cadência!'
+    ],
+    commonMistake: 'Parar completamente após o giro de 180° em vez de continuar a marcha no tempo seguinte.'
+  },
+  {
+    id: 'ou_passos_frente',
+    name: '3 (ou 5) Passos em Frente, Marche',
+    category: 'EM_MARCHA',
+    categoryLabel: 'Em Marcha',
+    advertencia: 'Unidade!',
+    comandoProprio: '3 Passos em Frente...',
+    execucao: 'MARCHE!',
+    footTiming: 'Deslocamento curto a partir de pé firme (sempre número ímpar de passos)',
+    steps: [
+      'Comanda-se sempre um número ÍMPAR de passos (1, 3, 5 ou 7 passos) para que o último passo de avanço seja no pé esquerdo e o fechamento ocorra no pé direito.',
+      'Exemplo (3 Passos): 1º passo (esquerdo), 2º passo (direito), 3º passo (esquerdo) e no 4º tempo une-se energicamente o pé direito ao esquerdo sem precisar do comando "Alto!".'
+    ],
+    commonMistake: 'Pedir número par de passos em frente (como 2 ou 4 passos) ou esquecer de contar o fechamento final.'
+  }
+];
+
+interface WhistleCommandItem {
+  id: string;
+  title: string;
+  notation: string;
+  pattern: ('SHORT' | 'LONG' | 'PAUSE')[];
+  whenToUse: string;
+  unitAction: string;
+}
+
+const WHISTLE_COMMANDS: WhistleCommandItem[] = [
+  {
+    id: 'apito_atencao',
+    title: 'Atenção Geral! (1 Silvo Longo)',
+    notation: '—————— (1 Silvo Longo ~2s)',
+    pattern: ['LONG'],
+    whenToUse: 'Para pedir silêncio imediato e atenção de todo o Clube ou acampamento.',
+    unitAction: 'Todos interrompem o que estão fazendo, voltam-se para o instrutor e aguardam o próximo comando (se em À Vontade, passam à posição de Descansar).'
+  },
+  {
+    id: 'apito_sentido',
+    title: 'Sentido! (a partir de Descansar)',
+    notation: '• (1 Silvo Curto e Forte)',
+    pattern: ['SHORT'],
+    whenToUse: 'Com o Clube ou Unidade na posição de Descansar.',
+    unitAction: 'Em um único tempo firme, une-se o pé esquerdo ao direito assumindo a posição de Sentido.'
+  },
+  {
+    id: 'apito_descansar',
+    title: 'Descansar! / À Vontade!',
+    notation: '• (1 Curto p/ Descansar) ou • • (2 Curtos p/ À Vontade)',
+    pattern: ['SHORT', 'SHORT'],
+    whenToUse: 'Com a tropa na posição de Sentido.',
+    unitAction: '1 silvo curto comanda "Descansar" (afasta o pé esquerdo e une as mãos atrás); 2 silvos curtos comandam "À Vontade".'
+  },
+  {
+    id: 'apito_cobrir',
+    title: 'Cobrir! e Firme! (Alinhamento no Apito)',
+    notation: '——————  ——————  • (2 Longos e 1 Curto)',
+    pattern: ['LONG', 'PAUSE', 'LONG', 'PAUSE', 'SHORT'],
+    whenToUse: 'Com o Clube em coluna na posição de Sentido para verificar distância e cobertura.',
+    unitAction: 'Estendem o braço esquerdo tocando o ombro do colega da frente ("Cobrir!"); a um novo silvo curto (•), baixam o braço ("Firme!").'
+  },
+  {
+    id: 'apito_marche',
+    title: 'Ordinário, Marche! (Iniciar Marcha)',
+    notation: '——————   •! (1 Longo + Pausa + 1 Curto Seco)',
+    pattern: ['LONG', 'PAUSE', 'SHORT'],
+    whenToUse: 'Para iniciar o deslocamento da unidade apenas no apito.',
+    unitAction: 'O silvo longo prepara ("Ordinário...") e o silvo curto seco comanda a saída ("Marche!") com o pé esquerdo.'
+  },
+  {
+    id: 'apito_cadencia',
+    title: 'Cadência de Marcha no Apito (1, 2... 1, 2, 3!)',
+    notation: '•     •     •  •  • (Esquerdo, Esquerdo, Esq-Dir-Esq)',
+    pattern: ['SHORT', 'PAUSE', 'SHORT', 'PAUSE', 'SHORT', 'SHORT', 'SHORT'],
+    whenToUse: 'Durante desfiles cívicos e evoluções para manter todas as unidades no mesmo pé.',
+    unitAction: 'Os silvos marcam a batida do PÉ ESQUERDO no solo na cadência oficial de 116 passos/min.'
+  },
+  {
+    id: 'apito_alto',
+    title: 'Unidade, Alto! (Parar Marcha)',
+    notation: '•   •! (1 Curto no Pé Esquerdo + 1 Curto no Pé Direito)',
+    pattern: ['SHORT', 'PAUSE', 'SHORT'],
+    whenToUse: 'Para parar o pelotão em marcha usando apenas o apito.',
+    unitAction: 'Após o 2º silvo curto, a unidade conta 1-2 e une o pé esquerdo ao direito na posição de Sentido.'
+  },
+  {
+    id: 'apito_acelerado',
+    title: 'Passo Acelerado (4 Silvos Curtos)',
+    notation: '• • • • (4 Silvos Curtos Rápidos)',
+    pattern: ['SHORT', 'SHORT', 'SHORT', 'SHORT'],
+    whenToUse: 'Em marcha (para iniciar trote cadenciado) ou chamada rápida.',
+    unitAction: 'A unidade passa imediatamente para o passo acelerado em cadência.'
+  },
+  {
+    id: 'apito_reunir',
+    title: 'Reunir Unidades / Entrar em Forma',
+    notation: '——————  • • • (1 Longo e 3 Curtos)',
+    pattern: ['LONG', 'PAUSE', 'SHORT', 'SHORT', 'SHORT'],
+    whenToUse: 'Chamada geral para formatura, abertura ou hasteamento das bandeiras.',
+    unitAction: 'Os desbravadores dirigem-se rapidamente para entrar em forma por unidades diante do instrutor.'
+  }
+];
+
+interface LeaderGestureItem {
+  id: string;
+  name: string;
+  formationType: string;
+  armPosition: string;
+  unitResponse: string;
+  svgType: 'COLUNAS' | 'LINHA' | 'FERRADURA_U' | 'CIRCULO' | 'ALTO_ATENCAO' | 'ACELERADO';
+}
+
+const LEADER_GESTURES: LeaderGestureItem[] = [
+  {
+    id: 'gesto_colunas',
+    name: 'Formação por Colunas (Unidades Paralelas)',
+    formationType: 'Formação Padrão de Abertura',
+    armPosition: 'Ambos os braços estendidos horizontalmente para a FRENTE (paralelos na largura dos ombros), palmas voltadas uma para a outra.',
+    unitResponse: 'Os capitães posicionam-se à frente do líder (a 3 passos) um ao lado do outro, e cada unidade forma em fila indiana atrás do seu capitão.',
+    svgType: 'COLUNAS'
+  },
+  {
+    id: 'gesto_linha',
+    name: 'Formação em Linha (Fileira Frontal)',
+    formationType: 'Inspeção e Revista',
+    armPosition: 'Ambos os braços abertos horizontalmente para os LADOS (formando 180° na linha dos ombros), palmas voltadas para a frente.',
+    unitResponse: 'As unidades alinham-se lado a lado em fileira horizontal de frente para o instrutor.',
+    svgType: 'LINHA'
+  },
+  {
+    id: 'gesto_ferradura',
+    name: 'Formação em "U" (Ferradura / Quadrado Aberto)',
+    formationType: 'Cerimônias, Investiduras eAvisos',
+    armPosition: 'Braços abertos para os lados com os cotovelos dobrados a 90° apontando os antebraços para CIMA (desenhando a letra "U").',
+    unitResponse: 'As unidades formam três lados de um retângulo/U ao redor do instrutor, deixando a frente aberta para o mastro.',
+    svgType: 'FERRADURA_U'
+  },
+  {
+    id: 'gesto_circulo',
+    name: 'Formação em Círculo (Roda da Unidade/Clube)',
+    formationType: 'Recreio, Oração e Fogo do Conselho',
+    armPosition: 'Braço direito erguido fazendo um movimento circular amplo acima da cabeça (ou braços arqueados em círculo à frente).',
+    unitResponse: 'Todos dão as mãos ou fecham um círculo completo ao redor do líder.',
+    svgType: 'CIRCULO'
+  },
+  {
+    id: 'gesto_atencao',
+    name: 'Atenção / Silêncio / Alto Visual',
+    formationType: 'Controle Silencioso de Tropa',
+    armPosition: 'Braço direito estendido verticalmente para o ALTO com a mão aberta (ou em Saudação Maranata).',
+    unitResponse: 'Toda a tropa interrompe a marcha ou conversa imediatamente e assume a posição de Sentido olhando para o líder.',
+    svgType: 'ALTO_ATENCAO'
+  },
+  {
+    id: 'gesto_acelerado',
+    name: 'Passo Acelerado / Vem Correndo',
+    formationType: 'Deslocamento Rápido',
+    armPosition: 'Punho direito fechado subindo e descendo repetidamente da linha do ombro para o alto (como bombeando uma alavanca).',
+    unitResponse: 'A unidade passa imediatamente para o passo acelerado (trote cadenciado).',
+    svgType: 'ACELERADO'
+  }
+];
+
+interface DrillEvolutionItem {
+  id: string;
+  title: string;
+  difficulty: 'BÁSICA' | 'INTERMEDIÁRIA' | 'AVANÇADA (CAMPORI)';
+  idealSize: string;
+  visualEffect: string;
+  commandSequence: string[];
+  judgeTip: string;
+  svgDiagram: 'CRUZAMENTO' | 'MOINHO' | 'DOMINO' | 'TRIANGULO_DBV' | 'ESPELHO' | 'FANTASMA' | 'TUNEL_BANDERINS' | 'ESTRELA_4PONTAS';
+}
+
+const DRILL_EVOLUTIONS: DrillEvolutionItem[] = [
+  {
+    id: 'evol_cruzamento',
+    title: '1. Cruzamento Real em Xadrez (Pente Duplo)',
+    difficulty: 'INTERMEDIÁRIA',
+    idealSize: '16 a 32 Desbravadores (2 Pelotões ou 4 Colunas)',
+    visualEffect: 'Duas metades do pelotão marcham uma em direção à outra (frente a frente ou a 90°) e atravessam-se intercalando as fileiras sem tocar nos colegas!',
+    commandSequence: [
+      'Divida o clube em Pelotão Alfa (colunas ímpares) e Pelotão Bravo (colunas pares) com meio passo de distância extra entre as fileiras.',
+      'Comande "Pelotão Bravo, Meia-Volta, VOLVER!" na extremidade da quadra e depois "Ordinário, MARCHE!" para ambos irem de encontro no centro.',
+      'Ao se cruzarem no centro da quadra, cada fileira passa exatamente no vão entre duas fileiras do outro pelotão mantendo os 116 passos/min.',
+      'Após atravessarem, comande "Meia-Volta em Marcha, VOLVER!" simultaneamente para recompor o bloco original.'
+    ],
+    judgeTip: 'Segredo de Ouro: Os desbravadores devem manter o olhar fixo à frente (nunca olhar para o chão) e manter distância exata de 1 braço e meio entre fileiras.',
+    svgDiagram: 'CRUZAMENTO'
+  },
+  {
+    id: 'evol_moinho',
+    title: '2. Moinho de Vento (Hélice de 4 Unidades)',
+    difficulty: 'AVANÇADA (CAMPORI)',
+    idealSize: '16, 20 ou 24 Desbravadores (4 Fileiras de 4 a 6 DBVs)',
+    visualEffect: 'As 4 fileiras giram ao redor de um ponto central formando as 4 pás de uma hélice em movimento contínuo de 360°.',
+    commandSequence: [
+      'A partir de 4 colunas paralelas, abra as extremidades para formar uma cruz (+) com 4 raios partindo do centro.',
+      'Ao comando "Moinho em Conversão, MARCHE!", os 4 desbravadores do centro marcam passo girando lentamente no eixo.',
+      'Os desbravadores do meio dão passos médios e os das pontas externas dão passos largos, mantendo cada pá da hélice perfeitamente alinhada como uma régua!',
+      'Após 1 volta completa (360°), comande "Unidade, ALTO!" e "Para o Voto, POSIÇÃO!" (Saudação Maranata).'
+    ],
+    judgeTip: 'Quem comanda o alinhamento da pá do moinho é a PONTA EXTERNA; todos olham discretamente pelo canto do olho para manter a linha reta.',
+    svgDiagram: 'MOINHO'
+  },
+  {
+    id: 'evol_domino',
+    title: '3. Efeito Dominó (Onda Sincronizada + Maranata)',
+    difficulty: 'BÁSICA',
+    idealSize: 'Qualquer tamanho (8 a 40 Desbravadores)',
+    visualEffect: 'Um único comando gera uma onda visual contínua de fileira em fileira (ou coluna em coluna) com batida sonora sequencial.',
+    commandSequence: [
+      'Combine previamente com o pelotão: "Atenção para Sequência em Onda, Executar!".',
+      'Tempo 1: A 1ª Fileira executa "Direita, Volver!". Tempo 2: A 2ª Fileira executa. Tempo 3: A 3ª Fileira. Tempo 4: A 4ª Fileira.',
+      'Em seguida, da última fileira para a primeira (onda reversa), retornam à frente com "Esquerda, Volver!".',
+      'Finalização: Da esquerda para a direita, cada coluna ergue a Saudação Maranata em cascata gritando uma sílaba: "MA - RA - NA - TA!".'
+    ],
+    judgeTip: 'Fácil de ensaiar em apenas 15 minutos e arranca aplausos imediatos em qualquer abertura de Dia dos Desbravadores ou avaliação.',
+    svgDiagram: 'DOMINO'
+  },
+  {
+    id: 'evol_triangulo',
+    title: '4. Formação do Triângulo Oficial DBV',
+    difficulty: 'INTERMEDIÁRIA',
+    idealSize: '15, 18 ou 21 Desbravadores',
+    visualEffect: 'O pelotão sai do formato quadrado tradicional e desenha no chão o Triângulo Equilátero do Emblema dos Desbravadores voltado para o júri/público.',
+    commandSequence: [
+      'Posicione o capitão ou porta-bandeira no vértice frontal (ponta do triângulo voltada para o público).',
+      'Ao comando "Formação Emblema, MARCHE!", as duas colunas externas abrem em "Oitavo à Direita/Esquerda" formando as duas laterais diagonais do triângulo.',
+      'A fileira de fundo fecha a base superior horizontal do triângulo.',
+      'No centro do triângulo, 3 desbravadores com os bastões ou bandeiras erguem o escudo/bandeira do Clube ao comando "Para o Voto, POSIÇÃO!".'
+    ],
+    judgeTip: 'Excelente para o momento final da apresentação diante da comissão julgadora do Campori.',
+    svgDiagram: 'TRIANGULO_DBV'
+  },
+  {
+    id: 'evol_espelho',
+    title: '5. Pelotão Espelhado (Comando Simétrico)',
+    difficulty: 'INTERMEDIÁRIA',
+    idealSize: '12 a 24 Desbravadores (Número par de colunas: 2 ou 4)',
+    visualEffect: 'Ao receber um comando simétrico, a metade esquerda e a metade direita executam movimentos espelhados (abrindo para fora ou fechando para o centro).',
+    commandSequence: [
+      'Com o pelotão em 4 colunas (2 à esquerda e 2 à direita), o instrutor comanda: "Simétrico Exterior, Direita e Esquerda, VOLVER!".',
+      'As 2 colunas da direita viram para a direita e as 2 colunas da esquerda viram para a esquerda (abrindo o peito do pelotão).',
+      'Comande "3 Passos em Frente, MARCHE!" (abrindo um corredor central amplo para a passagem das bandeiras).',
+      'Depois comande "Simétrico Interior, Meia-Volta, VOLVER!" e "3 Passos em Frente, MARCHE!" para fechar o bloco perfeitamente no centro.'
+    ],
+    judgeTip: 'Demonstra altíssimo domínio técnico de lateralidade e concentração da equipe.',
+    svgDiagram: 'ESPELHO'
+  },
+  {
+    id: 'evol_fantasma',
+    title: '6. Evolução Silenciosa (16 Tempos Sem Voz de Comando)',
+    difficulty: 'AVANÇADA (CAMPORI)',
+    idealSize: '12 a 24 Desbravadores',
+    visualEffect: 'O instrutor cruza os braços e permanece em silêncio absoluto enquanto a unidade executa uma sequência inteira apenas na contagem mental e batida dos pés!',
+    commandSequence: [
+      'O instrutor dá um único comando inicial: "Sequência Silenciosa de 16 Tempos, MARCHE!".',
+      'Tempos 1 a 4: 4 passos em frente (no 4º passo fazem Alto automático).',
+      'Tempos 5 a 8: Direita Volver (5-6) + Meia-Volta Volver (7-8).',
+      'Tempos 9 a 12: Esquerda Volver retornando à frente (9-10) + Marcar Passo 2 batidas fortes (11-12).',
+      'Tempos 13 a 16: Para o Voto, Posição / Maranata (13-14) + Descansar, Posição (15-16) em sincronia milimétrica!'
+    ],
+    judgeTip: 'Nos regulamentos de Ordem Unida Criativa da DSA, a execução sem comando de voz tem pontuação extra de sincronismo.',
+    svgDiagram: 'FANTASMA'
+  },
+  {
+    id: 'evol_tunel',
+    title: '7. Túnel de Honra com Banderins (Passagem da Bandeira)',
+    difficulty: 'BÁSICA',
+    idealSize: '12 a 32 Desbravadores (2 ou 4 Colunas)',
+    visualEffect: 'As colunas internas (ou externas) voltam-se frente a frente e inclinam os mastros dos banderins a 45° formando um arco de honra pelo qual passam as bandeiras oficiais.',
+    commandSequence: [
+      'Com o clube em 2 colunas paralelas com intervalo ampliado (3 passos), comande: "Frente para o Centro, Direita e Esquerda, VOLVER!".',
+      'Ao comando "Arco de Honra, Para o Voto, POSIÇÃO!", os capitães/desbravadores inclinam os banderins a 45° à frente cruzando as pontas no alto.',
+      'Os demais desbravadores executam a Saudação Maranata enquanto o Porta-Bandeira atravessa o corredor em passo firme.',
+      'Após a passagem, comande "Descansar, POSIÇÃO!" e "Frente para a Vanguarda, Direita e Esquerda, VOLVER!".'
+    ],
+    judgeTip: 'Perfeito para cerimônias de entrada da Bandeira Nacional e Bandeira dos Desbravadores em investiduras.',
+    svgDiagram: 'TUNEL_BANDERINS'
+  },
+  {
+    id: 'evol_estrela',
+    title: '8. Expansão Radiante em Cruz / Estrela do Clube',
+    difficulty: 'AVANÇADA (CAMPORI)',
+    idealSize: '16 a 32 Desbravadores (4 Unidades)',
+    visualEffect: 'O pelotão compacto no centro da quadra abre simultaneamente para os 4 pontos cardeais (Norte, Sul, Leste e Oeste) e retorna de costas/meia-volta fechando o bloco.',
+    commandSequence: [
+      'Com as 4 unidades agrupadas no centro, comande: "Quatro Direções, Preparar!". Cada unidade faz volver para um lado da quadra (Frente, Direita, Esquerda e Retaguarda).',
+      'Ao comando "Expansão em 5 Passos, MARCHE!", as 4 unidades avançam simultaneamente 5 passos abrindo uma estrela simétrica.',
+      'No 6º tempo (fechamento do 5º passo), todas executam "Meia-Volta, VOLVER!" sincronizadas no apito.',
+      'Ao comando "Reagrupar em 5 Passos, MARCHE!", retornam ao centro exato e finalizam com "Para o Voto, POSIÇÃO!".'
+    ],
+    judgeTip: 'A simetria do número de passos (5 na ida e 5 na volta) garante que o pelotão volte exatamente ao mesmo alinhamento inicial.',
+    svgDiagram: 'ESTRELA_4PONTAS'
+  }
+];
+
+const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 'NOS_AMARRAS', standaloneDrill = false }) => {
   const isPathfinder = club === ClubType.PATHFINDER;
   const storageKeyMastered = `dbv_mastered_knots_${isPathfinder ? 'DBV' : 'AVT'}`;
 
-  const [activeTab, setActiveTab] = useState<ManualTab>(initialTab);
+  const [activeTab, setActiveTab] = useState<ManualTab>(standaloneDrill ? 'ORDEM_UNIDA' : initialTab);
 
   useEffect(() => {
-    if (initialTab) {
+    if (standaloneDrill) {
+      setActiveTab('ORDEM_UNIDA');
+    } else if (initialTab) {
       setActiveTab(initialTab);
     }
-  }, [initialTab]);
+  }, [initialTab, standaloneDrill]);
 
   // ============================================================================
   // 1. ESTADOS DE NÓS E AMARRAS
@@ -1415,7 +2066,79 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
   const [selectedTrailCategory, setSelectedTrailCategory] = useState<TrailSignCategory>('TODOS');
   const [selectedLibrasLetterModal, setSelectedLibrasLetterModal] = useState<string | null>(null);
   const [selectedSemaphoreModal, setSelectedSemaphoreModal] = useState<string | null>(null);
+  const [selectedDrillCmdModal, setSelectedDrillCmdModal] = useState<DrillCommandItem | null>(null);
   const [librasExpressionCat, setLibrasExpressionCat] = useState<'TODAS' | 'CUMPRIMENTOS' | 'CLUBE' | 'ACAMPAMENTO' | 'DIALOGO'>('TODAS');
+  const rootContainerRef = useRef<HTMLDivElement | null>(null);
+  const trainerCommandsScrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Suporte automático a rolagem horizontal pelo mouse (roda do mouse + arrastar com o botão esquerdo no PC) em todos os menus horizontais
+  useEffect(() => {
+    const root = rootContainerRef.current;
+    if (!root) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      const target = (e.target as HTMLElement | null)?.closest('.overflow-x-auto') as HTMLElement | null;
+      if (!target) return;
+      if (target.scrollWidth > target.clientWidth && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.preventDefault();
+        target.scrollLeft += e.deltaY;
+      }
+    };
+
+    let isDown = false;
+    let startX = 0;
+    let scrollLeftStart = 0;
+    let activeScroller: HTMLElement | null = null;
+    let moved = false;
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      const target = (e.target as HTMLElement | null)?.closest('.overflow-x-auto') as HTMLElement | null;
+      if (!target || target.scrollWidth <= target.clientWidth) return;
+      isDown = true;
+      moved = false;
+      activeScroller = target;
+      startX = e.pageX - target.offsetLeft;
+      scrollLeftStart = target.scrollLeft;
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDown || !activeScroller) return;
+      const x = e.pageX - activeScroller.offsetLeft;
+      const walk = x - startX;
+      if (Math.abs(walk) > 5) {
+        moved = true;
+        activeScroller.scrollLeft = scrollLeftStart - walk * 1.4;
+      }
+    };
+
+    const handleMouseUp = () => {
+      isDown = false;
+      activeScroller = null;
+    };
+
+    const handleClickCapture = (e: MouseEvent) => {
+      if (moved) {
+        e.stopPropagation();
+        e.preventDefault();
+        moved = false;
+      }
+    };
+
+    root.addEventListener('wheel', handleWheel, { passive: false });
+    root.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    root.addEventListener('click', handleClickCapture, true);
+
+    return () => {
+      root.removeEventListener('wheel', handleWheel);
+      root.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      root.removeEventListener('click', handleClickCapture, true);
+    };
+  }, []);
   const [masteredKnots, setMasteredKnots] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem(storageKeyMastered);
@@ -1469,6 +2192,17 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
       .toUpperCase()
       .split('')
       .filter((ch) => /[A-Z0-9\s]/.test(ch));
+  }, [inputText]);
+
+  const normalizedLibrasChars = useMemo(() => {
+    return inputText
+      .toUpperCase()
+      .replace(/Ç/g, '__CEDILHA__')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/__CEDILHA__/g, 'Ç')
+      .split('')
+      .filter((ch) => /[A-ZÇ0-9]/.test(ch));
   }, [inputText]);
 
   const stopAllSignalPlayback = () => {
@@ -1606,6 +2340,173 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
   const [selectedFirstAidCat, setSelectedFirstAidCat] = useState<FirstAidCategory>('TODOS');
   const [firstAidSearch, setFirstAidSearch] = useState<string>('');
 
+  // ============================================================================
+  // 4. ESTADOS DE ORDEM UNIDA E VOZES DE COMANDO (MANUAL DSA)
+  // ============================================================================
+  const [drillSubTab, setDrillSubTab] = useState<DrillSubTab>('VOZES_ESTRUTURA');
+  const [drillCommandCat, setDrillCommandCat] = useState<DrillCommandCategory>('TODOS');
+  const [drillSearch, setDrillSearch] = useState<string>('');
+  const [playingWhistleId, setPlayingWhistleId] = useState<string | null>(null);
+  const [isCadencePlaying, setIsCadencePlaying] = useState<boolean>(false);
+  const [cadenceBpm, setCadenceBpm] = useState<116 | 180>(116);
+  const [cadenceStepBeat, setCadenceStepBeat] = useState<'ESQUERDO' | 'DIREITO' | null>(null);
+  const [selectedTrainerCmdId, setSelectedTrainerCmdId] = useState<string>(DRILL_COMMANDS[0].id);
+  const [voiceTrainerStage, setVoiceTrainerStage] = useState<null | 'ADVERTENCIA' | 'COMANDO' | 'PAUSA' | 'EXECUCAO'>(null);
+  const [evolutionDiffFilter, setEvolutionDiffFilter] = useState<'TODAS' | 'BÁSICA' | 'INTERMEDIÁRIA' | 'AVANÇADA (CAMPORI)'>('TODAS');
+
+  const selectedTrainerCommand = useMemo(() => {
+    return DRILL_COMMANDS.find((c) => c.id === selectedTrainerCmdId) || DRILL_COMMANDS[0];
+  }, [selectedTrainerCmdId]);
+
+  const filteredEvolutions = useMemo(() => {
+    if (evolutionDiffFilter === 'TODAS') return DRILL_EVOLUTIONS;
+    return DRILL_EVOLUTIONS.filter((e) => e.difficulty === evolutionDiffFilter);
+  }, [evolutionDiffFilter]);
+
+  const handleSimulateVoiceCommand = async () => {
+    if (voiceTrainerStage !== null) {
+      stopAllSignalPlayback();
+      setVoiceTrainerStage(null);
+      return;
+    }
+    stopAllSignalPlayback();
+    setIsCadencePlaying(false);
+    setCadenceStepBeat(null);
+    setPlayingWhistleId(null);
+    await sleep(40);
+    cancelPlaybackRef.current = false;
+
+    // 1ª Etapa: Voz de Advertência
+    setVoiceTrainerStage('ADVERTENCIA');
+    await playSingleTone(180, true, false);
+    await sleep(950);
+    if (cancelPlaybackRef.current) {
+      setVoiceTrainerStage(null);
+      return;
+    }
+
+    // 2ª Etapa: Comando Propriamente Dito (Prolongado)
+    setVoiceTrainerStage('COMANDO');
+    await playSingleTone(420, true, false);
+    await sleep(750);
+    if (cancelPlaybackRef.current) {
+      setVoiceTrainerStage(null);
+      return;
+    }
+
+    // Pausa Regulamentar (2 Tempos)
+    setVoiceTrainerStage('PAUSA');
+    await sleep(800);
+    if (cancelPlaybackRef.current) {
+      setVoiceTrainerStage(null);
+      return;
+    }
+
+    // 3ª Etapa: Voz de Execução (Curta, Seca e Enérgica!)
+    setVoiceTrainerStage('EXECUCAO');
+    await playSingleTone(130, true, false);
+    await sleep(1100);
+    setVoiceTrainerStage(null);
+  };
+
+  const filteredDrillCommands = useMemo(() => {
+    return DRILL_COMMANDS.filter((cmd) => {
+      const matchesCat = drillCommandCat === 'TODOS' || cmd.category === drillCommandCat;
+      if (!matchesCat) return false;
+      if (!drillSearch.trim()) return true;
+      const q = drillSearch.toLowerCase();
+      return (
+        cmd.name.toLowerCase().includes(q) ||
+        cmd.execucao.toLowerCase().includes(q) ||
+        cmd.comandoProprio.toLowerCase().includes(q) ||
+        cmd.steps.some((s) => s.toLowerCase().includes(q))
+      );
+    });
+  }, [drillCommandCat, drillSearch]);
+
+  const handlePlayWhistleCommand = async (item: WhistleCommandItem) => {
+    if (playingWhistleId === item.id) {
+      stopAllSignalPlayback();
+      setPlayingWhistleId(null);
+      return;
+    }
+    stopAllSignalPlayback();
+    setIsCadencePlaying(false);
+    setCadenceStepBeat(null);
+    await sleep(40);
+    cancelPlaybackRef.current = false;
+    setPlayingWhistleId(item.id);
+
+    for (let i = 0; i < item.pattern.length; i++) {
+      if (cancelPlaybackRef.current) break;
+      const p = item.pattern[i];
+      if (p === 'PAUSE') {
+        await sleep(320);
+      } else if (p === 'SHORT') {
+        await playSingleTone(140, true, false);
+        await sleep(130);
+      } else if (p === 'LONG') {
+        await playSingleTone(520, true, false);
+        await sleep(180);
+      }
+    }
+    setPlayingWhistleId(null);
+  };
+
+  const handleToggleCadenceMetronome = async (bpmOverride?: 116 | 180) => {
+    const targetBpm = bpmOverride || cadenceBpm;
+    if (isCadencePlaying && !bpmOverride) {
+      stopAllSignalPlayback();
+      setIsCadencePlaying(false);
+      setCadenceStepBeat(null);
+      return;
+    }
+    stopAllSignalPlayback();
+    setPlayingWhistleId(null);
+    setVoiceTrainerStage(null);
+    await sleep(40);
+    cancelPlaybackRef.current = false;
+    setIsCadencePlaying(true);
+
+    // Cadência oficial DSA: 116 passos/min (Ordinário) ou 180 passos/min (Acelerado)
+    const stepIntervalMs = Math.round(60000 / targetBpm);
+    for (let step = 0; step < 32; step++) {
+      if (cancelPlaybackRef.current) break;
+      const isLeft = step % 2 === 0;
+      setCadenceStepBeat(isLeft ? 'ESQUERDO' : 'DIREITO');
+
+      try {
+        if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+          audioCtxRef.current = new AudioContextClass();
+        }
+        if (audioCtxRef.current.state === 'suspended') {
+          await audioCtxRef.current.resume();
+        }
+        const osc = audioCtxRef.current.createOscillator();
+        const gain = audioCtxRef.current.createGain();
+        osc.type = 'triangle';
+        // Tom mais grave/forte para o Pé Esquerdo (1) e mais agudo/curto para o Pé Direito (2)
+        osc.frequency.value = isLeft ? 520 : 380;
+        gain.gain.setValueAtTime(isLeft ? 0.28 : 0.16, audioCtxRef.current.currentTime);
+        osc.connect(gain);
+        gain.connect(audioCtxRef.current.destination);
+        osc.start();
+        setTimeout(() => {
+          try {
+            osc.stop();
+            osc.disconnect();
+          } catch {}
+        }, 85);
+      } catch {}
+
+      await sleep(stepIntervalMs);
+    }
+
+    setIsCadencePlaying(false);
+    setCadenceStepBeat(null);
+  };
+
   const filteredFirstAidCards = useMemo(() => {
     return FIRST_AID_CARDS.filter((card) => {
       const matchesCat = selectedFirstAidCat === 'TODOS' || card.category === selectedFirstAidCat;
@@ -1624,6 +2525,253 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
   // ============================================================================
   // RENDERIZADORES VISUAIS SVG (SEMÁFORA E SINAIS DE PISTA)
   // ============================================================================
+  // Renderiza ilustração técnica da posição do Desbravador + diagrama superior dos pés para cada comando de Ordem Unida
+  const renderDrillPositionIllustration = (cmdId: string, size: 'SMALL' | 'LARGE' = 'SMALL') => {
+    const isLarge = size === 'LARGE';
+    return (
+      <svg
+        viewBox="0 0 240 120"
+        className={isLarge ? 'w-full max-w-[360px] h-40 mx-auto' : 'w-full h-28 mx-auto'}
+      >
+        {/* Fundo dividido: Esquerda = Postura Corporal | Direita = Diagrama de Pés / Movimento */}
+        <rect x="2" y="2" width="114" height="116" rx="12" className="fill-slate-100/90 dark:fill-slate-900/90 stroke-slate-200 dark:stroke-slate-700" strokeWidth="1.2" />
+        <rect x="122" y="2" width="116" height="116" rx="12" className="fill-indigo-50/70 dark:fill-indigo-950/40 stroke-indigo-200/80 dark:stroke-indigo-800/60" strokeWidth="1.2" />
+
+        <text x="59" y="14" textAnchor="middle" className="fill-slate-500 dark:fill-slate-400 text-[7px] font-black uppercase">
+          Postura Corporal
+        </text>
+        <text x="180" y="14" textAnchor="middle" className="fill-indigo-600 dark:fill-indigo-300 text-[7px] font-black uppercase">
+          Diagrama de Pés (DSA)
+        </text>
+
+        {/* Linhas de eixo no diagrama de pés */}
+        <line x1="180" y1="22" x2="180" y2="106" stroke="currentColor" strokeWidth="0.8" strokeDasharray="2 2" className="text-indigo-300 dark:text-indigo-800" />
+        <line x1="134" y1="68" x2="226" y2="68" stroke="currentColor" strokeWidth="0.8" strokeDasharray="2 2" className="text-indigo-300 dark:text-indigo-800" />
+
+        {/* === DESBRAVADOR UNIFORMIZADO (ESQUERDA: x=59) === */}
+        {/* Boina/Boné e Cabeça */}
+        <g transform={cmdId === 'ou_olhar_direita' ? 'translate(3,0)' : ''}>
+          <path d="M48 24 Q59 18 70 24 Z" fill="#1e293b" />
+          <circle cx="59" cy="30" r="7.5" fill="#f5d0a9" stroke="#475569" strokeWidth="1.2" />
+          {cmdId === 'ou_olhar_direita' ? (
+            <>
+              <circle cx="56" cy="29.5" r="1.1" fill="#0f172a" />
+              <circle cx="61" cy="29.5" r="1.1" fill="#0f172a" />
+              <path d="M45 29 L36 29" stroke="#f59e0b" strokeWidth="1.8" strokeLinecap="round" />
+              <polygon points="36,29 40,26.5 40,31.5" fill="#f59e0b" />
+            </>
+          ) : (
+            <>
+              <circle cx="56.5" cy="29.5" r="1" fill="#0f172a" />
+              <circle cx="61.5" cy="29.5" r="1" fill="#0f172a" />
+            </>
+          )}
+        </g>
+
+        {/* Tronco (Camisa Caqui + Lenço Amarelo Oficial) */}
+        <rect x="48" y="39" width="22" height="28" rx="4" fill="#d6c5a3" stroke="#78716c" strokeWidth="1.2" />
+        {/* Lenço Amarelo DBV */}
+        <polygon points="50,39 68,39 59,53" fill="#facc15" stroke="#ca8a04" strokeWidth="1" />
+        <circle cx="59" cy="48" r="2" fill="#dc2626" />
+        {/* Cinto */}
+        <rect x="48" y="64" width="22" height="3.5" fill="#1e293b" />
+        <rect x="57" y="63.5" width="4" height="4.5" rx="0.8" fill="#fbbf24" />
+
+        {/* BRAÇOS CONFORME A POSIÇÃO */}
+        {cmdId === 'ou_maranata' ? (
+          <>
+            {/* Braço direito do DBV (esquerda da tela) erguido a 45° na Saudação Maranata */}
+            <line x1="48" y1="42" x2="38" y2="52" stroke="#d6c5a3" strokeWidth="4.5" strokeLinecap="round" />
+            <line x1="38" y1="52" x2="36" y2="33" stroke="#f5d0a9" strokeWidth="4" strokeLinecap="round" />
+            {/* 4 dedos unidos */}
+            <rect x="33.5" y="26" width="5" height="7" rx="1.5" fill="#f5d0a9" stroke="#475569" strokeWidth="0.9" />
+            <text x="24" y="32" className="fill-amber-600 dark:fill-amber-400 text-[6.5px] font-black">45°</text>
+            {/* Braço esquerdo colado à coxa */}
+            <line x1="70" y1="42" x2="73" y2="71" stroke="#d6c5a3" strokeWidth="4.5" strokeLinecap="round" />
+            <circle cx="73" cy="72" r="2.2" fill="#f5d0a9" />
+          </>
+        ) : cmdId === 'ou_cobrir' ? (
+          <>
+            {/* Braço direito colado */}
+            <line x1="48" y1="42" x2="45" y2="71" stroke="#d6c5a3" strokeWidth="4.5" strokeLinecap="round" />
+            <circle cx="45" cy="72" r="2.2" fill="#f5d0a9" />
+            {/* Braço esquerdo estendido horizontalmente tocando ombro à frente/lado */}
+            <line x1="70" y1="42" x2="98" y2="42" stroke="#d6c5a3" strokeWidth="4.5" strokeLinecap="round" />
+            <rect x="97" y="40" width="6" height="3.5" rx="1" fill="#f5d0a9" />
+            <circle cx="105" cy="42" r="4" className="fill-indigo-500/30 stroke-indigo-500" strokeWidth="1" strokeDasharray="2 1" />
+          </>
+        ) : cmdId === 'ou_descansar' || cmdId === 'ou_avontade' ? (
+          <>
+            {/* Braços flexionados indo para trás das costas */}
+            <path d="M48 42 L41 56 L54 64" fill="none" stroke="#d6c5a3" strokeWidth="4.2" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M70 42 L77 56 L64 64" fill="none" stroke="#d6c5a3" strokeWidth="4.2" strokeLinecap="round" strokeLinejoin="round" />
+            {/* Mãos unidas atrás nas costas */}
+            <circle cx="59" cy="64" r="3.2" fill="#f5d0a9" stroke="#ef4444" strokeWidth="1" />
+          </>
+        ) : cmdId === 'ou_acelerado_marche' ? (
+          <>
+            {/* Antebraços a 90° na altura do peito com punhos fechados */}
+            <path d="M48 42 L42 56 L52 52" fill="none" stroke="#d6c5a3" strokeWidth="4.2" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M70 42 L76 56 L66 52" fill="none" stroke="#d6c5a3" strokeWidth="4.2" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="52" cy="52" r="2.6" fill="#f5d0a9" stroke="#475569" strokeWidth="0.9" />
+            <circle cx="66" cy="52" r="2.6" fill="#f5d0a9" stroke="#475569" strokeWidth="0.9" />
+          </>
+        ) : cmdId === 'ou_ordinario_marche' || cmdId === 'ou_em_frente' || cmdId === 'ou_foradeforma' || cmdId === 'ou_passos_frente' ? (
+          <>
+            {/* Oscilação de marcha: braço direito à frente (até altura do cinto) e esquerdo atrás */}
+            <line x1="48" y1="42" x2="36" y2="60" stroke="#d6c5a3" strokeWidth="4.5" strokeLinecap="round" />
+            <circle cx="35" cy="61" r="2.3" fill="#f5d0a9" />
+            <line x1="70" y1="42" x2="80" y2="64" stroke="#d6c5a3" strokeWidth="4.5" strokeLinecap="round" />
+            <circle cx="81" cy="65" r="2.3" fill="#f5d0a9" />
+          </>
+        ) : (
+          <>
+            {/* Braços colados às coxas (Sentido / Giros / Alto) */}
+            <line x1="48" y1="42" x2="45" y2="71" stroke="#d6c5a3" strokeWidth="4.5" strokeLinecap="round" />
+            <circle cx="45" cy="72" r="2.2" fill="#f5d0a9" />
+            <line x1="70" y1="42" x2="73" y2="71" stroke="#d6c5a3" strokeWidth="4.5" strokeLinecap="round" />
+            <circle cx="73" cy="72" r="2.2" fill="#f5d0a9" />
+          </>
+        )}
+
+        {/* PERNAS E PÉS DO BONECO */}
+        {cmdId === 'ou_descansar' || cmdId === 'ou_avontade' ? (
+          <>
+            {/* Pernas afastadas (~30 cm) */}
+            <line x1="53" y1="68" x2="47" y2="96" stroke="#1e3a8a" strokeWidth="5.5" strokeLinecap="round" />
+            <line x1="65" y1="68" x2="72" y2="96" stroke="#1e3a8a" strokeWidth="5.5" strokeLinecap="round" />
+            <ellipse cx="45" cy="98" rx="5.5" ry="2.8" fill="#0f172a" />
+            <ellipse cx="74" cy="98" rx="5.5" ry="2.8" fill="#0f172a" />
+            <line x1="47" y1="105" x2="72" y2="105" stroke="#0284c7" strokeWidth="1.5" />
+            <text x="59" y="113" textAnchor="middle" className="fill-sky-600 dark:fill-sky-400 text-[6.5px] font-black">~30 cm</text>
+          </>
+        ) : cmdId === 'ou_marcar_passo' ? (
+          <>
+            {/* Perna direita firme e joelho esquerdo elevado marcando passo */}
+            <line x1="54" y1="68" x2="54" y2="96" stroke="#1e3a8a" strokeWidth="5.5" strokeLinecap="round" />
+            <ellipse cx="52" cy="98" rx="5" ry="2.6" fill="#0f172a" />
+            <path d="M64 68 L71 80 L67 91" fill="none" stroke="#1e3a8a" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round" />
+            <ellipse cx="69" cy="92" rx="5" ry="2.6" fill="#0f172a" />
+            <path d="M77 92 L77 77" stroke="#10b981" strokeWidth="1.8" strokeLinecap="round" />
+            <polygon points="77,75 74.5,79 79.5,79" fill="#10b981" />
+          </>
+        ) : cmdId.includes('marche') || cmdId === 'ou_em_frente' || cmdId === 'ou_sem_cadencia' || cmdId === 'ou_conversao' || cmdId === 'ou_foradeforma' || cmdId === 'ou_passos_frente' ? (
+          <>
+            {/* Passo em marcha (Pé esquerdo avançando) */}
+            <line x1="54" y1="68" x2="48" y2="96" stroke="#1e3a8a" strokeWidth="5.5" strokeLinecap="round" />
+            <line x1="64" y1="68" x2="73" y2="94" stroke="#1e3a8a" strokeWidth="5.5" strokeLinecap="round" />
+            <ellipse cx="46" cy="98" rx="5" ry="2.6" fill="#0f172a" />
+            <ellipse cx="75" cy="95" rx="5.5" ry="2.6" transform="rotate(-18 75 95)" fill="#0f172a" />
+          </>
+        ) : (
+          <>
+            {/* Pernas unidas (Calcanhares juntos e pontas a 45°) */}
+            <line x1="55" y1="68" x2="56" y2="96" stroke="#1e3a8a" strokeWidth="5.5" strokeLinecap="round" />
+            <line x1="63" y1="68" x2="62" y2="96" stroke="#1e3a8a" strokeWidth="5.5" strokeLinecap="round" />
+            <ellipse cx="52" cy="98" rx="5.5" ry="2.6" transform="rotate(-22 52 98)" fill="#0f172a" />
+            <ellipse cx="66" cy="98" rx="5.5" ry="2.6" transform="rotate(22 66 98)" fill="#0f172a" />
+            <text x="59" y="111" textAnchor="middle" className="fill-indigo-600 dark:fill-indigo-400 text-[6.5px] font-black">Calcanhares Unidos (45°)</text>
+          </>
+        )}
+
+        {/* === DIAGRAMA SUPERIOR DE PÉS (DIREITA: centro x=180, y=68) === */}
+        {cmdId === 'ou_sentido' || cmdId === 'ou_maranata' || cmdId === 'ou_cobrir' || cmdId === 'ou_olhar_direita' ? (
+          <>
+            {/* Pés unidos nos calcanhares formando 45° */}
+            <ellipse cx="171" cy="66" rx="6.5" ry="15" transform="rotate(-22.5 171 66)" fill="#4f46e5" opacity="0.9" />
+            <ellipse cx="189" cy="66" rx="6.5" ry="15" transform="rotate(22.5 189 66)" fill="#0f172a" opacity="0.85" />
+            <text x="167" y="67" textAnchor="middle" fill="#ffffff" className="text-[6.5px] font-black">PE</text>
+            <text x="193" y="67" textAnchor="middle" fill="#ffffff" className="text-[6.5px] font-black">PD</text>
+            <path d="M172 48 Q180 42 188 48" fill="none" stroke="#f59e0b" strokeWidth="1.8" />
+            <text x="180" y="39" textAnchor="middle" className="fill-amber-600 dark:fill-amber-400 text-[8px] font-black">45°</text>
+            <text x="180" y="102" textAnchor="middle" className="fill-slate-600 dark:fill-slate-300 text-[6.8px] font-black">
+              {cmdId === 'ou_maranata' ? 'Antebraço Dir. 45° (4 Dedos)' : cmdId === 'ou_cobrir' ? 'Braço Esq. ao Ombro' : 'Posição Base DSA'}
+            </text>
+          </>
+        ) : cmdId === 'ou_descansar' || cmdId === 'ou_avontade' ? (
+          <>
+            {/* Pé esquerdo desloca 30cm para a esquerda; pé direito fixo */}
+            <ellipse cx="154" cy="66" rx="6.5" ry="15" fill="#4f46e5" />
+            <ellipse cx="202" cy="66" rx="6.5" ry="15" fill="#0f172a" />
+            <text x="154" y="68" textAnchor="middle" fill="#ffffff" className="text-[6.5px] font-black">PE</text>
+            <text x="202" y="68" textAnchor="middle" fill="#ffffff" className="text-[6.5px] font-black">PD</text>
+            <line x1="163" y1="66" x2="193" y2="66" stroke="#10b981" strokeWidth="2" />
+            <polygon points="159,66 165,63 165,69" fill="#10b981" />
+            <text x="178" y="60" textAnchor="middle" className="fill-emerald-600 dark:fill-emerald-400 text-[7px] font-black">~30 cm</text>
+            <text x="180" y="102" textAnchor="middle" className="fill-slate-600 dark:fill-slate-300 text-[6.8px] font-black">
+              {cmdId === 'ou_avontade' ? 'Pé Direito Fixo na Base' : 'Mão Esq. Segura Pulso Dir.'}
+            </text>
+          </>
+        ) : cmdId === 'ou_direita_volver' ? (
+          <>
+            <ellipse cx="171" cy="68" rx="6" ry="14" transform="rotate(-15 171 68)" fill="#94a3b8" opacity="0.45" />
+            <ellipse cx="190" cy="64" rx="6.5" ry="14" transform="rotate(90 190 64)" fill="#0f172a" />
+            <ellipse cx="190" cy="78" rx="6.5" ry="14" transform="rotate(90 190 78)" fill="#4f46e5" />
+            <circle cx="186" cy="76" r="3" fill="#ef4444" />
+            <path d="M168 44 Q195 36 206 56" fill="none" stroke="#f59e0b" strokeWidth="2" />
+            <polygon points="207,59 202,54 209,52" fill="#f59e0b" />
+            <text x="180" y="34" textAnchor="middle" className="fill-amber-600 dark:fill-amber-400 text-[7.5px] font-black">Giro +90° à Direita</text>
+            <text x="180" y="103" textAnchor="middle" className="fill-slate-600 dark:fill-slate-300 text-[6.5px] font-black">Calcanhar Dir. + Planta Esq.</text>
+          </>
+        ) : cmdId === 'ou_esquerda_volver' || cmdId === 'ou_volver_em_marcha' ? (
+          <>
+            <ellipse cx="189" cy="68" rx="6" ry="14" transform="rotate(15 189 68)" fill="#94a3b8" opacity="0.45" />
+            <ellipse cx="170" cy="64" rx="6.5" ry="14" transform="rotate(-90 170 64)" fill="#4f46e5" />
+            <ellipse cx="170" cy="78" rx="6.5" ry="14" transform="rotate(-90 170 78)" fill="#0f172a" />
+            <circle cx="174" cy="76" r="3" fill="#ef4444" />
+            <path d="M192 44 Q165 36 154 56" fill="none" stroke="#f59e0b" strokeWidth="2" />
+            <polygon points="153,59 158,54 151,52" fill="#f59e0b" />
+            <text x="180" y="34" textAnchor="middle" className="fill-amber-600 dark:fill-amber-400 text-[7.5px] font-black">Giro 90° (2 Tempos)</text>
+            <text x="180" y="103" textAnchor="middle" className="fill-slate-600 dark:fill-slate-300 text-[6.5px] font-black">Calcanhar Esq. + Planta Dir.</text>
+          </>
+        ) : cmdId === 'ou_meiavolta_volver' || cmdId === 'ou_meiavolta_marcha' ? (
+          <>
+            <ellipse cx="171" cy="68" rx="6" ry="14" fill="#4f46e5" />
+            <ellipse cx="189" cy="68" rx="6" ry="14" fill="#0f172a" />
+            <circle cx="171" cy="78" r="3.2" fill="#ef4444" />
+            <path d="M196 48 C165 24, 142 66, 170 90" fill="none" stroke="#ef4444" strokeWidth="2.2" />
+            <polygon points="173,91 166,92 169,85" fill="#ef4444" />
+            <text x="180" y="32" textAnchor="middle" className="fill-red-600 dark:fill-red-400 text-[7.5px] font-black">180° SEMPRE PELA ESQ.</text>
+            <text x="180" y="104" textAnchor="middle" className="fill-slate-600 dark:fill-slate-300 text-[6.5px] font-black">Pivô: Calcanhar Esquerdo</text>
+          </>
+        ) : cmdId === 'ou_oitavo_volver' ? (
+          <>
+            <ellipse cx="174" cy="66" rx="6" ry="14" transform="rotate(45 174 66)" fill="#4f46e5" />
+            <ellipse cx="188" cy="74" rx="6" ry="14" transform="rotate(45 188 74)" fill="#0f172a" />
+            <path d="M178 38 Q195 38 202 50" fill="none" stroke="#f59e0b" strokeWidth="2" />
+            <text x="180" y="33" textAnchor="middle" className="fill-amber-600 dark:fill-amber-400 text-[7.5px] font-black">Giro Diagonal 45°</text>
+            <text x="180" y="103" textAnchor="middle" className="fill-slate-600 dark:fill-slate-300 text-[6.5px] font-black">Metade de 1 Quarto (1/8)</text>
+          </>
+        ) : cmdId === 'ou_conversao' ? (
+          <>
+            <path d="M148 86 Q148 44 196 44" fill="none" stroke="#4f46e5" strokeWidth="2.2" strokeDasharray="3 2" />
+            <path d="M166 86 Q166 60 196 60" fill="none" stroke="#10b981" strokeWidth="2" />
+            <circle cx="196" cy="44" r="3" fill="#4f46e5" />
+            <circle cx="196" cy="60" r="3" fill="#10b981" />
+            <circle cx="184" cy="76" r="3.5" fill="#f59e0b" />
+            <text x="180" y="32" textAnchor="middle" className="fill-indigo-600 dark:fill-indigo-400 text-[7px] font-black">Arco 90° em Fileira</text>
+            <text x="180" y="103" textAnchor="middle" className="fill-slate-600 dark:fill-slate-300 text-[6.5px] font-black">Pivô Curto • Externo Longo</text>
+          </>
+        ) : (
+          <>
+            {/* Deslocamento / Rompimento de Marcha (Pé Esquerdo à frente, Pé Direito atrás) */}
+            <ellipse cx="168" cy="48" rx="6.5" ry="14" fill="#4f46e5" />
+            <ellipse cx="192" cy="78" rx="6.5" ry="14" fill="#0f172a" />
+            <text x="168" y="50" textAnchor="middle" fill="#ffffff" className="text-[6.5px] font-black">PE</text>
+            <text x="192" y="80" textAnchor="middle" fill="#ffffff" className="text-[6.5px] font-black">PD</text>
+            <path d="M168 78 L168 65" stroke="#10b981" strokeWidth="2" />
+            <polygon points="168,62 165,67 171,67" fill="#10b981" />
+            <text x="180" y="30" textAnchor="middle" className="fill-emerald-600 dark:fill-emerald-400 text-[7px] font-black">
+              {cmdId === 'ou_alto' ? 'Voz ALTO no Pé Esq. (1-2)' : cmdId === 'ou_acelerado_marche' ? 'Cadência 180 BPM (PE)' : 'Rompe c/ Pé Esquerdo!'}
+            </text>
+            <text x="180" y="104" textAnchor="middle" className="fill-slate-600 dark:fill-slate-300 text-[6.5px] font-black">
+              {cmdId === 'ou_mudar_passo' ? 'Troca Dupla Rápida' : cmdId === 'ou_passos_frente' ? 'Sempre Nº Ímpar (1, 3, 5)' : 'Passo ~75 cm • 116 BPM'}
+            </text>
+          </>
+        )}
+      </svg>
+    );
+  };
   // Renderiza o boneco de Semáfora com as duas bandeirolas nos ângulos oficiais da letra
   const renderSemaphoreFigure = (letter: string, size: 'SMALL' | 'LARGE' = 'SMALL') => {
     const angles = SEMAPHORE_ANGLES[letter];
@@ -1867,7 +3015,110 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
 
   return (
     <div className="animate-slide-in space-y-5 pb-28 max-w-5xl mx-auto">
-      {/* Banner Principal + Navegação Clara entre as 3 Ferramentas Práticas */}
+      {/* Banner Principal: Modo Dedicado à Ordem Unida vs. Modo Guia de Campo */}
+      {standaloneDrill ? (
+        <div className="bg-gradient-to-br from-blue-950 via-indigo-900 to-slate-900 rounded-[28px] p-4 sm:p-6 text-white shadow-xl border border-white/10 relative overflow-hidden">
+          <div className="absolute -right-6 -bottom-6 text-white/10 pointer-events-none">
+            <Flag className="w-36 h-36 stroke-[1.2]" />
+          </div>
+
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <div className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-amber-400/20 border border-amber-400/30 text-amber-300 text-[10px] font-black uppercase tracking-widest">
+                <Flag size={12} />
+                <span>Manual Oficial de Ordem Unida • DSA</span>
+              </div>
+              <h3 className="text-base sm:text-xl font-black uppercase tracking-tight mt-1">
+                Guia de Ordem Unida e Vozes de Comando
+              </h3>
+              <p className="text-xs text-indigo-100/85 font-medium mt-0.5">
+                Vozes de Comando • Pé Firme e em Marcha • Apito e Gestos • Evoluções para Apresentações
+              </p>
+            </div>
+
+            <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl px-3.5 py-2 text-center shrink-0 self-start sm:self-auto">
+              <span className="text-[9px] font-black uppercase tracking-widest text-amber-200 block">
+                Cadência Oficial DSA
+              </span>
+              <span className="text-xs sm:text-sm font-black text-white">
+                116 BPM (Marcha) • 180 BPM
+              </span>
+            </div>
+          </div>
+
+          {/* 4 Botões Superiores dos Pilares de Ordem Unida */}
+          <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5 mt-4 pt-4 border-t border-white/15">
+            {[
+              {
+                id: 'VOZES_ESTRUTURA' as DrillSubTab,
+                title: 'Vozes de Comando',
+                sub: 'Advertência & Execução',
+                icon: Volume2
+              },
+              {
+                id: 'COMANDOS_DSA' as DrillSubTab,
+                title: 'Pé Firme & Marcha',
+                sub: `${DRILL_COMMANDS.length} Comandos DSA`,
+                icon: Users
+              },
+              {
+                id: 'APITO_GESTOS' as DrillSubTab,
+                title: 'Apito & Gestos',
+                sub: 'Áudio e Formações',
+                icon: Hand
+              },
+              {
+                id: 'EVOLUCOES' as DrillSubTab,
+                title: 'Evoluções',
+                sub: `${DRILL_EVOLUTIONS.length} Ideias Coreográficas`,
+                icon: Sparkles
+              }
+            ].map((tabItem) => {
+              const TabIcon = tabItem.icon;
+              const isAct = drillSubTab === tabItem.id;
+              return (
+                <button
+                  key={tabItem.id}
+                  type="button"
+                  onClick={() => {
+                    stopAllSignalPlayback();
+                    setIsCadencePlaying(false);
+                    setCadenceStepBeat(null);
+                    setPlayingWhistleId(null);
+                    setVoiceTrainerStage(null);
+                    setDrillSubTab(tabItem.id);
+                  }}
+                  className={`py-2.5 px-2 sm:px-3.5 rounded-2xl transition-all active:scale-95 flex items-center gap-2 text-left border ${
+                    isAct
+                      ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-lg ring-2 ring-inset ring-white/40'
+                      : 'bg-white/10 text-white border-white/15 hover:bg-white/20'
+                  }`}
+                >
+                  <div
+                    className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      isAct ? 'bg-slate-950/15 text-slate-950' : 'bg-white/15 text-amber-300'
+                    }`}
+                  >
+                    <TabIcon size={17} strokeWidth={2.5} />
+                  </div>
+                  <div className="leading-tight min-w-0">
+                    <span className="font-black text-[11px] sm:text-xs uppercase tracking-tight block truncate">
+                      {tabItem.title}
+                    </span>
+                    <span
+                      className={`text-[9px] sm:text-[10px] font-bold block mt-0.5 truncate ${
+                        isAct ? 'text-slate-900/80' : 'text-indigo-100/80'
+                      }`}
+                    >
+                      {tabItem.sub}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
       <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-[28px] p-4 sm:p-6 text-white shadow-xl border border-white/10 relative overflow-hidden">
         <div className="absolute -right-6 -bottom-6 text-white/10 pointer-events-none">
           <Compass className="w-36 h-36 stroke-[1.2]" />
@@ -1880,7 +3131,7 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
               <span>Manual Prático de Instrução & Campo</span>
             </div>
             <h3 className="text-base sm:text-xl font-black uppercase tracking-tight mt-1">
-              Nós e Amarras • Códigos • Primeiros Socorros
+              Nós e Amarras • Códigos de Campo • Primeiros Socorros
             </h3>
           </div>
 
@@ -1894,15 +3145,15 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
           </div>
         </div>
 
-        {/* 3 Botões Superiores Claros e Sem Corte no Celular */}
-        <div className="relative z-10 grid grid-cols-3 gap-2 sm:gap-3 mt-4 pt-4 border-t border-white/15">
+        {/* 3 Botões Superiores do Guia de Campo (sem duplicar Ordem Unida) */}
+        <div className="relative z-10 grid grid-cols-3 gap-2 sm:gap-2.5 mt-4 pt-4 border-t border-white/15">
           <button
             type="button"
             onClick={() => {
               stopAllSignalPlayback();
               setActiveTab('NOS_AMARRAS');
             }}
-            className={`py-2.5 px-1.5 sm:px-4 rounded-2xl transition-all active:scale-95 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2.5 text-center sm:text-left border ${
+            className={`py-2.5 px-2 sm:px-3.5 rounded-2xl transition-all active:scale-95 flex items-center gap-2 text-left border ${
               activeTab === 'NOS_AMARRAS'
                 ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-lg ring-2 ring-inset ring-white/40'
                 : 'bg-white/10 text-white border-white/15 hover:bg-white/20'
@@ -1913,18 +3164,18 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
                 activeTab === 'NOS_AMARRAS' ? 'bg-slate-950/15 text-slate-950' : 'bg-white/15 text-amber-300'
               }`}
             >
-              <Compass size={18} strokeWidth={2.5} />
+              <Compass size={17} strokeWidth={2.5} />
             </div>
             <div className="leading-tight min-w-0">
-              <span className="font-black text-[11px] sm:text-xs uppercase tracking-tight block">
+              <span className="font-black text-[11px] sm:text-xs uppercase tracking-tight block truncate">
                 Nós & Amarras
               </span>
               <span
-                className={`text-[8.5px] sm:text-[10px] font-bold block mt-0.5 ${
+                className={`text-[9px] sm:text-[10px] font-bold block mt-0.5 truncate ${
                   activeTab === 'NOS_AMARRAS' ? 'text-slate-900/80' : 'text-indigo-100/80'
                 }`}
               >
-                Passo a Passo
+                22 Nós em 3D
               </span>
             </div>
           </button>
@@ -1935,7 +3186,7 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
               stopAllSignalPlayback();
               setActiveTab('CODIGOS');
             }}
-            className={`py-2.5 px-1.5 sm:px-4 rounded-2xl transition-all active:scale-95 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2.5 text-center sm:text-left border ${
+            className={`py-2.5 px-2 sm:px-3.5 rounded-2xl transition-all active:scale-95 flex items-center gap-2 text-left border ${
               activeTab === 'CODIGOS'
                 ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-lg ring-2 ring-inset ring-white/40'
                 : 'bg-white/10 text-white border-white/15 hover:bg-white/20'
@@ -1946,18 +3197,18 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
                 activeTab === 'CODIGOS' ? 'bg-slate-950/15 text-slate-950' : 'bg-white/15 text-amber-300'
               }`}
             >
-              <Radio size={18} strokeWidth={2.5} />
+              <Radio size={17} strokeWidth={2.5} />
             </div>
             <div className="leading-tight min-w-0">
-              <span className="font-black text-[11px] sm:text-xs uppercase tracking-tight block">
+              <span className="font-black text-[11px] sm:text-xs uppercase tracking-tight block truncate">
                 Códigos
               </span>
               <span
-                className={`text-[8.5px] sm:text-[10px] font-bold block mt-0.5 ${
+                className={`text-[9px] sm:text-[10px] font-bold block mt-0.5 truncate ${
                   activeTab === 'CODIGOS' ? 'text-slate-900/80' : 'text-indigo-100/80'
                 }`}
               >
-                Morse & Sinais
+                Morse, Libras & Pista
               </span>
             </div>
           </button>
@@ -1968,7 +3219,7 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
               stopAllSignalPlayback();
               setActiveTab('PRIMEIROS_SOCORROS');
             }}
-            className={`py-2.5 px-1.5 sm:px-4 rounded-2xl transition-all active:scale-95 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2.5 text-center sm:text-left border ${
+            className={`py-2.5 px-2 sm:px-3.5 rounded-2xl transition-all active:scale-95 flex items-center gap-2 text-left border ${
               activeTab === 'PRIMEIROS_SOCORROS'
                 ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-lg ring-2 ring-inset ring-white/40'
                 : 'bg-white/10 text-white border-white/15 hover:bg-white/20'
@@ -1979,14 +3230,14 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
                 activeTab === 'PRIMEIROS_SOCORROS' ? 'bg-slate-950/15 text-slate-950' : 'bg-white/15 text-amber-300'
               }`}
             >
-              <HeartPulse size={18} strokeWidth={2.5} />
+              <HeartPulse size={17} strokeWidth={2.5} />
             </div>
             <div className="leading-tight min-w-0">
-              <span className="font-black text-[11px] sm:text-xs uppercase tracking-tight block">
+              <span className="font-black text-[11px] sm:text-xs uppercase tracking-tight block truncate">
                 Socorros
               </span>
               <span
-                className={`text-[8.5px] sm:text-[10px] font-bold block mt-0.5 ${
+                className={`text-[9px] sm:text-[10px] font-bold block mt-0.5 truncate ${
                   activeTab === 'PRIMEIROS_SOCORROS' ? 'text-slate-900/80' : 'text-indigo-100/80'
                 }`}
               >
@@ -1996,6 +3247,7 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
           </button>
         </div>
       </div>
+      )}
 
       {/* ========================================================================
           MÓDULO 1: PASSO A PASSO DE NÓS E AMARRAS (SEPARADO POR CLASSE)
@@ -2702,15 +3954,13 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {normalizedChars
-                    .filter((c) => /[A-Z0-9]/.test(c))
-                    .map((ch, idx) => {
+                  {normalizedLibrasChars.map((ch, idx) => {
                       const isDigit = /[0-9]/.test(ch);
                       const letterInfo = !isDigit ? LIBRAS_GUIDE[ch] : null;
                       const numInfo = isDigit ? LIBRAS_NUMBERS.find((n) => n.digit === ch) : null;
                       if (!letterInfo && !numInfo) return null;
 
-                      const svgSrc = isDigit ? numInfo!.handSvg : `/libras/${ch}.svg`;
+                      const svgSrc = isDigit ? numInfo!.handSvg : getLibrasCharImg(ch);
                       const svgRotation = isDigit ? numInfo?.svgRotation || '' : '';
                       const handShapeText = isDigit ? numInfo!.handShape : letterInfo!.handShape;
                       const tipText = isDigit ? numInfo!.tip : letterInfo!.tip;
@@ -2843,7 +4093,7 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
                       <div className="flex items-start space-x-3.5">
                         <div className="w-16 h-16 rounded-2xl bg-white border border-slate-200 p-1.5 flex flex-col items-center justify-center shrink-0 shadow-xs relative">
                           <img
-                            src={expr.handSvg}
+                            src={expr.handSvg.replace('.svg', '.png')}
                             alt={expr.handConfigLabel}
                             className="w-11 h-11 object-contain"
                           />
@@ -2900,14 +4150,14 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
                 </div>
               </div>
 
-              {/* Tabela Visual Completa do Alfabeto Manual (A a Z) com Imagens */}
+              {/* Tabela Visual Completa do Alfabeto Manual Brasileiro de Libras (A a Z + Ç) */}
               <div className="bg-white dark:bg-slate-800 rounded-[26px] p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-sm space-y-3.5">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
                   <h5 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">
-                    Alfabeto Ilustrado Completo de A a Z (Toque em uma Letra para Ampliar)
+                    Alfabeto Brasileiro de Libras Ilustrado de A a Z + Ç (Toque para Ampliar)
                   </h5>
-                  <span className="text-[10px] font-bold text-slate-400">
-                    26 Sinais Manuais Ilustrados
+                  <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2.5 py-1 rounded-lg">
+                    27 Sinais Oficiais (A–Z e Ç)
                   </span>
                 </div>
 
@@ -2921,8 +4171,8 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
                     >
                       <div className="w-12 h-12 bg-white rounded-xl p-1.5 border border-slate-200/70 flex items-center justify-center">
                         <img
-                          src={`/libras/${letter}.svg`}
-                          alt={`Letra ${letter}`}
+                          src={getLibrasCharImg(letter)}
+                          alt={`Letra ${letter} em Libras`}
                           className="w-full h-full object-contain group-hover:scale-110 transition-transform"
                         />
                       </div>
@@ -2934,7 +4184,7 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
                 </div>
               </div>
 
-              {/* Modal de Detalhe da Letra (A-Z) ou Número (0-9) em Libras (via Portal na Viewport) */}
+              {/* Modal de Detalhe da Letra (A-Z + Ç) ou Número (0-9) em Libras (via Portal na Viewport) */}
               {selectedLibrasLetterModal &&
                 (LIBRAS_GUIDE[selectedLibrasLetterModal] ||
                   LIBRAS_NUMBERS.some((n) => n.digit === selectedLibrasLetterModal)) &&
@@ -2946,7 +4196,7 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
                       ? LIBRAS_NUMBERS.find((n) => n.digit === selectedLibrasLetterModal)
                       : null;
                     const letterData = !isNum ? LIBRAS_GUIDE[selectedLibrasLetterModal] : null;
-                    const modalImgSrc = isNum ? numData!.handSvg : `/libras/${selectedLibrasLetterModal}.svg`;
+                    const modalImgSrc = isNum ? numData!.handSvg : getLibrasCharImg(selectedLibrasLetterModal);
                     const modalRotation = isNum ? numData?.svgRotation || '' : '';
                     const modalHandShape = isNum ? numData!.handShape : letterData!.handShape;
                     const modalTip = isNum ? numData!.tip : letterData!.tip;
@@ -3165,6 +4415,865 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ========================================================================
+          MÓDULO 4: GUIA DE ORDEM UNIDA E VOZES DE COMANDO (MANUAL DA DSA)
+          ======================================================================== */}
+      {activeTab === 'ORDEM_UNIDA' && (
+        <div className="space-y-4">
+          {/* Sub-abas dos 4 Pilares de Ordem Unida (exibidas quando dentro do Guia de Campo geral) */}
+          {!standaloneDrill && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[
+              { id: 'VOZES_ESTRUTURA' as DrillSubTab, label: 'Vozes de Comando', icon: Volume2 },
+              { id: 'COMANDOS_DSA' as DrillSubTab, label: 'Pé Firme & Marcha', icon: Users },
+              { id: 'APITO_GESTOS' as DrillSubTab, label: 'Apito & Gestos', icon: Hand },
+              { id: 'EVOLUCOES' as DrillSubTab, label: 'Ideias de Evoluções', icon: Sparkles }
+            ].map((sub) => {
+              const SubIcon = sub.icon;
+              const isAct = drillSubTab === sub.id;
+              return (
+                <button
+                  key={sub.id}
+                  type="button"
+                  onClick={() => {
+                    stopAllSignalPlayback();
+                    setIsCadencePlaying(false);
+                    setCadenceStepBeat(null);
+                    setPlayingWhistleId(null);
+                    setVoiceTrainerStage(null);
+                    setDrillSubTab(sub.id);
+                  }}
+                  className={`p-3 rounded-2xl border font-black text-[11px] uppercase tracking-wider flex items-center justify-center space-x-2 transition-all active:scale-95 ${
+                    isAct
+                      ? 'bg-indigo-600 text-white border-indigo-500 shadow-md'
+                      : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  <SubIcon size={15} />
+                  <span className="truncate">{sub.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          )}
+
+          {/* 4.1 VOZES DE COMANDO (ADVERTÊNCIA, COMANDO PROPRIAMENTE DITO E EXECUÇÃO) + METRÔNOMO DE CADÊNCIA */}
+          {drillSubTab === 'VOZES_ESTRUTURA' && (
+            <div className="space-y-4">
+              {/* Explicação Didática das 3 Partes da Voz de Comando Oficial DSA */}
+              <div className="bg-white dark:bg-slate-800 rounded-[26px] p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-sm space-y-4">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 block">
+                    Manual de Ordem Unida da Divisão Sul-Americana (DSA)
+                  </span>
+                  <h4 className="font-black text-slate-800 dark:text-white text-sm sm:text-base uppercase tracking-tight mt-0.5">
+                    As 3 Partes da Voz de Comando (Advertência • Comando • Execução)
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                    A voz de comando deve ser emitida usando o diafragma (voz de peito), audível para toda a unidade e dividida em três etapas claras:
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {/* 1ª Parte */}
+                  <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/25 border border-amber-200 dark:border-amber-800/60 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="px-2.5 py-0.5 rounded-lg bg-amber-500 text-slate-950 text-[10px] font-black uppercase tracking-wider">
+                        1ª Parte • Alerta
+                      </span>
+                      <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                        Tom Firme e Claro
+                      </span>
+                    </div>
+                    <h5 className="font-black text-sm text-slate-900 dark:text-white uppercase">
+                      Voz de Advertência
+                    </h5>
+                    <p className="text-xs text-slate-700 dark:text-slate-200 font-medium leading-relaxed">
+                      Alerta a unidade ou o clube para o comando que virá a seguir, despertando a atenção imediata da tropa.
+                    </p>
+                    <div className="p-2.5 rounded-xl bg-white/80 dark:bg-slate-900/70 border border-amber-200/70 dark:border-amber-900/50 text-[11px] font-black text-amber-900 dark:text-amber-200">
+                      Exemplos: &ldquo;Clube!&rdquo;, &ldquo;Unidade!&rdquo;, &ldquo;Pelotão!&rdquo;, &ldquo;Atenção Desbravadores!&rdquo;
+                    </div>
+                  </div>
+
+                  {/* 2ª Parte */}
+                  <div className="p-4 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/25 border border-indigo-200 dark:border-indigo-800/60 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="px-2.5 py-0.5 rounded-lg bg-indigo-600 text-white text-[10px] font-black uppercase tracking-wider">
+                        2ª Parte • Preparo
+                      </span>
+                      <span className="text-[10px] font-bold text-indigo-700 dark:text-indigo-300">
+                        Voz Prolongada + Pausa
+                      </span>
+                    </div>
+                    <h5 className="font-black text-sm text-slate-900 dark:text-white uppercase">
+                      Comando Propriamente Dito
+                    </h5>
+                    <p className="text-xs text-slate-700 dark:text-slate-200 font-medium leading-relaxed">
+                      Indica exatamente qual movimento será realizado. É pronunciado de forma prolongada, seguido de uma <strong>pausa de 2 tempos</strong> antes da execução.
+                    </p>
+                    <div className="p-2.5 rounded-xl bg-white/80 dark:bg-slate-900/70 border border-indigo-200/70 dark:border-indigo-900/50 text-[11px] font-black text-indigo-900 dark:text-indigo-200">
+                      Exemplos: &ldquo;Direita...&rdquo;, &ldquo;Meia-Volta...&rdquo;, &ldquo;Ordinário...&rdquo;, &ldquo;Apresentar...&rdquo;
+                    </div>
+                  </div>
+
+                  {/* 3ª Parte */}
+                  <div className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/25 border border-emerald-200 dark:border-emerald-800/60 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="px-2.5 py-0.5 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider">
+                        3ª Parte • Ação!
+                      </span>
+                      <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                        Curta, Seca e Enérgica
+                      </span>
+                    </div>
+                    <h5 className="font-black text-sm text-slate-900 dark:text-white uppercase">
+                      Voz de Execução
+                    </h5>
+                    <p className="text-xs text-slate-700 dark:text-slate-200 font-medium leading-relaxed">
+                      Determina o instante exato em que o movimento começa! Deve ser curta, seca, enérgica e com inflexão firme na última sílaba.
+                    </p>
+                    <div className="p-2.5 rounded-xl bg-white/80 dark:bg-slate-900/70 border border-emerald-200/70 dark:border-emerald-900/50 text-[11px] font-black text-emerald-900 dark:text-emerald-200">
+                      Exemplos: &ldquo;VOLVER!&rdquo;, &ldquo;MARCHE!&rdquo;, &ldquo;ALTO!&rdquo;, &ldquo;SENTIDO!&rdquo;, &ldquo;ARMA!&rdquo;
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Simulador Interativo de Cadência de Marcha DSA (116 passos/min) */}
+              <div className="bg-white dark:bg-slate-800 rounded-[26px] p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 block">
+                      Treinador de Ritmo & Cadência Oficial (116 Passos por Minuto)
+                    </span>
+                    <h4 className="font-black text-slate-800 dark:text-white text-sm sm:text-base uppercase tracking-tight">
+                      Metrônomo Sonoro de Marcha (Pé Esquerdo / Pé Direito)
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                      Ouça e visualize a batida oficial de 116 BPM para treinar o momento exato de dar a Voz de Execução:
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                    <div className="inline-flex rounded-xl bg-slate-100 dark:bg-slate-900 p-1 border border-slate-200 dark:border-slate-700">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCadenceBpm(116);
+                          if (isCadencePlaying) handleToggleCadenceMetronome(116);
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase transition-all ${
+                          cadenceBpm === 116
+                            ? 'bg-indigo-600 text-white shadow-xs'
+                            : 'text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        Ordinário (116 BPM)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCadenceBpm(180);
+                          if (isCadencePlaying) handleToggleCadenceMetronome(180);
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase transition-all ${
+                          cadenceBpm === 180
+                            ? 'bg-amber-500 text-slate-950 shadow-xs'
+                            : 'text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        Acelerado (180 BPM)
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleToggleCadenceMetronome()}
+                      className={`px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider flex items-center space-x-2 transition-all active:scale-95 ${
+                        isCadencePlaying
+                          ? 'bg-red-600 text-white shadow-lg'
+                          : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md'
+                      }`}
+                    >
+                      {isCadencePlaying ? <Square size={14} /> : <Play size={14} fill="currentColor" />}
+                      <span>{isCadencePlaying ? 'Parar Cadência' : `Ouvir (${cadenceBpm} BPM)`}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Indicador Visual do Passo Atual (Esquerdo vs Direito) */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div
+                    className={`p-4 rounded-2xl border text-center transition-all ${
+                      cadenceStepBeat === 'ESQUERDO'
+                        ? 'bg-indigo-600 text-white border-indigo-400 scale-[1.02] shadow-lg'
+                        : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200'
+                    }`}
+                  >
+                    <span className="text-[10px] font-black uppercase tracking-widest opacity-80 block">
+                      1º Tempo (Batida Forte)
+                    </span>
+                    <span className="text-base sm:text-lg font-black uppercase block mt-0.5">
+                      🦶 PÉ ESQUERDO! (1)
+                    </span>
+                    <span className="text-[10.5px] font-semibold opacity-90 block mt-1">
+                      Vozes aqui: ALTO! • ESQUERDA, VOLVER! • MEIA-VOLTA, VOLVER! • MUDAR DE PASSO!
+                    </span>
+                  </div>
+
+                  <div
+                    className={`p-4 rounded-2xl border text-center transition-all ${
+                      cadenceStepBeat === 'DIREITO'
+                        ? 'bg-amber-500 text-slate-950 border-amber-300 scale-[1.02] shadow-lg'
+                        : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200'
+                    }`}
+                  >
+                    <span className="text-[10px] font-black uppercase tracking-widest opacity-80 block">
+                      2º Tempo (Sustentação)
+                    </span>
+                    <span className="text-base sm:text-lg font-black uppercase block mt-0.5">
+                      🦶 PÉ DIREITO! (2)
+                    </span>
+                    <span className="text-[10.5px] font-semibold opacity-90 block mt-1">
+                      Vozes aqui: DIREITA, VOLVER (em marcha)! • EM FRENTE! • CONVERSÃO À DIREITA!
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Simulador Interativo das 3 Etapas da Voz de Comando */}
+              <div className="bg-white dark:bg-slate-800 rounded-[26px] p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 block">
+                      Simulador de Tempo & Entonação para Instrutores e Capitães
+                    </span>
+                    <h4 className="font-black text-slate-800 dark:text-white text-sm sm:text-base uppercase tracking-tight">
+                      Treinador Prático das 3 Etapas da Voz de Comando
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                      Escolha um comando abaixo e clique em Simular para praticar o tempo exato entre Advertência, Comando, Pausa e Execução:
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleSimulateVoiceCommand}
+                    className={`px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider flex items-center space-x-2 transition-all active:scale-95 shrink-0 self-start sm:self-auto ${
+                      voiceTrainerStage !== null
+                        ? 'bg-red-600 text-white shadow-lg'
+                        : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md'
+                    }`}
+                  >
+                    {voiceTrainerStage !== null ? <Square size={14} /> : <Volume2 size={15} />}
+                    <span>{voiceTrainerStage !== null ? 'Parar Simulação' : 'Simular Voz (1 • 2 • 3)'}</span>
+                  </button>
+                </div>
+
+                {/* Seletor rápido de todos os 22 comandos para treinar (com rolagem pelo mouse e botões laterais no PC) */}
+                <div className="relative flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (trainerCommandsScrollRef.current) {
+                        trainerCommandsScrollRef.current.scrollBy({ left: -240, behavior: 'smooth' });
+                      }
+                    }}
+                    className="hidden md:flex w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 items-center justify-center shrink-0 border border-slate-200/80 dark:border-slate-700 cursor-pointer"
+                    title="Rolar comandos para a esquerda"
+                  >
+                    <ChevronLeft size={15} />
+                  </button>
+
+                  <div
+                    ref={trainerCommandsScrollRef}
+                    className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pb-1 cursor-grab active:cursor-grabbing select-none flex-1"
+                  >
+                    {DRILL_COMMANDS.map((cmd) => (
+                      <button
+                        key={cmd.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedTrainerCmdId(cmd.id);
+                          setVoiceTrainerStage(null);
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-[10.5px] font-black uppercase tracking-wider whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+                          selectedTrainerCmdId === cmd.id
+                            ? 'bg-indigo-600 text-white shadow-xs'
+                            : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        {cmd.name.split('(')[0].trim()}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (trainerCommandsScrollRef.current) {
+                        trainerCommandsScrollRef.current.scrollBy({ left: 240, behavior: 'smooth' });
+                      }
+                    }}
+                    className="hidden md:flex w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 items-center justify-center shrink-0 border border-slate-200/80 dark:border-slate-700 cursor-pointer"
+                    title="Rolar comandos para a direita"
+                  >
+                    <ChevronRight size={15} />
+                  </button>
+                </div>
+
+                {/* Ilustração Visual da Posição Selecionada no Simulador */}
+                <div
+                  onClick={() => setSelectedDrillCmdModal(selectedTrainerCommand)}
+                  className="p-3 sm:p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-700 flex flex-col md:flex-row items-center gap-4 cursor-pointer hover:border-indigo-400 transition-all"
+                >
+                  <div className="w-full md:w-64 shrink-0">
+                    {renderDrillPositionIllustration(selectedTrainerCommand.id, 'SMALL')}
+                  </div>
+                  <div className="flex-1 space-y-1.5 text-left">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2.5 py-0.5 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-800 dark:bg-indigo-950/80 dark:text-indigo-300">
+                        Posição Visual • {selectedTrainerCommand.categoryLabel}
+                      </span>
+                      <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+                        🔍 Toque para ampliar posição
+                      </span>
+                    </div>
+                    <h5 className="font-black text-slate-900 dark:text-white text-sm uppercase">
+                      {selectedTrainerCommand.name}
+                    </h5>
+                    <p className="text-xs font-medium text-slate-600 dark:text-slate-300 leading-relaxed">
+                      {selectedTrainerCommand.steps[0]}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Painel Visual das 4 Fases (1. Advertência -> 2. Comando -> Pausa 2T -> 3. Execução!) */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                  <div
+                    className={`p-3.5 rounded-2xl border transition-all ${
+                      voiceTrainerStage === 'ADVERTENCIA'
+                        ? 'bg-amber-500 text-slate-950 border-amber-300 scale-[1.03] shadow-lg'
+                        : 'bg-amber-50/60 dark:bg-amber-950/20 border-amber-200/70 dark:border-amber-800/50 text-slate-800 dark:text-white'
+                    }`}
+                  >
+                    <span className="text-[9px] font-black uppercase tracking-widest opacity-80 block">
+                      1. Voz de Advertência
+                    </span>
+                    <span className="text-sm sm:text-base font-black uppercase block mt-1">
+                      &ldquo;{selectedTrainerCommand.advertencia}&rdquo;
+                    </span>
+                    <span className="text-[10px] font-semibold opacity-80 block mt-1">
+                      Alerta geral da tropa
+                    </span>
+                  </div>
+
+                  <div
+                    className={`p-3.5 rounded-2xl border transition-all ${
+                      voiceTrainerStage === 'COMANDO'
+                        ? 'bg-indigo-600 text-white border-indigo-400 scale-[1.03] shadow-lg'
+                        : 'bg-indigo-50/60 dark:bg-indigo-950/20 border-indigo-200/70 dark:border-indigo-800/50 text-slate-800 dark:text-white'
+                    }`}
+                  >
+                    <span className="text-[9px] font-black uppercase tracking-widest opacity-80 block">
+                      2. Comando Propriamente Dito
+                    </span>
+                    <span className="text-sm sm:text-base font-black uppercase block mt-1">
+                      &ldquo;{selectedTrainerCommand.comandoProprio}&rdquo;
+                    </span>
+                    <span className="text-[10px] font-semibold opacity-80 block mt-1">
+                      Sílabas prolongadas
+                    </span>
+                  </div>
+
+                  <div
+                    className={`p-3.5 rounded-2xl border transition-all ${
+                      voiceTrainerStage === 'PAUSA'
+                        ? 'bg-slate-800 text-amber-300 border-amber-400 scale-[1.03] shadow-lg'
+                        : 'bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <span className="text-[9px] font-black uppercase tracking-widest opacity-80 block">
+                      Intervalo Obrigatório
+                    </span>
+                    <span className="text-sm sm:text-base font-black uppercase block mt-1">
+                      ⏱️ Pausa (2 Tempos)
+                    </span>
+                    <span className="text-[10px] font-semibold opacity-80 block mt-1">
+                      Prepara o reflexo muscular
+                    </span>
+                  </div>
+
+                  <div
+                    className={`p-3.5 rounded-2xl border transition-all ${
+                      voiceTrainerStage === 'EXECUCAO'
+                        ? 'bg-emerald-600 text-white border-emerald-300 scale-[1.03] shadow-lg'
+                        : 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200/70 dark:border-emerald-800/50 text-slate-800 dark:text-white'
+                    }`}
+                  >
+                    <span className="text-[9px] font-black uppercase tracking-widest opacity-80 block">
+                      3. Voz de Execução!
+                    </span>
+                    <span className="text-sm sm:text-base font-black uppercase block mt-1">
+                      &ldquo;{selectedTrainerCommand.execucao}&rdquo;
+                    </span>
+                    <span className="text-[10px] font-semibold opacity-80 block mt-1">
+                      {selectedTrainerCommand.footTiming}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 4.2 COMANDOS A PÉ FIRME E EM MARCHA (22 COMANDOS DETALHADOS) */}
+          {drillSubTab === 'COMANDOS_DSA' && (
+            <div className="space-y-4">
+              {/* Barra de Busca e Filtro (A Pé Firme vs Em Marcha) */}
+              <div className="bg-white dark:bg-slate-800 rounded-[24px] p-4 border border-slate-100 dark:border-slate-700 shadow-xs space-y-3">
+                <div className="relative">
+                  <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={drillSearch}
+                    onChange={(e) => setDrillSearch(e.target.value)}
+                    placeholder="Buscar comando (ex: Sentido, Cobrir, Meia-Volta, Ordinário Marche, Conversão, Alto)..."
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-bold text-slate-800 dark:text-white outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
+                  {[
+                    { id: 'TODOS' as DrillCommandCategory, label: `Todos os Comandos (${DRILL_COMMANDS.length})` },
+                    { id: 'PE_FIRME' as DrillCommandCategory, label: 'Comandos a Pé Firme (11)' },
+                    { id: 'EM_MARCHA' as DrillCommandCategory, label: 'Comandos em Marcha (11)' }
+                  ].map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setDrillCommandCat(cat.id)}
+                      className={`px-3.5 py-2 rounded-xl text-[10.5px] font-black uppercase tracking-wider whitespace-nowrap transition-all ${
+                        drillCommandCat === cat.id
+                          ? 'bg-indigo-600 text-white shadow-xs'
+                          : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Lista de Cartões de Comandos de Ordem Unida */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredDrillCommands.map((cmd) => (
+                  <div
+                    key={cmd.id}
+                    className="bg-white dark:bg-slate-800 rounded-[24px] p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-xs flex flex-col justify-between space-y-3.5"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[9.5px] font-black uppercase tracking-wider ${
+                            cmd.category === 'PE_FIRME'
+                              ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/70 dark:text-indigo-300'
+                              : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300'
+                          }`}
+                        >
+                          {cmd.categoryLabel}
+                        </span>
+                        <span className="text-[10px] font-black text-amber-600 dark:text-amber-400">
+                          🦶 {cmd.footTiming}
+                        </span>
+                      </div>
+
+                      <h5 className="font-black text-slate-900 dark:text-white text-sm sm:text-base uppercase tracking-tight">
+                        {cmd.name}
+                      </h5>
+
+                      {/* Ilustração Técnica da Posição e Diagrama de Pés (Toque para Ampliar) */}
+                      <div
+                        onClick={() => setSelectedDrillCmdModal(cmd)}
+                        className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-700/80 hover:border-indigo-400 transition-all cursor-pointer group"
+                      >
+                        {renderDrillPositionIllustration(cmd.id, 'SMALL')}
+                        <span className="text-[9.5px] font-bold text-indigo-600 dark:text-indigo-400 text-center block mt-1 group-hover:underline">
+                          🔍 Toque na ilustração para ampliar a posição
+                        </span>
+                      </div>
+
+                      {/* Decomposição Visual das 3 Partes da Voz */}
+                      <div className="grid grid-cols-3 gap-1.5 text-center">
+                        <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-800/50">
+                          <span className="text-[8.5px] font-black uppercase text-amber-700 dark:text-amber-400 block">
+                            1. Advertência
+                          </span>
+                          <span className="text-[11px] font-black text-slate-800 dark:text-white block truncate mt-0.5">
+                            {cmd.advertencia}
+                          </span>
+                        </div>
+                        <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200/70 dark:border-indigo-800/50">
+                          <span className="text-[8.5px] font-black uppercase text-indigo-700 dark:text-indigo-400 block">
+                            2. Comando
+                          </span>
+                          <span className="text-[11px] font-black text-slate-800 dark:text-white block truncate mt-0.5">
+                            {cmd.comandoProprio}
+                          </span>
+                        </div>
+                        <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-800/50">
+                          <span className="text-[8.5px] font-black uppercase text-emerald-700 dark:text-emerald-400 block">
+                            3. Execução!
+                          </span>
+                          <span className="text-[11px] font-black text-emerald-700 dark:text-emerald-300 block truncate mt-0.5">
+                            {cmd.execucao}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Passos Técnicos */}
+                      <div className="space-y-1.5 pt-1">
+                        {cmd.steps.map((st, idx) => (
+                          <div key={idx} className="flex items-start space-x-2 text-xs text-slate-700 dark:text-slate-200">
+                            <CheckCircle2 size={14} className="text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+                            <span className="font-medium leading-relaxed">{st}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Erro comum a evitar */}
+                    <div className="p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/50 flex items-start space-x-2">
+                      <AlertTriangle size={14} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <p className="text-[11px] font-bold text-amber-900 dark:text-amber-200 leading-snug">
+                        <strong className="uppercase">Evite na Avaliação: </strong>
+                        {cmd.commonMistake}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 4.3 SINAIS DE APITO (COM SOM) E GESTOS DE COMANDO PARA LÍDERES */}
+          {drillSubTab === 'APITO_GESTOS' && (
+            <div className="space-y-4">
+              {/* Sinais de Apito Oficiais com Áudio Real */}
+              <div className="bg-white dark:bg-slate-800 rounded-[26px] p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-sm space-y-4">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 block">
+                    Sinais Acústicos de Comando (Silvo Curto • e Silvo Longo ———)
+                  </span>
+                  <h4 className="font-black text-slate-800 dark:text-white text-sm sm:text-base uppercase tracking-tight">
+                    Comandos de Apito para Líderes e Instrutores (Toque para Ouvir!)
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    Toque no botão de áudio de cada comando para ouvir exatamente como apitar na formatura ou desfile:
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {WHISTLE_COMMANDS.map((whistle) => {
+                    const isPlaying = playingWhistleId === whistle.id;
+                    return (
+                      <div
+                        key={whistle.id}
+                        className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 flex flex-col justify-between space-y-3"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <h5 className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-tight">
+                                {whistle.title}
+                              </h5>
+                              <span className="inline-block mt-1 px-2.5 py-0.5 rounded-lg bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 font-black text-xs tracking-wider">
+                                {whistle.notation}
+                              </span>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handlePlayWhistleCommand(whistle)}
+                              className={`px-3 py-2 rounded-xl font-black text-[11px] uppercase tracking-wider flex items-center space-x-1.5 shrink-0 transition-all active:scale-95 ${
+                                isPlaying
+                                  ? 'bg-red-600 text-white shadow-md'
+                                  : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs'
+                              }`}
+                            >
+                              {isPlaying ? <Square size={13} /> : <Volume2 size={14} />}
+                              <span>{isPlaying ? 'Parar' : 'Ouvir Apito'}</span>
+                            </button>
+                          </div>
+
+                          <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 leading-relaxed">
+                            <strong className="text-indigo-600 dark:text-indigo-400">Quando usar:</strong> {whistle.whenToUse}
+                          </p>
+                          <p className="text-xs font-medium text-slate-600 dark:text-slate-300 leading-relaxed">
+                            <strong className="text-emerald-600 dark:text-emerald-400">Reação da Tropa:</strong> {whistle.unitAction}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Gestos Visuais de Comando para Líderes / Diretores */}
+              <div className="bg-white dark:bg-slate-800 rounded-[26px] p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-sm space-y-4">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 block">
+                    Comandos Silenciosos de Braço (Formações Rápidas sem Voz)
+                  </span>
+                  <h4 className="font-black text-slate-800 dark:text-white text-sm sm:text-base uppercase tracking-tight">
+                    Gestos de Comando para Líderes e Diretores
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    Os capitães e as unidades devem reconhecer imediatamente a posição dos braços do diretor e entrar em forma em silêncio:
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {LEADER_GESTURES.map((gest) => (
+                    <div
+                      key={gest.id}
+                      className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 flex items-start space-x-3.5"
+                    >
+                      {/* Ilustração SVG do Gesto do Líder */}
+                      <div className="w-20 h-20 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1.5 flex items-center justify-center shrink-0">
+                        <svg viewBox="0 0 80 80" className="w-full h-full">
+                          <circle cx="40" cy="20" r="6" className="fill-slate-700 dark:fill-slate-200" />
+                          <rect x="34" y="28" width="12" height="24" rx="3" className="fill-indigo-600" />
+                          <line x1="36" y1="52" x2="35" y2="72" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" className="text-slate-600 dark:text-slate-300" />
+                          <line x1="44" y1="52" x2="45" y2="72" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" className="text-slate-600 dark:text-slate-300" />
+                          {gest.svgType === 'COLUNAS' && (
+                            <g stroke="#f59e0b" strokeWidth="4" strokeLinecap="round">
+                              <line x1="34" y1="32" x2="24" y2="20" />
+                              <line x1="46" y1="32" x2="56" y2="20" />
+                              <circle cx="24" cy="20" r="2.5" fill="#f59e0b" />
+                              <circle cx="56" cy="20" r="2.5" fill="#f59e0b" />
+                            </g>
+                          )}
+                          {gest.svgType === 'LINHA' && (
+                            <g stroke="#f59e0b" strokeWidth="4" strokeLinecap="round">
+                              <line x1="34" y1="32" x2="10" y2="32" />
+                              <line x1="46" y1="32" x2="70" y2="32" />
+                            </g>
+                          )}
+                          {gest.svgType === 'FERRADURA_U' && (
+                            <g stroke="#f59e0b" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none">
+                              <polyline points="34,32 16,32 16,14" />
+                              <polyline points="46,32 64,32 64,14" />
+                            </g>
+                          )}
+                          {gest.svgType === 'CIRCULO' && (
+                            <g stroke="#f59e0b" strokeWidth="3.5" strokeLinecap="round" fill="none">
+                              <line x1="34" y1="32" x2="26" y2="12" />
+                              <ellipse cx="40" cy="8" rx="14" ry="5" strokeDasharray="3 2" />
+                            </g>
+                          )}
+                          {gest.svgType === 'ALTO_ATENCAO' && (
+                            <g stroke="#ef4444" strokeWidth="4" strokeLinecap="round">
+                              <line x1="34" y1="32" x2="34" y2="8" />
+                              <line x1="46" y1="32" x2="49" y2="48" />
+                            </g>
+                          )}
+                          {gest.svgType === 'ACELERADO' && (
+                            <g stroke="#10b981" strokeWidth="4" strokeLinecap="round">
+                              <polyline points="34,34 22,36 22,16" fill="none" />
+                              <path d="M 14 26 L 14 10 M 10 15 L 14 10 L 18 15" strokeWidth="2.5" fill="none" />
+                            </g>
+                          )}
+                        </svg>
+                      </div>
+
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <span className="text-[9.5px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block">
+                          {gest.formationType}
+                        </span>
+                        <h5 className="font-black text-slate-900 dark:text-white text-xs sm:text-sm uppercase tracking-tight">
+                          {gest.name}
+                        </h5>
+                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 leading-relaxed">
+                          <strong>Posição do Líder:</strong> {gest.armPosition}
+                        </p>
+                        <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
+                          <strong>Formação:</strong> {gest.unitResponse}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 4.4 IDEIAS DE EVOLUÇÕES E COREOGRAFIAS PARA APRESENTAÇÕES */}
+          {drillSubTab === 'EVOLUCOES' && (
+            <div className="space-y-4">
+              <div className="bg-white dark:bg-slate-800 rounded-[26px] p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 block">
+                      Ordem Unida Criativa para Camporis, Investiduras e Dia do Desbravador
+                    </span>
+                    <h4 className="font-black text-slate-800 dark:text-white text-sm sm:text-base uppercase tracking-tight">
+                      {DRILL_EVOLUTIONS.length} Roteiros Práticos de Evoluções para Apresentações
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                      Combine precisão militar com efeito geométrico mantendo sempre a postura, a cadência de 116 BPM e os comandos oficiais da DSA:
+                    </p>
+                  </div>
+
+                  {/* Filtro de Nível de Dificuldade */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pb-1">
+                    {(['TODAS', 'BÁSICA', 'INTERMEDIÁRIA', 'AVANÇADA (CAMPORI)'] as const).map((lvl) => (
+                      <button
+                        key={lvl}
+                        type="button"
+                        onClick={() => setEvolutionDiffFilter(lvl)}
+                        className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider whitespace-nowrap transition-all ${
+                          evolutionDiffFilter === lvl
+                            ? 'bg-indigo-600 text-white shadow-xs'
+                            : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        {lvl === 'TODAS' ? `Todas (${DRILL_EVOLUTIONS.length})` : lvl}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {filteredEvolutions.map((evol) => (
+                    <div
+                      key={evol.id}
+                      className="p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 flex flex-col justify-between space-y-3.5"
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[9.5px] font-black uppercase tracking-wider ${
+                              evol.difficulty === 'BÁSICA'
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300'
+                                : evol.difficulty === 'INTERMEDIÁRIA'
+                                ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/70 dark:text-indigo-300'
+                                : 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300'
+                            }`}
+                          >
+                            Nível: {evol.difficulty}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                            👥 {evol.idealSize}
+                          </span>
+                        </div>
+
+                        <div className="flex items-start space-x-3">
+                          {/* Diagrama Tático SVG da Evolução */}
+                          <div className="w-20 h-20 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-2 flex items-center justify-center shrink-0">
+                            <svg viewBox="0 0 80 80" className="w-full h-full">
+                              {evol.svgDiagram === 'CRUZAMENTO' && (
+                                <g strokeWidth="3" strokeLinecap="round" fill="none">
+                                  <path d="M 12 24 L 68 24 M 58 18 L 68 24 L 58 30" stroke="#4f46e5" />
+                                  <path d="M 68 40 L 12 40 M 22 34 L 12 40 L 22 46" stroke="#f59e0b" />
+                                  <path d="M 12 56 L 68 56 M 58 50 L 68 56 L 58 62" stroke="#4f46e5" />
+                                </g>
+                              )}
+                              {evol.svgDiagram === 'MOINHO' && (
+                                <g stroke="#4f46e5" strokeWidth="3.5" strokeLinecap="round" fill="none">
+                                  <line x1="40" y1="10" x2="40" y2="70" />
+                                  <line x1="10" y1="40" x2="70" y2="40" />
+                                  <path d="M 46 14 A 26 26 0 0 1 66 34" stroke="#f59e0b" strokeWidth="2.5" />
+                                  <path d="M 66 46 A 26 26 0 0 1 46 66" stroke="#f59e0b" strokeWidth="2.5" />
+                                </g>
+                              )}
+                              {evol.svgDiagram === 'DOMINO' && (
+                                <g fill="#4f46e5">
+                                  <rect x="12" y="42" width="10" height="24" rx="2" opacity="0.4" />
+                                  <rect x="28" y="32" width="10" height="34" rx="2" opacity="0.65" />
+                                  <rect x="44" y="22" width="10" height="44" rx="2" opacity="0.85" />
+                                  <rect x="60" y="12" width="10" height="54" rx="2" fill="#f59e0b" />
+                                </g>
+                              )}
+                              {evol.svgDiagram === 'TRIANGULO_DBV' && (
+                                <g fill="none" strokeWidth="3.5" strokeLinejoin="round">
+                                  <polygon points="40,66 12,18 68,18" stroke="#ef4444" fill="#fef2f2" fillOpacity="0.2" />
+                                  <circle cx="40" cy="66" r="4" fill="#f59e0b" />
+                                  <circle cx="12" cy="18" r="4" fill="#4f46e5" />
+                                  <circle cx="68" cy="18" r="4" fill="#4f46e5" />
+                                </g>
+                              )}
+                              {evol.svgDiagram === 'ESPELHO' && (
+                                <g strokeWidth="3" strokeLinecap="round" fill="none">
+                                  <line x1="40" y1="10" x2="40" y2="70" stroke="#94a3b8" strokeDasharray="4 4" />
+                                  <path d="M 32 40 L 12 40 M 20 33 L 12 40 L 20 47" stroke="#4f46e5" />
+                                  <path d="M 48 40 L 68 40 M 60 33 L 68 40 L 60 47" stroke="#10b981" />
+                                </g>
+                              )}
+                              {evol.svgDiagram === 'FANTASMA' && (
+                                <g fill="none" stroke="#4f46e5" strokeWidth="3">
+                                  <circle cx="24" cy="26" r="5" fill="#4f46e5" />
+                                  <circle cx="56" cy="26" r="5" fill="#4f46e5" />
+                                  <circle cx="24" cy="54" r="5" fill="#f59e0b" />
+                                  <circle cx="56" cy="54" r="5" fill="#f59e0b" />
+                                  <rect x="12" y="14" width="56" height="52" rx="8" strokeDasharray="4 3" />
+                                </g>
+                              )}
+                              {evol.svgDiagram === 'TUNEL_BANDERINS' && (
+                                <g fill="none" strokeWidth="3.5" strokeLinecap="round">
+                                  <line x1="16" y1="64" x2="40" y2="18" stroke="#4f46e5" />
+                                  <line x1="64" y1="64" x2="40" y2="18" stroke="#4f46e5" />
+                                  <path d="M 40 68 L 40 30 M 33 38 L 40 30 L 47 38" stroke="#f59e0b" strokeWidth="3" />
+                                </g>
+                              )}
+                              {evol.svgDiagram === 'ESTRELA_4PONTAS' && (
+                                <g fill="none" strokeWidth="3" strokeLinecap="round">
+                                  <path d="M 40 30 L 40 10 M 34 16 L 40 10 L 46 16" stroke="#4f46e5" />
+                                  <path d="M 40 50 L 40 70 M 34 64 L 40 70 L 46 64" stroke="#4f46e5" />
+                                  <path d="M 30 40 L 10 40 M 16 34 L 10 40 L 16 46" stroke="#f59e0b" />
+                                  <path d="M 50 40 L 70 40 M 64 34 L 70 40 L 64 46" stroke="#f59e0b" />
+                                </g>
+                              )}
+                            </svg>
+                          </div>
+
+                          <div>
+                            <h5 className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-tight">
+                              {evol.title}
+                            </h5>
+                            <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
+                              {evol.visualEffect}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5 pt-1">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block">
+                            Passo a Passo da Evolução:
+                          </span>
+                          {evol.commandSequence.map((step, idx) => (
+                            <div key={idx} className="flex items-start space-x-2 text-xs text-slate-700 dark:text-slate-200">
+                              <span className="w-4 h-4 rounded-full bg-indigo-600 text-white text-[9.5px] font-black flex items-center justify-center shrink-0 mt-0.5">
+                                {idx + 1}
+                              </span>
+                              <span className="font-medium leading-relaxed">{step}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/70 dark:border-indigo-800/60 text-[11px] font-bold text-indigo-900 dark:text-indigo-200 leading-snug">
+                        🏆 <strong>Dica para Nota Máxima:</strong> {evol.judgeTip}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

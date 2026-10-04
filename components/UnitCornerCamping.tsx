@@ -48,7 +48,7 @@ interface BackpackItem {
 interface UnitMember {
   id: string;
   name: string;
-  role: 'Conselheiro(a)' | 'Capitão(ã)' | 'Secretário(a)' | 'Almoxarife' | 'Padioleiro(a)' | 'Membro';
+  role: 'Conselheiro(a)' | 'Conselheiro(a) Associado(a)' | 'Capitão(ã)' | 'Secretário(a)' | 'Tesoureiro(a)' | 'Capelão(ã)' | 'Almoxarife' | 'Padioleiro(a)' | 'Membro';
 }
 
 interface MealScheduleSlot {
@@ -917,12 +917,15 @@ const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club }) => {
                   onChange={(e) => setNewMemberRole(e.target.value as UnitMember['role'])}
                   className="flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 outline-none"
                 >
-                  <option value="Membro">Membro</option>
+                  <option value="Membro">Membro (Desbravador/Aventureiro)</option>
                   <option value="Capitão(ã)">Capitão(ã)</option>
                   <option value="Secretário(a)">Secretário(a)</option>
+                  <option value="Tesoureiro(a)">Tesoureiro(a)</option>
+                  <option value="Capelão(ã)">Capelão(ã)</option>
                   <option value="Almoxarife">Almoxarife</option>
                   <option value="Padioleiro(a)">Padioleiro(a)</option>
-                  <option value="Conselheiro(a)">Conselheiro(a)</option>
+                  <option value="Conselheiro(a) Associado(a)">Conselheiro(a) Associado(a)</option>
+                  <option value="Conselheiro(a)">Conselheiro(a) Titular</option>
                 </select>
                 <button
                   type="button"

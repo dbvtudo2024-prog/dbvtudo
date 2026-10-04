@@ -1233,45 +1233,48 @@ REGRAS OBRIGATÓRIAS:
   ];
 
   // ==========================================================================
-  // RENDER: TELA DE CONFIGURAÇÃO E ESCOLHA DE ARENA (SETUP) — SEM ROLAGEM GERAL
+  // RENDER: TELA DE CONFIGURAÇÃO E ESCOLHA DE ARENA (SETUP) — COM ROLAGEM E ESPAÇAMENTO CONFORTÁVEL
   // ==========================================================================
   if (gameState === 'SETUP') {
     const activeArenaRecord = highScores[selectedArena];
 
     return (
-      <div className="animate-slide-in h-full min-h-0 w-full max-w-4xl mx-auto flex flex-col justify-between gap-2 sm:gap-3 pb-1 overflow-hidden">
-        {/* Banner Superior Compacto */}
-        <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-2xl sm:rounded-[26px] px-3.5 py-2.5 sm:px-5 sm:py-3.5 text-white shadow-md border border-white/10 relative overflow-hidden shrink-0">
-          <div className="relative z-10 flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <div className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-300 text-[8.5px] sm:text-[9.5px] font-black uppercase tracking-widest">
-                <Trophy size={10} />
-                <span>Concursos • {isPathfinder ? 'Desbravadores' : 'Aventureiros'}</span>
-              </div>
-              <h3 className="text-sm sm:text-lg font-black uppercase tracking-tight leading-tight mt-0.5 truncate">
-                Escolha a Modalidade do Quiz
-              </h3>
-            </div>
-
-            {activeArenaRecord && activeArenaRecord.gamesPlayed > 0 && (
-              <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-xl px-2.5 py-1.5 shrink-0 flex items-center space-x-2">
-                <Star size={15} className="text-amber-300 shrink-0" fill="currentColor" />
-                <div className="text-right leading-tight">
-                  <span className="text-[8px] font-black uppercase tracking-wider text-slate-300 block">
-                    Recorde
-                  </span>
-                  <span className="text-xs sm:text-sm font-black text-white">
-                    {activeArenaRecord.bestScore} pts ({activeArenaRecord.bestAccuracy}%)
-                  </span>
+      <div className="animate-slide-in h-full min-h-0 w-full overflow-y-auto scrollbar-hide pb-20">
+        <div className="max-w-5xl mx-auto space-y-5 sm:space-y-6 pt-1">
+          {/* Banner Superior */}
+          <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-[26px] sm:rounded-[32px] p-5 sm:p-6 text-white shadow-lg border border-white/10 relative overflow-hidden">
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="min-w-0 space-y-1">
+                <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-300 text-[10px] font-black uppercase tracking-widest">
+                  <Trophy size={12} />
+                  <span>Concursos • {isPathfinder ? 'Desbravadores' : 'Aventureiros'}</span>
                 </div>
+                <h3 className="text-lg sm:text-2xl font-black uppercase tracking-tight leading-tight">
+                  Escolha a Modalidade do Quiz
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-300 font-medium">
+                  Selecione o tema abaixo, ajuste a quantidade de rodadas e inicie o treinamento.
+                </p>
               </div>
-            )}
-          </div>
-        </div>
 
-        {/* 1. Grade de Modalidades: 2 Colunas no Celular, 3-4 no Desktop */}
-        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-0.5 py-0.5">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-2.5 h-full content-start">
+              {activeArenaRecord && activeArenaRecord.gamesPlayed > 0 && (
+                <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl px-4 py-3 shrink-0 flex items-center space-x-3 self-start sm:self-auto">
+                  <Star size={20} className="text-amber-300 shrink-0" fill="currentColor" />
+                  <div className="text-left sm:text-right leading-tight">
+                    <span className="text-[9px] font-black uppercase tracking-wider text-slate-300 block">
+                      Melhor Recorde na Modalidade
+                    </span>
+                    <span className="text-sm sm:text-base font-black text-white">
+                      {activeArenaRecord.bestScore} pts ({activeArenaRecord.bestAccuracy}%)
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 1. Grade de Modalidades com Espaçamento Amplo e Textos Completos */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
             {arenaCards.map((card) => {
               const IconComp = card.icon;
               const isSelected = selectedArena === card.id;
@@ -1281,25 +1284,25 @@ REGRAS OBRIGATÓRIAS:
                   key={card.id}
                   type="button"
                   onClick={() => setSelectedArena(card.id)}
-                  className={`w-full relative overflow-hidden rounded-2xl p-2.5 sm:p-3.5 text-left transition-all flex flex-col justify-between border ${
+                  className={`w-full relative overflow-hidden rounded-[24px] p-4 sm:p-5 text-left transition-all flex flex-col justify-between min-h-[150px] sm:min-h-[168px] border cursor-pointer active:scale-[0.99] ${
                     isSelected
-                      ? `bg-gradient-to-br ${card.gradient} text-white shadow-md ring-2 ring-inset ring-white/50 border-transparent`
-                      : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white border-slate-200/80 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700 shadow-xs'
+                      ? `bg-gradient-to-br ${card.gradient} text-white shadow-lg ring-2 ring-inset ring-white/50 border-transparent`
+                      : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white border-slate-200/80 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-600 shadow-xs'
                   }`}
                 >
-                  <div className={`absolute -right-2 -bottom-2 pointer-events-none transition-transform duration-300 ${isSelected ? 'text-white/15 scale-105' : 'text-slate-100 dark:text-slate-700/35'}`}>
-                    <IconComp className="w-16 h-16 sm:w-20 sm:h-20 stroke-[1.4]" />
+                  <div className={`absolute -right-3 -bottom-3 pointer-events-none transition-transform duration-300 ${isSelected ? 'text-white/15 scale-105' : 'text-slate-100 dark:text-slate-700/35'}`}>
+                    <IconComp className="w-24 h-24 stroke-[1.4]" />
                   </div>
 
-                  <div className="relative z-10 flex items-center justify-between w-full gap-1">
-                    <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                  <div className="relative z-10 flex items-center justify-between w-full gap-2">
+                    <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center shrink-0 ${
                       isSelected
                         ? 'bg-white/20 text-white border border-white/30'
                         : 'bg-slate-100 dark:bg-slate-700 text-indigo-600 dark:text-indigo-400'
                     }`}>
-                      <IconComp size={15} strokeWidth={2.4} />
+                      <IconComp size={20} strokeWidth={2.3} />
                     </div>
-                    <span className={`text-[8px] sm:text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full truncate ${
+                    <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full ${
                       isSelected
                         ? 'bg-white/20 text-white'
                         : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300'
@@ -1308,21 +1311,21 @@ REGRAS OBRIGATÓRIAS:
                     </span>
                   </div>
 
-                  <div className="relative z-10 mt-1.5 sm:mt-2.5">
-                    <h4 className="font-black text-[11px] sm:text-xs uppercase tracking-tight leading-tight line-clamp-2">
+                  <div className="relative z-10 mt-3.5 space-y-1.5">
+                    <h4 className="font-black text-xs sm:text-sm uppercase tracking-tight leading-snug">
                       {card.title}
                     </h4>
-                    <p className={`text-[9px] sm:text-[10px] mt-0.5 leading-tight font-medium line-clamp-2 hidden sm:block ${
+                    <p className={`text-[11px] sm:text-xs leading-relaxed font-medium ${
                       isSelected ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'
                     }`}>
                       {card.subtitle}
                     </p>
                     {record && record.gamesPlayed > 0 && (
-                      <div className={`mt-1 pt-1 border-t text-[8.5px] font-black uppercase tracking-wider flex items-center justify-between ${
+                      <div className={`pt-2 mt-2 border-t text-[10px] font-black uppercase tracking-wider flex items-center justify-between ${
                         isSelected ? 'border-white/20 text-amber-200' : 'border-slate-100 dark:border-slate-700 text-indigo-600 dark:text-indigo-400'
                       }`}>
-                        <span>{record.bestScore} pts</span>
-                        <span>{record.bestAccuracy}%</span>
+                        <span>Recorde: {record.bestScore} pts</span>
+                        <span>Acerto: {record.bestAccuracy}%</span>
                       </div>
                     )}
                   </div>
@@ -1330,139 +1333,139 @@ REGRAS OBRIGATÓRIAS:
               );
             })}
           </div>
-        </div>
 
-        {/* 2. Painel Inferior Compacto: Rodadas, Tempo, Filtro e Botões Iniciar */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl sm:rounded-[24px] p-2.5 sm:p-4 shadow-sm border border-slate-100 dark:border-slate-700 space-y-2 sm:space-y-3 shrink-0">
-          <div className="grid grid-cols-2 gap-2 sm:gap-3">
-            {/* Quantidade de Perguntas */}
-            <div>
-              <label className="text-[8.5px] sm:text-[9.5px] font-black text-slate-400 uppercase tracking-widest block mb-1">
-                Rodadas
-              </label>
-              <div className="grid grid-cols-3 gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
-                {[5, 10, 15].map((cnt) => (
-                  <button
-                    key={cnt}
-                    type="button"
-                    onClick={() => setQuestionLimit(cnt)}
-                    className={`py-1.5 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all ${
-                      questionLimit === cnt
-                        ? 'bg-indigo-600 text-white shadow-xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    {cnt} Q
-                  </button>
-                ))}
+          {/* 2. Painel de Configuração da Partida: Rodadas, Tempo, Filtro e Botões Iniciar */}
+          <div className="bg-white dark:bg-slate-800 rounded-[26px] sm:rounded-[30px] p-4 sm:p-6 shadow-sm border border-slate-100 dark:border-slate-700 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Quantidade de Perguntas */}
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">
+                  Rodadas
+                </label>
+                <div className="grid grid-cols-3 gap-1.5 bg-slate-100 dark:bg-slate-900 p-1.5 rounded-2xl">
+                  {[5, 10, 15].map((cnt) => (
+                    <button
+                      key={cnt}
+                      type="button"
+                      onClick={() => setQuestionLimit(cnt)}
+                      className={`py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                        questionLimit === cnt
+                          ? 'bg-indigo-600 text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      {cnt} Q
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tempo do Cronômetro por Questão */}
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">
+                  Tempo / Questão
+                </label>
+                <div className="grid grid-cols-3 gap-1.5 bg-slate-100 dark:bg-slate-900 p-1.5 rounded-2xl">
+                  {[
+                    { sec: 15, label: '15s' },
+                    { sec: 25, label: '25s' },
+                    { sec: 40, label: '40s' }
+                  ].map((t) => (
+                    <button
+                      key={t.sec}
+                      type="button"
+                      onClick={() => setSecondsPerQuestion(t.sec)}
+                      className={`py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                        secondsPerQuestion === t.sec
+                          ? 'bg-indigo-600 text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Tempo do Cronômetro por Questão */}
-            <div>
-              <label className="text-[8.5px] sm:text-[9.5px] font-black text-slate-400 uppercase tracking-widest block mb-1">
-                Tempo / Questão
-              </label>
-              <div className="grid grid-cols-3 gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
-                {[
-                  { sec: 15, label: '15s' },
-                  { sec: 25, label: '25s' },
-                  { sec: 40, label: '40s' }
-                ].map((t) => (
-                  <button
-                    key={t.sec}
-                    type="button"
-                    onClick={() => setSecondsPerQuestion(t.sec)}
-                    className={`py-1.5 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all ${
-                      secondsPerQuestion === t.sec
-                        ? 'bg-indigo-600 text-white shadow-xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    {t.label}
-                  </button>
-                ))}
+            {/* Opções Extras para "Qual é esta Especialidade?" */}
+            {selectedArena === 'QUAL_ESPECIALIDADE' && (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-50/70 dark:bg-amber-950/30 rounded-2xl p-3.5 border border-amber-200/70 dark:border-amber-900/50">
+                <select
+                  value={selectedSpecialtyAreaFilter}
+                  onChange={(e) => setSelectedSpecialtyAreaFilter(e.target.value)}
+                  className="flex-1 min-w-0 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-white focus:outline-none"
+                >
+                  <option value="TODAS">Todas as Áreas ({specialtiesCatalog.length})</option>
+                  {availableSpecialtyAreas.map((area) => (
+                    <option key={area} value={area}>
+                      {area}
+                    </option>
+                  ))}
+                </select>
+
+                <label className="flex items-center space-x-2 cursor-pointer select-none shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={showSpecialtyAreaBadgeInQuiz}
+                    onChange={(e) => setShowSpecialtyAreaBadgeInQuiz(e.target.checked)}
+                    className="w-4 h-4 accent-amber-600 rounded"
+                  />
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Mostrar Área na Pergunta
+                  </span>
+                </label>
               </div>
-            </div>
-          </div>
+            )}
 
-          {/* Opções Extras Compactas para "Qual é esta Especialidade?" */}
-          {selectedArena === 'QUAL_ESPECIALIDADE' && (
-            <div className="flex items-center justify-between gap-2 bg-amber-50/70 dark:bg-amber-950/30 rounded-xl px-2.5 py-1.5 border border-amber-200/70 dark:border-amber-900/50">
-              <select
-                value={selectedSpecialtyAreaFilter}
-                onChange={(e) => setSelectedSpecialtyAreaFilter(e.target.value)}
-                className="flex-1 min-w-0 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-800 dark:text-white focus:outline-none"
-              >
-                <option value="TODAS">Todas as Áreas ({specialtiesCatalog.length})</option>
-                {availableSpecialtyAreas.map((area) => (
-                  <option key={area} value={area}>
-                    {area}
-                  </option>
-                ))}
-              </select>
+            {/* Opção de Tema Específico para o Simulado Bom de Bíblia */}
+            {selectedArena === 'BOM_DE_BIBLIA' && (
+              <input
+                type="text"
+                value={customBibleTopic}
+                onChange={(e) => setCustomBibleTopic(e.target.value)}
+                placeholder="Foco opcional p/ IA: Ex: Livro de Daniel, Mateus, ou em branco p/ Geral..."
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-indigo-200/80 dark:border-indigo-800/80 rounded-2xl px-4 py-3 text-xs sm:text-sm font-medium text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none"
+              />
+            )}
 
-              <label className="flex items-center space-x-1.5 cursor-pointer select-none shrink-0">
-                <input
-                  type="checkbox"
-                  checked={showSpecialtyAreaBadgeInQuiz}
-                  onChange={(e) => setShowSpecialtyAreaBadgeInQuiz(e.target.checked)}
-                  className="w-3.5 h-3.5 accent-amber-600 rounded"
-                />
-                <span className="text-[10px] font-bold text-slate-700 dark:text-slate-200">
-                  Mostrar Área
-                </span>
-              </label>
-            </div>
-          )}
-
-          {/* Opção de Tema Específico para o Simulado Bom de Bíblia */}
-          {selectedArena === 'BOM_DE_BIBLIA' && (
-            <input
-              type="text"
-              value={customBibleTopic}
-              onChange={(e) => setCustomBibleTopic(e.target.value)}
-              placeholder="Foco opcional p/ IA: Ex: Livro de Daniel, Mateus, ou em branco p/ Geral..."
-              className="w-full bg-slate-50 dark:bg-slate-900 border border-indigo-200/80 dark:border-indigo-800/80 rounded-xl px-3 py-1.5 text-[11px] font-medium text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none"
-            />
-          )}
-
-          {/* Botões de Ação para Iniciar */}
-          <div className="flex gap-2">
-            <button
-              type="button"
-              disabled={isGeneratingAiQuiz || (selectedArena === 'QUAL_ESPECIALIDADE' && isLoadingCatalog)}
-              onClick={handleStartStandardQuiz}
-              className="flex-1 py-2.5 sm:py-3 px-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white rounded-xl font-black uppercase tracking-wider text-[11px] sm:text-xs shadow-md shadow-indigo-500/20 active:scale-[0.98] transition-all flex items-center justify-center space-x-1.5 disabled:opacity-50"
-            >
-              <Play size={15} fill="currentColor" />
-              <span>
-                {selectedArena === 'QUAL_ESPECIALIDADE' && isLoadingCatalog
-                  ? 'Carregando...'
-                  : 'Iniciar Desafio'}
-              </span>
-            </button>
-
-            {selectedArena !== 'QUAL_ESPECIALIDADE' && (
+            {/* Botões de Ação para Iniciar */}
+            <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
               <button
                 type="button"
-                disabled={isGeneratingAiQuiz}
-                onClick={handleStartAiGeneratedQuiz}
-                className="py-2.5 sm:py-3 px-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white rounded-xl font-black uppercase tracking-wider text-[11px] sm:text-xs shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all flex items-center justify-center space-x-1.5 disabled:opacity-50 shrink-0"
+                disabled={isGeneratingAiQuiz || (selectedArena === 'QUAL_ESPECIALIDADE' && isLoadingCatalog)}
+                onClick={handleStartStandardQuiz}
+                className="flex-1 py-3.5 sm:py-4 px-5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white rounded-2xl font-black uppercase tracking-wider text-xs sm:text-sm shadow-md shadow-indigo-500/20 active:scale-[0.98] transition-all flex items-center justify-center space-x-2 disabled:opacity-50 cursor-pointer"
               >
-                {isGeneratingAiQuiz ? (
-                  <>
-                    <RefreshCw size={14} className="animate-spin" />
-                    <span>Gerando...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles size={14} />
-                    <span>Simulado IA</span>
-                  </>
-                )}
+                <Play size={16} fill="currentColor" />
+                <span>
+                  {selectedArena === 'QUAL_ESPECIALIDADE' && isLoadingCatalog
+                    ? 'Carregando...'
+                    : 'Iniciar Desafio'}
+                </span>
               </button>
-            )}
+
+              {selectedArena !== 'QUAL_ESPECIALIDADE' && (
+                <button
+                  type="button"
+                  disabled={isGeneratingAiQuiz}
+                  onClick={handleStartAiGeneratedQuiz}
+                  className="py-3.5 sm:py-4 px-5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white rounded-2xl font-black uppercase tracking-wider text-xs sm:text-sm shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all flex items-center justify-center space-x-2 disabled:opacity-50 shrink-0 cursor-pointer"
+                >
+                  {isGeneratingAiQuiz ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Gerando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={16} />
+                      <span>Simulado IA</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1470,7 +1473,7 @@ REGRAS OBRIGATÓRIAS:
   }
 
   // ==========================================================================
-  // RENDER: TELA DE PARTIDA EM ANDAMENTO (PLAYING) — 100% AJUSTADA NA TELA
+  // RENDER: TELA DE PARTIDA EM ANDAMENTO (PLAYING) — SEM ROLAGEM + PC LADO A LADO
   // ==========================================================================
   if (gameState === 'PLAYING') {
     const currentQ = activeQuestions[currentIdx];
@@ -1480,13 +1483,13 @@ REGRAS OBRIGATÓRIAS:
     const isUrgent = timeLeft <= 6 && !isAnswerLocked;
 
     return (
-      <div className="animate-fade-in h-full min-h-0 w-full max-w-3xl mx-auto flex flex-col justify-between gap-2 pb-1 overflow-hidden">
-        {/* Barra Superior Compacta (Sem botão Sair redundante) + Barra de Progresso */}
+      <div className="animate-fade-in h-full min-h-0 w-full max-w-5xl mx-auto flex flex-col justify-between gap-2.5 pb-1 overflow-hidden">
+        {/* Barra Superior Compacta + Barra de Progresso */}
         <div className="shrink-0 space-y-1.5">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl px-3.5 py-2 sm:px-4 sm:py-2.5 shadow-xs border border-slate-100 dark:border-slate-700 flex items-center justify-between gap-2">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl px-3.5 py-2 sm:px-5 sm:py-3 shadow-xs border border-slate-100 dark:border-slate-700 flex items-center justify-between gap-2">
             <div className="min-w-0 flex-1">
               <div className="flex items-center space-x-2">
-                <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 shrink-0">
+                <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 shrink-0">
                   Pergunta {currentIdx + 1} de {activeQuestions.length}
                 </span>
                 {streak >= 2 && (
@@ -1502,13 +1505,13 @@ REGRAS OBRIGATÓRIAS:
             </div>
 
             {/* Pontos & Relógio Cronômetro */}
-            <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
-              <div className="px-2.5 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 dark:border-indigo-900/50 text-indigo-700 dark:text-indigo-300 font-black text-[11px] sm:text-xs tabular-nums">
+            <div className="flex items-center space-x-1.5 sm:space-x-2.5 shrink-0">
+              <div className="px-3 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 dark:border-indigo-900/50 text-indigo-700 dark:text-indigo-300 font-black text-[11px] sm:text-xs tabular-nums">
                 {score} pts
               </div>
 
               <div
-                className={`px-2.5 py-1 rounded-xl font-black text-[11px] sm:text-xs tabular-nums flex items-center space-x-1 border ${
+                className={`px-3 py-1 rounded-xl font-black text-[11px] sm:text-xs tabular-nums flex items-center space-x-1 border ${
                   isUrgent
                     ? 'bg-red-600 text-white border-red-600 animate-pulse'
                     : 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white border-slate-200 dark:border-slate-600'
@@ -1535,188 +1538,191 @@ REGRAS OBRIGATÓRIAS:
           </div>
         </div>
 
-        {/* Cartão Principal da Pergunta — Flexível para caber 100% sem rolagem */}
-        <div className="flex-1 min-h-0 bg-white dark:bg-slate-800 rounded-[24px] sm:rounded-[28px] p-3.5 sm:p-5 shadow-md border border-slate-100 dark:border-slate-700 flex flex-col justify-between gap-2 overflow-hidden">
-          {/* Topo: Emblema Limpo (sem container) + Enunciado + Dica */}
-          <div className="flex flex-col items-center justify-center space-y-1.5 shrink-0">
+        {/* Cartão Principal da Pergunta — No Celular empilhado sem rolagem; no PC Imagem/Questão à Esquerda e Alternativas à Direita */}
+        <div className="flex-1 min-h-0 bg-white dark:bg-slate-800 rounded-[24px] sm:rounded-[30px] p-3.5 sm:p-5 md:p-6 lg:p-7 shadow-md border border-slate-100 dark:border-slate-700 flex flex-col md:grid md:grid-cols-12 justify-between gap-2 md:gap-6 lg:gap-8 overflow-hidden">
+          {/* COLUNA ESQUERDA NO PC (Topo no Celular): Apenas a Questão (e Insígnia no modo Especialidades) */}
+          <div className="md:col-span-5 flex flex-col items-center justify-center text-center space-y-2 md:space-y-4 shrink-0 md:h-full md:border-r md:border-slate-100 md:dark:border-slate-700/70 md:px-4 lg:px-6">
             {currentQ.category === 'QUAL_ESPECIALIDADE' && currentQ.imageUrl && (
-              <div className="flex flex-col items-center justify-center space-y-1">
+              <div className="flex flex-col items-center justify-center space-y-1 md:space-y-2.5">
                 {(showSpecialtyAreaBadgeInQuiz || isAnswerLocked) && currentQ.specialtyArea && (
-                  <span className="px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/50 border border-amber-200/60 dark:border-amber-800/60 text-amber-700 dark:text-amber-300 text-[9px] font-black uppercase tracking-widest">
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/50 border border-amber-200/60 dark:border-amber-800/60 text-amber-700 dark:text-amber-300 text-[9px] sm:text-[10px] font-black uppercase tracking-widest">
                     Área: {currentQ.specialtyArea}
                   </span>
                 )}
                 <img
                   src={currentQ.imageUrl}
                   alt="Insígnia da Especialidade"
-                  className="w-36 h-36 sm:w-44 sm:h-44 md:w-48 md:h-48 object-contain drop-shadow-xl select-none my-0.5"
+                  className="w-32 h-32 sm:w-40 sm:h-40 md:w-52 md:h-52 lg:w-60 lg:h-60 object-contain drop-shadow-xl select-none my-0.5"
                   draggable={false}
                   referrerPolicy="no-referrer"
                 />
               </div>
             )}
 
-            <h4 className="text-xs sm:text-base font-black text-slate-800 dark:text-white leading-snug text-center w-full line-clamp-3">
+            <h4 className="text-sm sm:text-base md:text-lg lg:text-xl font-black text-slate-800 dark:text-white leading-relaxed text-center w-full">
               {currentQ.question}
             </h4>
 
             {showCurrentHint && currentQ.hint && !isAnswerLocked && (
-              <div className="w-full px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-center space-x-2 text-[11px] text-amber-900 dark:text-amber-200 animate-fade-in">
-                <Lightbulb size={13} className="text-amber-500 shrink-0" />
-                <span className="font-medium truncate">{currentQ.hint}</span>
+              <div className="w-full px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-center space-x-2 text-[11px] sm:text-xs text-amber-900 dark:text-amber-200 animate-fade-in text-left">
+                <Lightbulb size={14} className="text-amber-500 shrink-0" />
+                <span className="font-medium line-clamp-2 md:line-clamp-3">{currentQ.hint}</span>
               </div>
             )}
           </div>
 
-          {/* Meio: Alternativas A, B, C, D */}
-          <div className="grid grid-cols-1 gap-1.5 sm:gap-2 my-auto">
-            {currentQ.options.map((optText, idx) => {
-              const isHiddenBy5050 = hiddenOptionIndices.includes(idx);
-              if (isHiddenBy5050 && !isAnswerLocked) {
-                return (
-                  <div
-                    key={idx}
-                    className="w-full py-2 px-3 sm:py-2.5 sm:px-3.5 rounded-xl border border-dashed border-slate-200 dark:border-slate-700/60 text-slate-300 dark:text-slate-600 text-[11px] font-bold flex items-center space-x-2.5 opacity-40 select-none"
-                  >
-                    <span className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-[10px]">
-                      {String.fromCharCode(65 + idx)}
-                    </span>
-                    <span className="line-through truncate">Alternativa eliminada (50/50)</span>
-                  </div>
-                );
-              }
-
-              const isCorrectOption = idx === currentQ.correctIndex;
-              const isChosenOption = selectedOptionIdx === idx;
-
-              let buttonStyle =
-                'bg-slate-50 hover:bg-indigo-50/60 dark:bg-slate-900/70 dark:hover:bg-slate-700/70 border-slate-200/80 dark:border-slate-700 text-slate-800 dark:text-slate-100';
-              let letterBadgeStyle =
-                'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600';
-
-              if (isAnswerLocked) {
-                if (isCorrectOption) {
-                  buttonStyle =
-                    'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 text-emerald-950 dark:text-emerald-100 ring-1 ring-emerald-500/40';
-                  letterBadgeStyle = 'bg-emerald-600 text-white border-emerald-600';
-                } else if (isChosenOption && !isCorrectOption) {
-                  buttonStyle =
-                    'bg-red-50 dark:bg-red-950/60 border-red-500 text-red-950 dark:text-red-100 ring-1 ring-red-500/40';
-                  letterBadgeStyle = 'bg-red-600 text-white border-red-600';
-                } else {
-                  buttonStyle =
-                    'bg-slate-50/50 dark:bg-slate-900/30 border-slate-200/40 dark:border-slate-800 text-slate-400 dark:text-slate-500 opacity-55';
-                }
-              }
-
-              return (
-                <button
-                  key={idx}
-                  type="button"
-                  disabled={isAnswerLocked}
-                  onClick={() => handleSelectAnswer(idx)}
-                  className={`w-full py-2 px-3 sm:py-2.5 sm:px-3.5 rounded-xl border text-left transition-all flex items-center justify-between gap-2 active:scale-[0.99] ${buttonStyle}`}
-                >
-                  <div className="flex items-center space-x-2.5 min-w-0">
-                    <span
-                      className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg font-black text-[11px] flex items-center justify-center shrink-0 transition-colors ${letterBadgeStyle}`}
+          {/* COLUNA DIREITA NO PC (Meio/Rodapé no Celular): Alternativas A, B, C, D + Ajudas / Explicação */}
+          <div className="md:col-span-7 flex flex-col justify-between flex-1 min-h-0 md:h-full gap-2 md:gap-3">
+            {/* Alternativas A, B, C, D */}
+            <div className="grid grid-cols-1 gap-1.5 sm:gap-2 md:gap-2.5 my-auto">
+              {currentQ.options.map((optText, idx) => {
+                const isHiddenBy5050 = hiddenOptionIndices.includes(idx);
+                if (isHiddenBy5050 && !isAnswerLocked) {
+                  return (
+                    <div
+                      key={idx}
+                      className="w-full py-2 px-3 sm:py-2.5 sm:px-4 md:py-3.5 md:px-4 rounded-xl md:rounded-2xl border border-dashed border-slate-200 dark:border-slate-700/60 text-slate-300 dark:text-slate-600 text-[11px] sm:text-xs font-bold flex items-center space-x-3 opacity-40 select-none"
                     >
-                      {String.fromCharCode(65 + idx)}
-                    </span>
-                    <span className="text-[11px] sm:text-xs font-bold leading-tight line-clamp-2">
-                      {optText}
-                    </span>
-                  </div>
-
-                  {isAnswerLocked && isCorrectOption && (
-                    <CheckCircle2 size={17} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  )}
-                  {isAnswerLocked && isChosenOption && !isCorrectOption && (
-                    <AlertCircle size={17} className="text-red-600 dark:text-red-400 shrink-0" />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Rodapé do Card: Ajudas antes de responder OU Explicação + Próxima após responder */}
-          <div className="shrink-0 pt-1.5 border-t border-slate-100 dark:border-slate-700/70">
-            {!isAnswerLocked ? (
-              <div className="flex items-center justify-between gap-1.5">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider hidden sm:inline">
-                  Ajudas (1x):
-                </span>
-                <div className="grid grid-cols-3 gap-1.5 w-full sm:w-auto sm:flex">
-                  <button
-                    type="button"
-                    disabled={lifeline5050Used}
-                    onClick={handleUse5050}
-                    className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-[9.5px] font-black uppercase tracking-wider hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-35 text-center"
-                  >
-                    50/50 (-2)
-                  </button>
-                  <button
-                    type="button"
-                    disabled={lifelineExtraTimeUsed}
-                    onClick={handleUseExtraTime}
-                    className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-[9.5px] font-black uppercase tracking-wider hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-35 inline-flex items-center justify-center gap-1"
-                  >
-                    <Clock size={11} />
-                    <span>+15s</span>
-                  </button>
-                  <button
-                    type="button"
-                    disabled={lifelineHintUsed}
-                    onClick={handleUseHint}
-                    className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-[9.5px] font-black uppercase tracking-wider hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-35 inline-flex items-center justify-center gap-1"
-                  >
-                    <Lightbulb size={11} />
-                    <span>Dica</span>
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-1.5 animate-fade-in">
-                <div
-                  className={`px-3 py-1.5 rounded-xl border text-[10.5px] leading-snug ${
-                    selectedOptionIdx === currentQ.correctIndex
-                      ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/70 text-emerald-950 dark:text-emerald-100'
-                      : 'bg-amber-50/90 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/70 text-amber-950 dark:text-amber-100'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-black uppercase text-[9.5px] tracking-wider">
-                      {selectedOptionIdx === currentQ.correctIndex
-                        ? 'Correto!'
-                        : selectedOptionIdx === null
-                        ? 'Tempo Esgotado!'
-                        : 'Resposta Incorreta'}
-                    </span>
-                    {currentQ.reference && (
-                      <span className="text-[9px] font-black uppercase tracking-wider opacity-80 truncate">
-                        {currentQ.reference}
+                      <span className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-[10px] sm:text-xs">
+                        {String.fromCharCode(65 + idx)}
                       </span>
-                    )}
-                  </div>
-                  <p className="font-medium opacity-90 line-clamp-2 mt-0.5">
-                    {currentQ.explanation}
-                  </p>
-                </div>
+                      <span className="line-through truncate">Alternativa eliminada (50/50)</span>
+                    </div>
+                  );
+                }
 
-                <button
-                  type="button"
-                  onClick={handleNextQuestion}
-                  className="w-full py-2.5 sm:py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black uppercase tracking-widest text-[11px] sm:text-xs shadow-md active:scale-[0.99] transition-all flex items-center justify-center space-x-1.5"
-                >
-                  <span>
-                    {currentIdx + 1 < activeQuestions.length
-                      ? 'Próxima Pergunta'
-                      : 'Ver Resultado Final'}
+                const isCorrectOption = idx === currentQ.correctIndex;
+                const isChosenOption = selectedOptionIdx === idx;
+
+                let buttonStyle =
+                  'bg-slate-50 hover:bg-indigo-50/60 dark:bg-slate-900/70 dark:hover:bg-slate-700/70 border-slate-200/80 dark:border-slate-700 text-slate-800 dark:text-slate-100';
+                let letterBadgeStyle =
+                  'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600';
+
+                if (isAnswerLocked) {
+                  if (isCorrectOption) {
+                    buttonStyle =
+                      'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 text-emerald-950 dark:text-emerald-100 ring-1 ring-emerald-500/40';
+                    letterBadgeStyle = 'bg-emerald-600 text-white border-emerald-600';
+                  } else if (isChosenOption && !isCorrectOption) {
+                    buttonStyle =
+                      'bg-red-50 dark:bg-red-950/60 border-red-500 text-red-950 dark:text-red-100 ring-1 ring-red-500/40';
+                    letterBadgeStyle = 'bg-red-600 text-white border-red-600';
+                  } else {
+                    buttonStyle =
+                      'bg-slate-50/50 dark:bg-slate-900/30 border-slate-200/40 dark:border-slate-800 text-slate-400 dark:text-slate-500 opacity-55';
+                  }
+                }
+
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    disabled={isAnswerLocked}
+                    onClick={() => handleSelectAnswer(idx)}
+                    className={`w-full py-2 px-3 sm:py-2.5 sm:px-4 md:py-3.5 md:px-4 rounded-xl md:rounded-2xl border text-left transition-all flex items-center justify-between gap-2.5 active:scale-[0.99] cursor-pointer ${buttonStyle}`}
+                  >
+                    <div className="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
+                      <span
+                        className={`w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-lg font-black text-[11px] sm:text-xs flex items-center justify-center shrink-0 transition-colors ${letterBadgeStyle}`}
+                      >
+                        {String.fromCharCode(65 + idx)}
+                      </span>
+                      <span className="text-[11px] sm:text-xs md:text-sm font-bold leading-snug line-clamp-2">
+                        {optText}
+                      </span>
+                    </div>
+
+                    {isAnswerLocked && isCorrectOption && (
+                      <CheckCircle2 size={18} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    )}
+                    {isAnswerLocked && isChosenOption && !isCorrectOption && (
+                      <AlertCircle size={18} className="text-red-600 dark:text-red-400 shrink-0" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Rodapé da Coluna Direita: Ajudas antes de responder OU Explicação + Próxima após responder */}
+            <div className="shrink-0 pt-1.5 border-t border-slate-100 dark:border-slate-700/70">
+              {!isAnswerLocked ? (
+                <div className="flex items-center justify-between gap-1.5">
+                  <span className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider hidden sm:inline">
+                    Ajudas (1x):
                   </span>
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            )}
+                  <div className="grid grid-cols-3 gap-1.5 w-full sm:w-auto sm:flex">
+                    <button
+                      type="button"
+                      disabled={lifeline5050Used}
+                      onClick={handleUse5050}
+                      className="px-2.5 py-1.5 md:px-3.5 md:py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-35 text-center cursor-pointer"
+                    >
+                      50/50 (-2)
+                    </button>
+                    <button
+                      type="button"
+                      disabled={lifelineExtraTimeUsed}
+                      onClick={handleUseExtraTime}
+                      className="px-2.5 py-1.5 md:px-3.5 md:py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-35 inline-flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <Clock size={11} />
+                      <span>+15s</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={lifelineHintUsed}
+                      onClick={handleUseHint}
+                      className="px-2.5 py-1.5 md:px-3.5 md:py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-35 inline-flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <Lightbulb size={11} />
+                      <span>Dica</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1.5 sm:space-y-2 animate-fade-in">
+                  <div
+                    className={`px-3 py-1.5 sm:py-2 rounded-xl border text-[10.5px] sm:text-xs leading-snug ${
+                      selectedOptionIdx === currentQ.correctIndex
+                        ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/70 text-emerald-950 dark:text-emerald-100'
+                        : 'bg-amber-50/90 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/70 text-amber-950 dark:text-amber-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-black uppercase text-[9.5px] sm:text-[10px] tracking-wider">
+                        {selectedOptionIdx === currentQ.correctIndex
+                          ? 'Correto!'
+                          : selectedOptionIdx === null
+                          ? 'Tempo Esgotado!'
+                          : 'Resposta Incorreta'}
+                      </span>
+                      {currentQ.reference && (
+                        <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider opacity-80 truncate">
+                          {currentQ.reference}
+                        </span>
+                      )}
+                    </div>
+                    <p className="font-medium opacity-90 line-clamp-2 mt-0.5">
+                      {currentQ.explanation}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleNextQuestion}
+                    className="w-full py-2.5 sm:py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black uppercase tracking-widest text-[11px] sm:text-xs shadow-md active:scale-[0.99] transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
+                  >
+                    <span>
+                      {currentIdx + 1 < activeQuestions.length
+                        ? 'Próxima Pergunta'
+                        : 'Ver Resultado Final'}
+                    </span>
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

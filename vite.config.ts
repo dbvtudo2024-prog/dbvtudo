@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '3.0.61';
+const appVersion = '3.0.69';
 
 function versionPlugin(): Plugin {
   return {
@@ -19,9 +19,10 @@ function versionPlugin(): Plugin {
           buildDate: new Date(buildTime).toISOString(),
           timestamp: buildTime,
           highlights: [
-            "Código Semáfora Completo: Tabelas visuais do Alfabeto (A a Z) e Números (0 a 9 + Sinal Numérico #) com tradução instantânea e ampliação dos ângulos dos braços",
-            "Números em Libras (0 a 9) ilustrados e 24 Expressões Mais Usadas em Libras (Cumprimentos, Desbravadores, Acampamento e Diálogo)",
-            "Nós e Amarras das Classes em 3D (apenas imagem 3D e crédito a Knots 3D) com os 22 nós e amarras oficiais de Amigo, Companheiro e Pesquisador a Guia"
+            "Novo botão 'Treinamento em Campo' agrupando Quiz & Simulado, Cantinho & Acamp., Guia de Campo e Ordem Unida, com remoção da aba redundante de Ordem Unida dentro do Guia de Campo",
+            "Acervo de Trunfos atualizado com 30 imagens reais dos emblemas bordados oficiais (Camporis Sul-Americanos DSA, Uniões, Associações e Dias Mundiais)",
+            "Alfabeto Manual Brasileiro de Libras oficial (A-Z, Ç e números 0-9) corrigindo as letras M e N e demais sinais para o padrão brasileiro",
+            "Ilustrações visuais de cada uma das 22 posições de Ordem Unida, rolagem pelo mouse no PC em todos os menus horizontais, seta discreta no menu flutuante e remoção de cabeçalho/botão voltar duplicado no Desbrava+"
           ]
         }, null, 2)
       });
@@ -37,9 +38,10 @@ function versionPlugin(): Plugin {
             buildDate: new Date(buildTime).toISOString(),
             timestamp: buildTime,
             highlights: [
-              "Código Semáfora Completo: Tabelas visuais do Alfabeto (A a Z) e Números (0 a 9 + Sinal Numérico #) com tradução instantânea e ampliação dos ângulos dos braços",
-              "Números em Libras (0 a 9) ilustrados e 24 Expressões Mais Usadas em Libras (Cumprimentos, Desbravadores, Acampamento e Diálogo)",
-              "Nós e Amarras das Classes em 3D (apenas imagem 3D e crédito a Knots 3D) com os 22 nós e amarras oficiais de Amigo, Companheiro e Pesquisador a Guia"
+              "Novo botão 'Treinamento em Campo' agrupando Quiz & Simulado, Cantinho & Acamp., Guia de Campo e Ordem Unida, com remoção da aba redundante de Ordem Unida dentro do Guia de Campo",
+              "Acervo de Trunfos atualizado com 30 imagens reais dos emblemas bordados oficiais (Camporis Sul-Americanos DSA, Uniões, Associações e Dias Mundiais)",
+              "Alfabeto Manual Brasileiro de Libras oficial (A-Z, Ç e números 0-9) corrigindo as letras M e N e demais sinais para o padrão brasileiro",
+              "Ilustrações visuais de cada uma das 22 posições de Ordem Unida, rolagem pelo mouse no PC em todos os menus horizontais, seta discreta no menu flutuante e remoção de cabeçalho/botão voltar duplicado no Desbrava+"
             ]
           }));
           return;

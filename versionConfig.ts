@@ -6,14 +6,106 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.61';
+export const APP_VERSION = '3.0.69';
 export const APP_BUILD_DATE = '4 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
-    version: '3.0.61',
+    version: '3.0.69',
     date: '04/10/2026',
     tag: 'NOVO',
+    title: 'Central Treinamento em Campo, 30 Trunfos Bordados, Libras Brasileira Oficial & Posições de Ordem Unida',
+    changes: [
+      'Criação do botão unificado "Treinamento em Campo" na tela principal agrupando Quiz e Simulado, Cantinho & Acamp., Guia de Campo e Ordem Unida, eliminando a aba duplicada de Ordem Unida dentro do Guia de Campo.',
+      'Botão de acionamento do menu flutuante nas áreas práticas redesenhado para exibir apenas uma seta discreta e compacta no rodapé.',
+      'Atualização do acervo de Trunfos com 30 imagens reais dos emblemas bordados oficiais (todos os 6 Camporis Sul-Americanos da DSA, Camporis de União UCB/UNeB/UNB/USB/UCOB, Associações, Aventuris e Dias Mundiais).',
+      'Substituição completa do alfabeto manual e números pelo Alfabeto Manual Brasileiro de Libras oficial (A a Z, Ç e 0 a 9), corrigindo as letras M (3 dedos apontados para baixo), N (2 dedos apontados para baixo) e demais configurações.',
+      'Adição de ilustrações visuais para cada uma das 22 posições de Ordem Unida (no seletor do treinador de voz, nos cards e com ampliação em tela cheia) e suporte a rolagem pelo mouse (roda do mouse + arraste) em todos os menus horizontais no PC.',
+      'Remoção da barra e botão voltar duplicados na visualização de detalhes do programa Desbrava+.'
+    ]
+  },
+  {
+    version: '3.0.68',
+    date: '04/10/2026',
+    tag: 'ESTÁVEL',
+    title: 'Acervo Oficial Desbrava+ (16 e 17 Anos DSA), Revisão de Manuais e Quiz Limpo',
+    changes: [
+      'Adição do acervo oficial do Programa Desbrava+ (16 e 17 anos - DSA) na seção Desbrava+, com guias completos, diretrizes do Manual Administrativo, Curso de Treinamento de Diretoria (10h) e checklists interativos para Nível 1 (16 anos) e Nível 2 (17 anos).',
+      'Revisão técnica completa de Ordem Unida, Cantinho da Unidade e Quiz segundo os Manuais Oficiais da DSA ("Para o Voto, Posição!", sinais de apito regulamentares, ângulo de 45° na posição de Sentido e todos os cargos oficiais da Unidade).',
+      'Limpeza visual da área de perguntas nos Quizzes, mantendo apenas o enunciado da questão (e a insígnia no modo de Especialidades) sem ícones ou selos extras.',
+      'Ocultação completa do menu flutuante inferior na página de Histórico de Atualizações no celular.'
+    ]
+  },
+  {
+    version: '3.0.67',
+    date: '04/10/2026',
+    tag: 'ESTÁVEL',
+    title: 'Nova Seção de Atividades & Campo, Quiz 2 Colunas no PC e Menu Flutuante Recolhível',
+    changes: [
+      'Nova seção dedicada "Atividades & Campo" na tela principal reunindo Quiz e Simulado, Cantinho da Unidade, Manual de Campo e Ordem Unida (removendo Cantinho e Ordem Unida da aba Gerenciar).',
+      'Menu flutuante inferior oculto por padrão nas novas áreas, com ícone discreto no rodapé para ativá-lo ou recolhê-lo quando desejar.',
+      'Tela inicial do Quiz e Simulado com rolagem liberada e espaçamento amplo para leitura confortável.',
+      'Remodelação das arenas de perguntas do Quiz no computador em 2 colunas: ilustração/insígnia e enunciado à esquerda, e alternativas com ações à direita.'
+    ]
+  },
+  {
+    version: '3.0.66',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Histórico na Área Útil do PC, Cabeçalho Mobile Limpo & Logo DBV à Esquerda',
+    changes: [
+      'Histórico de Atualizações integrado diretamente à área útil do programa no computador, mantendo o menu lateral ativo e visível.',
+      'Cabeçalho para celular da tela de Atualizações simplificado (apenas botão voltar, título enxuto, versão atual e botão compacto de verificação).',
+      'Posicionamento da logo dos Desbravadores ajustado para o lado esquerdo do botão DBV no menu flutuante inferior.'
+    ]
+  },
+  {
+    version: '3.0.65',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Módulo Dedicado "Ordem Unida" no Acesso Rápido com Simulador de Vozes e 8 Evoluções',
+    changes: [
+      'Botão dedicado "Ordem Unida (Vozes, Marcha, Apito e Evoluções)" adicionado diretamente ao Acesso Rápido e ao menu Gerenciar.',
+      'Treinador Prático das 3 Etapas da Voz de Comando (1. Voz de Advertência, 2. Comando Propriamente Dito, Pausa de 2 Tempos e 3. Voz de Execução) com simulação sonora e visual passo a passo.',
+      'Metrônomo Sonoro de Cadência com seletor entre Passo Ordinário (116 BPM) e Passo Acelerado (180 BPM) marcando Pé Esquerdo e Pé Direito.',
+      '22 Comandos a Pé Firme e em Marcha (Manual DSA), 8 Sinais de Apito com reprodução de áudio, 6 Gestos Visuais de Comando para Líderes e 8 Roteiros Ilustrados de Evoluções para Apresentações.'
+    ]
+  },
+  {
+    version: '3.0.64',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Botão de Acesso em Ajustes e Página Completa com Todos os Dados das Atualizações',
+    changes: [
+      'Substituição da lista recolhível (dropdown) dentro do modal de Ajustes por um botão direto ("Histórico de Versões & Modificações • Ver Página").',
+      'Nova página dedicada em tela cheia exibindo todos os dados das atualizações: painel de estatísticas (Versão Atual, Data de Publicação, Versões Lançadas e Total de Melhorias), barra de pesquisa por número/data/recurso, botão para buscar atualização e linha do tempo completa de todas as versões.'
+    ]
+  },
+  {
+    version: '3.0.63',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Alerta de Nova Versão Compacto e Direto',
+    changes: [
+      'Redução e simplificação do card de alerta de atualização no topo da tela, exibindo apenas "Nova versão" com a numeração, o link direto para ver as novidades em Ajustes > Histórico de Versões e os botões "Depois" e "Atualizar".'
+    ]
+  },
+  {
+    version: '3.0.62',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Guia de Ordem Unida e Vozes de Comando (Padrão Manual DSA)',
+    changes: [
+      'Vozes de Comando: Explicação detalhada das 3 etapas oficiais (Voz de Advertência, Comando Propriamente Dito e Voz de Execução) com regras de entonação e cadência oficial (116 passos/min em marcha e 180 passos/min em acelerado).',
+      'Comandos a Pé Firme e em Marcha: 15 comandos oficiais do Manual de Ordem Unida da DSA com divisão silábica exata da voz de comando, passo a passo técnico de execução e erros comuns a evitar.',
+      'Sinais de Apito (com Áudio) e Gestos de Comando: 7 comandos acústicos de apito (silvos curtos e longos reproduzidos em áudio pelo celular/PC) e 6 gestos visuais de braço para formações silenciosas (Colunas, Linha/Fileira, Ferradura/U, Círculo, Alto e Acelerado).',
+      'Ideias de Evoluções para Apresentações: 6 roteiros coreográficos ilustrados para Camporis e Dia do Desbravador (Cruzamento em X, Moinho de 4 Pontas, Efeito Dominó/Onda, Triângulo Oficial DBV, Abertura em Espelho e Quadrado Fantasma).'
+    ]
+  },
+  {
+    version: '3.0.61',
+    date: '04/10/2026',
+    tag: 'ATUAL',
     title: 'Centralização Instantânea dos Modais de Letras, Números e Nós na Tela Atual',
     changes: [
       'Renderização dos modais de ampliação (Código Semáfora, Alfabeto/Números em Libras e Zoom 3D dos Nós) diretamente no centro da tela visível (via React Portal), sem precisar rolar a página para encontrá-los.'

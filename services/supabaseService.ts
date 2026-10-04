@@ -2136,12 +2136,12 @@ export async function updateUserAchievements(email: string, achievementIds: numb
 }
 
 const DEFAULT_TRUNFOS: Trunfo[] = [
-  // --- DIVISÃO SUL-AMERICANA (DSA) - DESBRAVADORES ---
+  // --- DIVISÃO SUL-AMERICANA (DSA) - CAMPORIS SUL-AMERICANOS (BORDADOS OFICIAIS) ---
   {
     id: 1,
     titulo: 'VI Campori Sul-Americano - Sempre Desbravador',
     ano: '2027',
-    imagem: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png',
+    imagem: '/trunfos/dsa-2027-sempre-desbravador.png',
     historia: `O VI Campori de Desbravadores da Divisão Sul-Americana (DSA) da Igreja Adventista do Sétimo Dia acontecerá em janeiro de 2027 sob o tema oficial "Sempre Desbravador".
 
 Local: Parque do Peão de Barretos, no interior de São Paulo.
@@ -2157,14 +2157,14 @@ Atividades: O evento contará com superpalco de louvor internacional, oratória 
     id: 2,
     titulo: 'V Campori Sul-Americano - A Melhor Aventura',
     ano: '2019',
-    imagem: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png',
+    imagem: '/trunfos/dsa-2019-melhor-aventura.jpg',
     historia: `O V Campori de Desbravadores da Divisão Sul-Americana (DSA) da Igreja Adventista do Sétimo Dia foi realizado em janeiro de 2019 sob o tema "#AMelhorAventura".
 
 Local: Parque do Peão em Barretos, São Paulo.
 
 Participantes: Reuniu mais de 100 mil participantes de 8 países da América do Sul, distribuídos nas edições Alpha (08 a 13 de janeiro) e Ômega (15 a 20 de janeiro), consagrando-se como o maior campori da história da igreja no mundo.
 
-Tema central: O logo e a mensagem central retratavam desbravadores escalando uma montanha íngreme de mãos dadas com seus líderes e Jesus, representando que a jornada cristã até o Céu é a maior e mais extraordinária aventura da vida.
+Tema central: O trunfo bordado retrata a jornada cristã rumo ao Céu como a maior e mais extraordinária aventura da vida ao lado de Jesus.
 
 Atividades: Incluiu a mega tenda de especialidades, feira de projetos científicos e ecológicos, museu de história dos pioneiros, musicais ao vivo, encenações bíblicas teatrais, batismos na arena e expressivas ações comunitárias de doação de sangue e alimentos na cidade.`,
     club: 'PATHFINDER'
@@ -2173,7 +2173,7 @@ Atividades: Incluiu a mega tenda de especialidades, feira de projetos científic
     id: 3,
     titulo: 'IV Campori Sul-Americano - Encontro Marcado na Eternidade',
     ano: '2014',
-    imagem: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png',
+    imagem: '/trunfos/dsa-2014-encontro-marcado.png',
     historia: `O IV Campori de Desbravadores da Divisão Sul-Americana (DSA) da Igreja Adventista do Sétimo Dia foi realizado em janeiro de 2014 sob o tema "Encontro Marcado na Eternidade".
 
 Local: Parque do Peão em Barretos, São Paulo.
@@ -2189,7 +2189,7 @@ Atividades: Concursos de ordem unida, feira de especialidades, desfiles de gala,
     id: 4,
     titulo: 'III Campori Sul-Americano - Fonte de Esperança',
     ano: '2005',
-    imagem: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png',
+    imagem: '/trunfos/dsa-2005-fonte-esperanca.png',
     historia: `O III Campori de Desbravadores da Divisão Sul-Americana (DSA) da Igreja Adventista do Sétimo Dia foi realizado em janeiro de 2005 sob o tema "Fonte de Esperança".
 
 Local: Balneário Municipal de Santa Helena, Paraná, às margens do Lago de Itaipu.
@@ -2205,7 +2205,7 @@ Atividades: Provas náuticas e de nós/amarras às margens do Lago de Itaipu, fe
     id: 5,
     titulo: 'II Campori Sul-Americano - Na Trilha dos Pioneiros',
     ano: '1994',
-    imagem: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png',
+    imagem: '/trunfos/dsa-1994-trilha-pioneiros.png',
     historia: `O II Campori de Desbravadores da Divisão Sul-Americana (DSA) da Igreja Adventista do Sétimo Dia foi realizado de 10 a 15 de janeiro de 1994 sob o tema "Na Trilha dos Pioneiros".
 
 Local: Ponta Grossa, Paraná.
@@ -2220,8 +2220,8 @@ Atividades: Gincanas rústicas de acampamento e sobrevivência na mata, feira mi
   {
     id: 6,
     titulo: 'I Campori Sul-Americano - Da Natureza ao Criador',
-    ano: '1984',
-    imagem: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png',
+    ano: '1983',
+    imagem: '/trunfos/dsa-1983-natureza-criador.png',
     historia: `O I e histórico Campori de Desbravadores da Divisão Sul-Americana (DSA) da Igreja Adventista do Sétimo Dia foi realizado de 28 de dezembro de 1983 a 04 de janeiro de 1984 sob o tema "Da Natureza ao Criador".
 
 Local: Foz do Iguaçu, Paraná.
@@ -2234,266 +2234,295 @@ Atividades: Visitas de estudo ecológico ao Parque Nacional do Iguaçu e às Cat
     club: 'PATHFINDER'
   },
 
-  // --- CAMPORIS DE UNIÕES (DESBRAVADORES) ---
+  // --- CAMPORIS DE UNIÕES E COMEMORATIVOS (BORDADOS REAIS) ---
   {
     id: 7,
-    titulo: 'Campori UCOB - O Segredo',
-    ano: '2024',
-    imagem: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png',
-    historia: `O Campori "O Segredo" foi o 4º Campori de Desbravadores da União Centro-Oeste Brasileira (UCOB) da Igreja Adventista do Sétimo Dia, realizado em julho de 2024.
+    titulo: 'Dia Mundial dos Desbravadores - 76 Anos',
+    ano: '2026',
+    imagem: '/trunfos/dmd-2026-76-anos.png',
+    historia: `Trunfo bordado oficial comemorativo dos 76 anos do Clube de Desbravadores no mundo (Dia Mundial dos Desbravadores 2026).
 
-Local: O evento aconteceu no Instituto Adventista Brasil Central (IABC), localizado em Abadiânia, Goiás.
+Local: Celebrado em todos os clubes de Desbravadores da Divisão Sul-Americana e do mundo.
 
-Participantes: Reuniu cerca de 17 mil a 20 mil desbravadores e líderes voluntários.
-
-Tema central: A programação girou em torno da série cinematográfica "O Segredo", que contava a história de um desbravador chamado Caio em busca de seu lenço perdido, transmitindo mensagens espirituais e de fé.
-
-Atividades: O encontro incluiu gincanas, momentos de louvor, batismos, civismo e incentivo a missões transculturais.`,
+Tema central: Celebrar a identidade, a missão e o legado de mais de sete décadas formando líderes e salvando juvenis para o Reino dos Céus.`,
     club: 'PATHFINDER'
   },
   {
     id: 8,
-    titulo: 'VIII Campori UNB - Os Escolhidos',
-    ano: '2023',
-    imagem: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png',
-    historia: `O VIII Campori de Desbravadores da União Norte Brasileira (UNB) da Igreja Adventista do Sétimo Dia foi realizado em novembro de 2023 sob o tema "Os Escolhidos".
+    titulo: 'Dia Mundial DBV - 75 Anos: Desbravadores com Propósito',
+    ano: '2025',
+    imagem: '/trunfos/dmd-2025-75-anos.jpeg',
+    historia: `Trunfo bordado oficial do Jubileu de Diamante (75 anos) do Dia Mundial dos Desbravadores em 2025, com o tema "Desbravadores com Propósito".
 
-Local: Parque de Exposições Agropecuárias de Paragominas, Pará.
+Local: Celebrado nas igrejas e clubes de toda a América do Sul.
 
-Participantes: Reuniu mais de 25 mil desbravadores e instrutores dos estados do Pará, Maranhão e Amapá.
-
-Tema central: Baseado na trajetória dos discípulos e profetas bíblicos, reforçou a convicção de que cada desbravador foi pessoalmente escolhido por Deus para fazer a diferença e proclamar o evangelho na Amazônia e no mundo.
-
-Atividades: Mega arena de gincanas esportivas e de nós, feira de ciências da natureza amazônica, projetos de reflorestamento e limpeza urbana em Paragominas, grandes batismos e festivais de música.`,
+Tema central: A vocação divina de cada desbravador para viver com propósito, servindo a Deus, à igreja e ao próximo.`,
     club: 'PATHFINDER'
   },
   {
     id: 9,
-    titulo: 'Campori UNoB - O Último Desafio',
-    ano: '2022',
-    imagem: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png',
-    historia: `O Campori de Desbravadores da União Noroeste Brasileira (UNoB) da Igreja Adventista do Sétimo Dia foi realizado em 2022 sob o tema "O Último Desafio".
+    titulo: 'Dia Mundial DBV - 74 Anos: Jesus Acampa Contigo',
+    ano: '2024',
+    imagem: '/trunfos/dmd-2024-74-anos.png',
+    historia: `Trunfo bordado oficial do Dia Mundial dos Desbravadores de 2024 (74 anos), celebrando o tema mundial "Jesus Acampa Contigo".
 
-Local: Instituto Adventista Agro-Industrial (IAAI), em Rio Preto da Eva, Amazonas.
+Local: Celebrado nas igrejas adventistas em todo o mundo no terceiro sábado de setembro de 2024.
 
-Participantes: Reuniu mais de 12 mil desbravadores do Amazonas, Rondônia, Roraima e Acre.
-
-Tema central: Despertar os jovens para o compromisso de pregar o evangelho nos mais desafiadores rincões da floresta e comunidades ribeirinhas antes da volta de Cristo.
-
-Atividades: Provas de sobrevivência na selva e nós rústicos, barco hospital missionário, feira ambiental, cultos com iluminação cênica na floresta e batismos no lago.`,
+Tema central: A presença constante de Cristo no acampamento e na jornada diária de cada desbravador.`,
     club: 'PATHFINDER'
   },
   {
     id: 10,
-    titulo: 'Campori de Líderes DSA - Chamados com um Propósito',
-    ano: '2022',
-    imagem: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/logo%20app.PNG',
-    historia: `A Convenção Sul-Americana de Líderes de Desbravadores e Aventureiros da Divisão Sul-Americana (DSA) foi realizada em 2022 sob o tema "Chamados com um Propósito".
+    titulo: 'Dia Mundial DBV - 73 Anos: Vou com Jesus',
+    ano: '2023',
+    imagem: '/trunfos/dmd-2023-73-anos.png',
+    historia: `Trunfo bordado oficial do Dia Mundial dos Desbravadores de 2023 (73 anos), com o tema "Vou com Jesus".
 
-Local: Centro de Eventos e Arena da Fadminas / FAP, com transmissões e polos integrados em toda a América do Sul.
+Local: Celebrado em todos os clubes da Divisão Sul-Americana.
 
-Participantes: Reuniu mais de 15 mil diretores, conselheiros, secretários e instrutores de clubes.
-
-Tema central: Capacitação de excelência e alinhamento espiritual da liderança para acolher, discipular e salvar as novas gerações de juvenis e crianças.
-
-Atividades: Oficinas de liderança e gestão de clubes, palestras sobre saúde mental na adolescência, workshops de novas especialidades, treinamentos técnicos de acampamento e vigília de oração intercessória.`,
-    club: 'ALL'
+Tema central: A resposta pronta do desbravador ao chamado missionário: "Eu Vou com Jesus".`,
+    club: 'PATHFINDER'
   },
   {
     id: 11,
-    titulo: 'VII Campori UCB - Um Chamado de Coragem',
-    ano: '2017',
-    imagem: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png',
-    historia: `O VII Campori de Desbravadores da União Central Brasileira (UCB) da Igreja Adventista do Sétimo Dia foi realizado em julho de 2017 sob o tema "Um Chamado de Coragem".
+    titulo: 'I Campori Online UCB - Conectados com Jesus',
+    ano: '2021',
+    imagem: '/trunfos/ucb-2021-conectados.jpg',
+    historia: `O I Campori Online de Desbravadores da União Central Brasileira (UCB) foi realizado em 2021 sob o tema "Conectados com Jesus".
 
-Local: Parque do Peão em Barretos, São Paulo.
+Local: Evento integrado com transmissão ao vivo e atividades práticas nas bases locais dos clubes.
 
-Participantes: Reuniu mais de 22 mil desbravadores de todo o Estado de São Paulo.
-
-Tema central: Inspirado no livro bíblico de Daniel, desafiou os desbravadores a serem fiéis a Deus em qualquer circunstância, demonstrando coragem moral e espiritual contra as pressões do mundo.
-
-Atividades: Musical encenando a fornalha ardente e a cova dos leões, feira de colecionismo de trunfos, mega pista de obstáculos cívicos, projetos de saúde comunitária na cidade de Barretos e batismos.`,
+Participantes: Mais de 35 mil desbravadores conectados simultaneamente.`,
     club: 'PATHFINDER'
   },
   {
     id: 12,
-    titulo: 'IV Campori UNeB - Inabalável (Do Poço ao Palácio)',
+    titulo: 'VII Campori UCB - Um Chamado de Coragem',
     ano: '2017',
-    imagem: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png',
-    historia: `O IV Campori de Desbravadores da União Nordeste Brasileira (UNeB) da Igreja Adventista do Sétimo Dia foi realizado em 2017 sob o tema "Inabalável - Do Poço ao Palácio".
+    imagem: '/trunfos/ucb-2017-chamado-coragem.png',
+    historia: `O VII Campori de Desbravadores da União Central Brasileira (UCB) foi realizado de 25 a 30 de julho de 2017 sob o tema "Um Chamado de Coragem".
 
-Local: Parnamirim, Rio Grande do Norte.
+Local: Parque do Peão em Barretos, São Paulo.
 
-Participantes: Reuniu cerca de 18 mil desbravadores dos estados de PE, PB, RN, CE, PI e AL.
-
-Tema central: A vida e fidelidade de José do Egito, ensinando que mesmo em momentos de provação, a integridade diante de Deus transforma a história humana.
-
-Atividades: Simulações de resgate e nós avançados, apresentações culturais e folclóricas bíblicas, doação massiva de sangue e alimentos para comunidades carentes, batismos emocionantes e marcha cívica.`,
+Participantes: Reuniu mais de 22 mil desbravadores de todo o Estado de São Paulo sob a coordenação do Pr. Ronaldo Arco.`,
     club: 'PATHFINDER'
   },
   {
     id: 13,
-    titulo: 'VI Campori USEB - Somos Mais que Ouro',
-    ano: '2016',
-    imagem: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png',
-    historia: `O VI Campori de Desbravadores da União Sudeste Brasileira (USEB) da Igreja Adventista do Sétimo Dia foi realizado em 2016 sob o tema "Somos Mais que Ouro".
+    titulo: 'IV Campori UNeB - Inabalável (Do Poço ao Palácio)',
+    ano: '2017',
+    imagem: '/trunfos/uneb-2017-inabalavel.png',
+    historia: `O IV Campori de Desbravadores da União Nordeste Brasileira (UNeB) foi realizado em 2017 sob o tema "Inabalável - Do Poço ao Palácio".
 
-Local: Parque de Exposições de Lavras, Minas Gerais.
+Local: Parnamirim, Rio Grande do Norte.
 
-Participantes: Reuniu mais de 16 mil desbravadores dos estados de Minas Gerais, Rio de Janeiro e Espírito Santo.
-
-Tema central: Em consonância com o ano olímpico no Brasil, o evento lembrou que a coroa da vida eterna oferecida por Jesus tem valor infinito, muito superior a qualquer ouro perecível da terra.
-
-Atividades: Olimpíadas desbravadoras de habilidades de campo, feira de nós e amarras, corrida rústica, feira de saúde pública gratuita e grande celebração com batismos em massa.`,
+Participantes: Reuniu cerca de 18 mil desbravadores dos estados de PE, PB, RN, CE, PI e AL, inspirado na fidelidade de José do Egito.`,
     club: 'PATHFINDER'
   },
   {
     id: 14,
-    titulo: 'V Campori USB - Fiel a Toda Prova',
-    ano: '2015',
-    imagem: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png',
-    historia: `O V Campori de Desbravadores da União Sul Brasileira (USB) da Igreja Adventista do Sétimo Dia foi realizado em 2015 sob o tema "Fiel a Toda Prova".
+    titulo: 'VIII Campori AB (ULB) - Compartilhando Esperança',
+    ano: '2013',
+    imagem: '/trunfos/ab-2013-compartilhando-esperanca.jpg',
+    historia: `Trunfo bordado oficial do VIII Campori da Associação Bahia (União Leste Brasileira), realizado em 2013 sob o tema "Compartilhando Esperança".
 
-Local: Balneário de Santa Helena, Paraná.
-
-Participantes: Reuniu aproximadamente 15 mil desbravadores dos estados do Paraná, Santa Catarina e Rio Grande do Sul.
-
-Tema central: O compromisso incondicional de permanecer fiel a Deus na escola, na família, na natureza e na sociedade sob qualquer prova da vida.
-
-Atividades: Provas aquáticas de caiaque e balsa no lago, pista de orientação topográfica na mata, desfile de fanfarras, tenda de especialidades avançadas e investiduras de Guia Maior.`,
+Local: Estado da Bahia (ULB).`,
     club: 'PATHFINDER'
   },
-
-  // --- AVENTURIS (CLUBE DE AVENTUREIROS) ---
   {
     id: 15,
-    titulo: 'Aventuri DSA - Pequenos Gigantes',
-    ano: '2024',
-    imagem: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png',
-    historia: `O Grande Aventuri Comemorativo dos Aventureiros da Divisão Sul-Americana (DSA) da Igreja Adventista do Sétimo Dia foi realizado em 2024 sob o tema "Pequenos Gigantes".
+    titulo: 'VI Campori UCB - Grito da Vitória',
+    ano: '2012',
+    imagem: '/trunfos/ucb-2012-grito-vitoria.png',
+    historia: `O VI Campori de Desbravadores da União Central Brasileira (UCB) foi realizado de 24 a 29 de julho de 2012 sob o tema "Grito da Vitória".
 
-Local: Evento realizado em múltiplos polos integrados com grande celebração nas uniões da América do Sul.
+Local: Parque do Peão em Barretos, São Paulo.
 
-Participantes: Reuniu mais de 50 mil crianças de 6 a 9 anos juntamente com seus pais, instrutores e conselheiros.
-
-Tema central: Demonstrar que, através do amor e da dependência de Jesus, mesmo sendo pequeninas, as crianças são gigantes na fé, no testemunho, na oração e na bondade.
-
-Atividades: Gincanas lúdicas de artes e natureza, circuito de nós simples para aventureiros, peças teatrais com fantoches bíblicos, oficinas familiares com pais e filhos e investiduras de estrelas de classe.`,
-    club: 'ADVENTURER'
+Participantes: Reuniu mais de 20 mil desbravadores paulistas, inspirado na queda das muralhas de Jericó.`,
+    club: 'PATHFINDER'
   },
   {
     id: 16,
-    titulo: 'Aventuri UCB - Uma Incrível Aventura',
-    ano: '2023',
-    imagem: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png',
-    historia: `O Aventuri da União Central Brasileira (UCB) da Igreja Adventista do Sétimo Dia foi realizado em outubro de 2023 sob o tema "Uma Incrível Aventura".
+    titulo: 'II Campori UCOB - Trilha da Esperança',
+    ano: '2012',
+    imagem: '/trunfos/ucob-2012-trilha-esperanca.jpg',
+    historia: `O II Campori de Desbravadores da União Centro-Oeste Brasileira (UCOB) foi realizado em 2012 sob o tema "Trilha da Esperança".
 
-Local: Centro Adventista de Treinamento e Recreação (CATRE), São Paulo.
-
-Participantes: Reuniu mais de 8 mil aventureiros, pais e conselheiros de todo o território paulista.
-
-Tema central: A jornada mágica e real de viver diariamente ao lado de Jesus, aprendendo valores familiares, amor à criação e serviço ao próximo.
-
-Atividades: Brincadeiras pedagógicas, feira de especialidades infantis (como Amigo da Natureza e Jardineiro), musical infantil interativo, momentos de oração entre pais e filhos e cerimônias de condecoração.`,
-    club: 'ADVENTURER'
+Local: Região Centro-Oeste (DF, GO, MT, MS e TO).`,
+    club: 'PATHFINDER'
   },
   {
     id: 17,
-    titulo: 'Aventuri USEB - Heróis de Verdade',
-    ano: '2023',
-    imagem: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png',
-    historia: `O Aventuri da União Sudeste Brasileira (USEB) da Igreja Adventista do Sétimo Dia foi realizado em 2023 sob o tema "Heróis de Verdade".
+    titulo: 'Campori UNB - Fé em Fogo',
+    ano: '2010',
+    imagem: '/trunfos/unb-2010-fe-em-fogo.jpg',
+    historia: `O histórico Campori de Desbravadores da União Norte Brasileira (UNB) foi realizado em 2010 sob o tema "Fé em Fogo".
 
-Local: Parque de Exposições de Governador Valadares, Minas Gerais.
-
-Participantes: Reuniu cerca de 7 mil aventureiros de Minas Gerais, Rio de Janeiro e Espírito Santo.
-
-Tema central: Ensinar as crianças que os verdadeiros heróis não vestem capas mágicas, mas sim praticam a obediência, a honestidade e a coragem de seguir Jesus inspirados pelos grandes personagens bíblicos.
-
-Atividades: Vila temática dos heróis da Bíblia (Davi, Ester, Moisés, Noé), circuito de recreação inflável, noite dos talentos e cantoria, entrega de medalhas de bravura cristã e celebração com os pais.`,
-    club: 'ADVENTURER'
+Local: Região Norte (Pará, Maranhão e Amapá).`,
+    club: 'PATHFINDER'
   },
   {
     id: 18,
-    titulo: 'Aventuri UNB - Guardiões da Criação',
-    ano: '2022',
-    imagem: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png',
-    historia: `O Aventuri da União Norte Brasileira (UNB) da Igreja Adventista do Sétimo Dia foi realizado em 2022 sob o tema "Guardiões da Criação".
+    titulo: 'V Campori UCB - Coragem pra Vencer',
+    ano: '2007',
+    imagem: '/trunfos/ucb-2007-coragem-vencer.png',
+    historia: `O V Campori de Desbravadores da União Central Brasileira (UCB) foi realizado de 13 a 18 de novembro de 2007 sob o tema "Coragem pra Vencer".
 
-Local: Belém, Pará.
-
-Participantes: Reuniu mais de 6 mil crianças e familiares dos estados do Pará, Maranhão e Amapá.
-
-Tema central: O dever cristão e alegre de cuidar das plantas, dos animais e das águas da Amazônia, reconhecendo Deus como o Artista e Criador Supremo.
-
-Atividades: Trilha guiada de conscientização ecológica, oficinas de reciclagem lúdica, plantio de mudas nativas, gincanas aquáticas seguras e celebrações bíblicas.`,
-    club: 'ADVENTURER'
+Local: Parque do Peão em Barretos, São Paulo, coordenado pelo Pr. Nelson Milanelli Junior.`,
+    club: 'PATHFINDER'
   },
   {
     id: 19,
-    titulo: 'Aventuri USB - Brilhando por Jesus',
-    ano: '2021',
-    imagem: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png',
-    historia: `O Aventuri da União Sul Brasileira (USB) da Igreja Adventista do Sétimo Dia foi realizado em 2021 sob o tema "Brilhando por Jesus".
+    titulo: 'IV Campori UCB - Heróis de Hoje',
+    ano: '2002',
+    imagem: '/trunfos/ucb-2002-herois-hoje.png',
+    historia: `O IV Campori de Desbravadores da União Central Brasileira (UCB) foi realizado de 4 a 9 de julho de 2002 sob o tema "Heróis de Hoje".
 
-Local: Santa Catarina (com transmissão online e polos regionais integrados).
-
-Participantes: Reuniu mais de 10 mil famílias de aventureiros do Paraná, Santa Catarina e Rio Grande do Sul.
-
-Tema central: Motivar as crianças a serem uma luz reluzente no lar, na escola e na vizinhança através de palavras de carinho, orações e auxílio nas tarefas de casa.
-
-Atividades: Desafios bíblicos em família, festival de vídeos com boas ações, caça ao tesouro das especialidades e cerimônia de investidura das quatro classes (Abelhitas, Luminares, Edificadores e Mãos Ajudadoras).`,
-    club: 'ADVENTURER'
+Local: UNASP Campus Engenheiro Coelho - SP, coordenado pelo Pr. Udolcy Zukowski.`,
+    club: 'PATHFINDER'
   },
   {
     id: 20,
-    titulo: 'Aventuri UNeB - A Grande Viagem na Arca',
-    ano: '2022',
-    imagem: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png',
-    historia: `O Aventuri da União Nordeste Brasileira (UNeB) da Igreja Adventista do Sétimo Dia foi realizado em 2022 sob o tema "A Grande Viagem na Arca".
-
-Local: Caruaru, Pernambuco.
-
-Participantes: Reuniu cerca de 6.500 aventureiros e líderes do Nordeste.
-
-Tema central: A jornada de fé de Noé e sua família na arca, destacando a importância do amor familiar, da obediência aos pais e do refúgio seguro em Deus.
-
-Atividades: Cenário gigante reproduzindo a Arca de Noé, desfile de fantasias dos animais bíblicos, jogos cooperativos sem eliminação, dinâmicas de louvor e investiduras.`,
-    club: 'ADVENTURER'
+    titulo: 'II Campori USB (Unisul)',
+    ano: '1997',
+    imagem: '/trunfos/unisul-1997-2-campori.jpg',
+    historia: `Trunfo bordado histórico do II Campori de Desbravadores da União Sul Brasileira (antiga Unisul - PR, SC e RS).`,
+    club: 'PATHFINDER'
   },
   {
     id: 21,
-    titulo: 'Aventuri UCOB - Pequenos Missionários',
-    ano: '2023',
-    imagem: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png',
-    historia: `O Aventuri da União Centro-Oeste Brasileira (UCOB) da Igreja Adventista do Sétimo Dia foi realizado em 2023 sob o tema "Pequenos Missionários".
+    titulo: 'III Campori UCB - Esperança na Alvorada',
+    ano: '1996',
+    imagem: '/trunfos/ucb-1996-esperanca-alvorada.png',
+    historia: `O III Campori de Desbravadores da UCB foi realizado de 2 a 7 de julho de 1996 sob o tema "Esperança na Alvorada".
 
-Local: Brasília, Distrito Federal.
-
-Participantes: Reuniu mais de 7 mil crianças e pais do DF, Goiás, Mato Grosso, Mato Grosso do Sul e Tocantins.
-
-Tema central: O poder do testemunho infantil na evangelização de amiguinhos, vizinhos e parentes através do exemplo e da oração.
-
-Atividades: Feira de missões mundiais infantis, oficina de cartas para missionários em outros países, gincana bíblica, circuito esportivo e culto de ação de graças.`,
-    club: 'ADVENTURER'
+Local: Parque Granja do Torto em Brasília - DF, coordenado pelo Pr. Acílio Alves.`,
+    club: 'PATHFINDER'
   },
   {
     id: 22,
-    titulo: 'Aventuri UNoB - Amigos da Natureza',
-    ano: '2022',
-    imagem: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png',
-    historia: `O Aventuri da União Noroeste Brasileira (UNoB) da Igreja Adventista do Sétimo Dia foi realizado em 2022 sob o tema "Amigos da Natureza".
+    titulo: 'II Campori UCB - Além do Rio',
+    ano: '1992',
+    imagem: '/trunfos/ucb-1992-alem-do-rio.png',
+    historia: `O II Campori de Desbravadores da UCB foi realizado de 6 a 11 de julho de 1992 sob o tema "Além do Rio".
 
-Local: Manaus, Amazonas.
+Local: Ilha Solteira - SP, coordenado pelo Pr. Ronaldo de Oliveira.`,
+    club: 'PATHFINDER'
+  },
+  {
+    id: 23,
+    titulo: 'I Campori USB (Unisul)',
+    ano: '1989',
+    imagem: '/trunfos/unisul-1989-1-campori.jpg',
+    historia: `Trunfo bordado histórico do I Campori de Desbravadores da União Sul Brasileira (Unisul).`,
+    club: 'PATHFINDER'
+  },
+  {
+    id: 24,
+    titulo: 'I Campori UCB - Ele Está ao Leme',
+    ano: '1987',
+    imagem: '/trunfos/ucb-1987-ele-esta-ao-leme.png',
+    historia: `O I Campori de Desbravadores da UCB foi realizado de 28 de janeiro a 3 de fevereiro de 1987 sob o tema "Ele Está ao Leme".
 
-Participantes: Reuniu mais de 5 mil aventureiros dos quatro estados da região noroeste.
+Local: Avaré - SP, coordenado pelos pastores José Maria Barbosa e Alejandro Bullón.`,
+    club: 'PATHFINDER'
+  },
 
-Tema central: Conectar o coração das crianças aos encantos da criação divina, promovendo amizade e companheirismo fraternal.
-
-Atividades: Trilha ecológica educativa, observação de pássaros, jogos de cooperação em equipe, teatro de fantoches e investidura das insígnias oficiais.`,
+  // --- AVENTURIS E TRUNFOS BORDADOS DO CLUBE DE AVENTUREIROS ---
+  {
+    id: 25,
+    titulo: 'Dia Mundial dos Aventureiros - Caminhando com Jesus',
+    ano: '2026',
+    imagem: '/trunfos/avt-2026-37-anos.png',
+    historia: `O Trunfo Bordado Comemorativo de 37 Anos do Dia Mundial dos Aventureiros (2026) celebra o tema oficial "Caminhando com Jesus".`,
+    club: 'ADVENTURER'
+  },
+  {
+    id: 26,
+    titulo: 'Dia Mundial dos Aventureiros - A Viagem Mais Esperada',
+    ano: '2025',
+    imagem: '/trunfos/avt-2025-36-anos.png',
+    historia: `O Trunfo Bordado Comemorativo de 36 Anos do Dia Mundial dos Aventureiros (2025) foi lançado sob o tema "A Viagem Mais Esperada".`,
+    club: 'ADVENTURER'
+  },
+  {
+    id: 27,
+    titulo: 'Dia Mundial dos Aventureiros - Jesus Sabe, Ele Cuida de Você!',
+    ano: '2024',
+    imagem: '/trunfos/avt-2024-35-anos.png',
+    historia: `O Trunfo Bordado Comemorativo de 35 Anos do Dia Mundial dos Aventureiros (2024) destacou o tema "Jesus Sabe, Ele Cuida de Você!".`,
+    club: 'ADVENTURER'
+  },
+  {
+    id: 28,
+    titulo: 'II Aventuri MBSo - Uma Viagem para o Céu',
+    ano: '2017',
+    imagem: '/trunfos/avt-2017-mbso.png',
+    historia: `O II Aventuri da Missão Bahia Sudoeste (MBSo) da Igreja Adventista do Sétimo Dia foi realizado em 2017 sob o tema "Uma Viagem para o Céu".`,
+    club: 'ADVENTURER'
+  },
+  {
+    id: 29,
+    titulo: 'VIII Aventuri ASES - De Volta ao Éden',
+    ano: '2016',
+    imagem: '/trunfos/avt-2016-ases.png',
+    historia: `O VIII Aventuri da Associação Sul Espírito-Santense (ASES) foi realizado em 2016 sob o tema "De Volta ao Éden".`,
+    club: 'ADVENTURER'
+  },
+  {
+    id: 30,
+    titulo: 'IX Aventuri AES - Jesus Meu Herói',
+    ano: '2013',
+    imagem: '/trunfos/avt-2013-aes.png',
+    historia: `O IX Aventuri da Associação Espírito-Santense (AES) foi realizado em 2013 sob o tema "Jesus Meu Herói".`,
     club: 'ADVENTURER'
   }
 ];
+
+function isGenericPlaceholderTrunfoImage(img?: string): boolean {
+  if (!img) return true;
+  return (
+    img.includes('Desbravadores.png') ||
+    img.includes('Av_Emblema_A1.png') ||
+    img.includes('D_Emblema_D1.png')
+  );
+}
+
+function upgradeTrunfosWithEmbroideredPatches(list: Trunfo[], deletedIds: Set<number>): Trunfo[] {
+  const defaultById = new Map<number, Trunfo>(DEFAULT_TRUNFOS.map(t => [Number(t.id), t]));
+  const defaultByTitle = new Map<string, Trunfo>(
+    DEFAULT_TRUNFOS.map(t => [t.titulo.trim().toLowerCase(), t])
+  );
+
+  const upgraded: Trunfo[] = [];
+  const seenIds = new Set<number>();
+
+  for (const item of list) {
+    if (!item || !item.id || deletedIds.has(Number(item.id))) continue;
+    const numId = Number(item.id);
+    const defItem = defaultById.get(numId) || defaultByTitle.get((item.titulo || '').trim().toLowerCase());
+
+    if (isGenericPlaceholderTrunfoImage(item.imagem) || (numId >= 1 && numId <= 30 && defItem)) {
+      if (defItem) {
+        upgraded.push({ ...defItem, id: numId });
+        seenIds.add(numId);
+      }
+      continue;
+    }
+
+    upgraded.push(item);
+    seenIds.add(numId);
+  }
+
+  for (const def of DEFAULT_TRUNFOS) {
+    if (!deletedIds.has(Number(def.id)) && !seenIds.has(Number(def.id))) {
+      upgraded.push(def);
+      seenIds.add(Number(def.id));
+    }
+  }
+
+  return upgraded;
+}
 
 // Helper para gerenciar IDs de trunfos excluídos
 function getDeletedTrunfoIds(): Set<number> {
@@ -2531,7 +2560,7 @@ function mergeWithDefaultTrunfos(loadedList: Trunfo[] | null, isSeeding = false)
   
   // Se recebemos uma lista concreta da nuvem ou do localStorage
   if (loadedList && Array.isArray(loadedList) && loadedList.length > 0) {
-    return loadedList.filter(item => item && item.id && !deletedIds.has(Number(item.id)));
+    return upgradeTrunfosWithEmbroideredPatches(loadedList, deletedIds);
   }
 
   // Se a lista estiver vazia ou for inicialização pela primeira vez
@@ -2548,12 +2577,12 @@ export async function fetchTrunfos(club?: string): Promise<Trunfo[]> {
       try {
         const parsed = JSON.parse(localData);
         if (Array.isArray(parsed)) {
-          localList = parsed.filter(item => item && item.id && !deletedIds.has(Number(item.id)));
+          localList = upgradeTrunfosWithEmbroideredPatches(parsed, deletedIds);
         }
       } catch {}
     }
 
-    if (localList.length === 0 && !localStorage.getItem('dbv_tudo_trunfos_initialized')) {
+    if (localList.length === 0) {
       localList = DEFAULT_TRUNFOS.filter(item => !deletedIds.has(Number(item.id)));
       localStorage.setItem('dbv_tudo_trunfos_initialized', 'true');
       localStorage.setItem('dbv_tudo_trunfos', JSON.stringify(localList));
@@ -2565,7 +2594,7 @@ export async function fetchTrunfos(club?: string): Promise<Trunfo[]> {
       const { data, error } = await query;
       if (!error && data && Array.isArray(data)) {
         if (data.length > 0) {
-          const validData = data.filter(item => item && item.id && !deletedIds.has(Number(item.id)));
+          const validData = upgradeTrunfosWithEmbroideredPatches(data, deletedIds);
           localStorage.setItem('dbv_tudo_trunfos', JSON.stringify(validData));
           localList = validData;
           if (club) {
@@ -2603,8 +2632,9 @@ export async function fetchTrunfos(club?: string): Promise<Trunfo[]> {
         }
 
         if (combinedTrunfos.length > 0) {
-          localStorage.setItem('dbv_tudo_trunfos', JSON.stringify(combinedTrunfos));
-          localList = combinedTrunfos;
+          const upgradedCombined = upgradeTrunfosWithEmbroideredPatches(combinedTrunfos, deletedIds);
+          localStorage.setItem('dbv_tudo_trunfos', JSON.stringify(upgradedCombined));
+          localList = upgradedCombined;
         }
       }
     } catch {}
@@ -2623,7 +2653,7 @@ export async function fetchTrunfos(club?: string): Promise<Trunfo[]> {
       try {
         const parsed = JSON.parse(localData);
         if (Array.isArray(parsed)) {
-          localList = parsed.filter(item => item && item.id && !deletedIds.has(Number(item.id)));
+          localList = upgradeTrunfosWithEmbroideredPatches(parsed, deletedIds);
         }
       } catch {}
     }
