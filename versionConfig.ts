@@ -6,14 +6,55 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.71';
+export const APP_VERSION = '3.0.75';
 export const APP_BUILD_DATE = '4 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
-    version: '3.0.71',
+    version: '3.0.75',
     date: '04/10/2026',
     tag: 'NOVO',
+    title: 'Edição de Dias, Adição de Novos Dias/Refeições, Prato Principal em 2 Linhas e Suco & Frutas no Acampamento',
+    changes: [
+      'Adição de gerenciador completo de Dias e Refeições na aba Cardápio & Escala de Acampamento (Cantinho da Unidade): permite filtrar por dia, renomear um dia inteiro ou editar o dia/título diretamente em cada card, adicionar novos dias completos (com Desjejum, Almoço e Jantar) e adicionar ou remover refeições avulsas.',
+      'Ampliação do campo de Prato Principal / Cardápio para 2 linhas de texto visíveis e inclusão do campo dedicado de Suco Natural e Frutas em todas as refeições do acampamento (incluindo na exportação para o WhatsApp).'
+    ]
+  },
+  {
+    version: '3.0.74',
+    date: '04/10/2026',
+    tag: 'ESTÁVEL',
+    title: 'Correção do Quiz de Especialidades de Aventureiros no Celular e PC',
+    changes: [
+      'Correção da consulta leve da tabela EspecialidadesAVT no Supabase (que não possui as colunas Nivel e Ano existentes apenas em EspecialidadesDBV), destravando o carregamento imediato das 125 especialidades oficiais de Aventureiros.',
+      'Normalização automática da especialidade de Astronomia (AR-003) dos Aventureiros para garantir seu emblema oficial e sua área ("Atividades Recreativas") corretamente no filtro do Quiz.',
+      'Recarregamento automático sob demanda ao iniciar o desafio "Qual é esta Especialidade?" caso a conexão móvel oscile.'
+    ]
+  },
+  {
+    version: '3.0.73',
+    date: '04/10/2026',
+    tag: 'ESTÁVEL',
+    title: 'Centralização do Modal do Quiz na Tela (Portal Viewport)',
+    changes: [
+      'Correção da renderização do Modal de Configuração da Partida no Quiz (utilizando React Portal direto no body com z-index 9999), garantindo que o modal apareça sempre centralizado exatamente na tela visível do celular ou PC, sem precisar rolar a página.'
+    ]
+  },
+  {
+    version: '3.0.72',
+    date: '04/10/2026',
+    tag: 'ESTÁVEL',
+    title: 'Botões Compactos no Quiz com Modal de Configuração & Correção de Layout no Cantinho da Unidade',
+    changes: [
+      'Botões das modalidades do Quiz e Simulado reorganizados em formato horizontal compacto para celular, reduzindo a altura dos cartões.',
+      'Abertura de modal dedicado ao clicar em qualquer modalidade do Quiz com todos os controles de partida (Rodadas 5Q/10Q/15Q, Tempo por Questão 15s/25s/40s, campo de foco para IA, botão Iniciar Desafio e botão Simulado IA).',
+      'Correção do layout responsivo do bloco "Cadastrar Membro na Unidade" no Cantinho da Unidade para que o seletor de função e o botão "+ Adicionar" fiquem 100% contidos dentro do card no celular sem sair da tela.'
+    ]
+  },
+  {
+    version: '3.0.71',
+    date: '04/10/2026',
+    tag: 'ESTÁVEL',
     title: 'Botões Horizontais Compactos, Emblemas Oficiais em CorelDRAW (IASD) & Certificados Personalizáveis',
     changes: [
       'Reorganização horizontal dos botões principais no celular (Bíblia Sagrada, Classes e Especialidades) e dos botões da área de Treinamento em Campo (Quiz e Simulado, Cantinho & Acamp., Guia de Campo e Ordem Unida), reduzindo significativamente a altura dos botões e removendo a palavra "Acessar".',

@@ -1178,12 +1178,24 @@ export function getCachedEspecialidades(club?: ClubType | null, allowLight: bool
   return [];
 }
 
+function normalizeCachedSpecialtyItem(item: Especialidade): Especialidade {
+  if (typeof item.area === 'string' && item.area.startsWith('http')) {
+    return {
+      ...item,
+      logo: item.logo || item.area,
+      area: item.sigla === 'AR' ? 'Atividades Recreativas' : item.sigla === 'EN' ? 'Estudos da Natureza' : 'Atividades Recreativas'
+    };
+  }
+  return item;
+}
+
 function isEspecialidadesCacheFresh(club: ClubType, requireFull: boolean): Especialidade[] | null {
   const now = Date.now();
+  const minCount = club === ClubType.PATHFINDER ? 400 : 100;
   const mem = _memoryEspecialidadesCache[club];
   if (mem && (now - mem.ts < ESPECIALIDADES_CACHE_TTL_MS)) {
-    if (mem.full && mem.full.length > 0) return mem.full;
-    if (!requireFull && mem.light && mem.light.length > 0) return mem.light;
+    if (mem.full && mem.full.length >= minCount) return mem.full.map(normalizeCachedSpecialtyItem);
+    if (!requireFull && mem.light && mem.light.length >= minCount) return mem.light.map(normalizeCachedSpecialtyItem);
   }
   if (typeof window !== 'undefined' && window.localStorage) {
     try {
@@ -1193,18 +1205,20 @@ function isEspecialidadesCacheFresh(club: ClubType, requireFull: boolean): Espec
         const fullRaw = localStorage.getItem(ESPECIALIDADES_CACHE_KEY_PREFIX + club);
         if (fullRaw) {
           const parsed = JSON.parse(fullRaw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            _memoryEspecialidadesCache[club] = { ...(mem || {}), full: parsed, ts };
-            return parsed;
+          if (Array.isArray(parsed) && parsed.length >= minCount) {
+            const normalized = parsed.map(normalizeCachedSpecialtyItem);
+            _memoryEspecialidadesCache[club] = { ...(mem || {}), full: normalized, ts };
+            return normalized;
           }
         }
         if (!requireFull) {
           const lightRaw = localStorage.getItem(ESPECIALIDADES_LIGHT_CACHE_KEY_PREFIX + club);
           if (lightRaw) {
             const parsedLight = JSON.parse(lightRaw);
-            if (Array.isArray(parsedLight) && parsedLight.length > 0) {
-              _memoryEspecialidadesCache[club] = { ...(mem || {}), light: parsedLight, ts };
-              return parsedLight;
+            if (Array.isArray(parsedLight) && parsedLight.length >= minCount) {
+              const normalizedLight = parsedLight.map(normalizeCachedSpecialtyItem);
+              _memoryEspecialidadesCache[club] = { ...(mem || {}), light: normalizedLight, ts };
+              return normalizedLight;
             }
           }
         }
@@ -1280,8 +1294,31 @@ export async function fetchEspecialidades(
 
     const table = club === ClubType.PATHFINDER ? 'EspecialidadesDBV' : 'EspecialidadesAVT';
     const selectCols = excludeQuestions
-      ? 'id,ID,Nome,Categoria,Imagem,Sigla,Nivel,Ano,Origem'
+      ? (club === ClubType.PATHFINDER
+          ? 'id,ID,Nome,Categoria,Imagem,Sigla,Nivel,Ano,Origem'
+          : 'id,ID,Nome,Categoria,Imagem,Sigla,Origem')
       : '*';
+
+    const mapSpecialtyRow = (item: any): Especialidade => {
+      const isUrlInCategory = typeof item.Categoria === 'string' && item.Categoria.startsWith('http');
+      const rawLogo = item.Imagem || (isUrlInCategory ? item.Categoria : '');
+      const rawArea = isUrlInCategory
+        ? (item.Sigla === 'AR' ? 'Atividades Recreativas' : item.Sigla === 'EN' ? 'Estudos da Natureza' : 'Atividades Recreativas')
+        : item.Categoria;
+      return {
+        id: item.id,
+        nome: item.Nome,
+        area: rawArea,
+        logo: rawLogo,
+        requisitos: item.Questoes ? item.Questoes.split(/\r?\n/).map((r: string) => r.trim()).filter((r: string) => r.length > 0) : [],
+        club,
+        sigla: item.Sigla,
+        nivel: item.Nivel,
+        ano: item.Ano,
+        origem: item.Origem,
+        codigo: item.ID
+      };
+    };
 
     let query = supabase.from(table).select(selectCols);
     if (categoryFilter) query = query.eq('Categoria', categoryFilter);
@@ -1314,19 +1351,7 @@ export async function fetchEspecialidades(
         if (res.ok) {
           const pData = await res.json();
           if (Array.isArray(pData) && pData.length > 0) {
-            const mappedProxy: Especialidade[] = pData.map(item => ({
-              id: item.id,
-              nome: item.Nome,
-              area: item.Categoria,
-              logo: item.Imagem,
-              requisitos: item.Questoes ? item.Questoes.split(/\r?\n/).map((r: string) => r.trim()).filter((r: string) => r.length > 0) : [],
-              club,
-              sigla: item.Sigla,
-              nivel: item.Nivel,
-              ano: item.Ano,
-              origem: item.Origem,
-              codigo: item.ID
-            }));
+            const mappedProxy: Especialidade[] = pData.map(mapSpecialtyRow);
             if (!categoryFilter && mappedProxy.length > 0) {
               const now = Date.now();
               const prevMem = _memoryEspecialidadesCache[club] || { ts: now };
@@ -1359,19 +1384,7 @@ export async function fetchEspecialidades(
         if (res.ok) {
           const pData = await res.json();
           if (Array.isArray(pData) && pData.length > 0) {
-            const mappedProxy: Especialidade[] = pData.map(item => ({
-              id: item.id,
-              nome: item.Nome,
-              area: item.Categoria,
-              logo: item.Imagem,
-              requisitos: item.Questoes ? item.Questoes.split(/\r?\n/).map((r: string) => r.trim()).filter((r: string) => r.length > 0) : [],
-              club,
-              sigla: item.Sigla,
-              nivel: item.Nivel,
-              ano: item.Ano,
-              origem: item.Origem,
-              codigo: item.ID
-            }));
+            const mappedProxy: Especialidade[] = pData.map(mapSpecialtyRow);
             if (!categoryFilter && mappedProxy.length > 0) {
               const now = Date.now();
               const prevMem = _memoryEspecialidadesCache[club] || { ts: now };
@@ -1391,19 +1404,7 @@ export async function fetchEspecialidades(
 
       return getCachedEspecialidades(club, excludeQuestions);
     }
-    const mapped: Especialidade[] = (data || []).map((item: any) => ({
-      id: item.id,
-      nome: item.Nome,
-      area: item.Categoria,
-      logo: item.Imagem,
-      requisitos: item.Questoes ? item.Questoes.split(/\r?\n/).map((r: string) => r.trim()).filter((r: string) => r.length > 0) : [],
-      club,
-      sigla: item.Sigla,
-      nivel: item.Nivel,
-      ano: item.Ano,
-      origem: item.Origem,
-      codigo: item.ID
-    }));
+    const mapped: Especialidade[] = (data || []).map(mapSpecialtyRow);
 
     if (!categoryFilter && mapped.length > 0) {
       const now = Date.now();

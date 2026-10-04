@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { ClubType, Especialidade } from '../types';
 import { fetchEspecialidades, resolveGeminiApiKey } from '../services/supabaseService';
 import {
@@ -647,7 +648,7 @@ function balanceAndShuffleQuizQuestions(questions: QuizQuestionItem[]): QuizQues
   });
 }
 
-const ClubQuiz: React.FC<ClubQuizProps> = ({ club, onRegisterBackHandler }) => {
+const ClubQuiz: React.FC<ClubQuizProps> = ({ club, specialties, getImageUrl = (u) => u, onRegisterBackHandler }) => {
   const isPathfinder = club === ClubType.PATHFINDER;
   const storageKey = `dbv_quiz_scores_${isPathfinder ? 'DBV' : 'AVT'}`;
 
@@ -660,7 +661,14 @@ const ClubQuiz: React.FC<ClubQuizProps> = ({ club, onRegisterBackHandler }) => {
   const [showSpecialtyAreaBadgeInQuiz, setShowSpecialtyAreaBadgeInQuiz] = useState<boolean>(false);
 
   // Catálogo de especialidades para o modo "Qual é esta Especialidade?"
-  const [specialtiesCatalog, setSpecialtiesCatalog] = useState<Especialidade[]>([]);
+  const [specialtiesCatalog, setSpecialtiesCatalog] = useState<Especialidade[]>(() => {
+    if (Array.isArray(specialties) && specialties.length > 0) {
+      return specialties.filter(
+        (e) => e.club === club && e.logo && e.logo.trim().length > 5 && !e.nome.toLowerCase().includes('mestrado')
+      );
+    }
+    return [];
+  });
   const [isLoadingCatalog, setIsLoadingCatalog] = useState<boolean>(false);
   const [isGeneratingAiQuiz, setIsGeneratingAiQuiz] = useState<boolean>(false);
 
@@ -690,6 +698,7 @@ const ClubQuiz: React.FC<ClubQuizProps> = ({ club, onRegisterBackHandler }) => {
   const [lifelineExtraTimeUsed, setLifelineExtraTimeUsed] = useState<boolean>(false);
   const [lifelineHintUsed, setLifelineHintUsed] = useState<boolean>(false);
   const [showCurrentHint, setShowCurrentHint] = useState<boolean>(false);
+  const [isSetupModalOpen, setIsSetupModalOpen] = useState<boolean>(false);
 
   const defaultScores: Record<QuizCategoryMode, QuizHighScore> = {
     BOM_DE_BIBLIA: { bestScore: 0, bestAccuracy: 0, gamesPlayed: 0, lastPlayed: '' },
@@ -712,10 +721,14 @@ const ClubQuiz: React.FC<ClubQuizProps> = ({ club, onRegisterBackHandler }) => {
 
   const timerRef = useRef<any>(null);
 
-  // Registra o botão Voltar do cabeçalho principal para voltar ao menu do Quiz quando estiver em partida
+  // Registra o botão Voltar do cabeçalho principal para voltar ao menu do Quiz quando estiver em partida ou fechar modal
   useEffect(() => {
     if (!onRegisterBackHandler) return;
     onRegisterBackHandler(() => {
+      if (isSetupModalOpen) {
+        setIsSetupModalOpen(false);
+        return true;
+      }
       if (gameState !== 'SETUP') {
         if (timerRef.current) clearInterval(timerRef.current);
         setGameState('SETUP');
@@ -726,11 +739,12 @@ const ClubQuiz: React.FC<ClubQuizProps> = ({ club, onRegisterBackHandler }) => {
     return () => {
       onRegisterBackHandler(null);
     };
-  }, [gameState, onRegisterBackHandler]);
+  }, [gameState, isSetupModalOpen, onRegisterBackHandler]);
 
   // Carrega recordes quando alternar entre DBV e AVT
   useEffect(() => {
     setGameState('SETUP');
+    setSelectedSpecialtyAreaFilter('TODAS');
     if (!isPathfinder && selectedArena.startsWith('NISTO_CREMOS')) {
       setSelectedArena('BOM_DE_BIBLIA');
     }
@@ -748,12 +762,24 @@ const ClubQuiz: React.FC<ClubQuizProps> = ({ club, onRegisterBackHandler }) => {
   useEffect(() => {
     let active = true;
     setIsLoadingCatalog(true);
+
+    const filterValidSpecialties = (list: Especialidade[]) =>
+      (list || []).filter(
+        (e) => e && e.logo && e.logo.trim().length > 5 && !e.nome?.toLowerCase().includes('mestrado')
+      );
+
     fetchEspecialidades(club, undefined, { excludeQuestions: true })
-      .then((list) => {
+      .then(async (list) => {
         if (!active) return;
-        const withLogos = list.filter(
-          (e) => e.logo && e.logo.trim().length > 5 && !e.nome.toLowerCase().includes('mestrado')
-        );
+        let withLogos = filterValidSpecialties(list);
+        if (withLogos.length < 4) {
+          const fullList = await fetchEspecialidades(club, undefined, { excludeQuestions: false, forceRefresh: true });
+          if (!active) return;
+          withLogos = filterValidSpecialties(fullList);
+        }
+        if (withLogos.length === 0 && Array.isArray(specialties) && specialties.length > 0) {
+          withLogos = filterValidSpecialties(specialties.filter((s) => !s.club || s.club === club));
+        }
         setSpecialtiesCatalog(withLogos);
       })
       .catch((err) => console.warn('Erro ao carregar catálogo para Quiz:', err))
@@ -769,7 +795,7 @@ const ClubQuiz: React.FC<ClubQuizProps> = ({ club, onRegisterBackHandler }) => {
   const availableSpecialtyAreas = useMemo(() => {
     const areas = new Set<string>();
     specialtiesCatalog.forEach((s) => {
-      if (s.area) areas.add(s.area);
+      if (s.area && !s.area.startsWith('http')) areas.add(s.area);
     });
     return Array.from(areas).sort();
   }, [specialtiesCatalog]);
@@ -811,23 +837,24 @@ const ClubQuiz: React.FC<ClubQuizProps> = ({ club, onRegisterBackHandler }) => {
   };
 
   // Constrói questões para "Qual é esta Especialidade?" a partir dos emblemas reais do banco
-  const buildVisualSpecialtyQuestions = (limit: number): QuizQuestionItem[] => {
+  const buildVisualSpecialtyQuestions = (limit: number, customSource?: Especialidade[]): QuizQuestionItem[] => {
+    const sourceCatalog = customSource && customSource.length > 0 ? customSource : specialtiesCatalog;
     const filteredPool =
       selectedSpecialtyAreaFilter === 'TODAS'
-        ? specialtiesCatalog
-        : specialtiesCatalog.filter((e) => e.area === selectedSpecialtyAreaFilter);
+        ? sourceCatalog
+        : sourceCatalog.filter((e) => e.area === selectedSpecialtyAreaFilter);
 
-    const poolToUse = filteredPool.length >= 4 ? filteredPool : specialtiesCatalog;
+    const poolToUse = filteredPool.length >= 4 ? filteredPool : sourceCatalog;
     if (poolToUse.length < 4) return [];
 
     const shuffledTargets = shuffleArray(poolToUse).slice(0, limit);
 
     return shuffledTargets.map((target, idx) => {
       // Busca 3 distratores preferencialmente da mesma área para aumentar o desafio
-      const sameAreaDistractors = specialtiesCatalog.filter(
+      const sameAreaDistractors = sourceCatalog.filter(
         (s) => s.id !== target.id && s.area === target.area && s.nome !== target.nome
       );
-      const otherDistractors = specialtiesCatalog.filter(
+      const otherDistractors = sourceCatalog.filter(
         (s) => s.id !== target.id && s.nome !== target.nome
       );
 
@@ -858,11 +885,27 @@ const ClubQuiz: React.FC<ClubQuizProps> = ({ club, onRegisterBackHandler }) => {
   };
 
   // Inicia partida rápida com o banco oficial + catálogo
-  const handleStartStandardQuiz = () => {
+  const handleStartStandardQuiz = async () => {
     let generatedList: QuizQuestionItem[] = [];
 
     if (selectedArena === 'QUAL_ESPECIALIDADE') {
-      generatedList = buildVisualSpecialtyQuestions(questionLimit);
+      let currentCatalog = specialtiesCatalog;
+      if (currentCatalog.length < 4) {
+        setIsLoadingCatalog(true);
+        try {
+          const freshList = await fetchEspecialidades(club, undefined, { excludeQuestions: true, forceRefresh: true });
+          const valid = (freshList || []).filter(
+            (e) => e && e.logo && e.logo.trim().length > 5 && !e.nome?.toLowerCase().includes('mestrado')
+          );
+          if (valid.length >= 4) {
+            currentCatalog = valid;
+            setSpecialtiesCatalog(valid);
+          }
+        } catch {} finally {
+          setIsLoadingCatalog(false);
+        }
+      }
+      generatedList = buildVisualSpecialtyQuestions(questionLimit, currentCatalog);
     } else if (selectedArena === 'MANUAL_ADMINISTRATIVO') {
       generatedList = shuffleArray(MANUAL_ADMINISTRATIVO_DBV_QUESTIONS)
         .slice(0, questionLimit)
@@ -1047,6 +1090,7 @@ REGRAS OBRIGATÓRIAS:
     setLifelineHintUsed(false);
     setHiddenOptionIndices([]);
     setShowCurrentHint(false);
+    setIsSetupModalOpen(false);
     setGameState('PLAYING');
   };
 
@@ -1228,43 +1272,45 @@ REGRAS OBRIGATÓRIAS:
       subtitle: 'Desafio visual: veja apenas o emblema oficial da especialidade e acerte o nome!',
       icon: Award,
       gradient: 'from-amber-600 via-orange-600 to-amber-500',
-      badge: `${specialtiesCatalog.length || 534} Insígnias Reais`
+      badge: `${specialtiesCatalog.length || (isPathfinder ? 534 : 125)} Insígnias Reais`
     }
   ];
 
   // ==========================================================================
-  // RENDER: TELA DE CONFIGURAÇÃO E ESCOLHA DE ARENA (SETUP) — COM ROLAGEM E ESPAÇAMENTO CONFORTÁVEL
+  // RENDER: TELA DE CONFIGURAÇÃO E ESCOLHA DE ARENA (SETUP) — BOTÕES COMPACTOS + MODAL
   // ==========================================================================
   if (gameState === 'SETUP') {
     const activeArenaRecord = highScores[selectedArena];
+    const activeArenaCard = arenaCards.find((c) => c.id === selectedArena) || arenaCards[0];
+    const ActiveArenaIcon = activeArenaCard.icon;
 
     return (
       <div className="animate-slide-in h-full min-h-0 w-full overflow-y-auto scrollbar-hide pb-20">
-        <div className="max-w-5xl mx-auto space-y-5 sm:space-y-6 pt-1">
-          {/* Banner Superior */}
-          <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-[26px] sm:rounded-[32px] p-5 sm:p-6 text-white shadow-lg border border-white/10 relative overflow-hidden">
-            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="max-w-5xl mx-auto space-y-4 sm:space-y-5 pt-1">
+          {/* Banner Superior Compacto */}
+          <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-[22px] sm:rounded-[28px] p-4 sm:p-5 text-white shadow-md border border-white/10 relative overflow-hidden">
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="min-w-0 space-y-1">
-                <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-300 text-[10px] font-black uppercase tracking-widest">
-                  <Trophy size={12} />
+                <div className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-300 text-[9px] sm:text-[10px] font-black uppercase tracking-widest">
+                  <Trophy size={11} />
                   <span>Concursos • {isPathfinder ? 'Desbravadores' : 'Aventureiros'}</span>
                 </div>
-                <h3 className="text-lg sm:text-2xl font-black uppercase tracking-tight leading-tight">
+                <h3 className="text-base sm:text-xl font-black uppercase tracking-tight leading-tight">
                   Escolha a Modalidade do Quiz
                 </h3>
-                <p className="text-xs sm:text-sm text-slate-300 font-medium">
-                  Selecione o tema abaixo, ajuste a quantidade de rodadas e inicie o treinamento.
+                <p className="text-[11px] sm:text-xs text-slate-300 font-medium">
+                  Toque em uma modalidade abaixo para configurar as rodadas, o tempo e iniciar o desafio.
                 </p>
               </div>
 
               {activeArenaRecord && activeArenaRecord.gamesPlayed > 0 && (
-                <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl px-4 py-3 shrink-0 flex items-center space-x-3 self-start sm:self-auto">
-                  <Star size={20} className="text-amber-300 shrink-0" fill="currentColor" />
+                <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl px-3.5 py-2 shrink-0 flex items-center space-x-2.5 self-start sm:self-auto">
+                  <Star size={18} className="text-amber-300 shrink-0" fill="currentColor" />
                   <div className="text-left sm:text-right leading-tight">
-                    <span className="text-[9px] font-black uppercase tracking-wider text-slate-300 block">
-                      Melhor Recorde na Modalidade
+                    <span className="text-[8.5px] font-black uppercase tracking-wider text-slate-300 block">
+                      Melhor Recorde
                     </span>
-                    <span className="text-sm sm:text-base font-black text-white">
+                    <span className="text-xs sm:text-sm font-black text-white">
                       {activeArenaRecord.bestScore} pts ({activeArenaRecord.bestAccuracy}%)
                     </span>
                   </div>
@@ -1273,200 +1319,225 @@ REGRAS OBRIGATÓRIAS:
             </div>
           </div>
 
-          {/* 1. Grade de Modalidades com Espaçamento Amplo e Textos Completos */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
+          {/* 1. Grade de Modalidades Compacta na Horizontal (Ao clicar abre o Modal de Configuração) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3.5">
             {arenaCards.map((card) => {
               const IconComp = card.icon;
-              const isSelected = selectedArena === card.id;
               const record = highScores[card.id];
               return (
                 <button
                   key={card.id}
                   type="button"
-                  onClick={() => setSelectedArena(card.id)}
-                  className={`w-full relative overflow-hidden rounded-[24px] p-4 sm:p-5 text-left transition-all flex flex-col justify-between min-h-[150px] sm:min-h-[168px] border cursor-pointer active:scale-[0.99] ${
-                    isSelected
-                      ? `bg-gradient-to-br ${card.gradient} text-white shadow-lg ring-2 ring-inset ring-white/50 border-transparent`
-                      : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white border-slate-200/80 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-600 shadow-xs'
-                  }`}
+                  onClick={() => {
+                    setSelectedArena(card.id);
+                    setIsSetupModalOpen(true);
+                  }}
+                  className={`w-full relative overflow-hidden bg-gradient-to-br ${card.gradient} rounded-[20px] sm:rounded-[22px] px-4 py-3 sm:p-4 text-left text-white transition-all flex items-center justify-between gap-3 shadow-md hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98] border border-white/20 cursor-pointer group`}
                 >
-                  <div className={`absolute -right-3 -bottom-3 pointer-events-none transition-transform duration-300 ${isSelected ? 'text-white/15 scale-105' : 'text-slate-100 dark:text-slate-700/35'}`}>
-                    <IconComp className="w-24 h-24 stroke-[1.4]" />
+                  <div className="absolute -right-3 -bottom-3 text-white/15 pointer-events-none group-hover:scale-110 transition-transform duration-300">
+                    <IconComp className="w-20 h-20 stroke-[1.4]" />
                   </div>
 
-                  <div className="relative z-10 flex items-center justify-between w-full gap-2">
-                    <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center shrink-0 ${
-                      isSelected
-                        ? 'bg-white/20 text-white border border-white/30'
-                        : 'bg-slate-100 dark:bg-slate-700 text-indigo-600 dark:text-indigo-400'
-                    }`}>
+                  <div className="relative z-10 flex items-center gap-3 min-w-0 flex-1">
+                    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform">
                       <IconComp size={20} strokeWidth={2.3} />
                     </div>
-                    <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full ${
-                      isSelected
-                        ? 'bg-white/20 text-white'
-                        : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300'
-                    }`}>
-                      {card.badge}
-                    </span>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                        <span className="text-[8.5px] sm:text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/25 text-white/95">
+                          {card.badge}
+                        </span>
+                        {record && record.gamesPlayed > 0 && (
+                          <span className="text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-400/25 border border-amber-300/40 text-amber-200">
+                            {record.bestScore} pts ({record.bestAccuracy}%)
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="font-black text-xs sm:text-sm text-white uppercase tracking-tight leading-snug truncate">
+                        {card.title}
+                      </h4>
+                      <p className="text-[10px] sm:text-[11px] text-white/85 font-medium truncate mt-0.5">
+                        {card.subtitle}
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="relative z-10 mt-3.5 space-y-1.5">
-                    <h4 className="font-black text-xs sm:text-sm uppercase tracking-tight leading-snug">
-                      {card.title}
-                    </h4>
-                    <p className={`text-[11px] sm:text-xs leading-relaxed font-medium ${
-                      isSelected ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'
-                    }`}>
-                      {card.subtitle}
-                    </p>
-                    {record && record.gamesPlayed > 0 && (
-                      <div className={`pt-2 mt-2 border-t text-[10px] font-black uppercase tracking-wider flex items-center justify-between ${
-                        isSelected ? 'border-white/20 text-amber-200' : 'border-slate-100 dark:border-slate-700 text-indigo-600 dark:text-indigo-400'
-                      }`}>
-                        <span>Recorde: {record.bestScore} pts</span>
-                        <span>Acerto: {record.bestAccuracy}%</span>
-                      </div>
-                    )}
+                  <div className="relative z-10 w-8 h-8 rounded-full bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shrink-0 group-hover:bg-white group-hover:text-slate-900 transition-colors">
+                    <ChevronRight size={16} strokeWidth={2.6} />
                   </div>
                 </button>
               );
             })}
           </div>
 
-          {/* 2. Painel de Configuração da Partida: Rodadas, Tempo, Filtro e Botões Iniciar */}
-          <div className="bg-white dark:bg-slate-800 rounded-[26px] sm:rounded-[30px] p-4 sm:p-6 shadow-sm border border-slate-100 dark:border-slate-700 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Quantidade de Perguntas */}
-              <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">
-                  Rodadas
-                </label>
-                <div className="grid grid-cols-3 gap-1.5 bg-slate-100 dark:bg-slate-900 p-1.5 rounded-2xl">
-                  {[5, 10, 15].map((cnt) => (
-                    <button
-                      key={cnt}
-                      type="button"
-                      onClick={() => setQuestionLimit(cnt)}
-                      className={`py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-                        questionLimit === cnt
-                          ? 'bg-indigo-600 text-white shadow-xs'
-                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                      }`}
-                    >
-                      {cnt} Q
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Tempo do Cronômetro por Questão */}
-              <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">
-                  Tempo / Questão
-                </label>
-                <div className="grid grid-cols-3 gap-1.5 bg-slate-100 dark:bg-slate-900 p-1.5 rounded-2xl">
-                  {[
-                    { sec: 15, label: '15s' },
-                    { sec: 25, label: '25s' },
-                    { sec: 40, label: '40s' }
-                  ].map((t) => (
-                    <button
-                      key={t.sec}
-                      type="button"
-                      onClick={() => setSecondsPerQuestion(t.sec)}
-                      className={`py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-                        secondsPerQuestion === t.sec
-                          ? 'bg-indigo-600 text-white shadow-xs'
-                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                      }`}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Opções Extras para "Qual é esta Especialidade?" */}
-            {selectedArena === 'QUAL_ESPECIALIDADE' && (
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-50/70 dark:bg-amber-950/30 rounded-2xl p-3.5 border border-amber-200/70 dark:border-amber-900/50">
-                <select
-                  value={selectedSpecialtyAreaFilter}
-                  onChange={(e) => setSelectedSpecialtyAreaFilter(e.target.value)}
-                  className="flex-1 min-w-0 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-white focus:outline-none"
-                >
-                  <option value="TODAS">Todas as Áreas ({specialtiesCatalog.length})</option>
-                  {availableSpecialtyAreas.map((area) => (
-                    <option key={area} value={area}>
-                      {area}
-                    </option>
-                  ))}
-                </select>
-
-                <label className="flex items-center space-x-2 cursor-pointer select-none shrink-0">
-                  <input
-                    type="checkbox"
-                    checked={showSpecialtyAreaBadgeInQuiz}
-                    onChange={(e) => setShowSpecialtyAreaBadgeInQuiz(e.target.checked)}
-                    className="w-4 h-4 accent-amber-600 rounded"
-                  />
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
-                    Mostrar Área na Pergunta
-                  </span>
-                </label>
-              </div>
-            )}
-
-            {/* Opção de Tema Específico para o Simulado Bom de Bíblia */}
-            {selectedArena === 'BOM_DE_BIBLIA' && (
-              <input
-                type="text"
-                value={customBibleTopic}
-                onChange={(e) => setCustomBibleTopic(e.target.value)}
-                placeholder="Foco opcional p/ IA: Ex: Livro de Daniel, Mateus, ou em branco p/ Geral..."
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-indigo-200/80 dark:border-indigo-800/80 rounded-2xl px-4 py-3 text-xs sm:text-sm font-medium text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none"
-              />
-            )}
-
-            {/* Botões de Ação para Iniciar */}
-            <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
-              <button
-                type="button"
-                disabled={isGeneratingAiQuiz || (selectedArena === 'QUAL_ESPECIALIDADE' && isLoadingCatalog)}
-                onClick={handleStartStandardQuiz}
-                className="flex-1 py-3.5 sm:py-4 px-5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white rounded-2xl font-black uppercase tracking-wider text-xs sm:text-sm shadow-md shadow-indigo-500/20 active:scale-[0.98] transition-all flex items-center justify-center space-x-2 disabled:opacity-50 cursor-pointer"
+          {/* MODAL DE CONFIGURAÇÃO DA PARTIDA RENDERIZADO NO BODY PARA FICAR SEMPRE CENTRALIZADO NA TELA */}
+          {isSetupModalOpen &&
+            typeof document !== 'undefined' &&
+            createPortal(
+              <div
+                className="fixed inset-0 z-[9999] bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
+                onClick={() => setIsSetupModalOpen(false)}
               >
-                <Play size={16} fill="currentColor" />
-                <span>
-                  {selectedArena === 'QUAL_ESPECIALIDADE' && isLoadingCatalog
-                    ? 'Carregando...'
-                    : 'Iniciar Desafio'}
-                </span>
-              </button>
-
-              {selectedArena !== 'QUAL_ESPECIALIDADE' && (
-                <button
-                  type="button"
-                  disabled={isGeneratingAiQuiz}
-                  onClick={handleStartAiGeneratedQuiz}
-                  className="py-3.5 sm:py-4 px-5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white rounded-2xl font-black uppercase tracking-wider text-xs sm:text-sm shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all flex items-center justify-center space-x-2 disabled:opacity-50 shrink-0 cursor-pointer"
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-[#111827] text-white rounded-[28px] p-5 sm:p-6 shadow-2xl border border-slate-700/80 space-y-4 relative animate-slide-up"
                 >
-                  {isGeneratingAiQuiz ? (
-                    <>
-                      <RefreshCw size={16} className="animate-spin" />
-                      <span>Gerando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles size={16} />
-                      <span>Simulado IA</span>
-                    </>
+                {/* Cabeçalho do Modal com a Modalidade Selecionada e Botão Fechar */}
+                <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-800">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${activeArenaCard.gradient} flex items-center justify-center text-white shrink-0 shadow-sm`}>
+                      <ActiveArenaIcon size={20} strokeWidth={2.3} />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-indigo-400 block">
+                        {activeArenaCard.badge}
+                      </span>
+                      <h4 className="font-black text-xs sm:text-sm uppercase tracking-tight text-white leading-snug line-clamp-2">
+                        {activeArenaCard.title}
+                      </h4>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsSetupModalOpen(false)}
+                    className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+                    title="Fechar"
+                  >
+                    <X size={16} strokeWidth={2.5} />
+                  </button>
+                </div>
+
+                {/* Quantidade de Perguntas (RODADAS) */}
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">
+                    Rodadas
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5 bg-[#0b0f19] p-1.5 rounded-2xl border border-slate-800/80">
+                    {[5, 10, 15].map((cnt) => (
+                      <button
+                        key={cnt}
+                        type="button"
+                        onClick={() => setQuestionLimit(cnt)}
+                        className={`py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                          questionLimit === cnt
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {cnt} Q
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tempo do Cronômetro por Questão (TEMPO / QUESTÃO) */}
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">
+                    Tempo / Questão
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5 bg-[#0b0f19] p-1.5 rounded-2xl border border-slate-800/80">
+                    {[
+                      { sec: 15, label: '15s' },
+                      { sec: 25, label: '25s' },
+                      { sec: 40, label: '40s' }
+                    ].map((t) => (
+                      <button
+                        key={t.sec}
+                        type="button"
+                        onClick={() => setSecondsPerQuestion(t.sec)}
+                        className={`py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                          secondsPerQuestion === t.sec
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Opções Extras para "Qual é esta Especialidade?" */}
+                {selectedArena === 'QUAL_ESPECIALIDADE' ? (
+                  <div className="space-y-2.5 bg-[#0b0f19] rounded-2xl p-3 border border-slate-800">
+                    <select
+                      value={selectedSpecialtyAreaFilter}
+                      onChange={(e) => setSelectedSpecialtyAreaFilter(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-xs font-bold text-white focus:outline-none"
+                    >
+                      <option value="TODAS">Todas as Áreas ({specialtiesCatalog.length})</option>
+                      {availableSpecialtyAreas.map((area) => (
+                        <option key={area} value={area}>
+                          {area}
+                        </option>
+                      ))}
+                    </select>
+
+                    <label className="flex items-center space-x-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={showSpecialtyAreaBadgeInQuiz}
+                        onChange={(e) => setShowSpecialtyAreaBadgeInQuiz(e.target.checked)}
+                        className="w-4 h-4 accent-amber-500 rounded"
+                      />
+                      <span className="text-xs font-bold text-slate-300">
+                        Mostrar Área na Pergunta
+                      </span>
+                    </label>
+                  </div>
+                ) : (
+                  /* Campo de Foco Opcional para IA (conforme Imagem 1) */
+                  <input
+                    type="text"
+                    value={customBibleTopic}
+                    onChange={(e) => setCustomBibleTopic(e.target.value)}
+                    placeholder="Foco opcional p/ IA: Ex: Livro de Daniel, Mateus, ou em branco p/ Geral..."
+                    className="w-full bg-[#0b0f19] border border-indigo-500/40 focus:border-indigo-500 rounded-2xl px-4 py-3 text-xs sm:text-sm font-medium text-white placeholder:text-slate-400 focus:outline-none"
+                  />
+                )}
+
+                {/* Botões de Ação para Iniciar (INICIAR DESAFIO e SIMULADO IA) */}
+                <div className="flex flex-col gap-2.5 pt-1">
+                  <button
+                    type="button"
+                    disabled={isGeneratingAiQuiz || (selectedArena === 'QUAL_ESPECIALIDADE' && isLoadingCatalog)}
+                    onClick={handleStartStandardQuiz}
+                    className="w-full py-3.5 px-5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white rounded-2xl font-black uppercase tracking-wider text-xs sm:text-sm shadow-lg shadow-indigo-500/25 active:scale-[0.98] transition-all flex items-center justify-center space-x-2 disabled:opacity-50 cursor-pointer"
+                  >
+                    <Play size={16} fill="currentColor" />
+                    <span>
+                      {selectedArena === 'QUAL_ESPECIALIDADE' && isLoadingCatalog
+                        ? 'Carregando...'
+                        : 'Iniciar Desafio'}
+                    </span>
+                  </button>
+
+                  {selectedArena !== 'QUAL_ESPECIALIDADE' && (
+                    <button
+                      type="button"
+                      disabled={isGeneratingAiQuiz}
+                      onClick={handleStartAiGeneratedQuiz}
+                      className="w-full py-3.5 px-5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white rounded-2xl font-black uppercase tracking-wider text-xs sm:text-sm shadow-lg shadow-amber-500/25 active:scale-[0.98] transition-all flex items-center justify-center space-x-2 disabled:opacity-50 cursor-pointer"
+                    >
+                      {isGeneratingAiQuiz ? (
+                        <>
+                          <RefreshCw size={16} className="animate-spin" />
+                          <span>Gerando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles size={16} />
+                          <span>Simulado IA</span>
+                        </>
+                      )}
+                    </button>
                   )}
-                </button>
-              )}
-            </div>
-          </div>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )}
 
           {/* 3. Créditos e Fontes Oficiais das Questões */}
           <div className="bg-white dark:bg-slate-800 rounded-[24px] p-4 sm:p-5 border border-slate-200/80 dark:border-slate-700 shadow-xs">

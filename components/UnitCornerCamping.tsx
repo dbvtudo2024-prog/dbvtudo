@@ -56,6 +56,7 @@ interface MealScheduleSlot {
   dayLabel: string;
   mealName: string;
   menuDescription: string;
+  juiceAndFruits?: string;
   ingredients: string;
   waterAndWood: string;
   cooking: string;
@@ -120,8 +121,9 @@ const DEFAULT_MEAL_SLOTS: MealScheduleSlot[] = [
     id: 'meal_sex_jantar',
     dayLabel: 'Sexta-feira',
     mealName: 'Jantar de Abertura (Recepção do Sábado)',
-    menuDescription: 'Sopa nutritiva de legumes com macarrão, pão integral e suco natural de uva',
-    ingredients: 'Macarrão, batata, cenoura, chuchu, proteína de soja, pão integral, suco de uva',
+    menuDescription: 'Sopa nutritiva de legumes com macarrão e pão integral\nTorradas temperadas com azeite e orégano',
+    juiceAndFruits: 'Suco integral de uva + Maçã e Banana',
+    ingredients: 'Macarrão, batata, cenoura, chuchu, proteína de soja, pão integral, suco de uva, maçã, banana',
     waterAndWood: '',
     cooking: '',
     dishwashing: ''
@@ -130,8 +132,9 @@ const DEFAULT_MEAL_SLOTS: MealScheduleSlot[] = [
     id: 'meal_sab_desjejum',
     dayLabel: 'Sábado',
     mealName: 'Desjejum de Sábado',
-    menuDescription: 'Granola com frutas picadas (banana e maçã), leite/iogurte, pão com pasta de grão-de-bico',
-    ingredients: 'Granola, bananas, maçãs, leite ou bebida vegetal, pão de forma, grão-de-bico',
+    menuDescription: 'Granola com leite/iogurte e pão integral com patê de grão-de-bico\nQueijo branco / tofu temperado e aveia',
+    juiceAndFruits: 'Suco natural de laranja + Mamão, Banana e Maçã picados',
+    ingredients: 'Granola, bananas, maçãs, mamão, laranja, leite ou bebida vegetal, pão integral, grão-de-bico',
     waterAndWood: '',
     cooking: '',
     dishwashing: ''
@@ -140,8 +143,9 @@ const DEFAULT_MEAL_SLOTS: MealScheduleSlot[] = [
     id: 'meal_sab_almoco',
     dayLabel: 'Sábado',
     mealName: 'Almoço de Sábado (Pré-pronto na Sexta)',
-    menuDescription: 'Arroz soltinho, feijão tropeiro vegetariano, assado de glúten/soja e salada colorida',
-    ingredients: 'Arroz, feijão, farinha de mandioca, milho, tomate, alface, cenoura ralada, azeite',
+    menuDescription: 'Arroz soltinho, feijão tropeiro vegetariano e assado de glúten/soja\nSalada colorida de alface, tomate, milho e cenoura ralada',
+    juiceAndFruits: 'Suco natural de maracujá ou limão + Melancia e Laranja',
+    ingredients: 'Arroz, feijão, farinha de mandioca, milho, tomate, alface, cenoura, maracujá, melancia, laranja',
     waterAndWood: '',
     cooking: '',
     dishwashing: ''
@@ -150,8 +154,9 @@ const DEFAULT_MEAL_SLOTS: MealScheduleSlot[] = [
     id: 'meal_sab_jantar',
     dayLabel: 'Sábado',
     mealName: 'Lanche / Jantar de Sábado (Fogo do Conselho)',
-    menuDescription: 'Sanduíches naturais com queijo/tofu, tomate e orégano + chá quente ou achocolatado',
-    ingredients: 'Pão integral, queijo/tofu, tomate, orégano, alface, achocolatado ou erva-doce',
+    menuDescription: 'Sanduíches naturais com queijo/tofu, tomate, alface e orégano\nPipoca temperada para o Fogo do Conselho',
+    juiceAndFruits: 'Suco natural de uva/maçã + Uvas e Tangerina',
+    ingredients: 'Pão integral, queijo/tofu, tomate, orégano, alface, milho de pipoca, suco de uva, tangerina',
     waterAndWood: '',
     cooking: '',
     dishwashing: ''
@@ -160,8 +165,9 @@ const DEFAULT_MEAL_SLOTS: MealScheduleSlot[] = [
     id: 'meal_dom_desjejum',
     dayLabel: 'Domingo',
     mealName: 'Desjejum de Domingo (Fogueira e Pioneiria)',
-    menuDescription: 'Cuscuz nordestino com ovos mexidos / mexido de tofu, frutas da estação e pão na chapa',
-    ingredients: 'Flocão de milho, ovos ou tofu, frutas, pão, manteiga/azeite',
+    menuDescription: 'Cuscuz nordestino quentinho com ovos mexidos / mexido de tofu\nPão na chapa com manteiga/azeite e cereal',
+    juiceAndFruits: 'Suco natural de acerola/caju + Banana, Mamão e Melão',
+    ingredients: 'Flocão de milho, ovos ou tofu, pão, polpa de acerola/caju, banana, mamão, melão',
     waterAndWood: '',
     cooking: '',
     dishwashing: ''
@@ -170,8 +176,9 @@ const DEFAULT_MEAL_SLOTS: MealScheduleSlot[] = [
     id: 'meal_dom_almoco',
     dayLabel: 'Domingo',
     mealName: 'Almoço de Encerramento',
-    menuDescription: 'Macarronada campestre ao molho de tomate caseiro e proteína de soja + salada verde',
-    ingredients: 'Macarrão espaguete, molho de tomate, proteína texturizada de soja, milho, cheiro-verde',
+    menuDescription: 'Macarronada campestre ao molho de tomate caseiro e proteína de soja\nSalada verde tropical com milho e azeitonas',
+    juiceAndFruits: 'Suco natural de abacaxi com hortelã + Salada de Frutas',
+    ingredients: 'Macarrão espaguete, molho de tomate, proteína de soja, milho, abacaxi, hortelã, frutas variadas',
     waterAndWood: '',
     cooking: '',
     dishwashing: ''
@@ -294,10 +301,31 @@ const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club }) => {
   const [mealSlots, setMealSlots] = useState<MealScheduleSlot[]>(() => {
     try {
       const saved = localStorage.getItem(`${storagePrefix}_meals`);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((slot: MealScheduleSlot) => {
+            const defaultMatch = DEFAULT_MEAL_SLOTS.find((d) => d.id === slot.id);
+            return {
+              ...slot,
+              juiceAndFruits:
+                slot.juiceAndFruits !== undefined && slot.juiceAndFruits.trim() !== ''
+                  ? slot.juiceAndFruits
+                  : defaultMatch?.juiceAndFruits || 'Suco natural da fruta + Frutas da estação (banana, maçã, laranja)'
+            };
+          });
+        }
+      }
     } catch {}
     return DEFAULT_MEAL_SLOTS;
   });
+
+  const [selectedCampDayFilter, setSelectedCampDayFilter] = useState<string>('TODOS');
+  const [newCampDayName, setNewCampDayName] = useState<string>('');
+  const [newMealTargetDay, setNewMealTargetDay] = useState<string>('');
+  const [newMealTitle, setNewMealTitle] = useState<string>('');
+  const [editingDayOriginal, setEditingDayOriginal] = useState<string | null>(null);
+  const [editingDayText, setEditingDayText] = useState<string>('');
 
   useEffect(() => {
     try {
@@ -572,8 +600,125 @@ const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club }) => {
     showToast('Escala rodiziada automaticamente entre os membros!');
   };
 
+  const campDays = useMemo(() => {
+    const seen = new Set<string>();
+    const list: string[] = [];
+    mealSlots.forEach((s) => {
+      const d = (s.dayLabel || 'Dia').trim();
+      if (d && !seen.has(d)) {
+        seen.add(d);
+        list.push(d);
+      }
+    });
+    return list;
+  }, [mealSlots]);
+
+  const filteredMealSlots = useMemo(() => {
+    if (selectedCampDayFilter === 'TODOS') return mealSlots;
+    return mealSlots.filter((s) => (s.dayLabel || '').trim() === selectedCampDayFilter);
+  }, [mealSlots, selectedCampDayFilter]);
+
   const handleUpdateMealSlot = (id: string, field: keyof MealScheduleSlot, value: string) => {
     setMealSlots((prev) => prev.map((s) => (s.id === id ? { ...s, [field]: value } : s)));
+  };
+
+  const handleRenameEntireDay = (oldDay: string, newDayRaw: string) => {
+    const cleanNew = newDayRaw.trim();
+    if (!cleanNew) return;
+    setMealSlots((prev) =>
+      prev.map((s) => ((s.dayLabel || '').trim() === oldDay ? { ...s, dayLabel: cleanNew } : s))
+    );
+    if (selectedCampDayFilter === oldDay) {
+      setSelectedCampDayFilter(cleanNew);
+    }
+    setEditingDayOriginal(null);
+    setEditingDayText('');
+    showToast(`Dia atualizado para "${cleanNew}"!`);
+  };
+
+  const handleAddNewCampDay = () => {
+    const cleanDay = newCampDayName.trim() || `${campDays.length + 1}º Dia`;
+    const now = Date.now();
+    const newDayMeals: MealScheduleSlot[] = [
+      {
+        id: `meal_${now}_desjejum`,
+        dayLabel: cleanDay,
+        mealName: `Desjejum (${cleanDay})`,
+        menuDescription: 'Pão integral com queijo/patê vegetal, cuscuz ou aveia\nComplemento nutritivo energético para atividades de campo',
+        juiceAndFruits: 'Suco natural de laranja/acerola + Banana, Maçã e Mamão',
+        ingredients: 'Pão integral, flocão de milho/aveia, frutas variadas, polpa de fruta natural',
+        waterAndWood: '',
+        cooking: '',
+        dishwashing: ''
+      },
+      {
+        id: `meal_${now}_almoco`,
+        dayLabel: cleanDay,
+        mealName: `Almoço (${cleanDay})`,
+        menuDescription: 'Arroz, feijão, proteína vegetal refogada e legumes\nSalada crua colorida temperada com limão e azeite',
+        juiceAndFruits: 'Suco natural de maracujá/abacaxi + Melancia e Laranja',
+        ingredients: 'Arroz, feijão, proteína de soja/grão-de-bico, tomate, alface, cenoura, frutas',
+        waterAndWood: '',
+        cooking: '',
+        dishwashing: ''
+      },
+      {
+        id: `meal_${now}_jantar`,
+        dayLabel: cleanDay,
+        mealName: `Jantar / Lanche da Noite (${cleanDay})`,
+        menuDescription: 'Sopa campestre de legumes com macarrão ou sanduíche natural\nAcompanhamento quente para a reunião do Fogo do Conselho',
+        juiceAndFruits: 'Suco integral de uva + Maçã, Pera ou Tangerina',
+        ingredients: 'Macarrão, legumes variados, pão integral, suco de uva, frutas da estação',
+        waterAndWood: '',
+        cooking: '',
+        dishwashing: ''
+      }
+    ];
+    setMealSlots((prev) => [...prev, ...newDayMeals]);
+    setNewCampDayName('');
+    setSelectedCampDayFilter(cleanDay);
+    showToast(`Dia "${cleanDay}" adicionado com 3 refeições!`);
+  };
+
+  const handleAddNewSingleMeal = () => {
+    const targetDay =
+      (newMealTargetDay || '').trim() ||
+      (selectedCampDayFilter !== 'TODOS' ? selectedCampDayFilter : campDays[0] || 'Novo Dia');
+    const cleanMealName = newMealTitle.trim() || 'Nova Refeição / Lanche';
+    const newSlot: MealScheduleSlot = {
+      id: `meal_${Date.now()}`,
+      dayLabel: targetDay,
+      mealName: cleanMealName,
+      menuDescription: 'Prato principal nutritivo da unidade\nAcompanhamento campestre e salada',
+      juiceAndFruits: 'Suco natural da fruta + Frutas frescas (banana, maçã, melancia)',
+      ingredients: 'Ingredientes do prato principal, suco natural e frutas da estação',
+      waterAndWood: '',
+      cooking: '',
+      dishwashing: ''
+    };
+    setMealSlots((prev) => [...prev, newSlot]);
+    setNewMealTitle('');
+    showToast(`Refeição "${cleanMealName}" adicionada em ${targetDay}!`);
+  };
+
+  const handleDeleteMealSlot = (id: string) => {
+    setMealSlots((prev) => prev.filter((s) => s.id !== id));
+    showToast('Refeição removida do cardápio!');
+  };
+
+  const handleDeleteEntireDay = (dayToDelete: string) => {
+    setMealSlots((prev) => prev.filter((s) => (s.dayLabel || '').trim() !== dayToDelete));
+    if (selectedCampDayFilter === dayToDelete) {
+      setSelectedCampDayFilter('TODOS');
+    }
+    setEditingDayOriginal(null);
+    showToast(`Dia "${dayToDelete}" removido!`);
+  };
+
+  const handleResetDefaultMeals = () => {
+    setMealSlots(DEFAULT_MEAL_SLOTS);
+    setSelectedCampDayFilter('TODOS');
+    showToast('Cardápio padrão restaurado!');
   };
 
   const handleCopyCampSchedule = () => {
@@ -584,7 +729,8 @@ const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club }) => {
       ...mealSlots.map(
         (s) =>
           `🍽️ *${s.dayLabel} — ${s.mealName}*\n` +
-          `🥘 *Cardápio:* ${s.menuDescription}\n` +
+          `🥘 *Prato Principal:* ${(s.menuDescription || '').replace(/\n/g, ' | ')}\n` +
+          `🍹🍎 *Suco e Frutas:* ${s.juiceAndFruits || 'Suco natural e frutas da estação'}\n` +
           `🛒 *Ingredientes:* ${s.ingredients}\n` +
           `💧🔥 *Água e Lenha:* ${s.waterAndWood || 'A definir'}\n` +
           `👨‍🍳 *Cozinha:* ${s.cooking || 'A definir'}\n` +
@@ -876,18 +1022,18 @@ const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club }) => {
                 })}
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
                 <input
                   type="text"
                   value={newMeetingDateInput}
                   onChange={(e) => setNewMeetingDateInput(e.target.value)}
                   placeholder="Ex: 11/10/2026"
-                  className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 w-32 outline-none focus:border-indigo-500"
+                  className="flex-1 sm:flex-initial min-w-0 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 sm:w-32 outline-none focus:border-indigo-500"
                 />
                 <button
                   type="button"
                   onClick={handleCreateNewSundayMeeting}
-                  className="px-3.5 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-black text-[11px] uppercase tracking-wider flex items-center space-x-1 active:scale-95 transition-all"
+                  className="px-3.5 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-black text-[11px] uppercase tracking-wider flex items-center justify-center space-x-1 active:scale-95 transition-all shrink-0"
                 >
                   <Plus size={14} />
                   <span>Novo Domingo</span>
@@ -896,26 +1042,26 @@ const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club }) => {
             </div>
           </div>
 
-          {/* Cadastrar Membro na Unidade — Posicionado no Topo com Largura Total Sem Cortes no PC */}
-          <div className="bg-white dark:bg-slate-800 rounded-[24px] p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-xs space-y-3">
+          {/* Cadastrar Membro na Unidade — Sem estouro lateral no celular */}
+          <div className="bg-white dark:bg-slate-800 rounded-[24px] p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-xs space-y-3 overflow-hidden">
             <h5 className="font-black text-slate-800 dark:text-white text-xs uppercase tracking-wider flex items-center space-x-1.5">
               <Users size={15} className="text-indigo-600 dark:text-indigo-400" />
               <span>Cadastrar Membro na Unidade</span>
             </h5>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full min-w-0">
               <input
                 type="text"
                 value={newMemberName}
                 onChange={(e) => setNewMemberName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleAddMember()}
                 placeholder={`Nome do ${isPathfinder ? 'desbravador' : 'aventureiro'}...`}
-                className="flex-1 min-w-0 px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-bold text-slate-800 dark:text-white outline-none focus:border-indigo-500"
+                className="w-full sm:flex-1 min-w-0 px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-bold text-slate-800 dark:text-white outline-none focus:border-indigo-500"
               />
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-col xs:flex-row sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto min-w-0">
                 <select
                   value={newMemberRole}
                   onChange={(e) => setNewMemberRole(e.target.value as UnitMember['role'])}
-                  className="flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 outline-none"
+                  className="w-full sm:w-auto min-w-0 px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 outline-none truncate"
                 >
                   <option value="Membro">Membro (Desbravador/Aventureiro)</option>
                   <option value="Capitão(ã)">Capitão(ã)</option>
@@ -930,7 +1076,7 @@ const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club }) => {
                 <button
                   type="button"
                   onClick={handleAddMember}
-                  className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center space-x-1.5 active:scale-95 transition-all shrink-0 shadow-xs"
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center space-x-1.5 active:scale-95 transition-all shrink-0 shadow-xs cursor-pointer"
                 >
                   <Plus size={16} />
                   <span>Adicionar</span>
@@ -1122,9 +1268,9 @@ const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club }) => {
           ======================================================================== */}
       {activeTab === 'ACAMPAMENTO' && (
         <div className="space-y-4">
-          <div className="bg-white dark:bg-slate-800 rounded-[26px] p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-sm space-y-3">
+          <div className="bg-white dark:bg-slate-800 rounded-[26px] p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-sm space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
                   Evento / Acampamento da Unidade
                 </label>
@@ -1140,57 +1286,279 @@ const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club }) => {
                 <button
                   type="button"
                   onClick={handleAutoRotateCampSchedule}
-                  className="px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-[11px] uppercase tracking-wider flex items-center space-x-1.5 shadow-sm active:scale-95 transition-all"
+                  className="px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-[11px] uppercase tracking-wider flex items-center space-x-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
                 >
                   <Shuffle size={14} />
-                  <span>Sortear Escala entre Membros</span>
+                  <span>Sortear Escala</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={handleCopyCampSchedule}
-                  className="px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] uppercase tracking-wider flex items-center space-x-1.5 shadow-sm active:scale-95 transition-all"
+                  className="px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] uppercase tracking-wider flex items-center space-x-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
                 >
                   <Share2 size={14} />
-                  <span>Copiar Escala & Cardápio</span>
+                  <span>Copiar Cardápio</span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={handleResetDefaultMeals}
+                  className="px-3 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 font-black text-[10px] uppercase tracking-wider flex items-center space-x-1 transition-all cursor-pointer"
+                  title="Restaurar cardápio padrão de Sexta a Domingo"
+                >
+                  <RotateCcw size={13} />
+                  <span>Padrão</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Gerenciador de Dias do Acampamento (Filtrar, Editar Nome do Dia, Adicionar Novo Dia e Nova Refeição) */}
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-700/80 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+                  <Calendar size={13} className="text-amber-500" />
+                  <span>Dias do Acampamento (Toque para filtrar ou editar)</span>
+                </span>
+              </div>
+
+              {/* Abas de Dias */}
+              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pb-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedCampDayFilter('TODOS');
+                    setEditingDayOriginal(null);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider whitespace-nowrap transition-all cursor-pointer ${
+                    selectedCampDayFilter === 'TODOS'
+                      ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xs'
+                      : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                  }`}
+                >
+                  Todos os Dias ({mealSlots.length} refeições)
+                </button>
+
+                {campDays.map((dayName) => {
+                  const isSelected = selectedCampDayFilter === dayName;
+                  const count = mealSlots.filter((m) => (m.dayLabel || '').trim() === dayName).length;
+                  return (
+                    <div
+                      key={dayName}
+                      className={`inline-flex items-center rounded-xl text-[10px] font-black uppercase tracking-wider whitespace-nowrap transition-all border ${
+                        isSelected
+                          ? 'bg-amber-500 border-amber-500 text-white shadow-xs'
+                          : 'bg-amber-50/70 dark:bg-slate-700/80 border-amber-200/70 dark:border-slate-600 text-amber-800 dark:text-amber-300'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedCampDayFilter(dayName);
+                          setEditingDayOriginal(dayName);
+                          setEditingDayText(dayName);
+                          setNewMealTargetDay(dayName);
+                        }}
+                        className="px-3 py-1.5 cursor-pointer"
+                      >
+                        {dayName} ({count})
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Barra de Edição Rápida do Dia Selecionado */}
+              {editingDayOriginal && (
+                <div className="bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 dark:text-amber-300 shrink-0">
+                    Renomear Dia "{editingDayOriginal}":
+                  </span>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1">
+                    <input
+                      type="text"
+                      value={editingDayText}
+                      onChange={(e) => setEditingDayText(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleRenameEntireDay(editingDayOriginal, editingDayText)}
+                      placeholder="Novo nome do dia (ex: Quinta-feira, 1º Dia)..."
+                      className="flex-1 min-w-0 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 text-xs font-bold text-slate-800 dark:text-white outline-none"
+                    />
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleRenameEntireDay(editingDayOriginal, editingDayText)}
+                        className="flex-1 sm:flex-initial px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-[10px] uppercase tracking-wider cursor-pointer"
+                      >
+                        Salvar Dia
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteEntireDay(editingDayOriginal)}
+                        className="px-2.5 py-1.5 rounded-xl bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-300 hover:bg-red-200 font-black text-[10px] uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                        title="Excluir todas as refeições deste dia"
+                      >
+                        <Trash2 size={13} />
+                        <span>Excluir Dia</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingDayOriginal(null)}
+                        className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 cursor-pointer"
+                        title="Fechar edição do dia"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Controles para Adicionar Novo Dia ou Nova Refeição */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5 pt-1">
+                {/* 1. Adicionar Novo Dia Completo */}
+                <div className="bg-slate-50 dark:bg-slate-900/70 rounded-2xl p-3 border border-slate-200/80 dark:border-slate-700/80 space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 block">
+                    + Adicionar Novo Dia ao Acampamento
+                  </label>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="text"
+                      value={newCampDayName}
+                      onChange={(e) => setNewCampDayName(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddNewCampDay()}
+                      placeholder="Ex: Quinta-feira, Segunda-feira, 4º Dia..."
+                      className="flex-1 min-w-0 px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-indigo-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddNewCampDay}
+                      className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-wider flex items-center justify-center space-x-1 shrink-0 active:scale-95 transition-all cursor-pointer"
+                    >
+                      <Plus size={14} />
+                      <span>Novo Dia</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. Adicionar Nova Refeição Avulsa */}
+                <div className="bg-slate-50 dark:bg-slate-900/70 rounded-2xl p-3 border border-slate-200/80 dark:border-slate-700/80 space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 block">
+                    + Adicionar Nova Refeição / Lanche
+                  </label>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="text"
+                      list="camp-days-datalist"
+                      value={
+                        newMealTargetDay ||
+                        (selectedCampDayFilter !== 'TODOS' ? selectedCampDayFilter : '')
+                      }
+                      onChange={(e) => setNewMealTargetDay(e.target.value)}
+                      placeholder="Dia (ex: Sábado)..."
+                      className="w-full sm:w-32 min-w-0 px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-emerald-500"
+                    />
+                    <datalist id="camp-days-datalist">
+                      {campDays.map((d) => (
+                        <option key={d} value={d} />
+                      ))}
+                    </datalist>
+                    <input
+                      type="text"
+                      value={newMealTitle}
+                      onChange={(e) => setNewMealTitle(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddNewSingleMeal()}
+                      placeholder="Refeição (ex: Desjejum, Almoço, Ceia)..."
+                      className="flex-1 min-w-0 px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-emerald-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddNewSingleMeal}
+                      className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-wider flex items-center justify-center space-x-1 shrink-0 active:scale-95 transition-all cursor-pointer"
+                    >
+                      <Plus size={14} />
+                      <span>Refeição</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Cards de Cada Refeição com Cardápio e Escala (Água/Lenha, Cozinha, Louça) */}
+          {/* Cards de Cada Refeição com Dia e Título Editáveis, Prato Principal em 2 Linhas, Suco/Frutas e Escala */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {mealSlots.map((slot) => (
+            {filteredMealSlots.map((slot) => (
               <div
                 key={slot.id}
                 className="bg-white dark:bg-slate-800 rounded-[24px] p-4 border border-slate-100 dark:border-slate-700 shadow-xs space-y-3 flex flex-col justify-between"
               >
                 <div className="space-y-2.5">
-                  <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-700/80 pb-2">
-                    <div>
-                      <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
-                        {slot.dayLabel}
-                      </span>
-                      <h5 className="font-black text-slate-800 dark:text-white text-xs sm:text-sm uppercase tracking-tight mt-1">
-                        {slot.mealName}
-                      </h5>
+                  {/* Cabeçalho Editável: Dia + Nome da Refeição + Botão Excluir */}
+                  <div className="flex items-start justify-between gap-2 border-b border-slate-100 dark:border-slate-700/80 pb-2.5">
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[9px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 shrink-0">
+                          Dia:
+                        </span>
+                        <input
+                          type="text"
+                          value={slot.dayLabel}
+                          onChange={(e) => handleUpdateMealSlot(slot.id, 'dayLabel', e.target.value)}
+                          placeholder="Dia do acampamento..."
+                          className="px-2.5 py-0.5 rounded-full bg-amber-100/90 text-amber-900 dark:bg-amber-950/70 dark:text-amber-200 border border-amber-300/60 dark:border-amber-800/60 text-[10px] font-black uppercase tracking-wider outline-none focus:ring-2 focus:ring-amber-400 w-44 max-w-full"
+                        />
+                      </div>
+
+                      <input
+                        type="text"
+                        value={slot.mealName}
+                        onChange={(e) => handleUpdateMealSlot(slot.id, 'mealName', e.target.value)}
+                        placeholder="Nome da refeição (ex: Almoço, Desjejum)..."
+                        className="w-full px-2.5 py-1 rounded-lg bg-slate-50/80 dark:bg-slate-900/60 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 focus:border-indigo-500 font-black text-slate-800 dark:text-white text-xs sm:text-sm uppercase tracking-tight outline-none"
+                      />
                     </div>
-                    <Utensils size={18} className="text-amber-500 shrink-0" />
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Utensils size={16} className="text-amber-500" />
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteMealSlot(slot.id)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
+                        title="Remover esta refeição"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Cardápio e Ingredientes */}
-                  <div className="space-y-1.5">
+                  {/* Prato Principal / Cardápio com 2 Linhas de Texto */}
+                  <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
-                      Prato Principal / Cardápio
+                      Prato Principal / Cardápio (2 Linhas)
                     </label>
-                    <input
-                      type="text"
+                    <textarea
+                      rows={2}
                       value={slot.menuDescription}
                       onChange={(e) => handleUpdateMealSlot(slot.id, 'menuDescription', e.target.value)}
-                      className="w-full px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-indigo-500"
+                      placeholder={'Linha 1: Prato principal e guarnição...\nLinha 2: Salada e acompanhamento...'}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white leading-snug outline-none focus:border-indigo-500 resize-y min-h-[54px]"
                     />
                   </div>
 
+                  {/* Suco e Frutas da Refeição */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                      <span>🍹🍎 Suco Natural e Frutas</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={slot.juiceAndFruits ?? ''}
+                      onChange={(e) => handleUpdateMealSlot(slot.id, 'juiceAndFruits', e.target.value)}
+                      placeholder="Ex: Suco natural de laranja/uva + Banana, Maçã e Melancia..."
+                      className="w-full px-3 py-1.5 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-800/50 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  {/* Lista de Ingredientes / Intendência */}
                   <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
                       Lista de Ingredientes / Intendência
@@ -1215,7 +1583,7 @@ const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club }) => {
                         value={slot.waterAndWood}
                         onChange={(e) => handleUpdateMealSlot(slot.id, 'waterAndWood', e.target.value)}
                         placeholder="Quem busca água e lenha..."
-                        className="flex-1 px-2.5 py-1.5 rounded-lg bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-800/50 text-xs font-bold text-slate-800 dark:text-white outline-none"
+                        className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-800/50 text-xs font-bold text-slate-800 dark:text-white outline-none"
                       />
                     </div>
 
@@ -1229,7 +1597,7 @@ const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club }) => {
                         value={slot.cooking}
                         onChange={(e) => handleUpdateMealSlot(slot.id, 'cooking', e.target.value)}
                         placeholder="Quem prepara a refeição..."
-                        className="flex-1 px-2.5 py-1.5 rounded-lg bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/70 dark:border-emerald-800/50 text-xs font-bold text-slate-800 dark:text-white outline-none"
+                        className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/70 dark:border-emerald-800/50 text-xs font-bold text-slate-800 dark:text-white outline-none"
                       />
                     </div>
 
@@ -1243,7 +1611,7 @@ const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club }) => {
                         value={slot.dishwashing}
                         onChange={(e) => handleUpdateMealSlot(slot.id, 'dishwashing', e.target.value)}
                         placeholder="Quem lava a louça e limpa..."
-                        className="flex-1 px-2.5 py-1.5 rounded-lg bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/70 dark:border-blue-800/50 text-xs font-bold text-slate-800 dark:text-white outline-none"
+                        className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/70 dark:border-blue-800/50 text-xs font-bold text-slate-800 dark:text-white outline-none"
                       />
                     </div>
                   </div>

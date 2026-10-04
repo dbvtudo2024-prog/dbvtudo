@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '3.0.71';
+const appVersion = '3.0.75';
 
 function versionPlugin(): Plugin {
   return {
@@ -19,9 +19,8 @@ function versionPlugin(): Plugin {
           buildDate: new Date(buildTime).toISOString(),
           timestamp: buildTime,
           highlights: [
-            "Botões principais no celular (Bíblia Sagrada, Classes e Especialidades) e botões da área de Treinamento em Campo reorganizados na horizontal, reduzindo a altura e removendo a palavra 'Acessar'",
-            "Materiais Gráficos com catálogo completo de Emblemas Oficiais (D1 a D5, L1 a L3, A1 a A5, L A1 e Bandeiras) no formato CorelDRAW (.CDR / .SVG / .EPS) e pacotes oficiais abertos do site da IASD",
-            "Certificados com visualização do Modelo Padrão Oficial e personalização em tempo real na hora de baixar (inserindo Nome do Clube, Associação/Missão, Classe/Especialidade e Nome do Investido em PDF A4 ou PNG)"
+            "Planejador de Acampamento no Cantinho da Unidade atualizado com opção de editar os dias e adicionar novos dias e refeições",
+            "Campo de Prato Principal / Cardápio com 2 linhas de texto e campo dedicado para Suco Natural e Frutas em todas as refeições"
           ]
         }, null, 2)
       });
@@ -37,9 +36,8 @@ function versionPlugin(): Plugin {
             buildDate: new Date(buildTime).toISOString(),
             timestamp: buildTime,
             highlights: [
-              "Botões principais no celular (Bíblia Sagrada, Classes e Especialidades) e botões da área de Treinamento em Campo reorganizados na horizontal, reduzindo a altura e removendo a palavra 'Acessar'",
-              "Materiais Gráficos com catálogo completo de Emblemas Oficiais (D1 a D5, L1 a L3, A1 a A5, L A1 e Bandeiras) no formato CorelDRAW (.CDR / .SVG / .EPS) e pacotes oficiais abertos do site da IASD",
-              "Certificados com visualização do Modelo Padrão Oficial e personalização em tempo real na hora de baixar (inserindo Nome do Clube, Associação/Missão, Classe/Especialidade e Nome do Investido em PDF A4 ou PNG)"
+              "Planejador de Acampamento no Cantinho da Unidade atualizado com opção de editar os dias e adicionar novos dias e refeições",
+              "Campo de Prato Principal / Cardápio com 2 linhas de texto e campo dedicado para Suco Natural e Frutas em todas as refeições"
             ]
           }));
           return;
