@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '3.0.56';
+const appVersion = '3.0.61';
 
 function versionPlugin(): Plugin {
   return {
@@ -19,9 +19,9 @@ function versionPlugin(): Plugin {
           buildDate: new Date(buildTime).toISOString(),
           timestamp: buildTime,
           highlights: [
-            "Fotografias e ilustrações reais de cada Nó e Amarra com zoom em tela cheia e botão unificado 'Guia de Campo (Nós, Códigos e Socorros)' no Acesso Rápido",
-            "Passo a Passo de Nós e Amarras (Amigo a Guia), Tradutor de Códigos (Morse com apito/luz, Semáfora, Libras e Sinais de Pista) e Guia Rápido de Primeiros Socorros e Peçonhentos",
-            "Ajuste do formulário de cadastro de membro no topo com largura total no PC, nome da unidade vazio por padrão, botão para remover domingos e novos botões ao final da lista"
+            "Código Semáfora Completo: Tabelas visuais do Alfabeto (A a Z) e Números (0 a 9 + Sinal Numérico #) com tradução instantânea e ampliação dos ângulos dos braços",
+            "Números em Libras (0 a 9) ilustrados e 24 Expressões Mais Usadas em Libras (Cumprimentos, Desbravadores, Acampamento e Diálogo)",
+            "Nós e Amarras das Classes em 3D (apenas imagem 3D e crédito a Knots 3D) com os 22 nós e amarras oficiais de Amigo, Companheiro e Pesquisador a Guia"
           ]
         }, null, 2)
       });
@@ -37,9 +37,9 @@ function versionPlugin(): Plugin {
             buildDate: new Date(buildTime).toISOString(),
             timestamp: buildTime,
             highlights: [
-              "Fotografias e ilustrações reais de cada Nó e Amarra com zoom em tela cheia e botão unificado 'Guia de Campo (Nós, Códigos e Socorros)' no Acesso Rápido",
-              "Passo a Passo de Nós e Amarras (Amigo a Guia), Tradutor de Códigos (Morse com apito/luz, Semáfora, Libras e Sinais de Pista) e Guia Rápido de Primeiros Socorros e Peçonhentos",
-              "Ajuste do formulário de cadastro de membro no topo com largura total no PC, nome da unidade vazio por padrão, botão para remover domingos e novos botões ao final da lista"
+              "Código Semáfora Completo: Tabelas visuais do Alfabeto (A a Z) e Números (0 a 9 + Sinal Numérico #) com tradução instantânea e ampliação dos ângulos dos braços",
+              "Números em Libras (0 a 9) ilustrados e 24 Expressões Mais Usadas em Libras (Cumprimentos, Desbravadores, Acampamento e Diálogo)",
+              "Nós e Amarras das Classes em 3D (apenas imagem 3D e crédito a Knots 3D) com os 22 nós e amarras oficiais de Amigo, Companheiro e Pesquisador a Guia"
             ]
           }));
           return;

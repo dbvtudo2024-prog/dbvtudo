@@ -6,14 +6,65 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.56';
+export const APP_VERSION = '3.0.61';
 export const APP_BUILD_DATE = '4 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
-    version: '3.0.56',
+    version: '3.0.61',
     date: '04/10/2026',
     tag: 'NOVO',
+    title: 'Centralização Instantânea dos Modais de Letras, Números e Nós na Tela Atual',
+    changes: [
+      'Renderização dos modais de ampliação (Código Semáfora, Alfabeto/Números em Libras e Zoom 3D dos Nós) diretamente no centro da tela visível (via React Portal), sem precisar rolar a página para encontrá-los.'
+    ]
+  },
+  {
+    version: '3.0.60',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Alfabeto Completo (A–Z) e Números (0–9) no Código Semáfora',
+    changes: [
+      'Código Semáfora (Números 0 a 9 + Sinal Numérico #): Adição da tabela completa de números em Semáfora (0 a 9 com correspondência às posições A–I e K, mais o Sinal Numérico # e o Sinal de Espaço/Descanso).',
+      'Código Semáfora (Alfabeto Completo A a Z): Adição da tabela visual de referência com todas as 26 letras do alfabeto internacional em Semáfora.',
+      'Tradução e Ampliação em Semáfora: O tradutor e animador instantâneo agora suporta letras e números digitados, e clicar em qualquer letra ou número abre um modal ampliado com a descrição exata da posição dos braços.'
+    ]
+  },
+  {
+    version: '3.0.59',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Correção da Lista de Números e Expressões em Libras no Guia de Campo',
+    changes: [
+      'Correção da estrutura de dados de Números em Libras (0 a 9) e Expressões Mais Usadas em Libras para evitar erro ao abrir o Guia de Campo.'
+    ]
+  },
+  {
+    version: '3.0.58',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Nós Oficiais das Classes em 3D e Guia de Números e Expressões em Libras',
+    changes: [
+      'Nós e Amarras das Classes em 3D: Exibição limpa focada apenas nas imagens 3D de alta definição (com crédito a Knots 3D e sem links externos), trazendo exatamente os 22 nós e amarras oficiais dos cartões das Classes (14 de Amigo, 9 de Companheiro e 6 de Pesquisador a Guia).',
+      'Números em Libras (0 a 9): Guia ilustrado completo dos algarismos de 0 a 9 em Libras com imagem da configuração da mão, posição dos dedos e tradução visual instantânea de números digitados.',
+      'Expressões Mais Usadas em Libras: Adição de 24 sinais e frases práticas em Libras divididas em Cumprimentos, Desbravadores e Clube, Acampamento e Emergência, e Perguntas e Diálogo.'
+    ]
+  },
+  {
+    version: '3.0.57',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Nós em 3D (Knots 3D & Animated Knots), Alfabeto Libras Ilustrado e 27 Sinais de Pista',
+    changes: [
+      'Nós e Amarras em 3D: Renderizações 3D de alta definição e integração interativa ao vivo com Knots3D.com (rotação 360°, play/pause e espelhamento) e AnimatedKnots.com para 16 nós e amarras oficiais.',
+      'Alfabeto em Libras Ilustrado (A a Z): Imagens vetoriais da configuração exata da mão para cada letra digitada no tradutor e tabela visual completa de A a Z com ampliação.',
+      'Catálogo Expandido de Sinais de Pista: 27 sinais de pista oficiais divididos em 4 categorias (Direção e Navegação, Perigo e Obstáculos, Água e Acampamento, Mensagens e Equipe) com instruções de como montá-los na trilha.'
+    ]
+  },
+  {
+    version: '3.0.56',
+    date: '04/10/2026',
+    tag: 'ATUAL',
     title: 'Imagens Reais de Nós e Amarras com Zoom e Botão Único "Guia de Campo"',
     changes: [
       'Substituição dos diagramas esquemáticos por fotografias e ilustrações reais de cada nó e amarra (Nó Direito, Cirurgião, Lais de Guia em 4 etapas, Volta do Fiel, Escota, Catau, Pescador, Prusik e Amarras Quadrada, Diagonal, Paralela e Tripé) com opção de ampliar imagem em tela cheia.',
