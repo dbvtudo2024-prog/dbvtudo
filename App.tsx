@@ -34,11 +34,24 @@ const styles = `
     from { opacity: 0; transform: scale(0.95); }
     to { opacity: 1; transform: scale(1); }
   }
+  @keyframes logoWobble {
+    0% { transform: scale(1) rotate(0deg); }
+    15% { transform: scale(0.93) rotate(-8deg); }
+    32% { transform: scale(1.08) rotate(7deg); }
+    48% { transform: scale(1.05) rotate(-5deg); }
+    64% { transform: scale(1.03) rotate(3.5deg); }
+    80% { transform: scale(1.01) rotate(-1.5deg); }
+    100% { transform: scale(1) rotate(0deg); }
+  }
   .animate-slide-up { animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
   .animate-slide-in { animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
   .animate-float { animation: float 5s ease-in-out infinite; }
   .animate-fade-in { animation: fadeIn 0.2s ease-out forwards; }
   .animate-scale-up { animation: scaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  .animate-logo-wobble {
+    animation: logoWobble 0.65s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+    transform-origin: center center;
+  }
   
   .glass {
     background: rgba(255, 255, 255, 0.7);

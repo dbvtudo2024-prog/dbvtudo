@@ -19,7 +19,8 @@ import {
   fetchLivrosAVT, fetchManuaisAVT, fetchAppLinks, updateAppLink, deleteAppLink,
   fetchConquistas, updateConquista, deleteConquista,
   fetchTrunfos, updateTrunfo, deleteTrunfo,
-  fetchFaixaConfig, updateFaixaConfig, uploadFaixaImage, FaixaConfig, DEFAULT_FAIXA_CONFIG
+  fetchFaixaConfig, updateFaixaConfig, uploadFaixaImage, FaixaConfig, DEFAULT_FAIXA_CONFIG,
+  getOfficialRudUniforms, getOfficialRudEmblems, uploadCultureAsset, RUD_CREDITS
 } from '../services/supabaseService';
 import { PROFILE_KEY } from '../constants';
 import { calculateAge } from './Profile';
@@ -236,18 +237,26 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
       historia_equador: culturaData?.historia_equador || '',
       historia_peru: culturaData?.historia_peru || '',
       historia_uruguai: culturaData?.historia_uruguai || '',
+      historia_mundial_img: culturaData?.historia_mundial_img || '',
+      historia_america_sul_img: culturaData?.historia_america_sul_img || '',
+      historia_argentina_img: culturaData?.historia_argentina_img || '',
+      historia_bolivia_img: culturaData?.historia_bolivia_img || '',
+      historia_brasil_img: culturaData?.historia_brasil_img || '',
+      historia_chile_img: culturaData?.historia_chile_img || '',
+      historia_colombia_img: culturaData?.historia_colombia_img || '',
+      historia_equador_img: culturaData?.historia_equador_img || '',
+      historia_peru_img: culturaData?.historia_peru_img || '',
+      historia_uruguai_img: culturaData?.historia_uruguai_img || '',
       uniformes_list: normalizeCulturaList(culturaData?.uniformes_list),
       emblemas_list: normalizeCulturaList(culturaData?.emblemas_list)
     });
   }, [culturaData]);
 
-  const handleItemImageUpload = (file: File) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64String = reader.result as string;
-      setNewItem(prev => ({ ...prev, imagem: base64String }));
-    };
-    reader.readAsDataURL(file);
+  const handleItemImageUpload = async (file: File) => {
+    const publicUrl = await uploadCultureAsset(file, 'Emblemas');
+    if (publicUrl) {
+      setNewItem(prev => ({ ...prev, imagem: publicUrl }));
+    }
   };
 
   const findItemTitle = (items: CulturaItem[] | undefined | null, id: string | undefined): string | null => {
@@ -430,13 +439,11 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
     }));
   };
 
-  const handleBlockImageUpload = (file: File) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64String = reader.result as string;
-      addBlock('image', base64String);
-    };
-    reader.readAsDataURL(file);
+  const handleBlockImageUpload = async (file: File) => {
+    const publicUrl = await uploadCultureAsset(file, 'Emblemas');
+    if (publicUrl) {
+      addBlock('image', publicUrl);
+    }
   };
 
   const addBlock = (type: 'text' | 'image', content: string) => {
@@ -574,13 +581,11 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
     }));
   };
 
-  const handleHistoryImageUpload = (file: File, fieldId: string) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64String = reader.result as string;
-      setLocalCultura(prev => ({ ...prev, [`${fieldId}_img`]: base64String }));
-    };
-    reader.readAsDataURL(file);
+  const handleHistoryImageUpload = async (file: File, fieldId: string) => {
+    const publicUrl = await uploadCultureAsset(file, 'Paises');
+    if (publicUrl) {
+      setLocalCultura(prev => ({ ...prev, [`${fieldId}_img`]: publicUrl }));
+    }
   };
 
   const handleSave = async () => {
@@ -1913,6 +1918,21 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() => {
     return pinSidebar || false;
   });
+  const [isLogoWobbling, setIsLogoWobbling] = useState<boolean>(false);
+
+  const triggerLogoWobble = () => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate(12);
+      }
+    } catch {}
+    setIsLogoWobbling(false);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setIsLogoWobbling(true);
+      });
+    });
+  };
 
   // Manter sincronizado caso a configuração de fixação mude
   useEffect(() => {
@@ -4549,10 +4569,17 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       );
     }
     
-    // Ícone dinâmico baseado no título para o card principal
+    // Ícone dinâmico baseado no título e na aba atual para o card principal
     const getHeaderIcon = (title: string) => {
       const t = title.toLowerCase();
-      if (t.includes('emblema')) return <Shield size={22} />;
+      if (activeSubView === 'UNIFORMS') {
+        if (t.includes('posição') || t.includes('emblema') || t.includes('platina') || t.includes('galão')) return <Shield size={22} />;
+        if (t.includes('faixa')) return <Award size={22} />;
+        return <Shirt size={22} />;
+      }
+      if (activeSubView === 'EMBLEMS' || t.includes('emblema') || t.includes('insígnia') || t.includes('distintivo') || t.includes('bandeira') || t.includes('bandeirim')) {
+        return <Shield size={22} />;
+      }
       if (t.includes('uniforme')) return <Shirt size={22} />;
       return <FileText size={22} />;
     };
@@ -4609,8 +4636,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   };
 
   const renderUniforms = () => {
-    const rawList = normalizeCulturaList(culturaData?.uniformes_list);
-    const uniforms = rawList.filter(item => !item.club || item.club === club);
+    const uniforms = getOfficialRudUniforms(club);
     
     return (
       <div className="animate-slide-in space-y-6 pt-4 pb-28">
@@ -4627,6 +4653,39 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               {uniforms.map((item, i) => renderCulturaItem(item, 0, i))}
             </div>
           )}
+
+          {/* Créditos e Fonte Oficial das Informações dos Uniformes */}
+          <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-700/70">
+            <div className="bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-700/70 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start space-x-3.5">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 mt-0.5 border border-indigo-100 dark:border-indigo-900/60">
+                  <Shield size={18} />
+                </div>
+                <div className="space-y-1 text-left">
+                  <h5 className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-wider">
+                    {RUD_CREDITS.titulo}
+                  </h5>
+                  <p className="text-xs font-bold text-slate-600 dark:text-slate-300 leading-relaxed">
+                    {RUD_CREDITS.regulamento}
+                  </p>
+                  <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
+                    {RUD_CREDITS.acervo}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 shrink-0">
+                <a
+                  href={RUD_CREDITS.urlWikiUniforme}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1.5 shadow-2xs transition-all active:scale-95"
+                >
+                  <ExternalLink size={12} />
+                  <span>Wiki MDA (RUD)</span>
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -4634,7 +4693,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
   const renderEmblems = () => {
     const rawList = normalizeCulturaList(culturaData?.emblemas_list);
-    const emblems = rawList.filter(item => !item.club || item.club === club);
+    const filtered = rawList.filter(item => !item.club || item.club === club);
+    const emblems = filtered.length > 0 ? filtered : getOfficialRudEmblems(club);
+    const wikiUrl = club === ClubType.ADVENTURER ? RUD_CREDITS.urlWikiEmblemasAvt : RUD_CREDITS.urlWikiEmblemasDbv;
     
     return (
       <div className="animate-slide-in space-y-6 pt-4 pb-28">
@@ -4651,6 +4712,39 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               {emblems.map((item, i) => renderCulturaItem(item, 0, i))}
             </div>
           )}
+
+          {/* Créditos e Fonte Oficial das Informações dos Emblemas */}
+          <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-700/70">
+            <div className="bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-700/70 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start space-x-3.5">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 mt-0.5 border border-indigo-100 dark:border-indigo-900/60">
+                  <Shield size={18} />
+                </div>
+                <div className="space-y-1 text-left">
+                  <h5 className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-wider">
+                    {RUD_CREDITS.titulo}
+                  </h5>
+                  <p className="text-xs font-bold text-slate-600 dark:text-slate-300 leading-relaxed">
+                    {RUD_CREDITS.regulamento}
+                  </p>
+                  <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
+                    {RUD_CREDITS.acervo}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 shrink-0">
+                <a
+                  href={wikiUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1.5 shadow-2xs transition-all active:scale-95"
+                >
+                  <ExternalLink size={12} />
+                  <span>Wiki MDA (RUD)</span>
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -8748,16 +8842,23 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             {/* 1. Topo do Menu: Logo do App Limpa e Direta (sem container em volta) */}
             <div 
               onClick={() => {
+                triggerLogoWobble();
                 if (activeSubView !== 'MAIN') setActiveSubView('MAIN');
               }}
-              className="w-full flex flex-col items-center text-center cursor-pointer group transition-transform duration-300 py-1"
+              className="w-full flex flex-col items-center text-center cursor-pointer group transition-transform duration-300 py-1 select-none"
               title="DBV Tudo - Ir para Início"
             >
-              <div className="relative w-20 h-20 lg:w-22 lg:h-22 flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300">
+              <div 
+                onAnimationEnd={() => setIsLogoWobbling(false)}
+                className={`relative w-20 h-20 lg:w-22 lg:h-22 flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300 ${
+                  isLogoWobbling ? 'animate-logo-wobble' : ''
+                }`}
+              >
                 <img 
                   src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/logo%20app.PNG" 
                   alt="Logo DBV Tudo" 
-                  className="w-full h-full object-contain drop-shadow-md group-hover:drop-shadow-lg transition-all"
+                  draggable={false}
+                  className="w-full h-full object-contain drop-shadow-md group-hover:drop-shadow-lg transition-all select-none"
                 />
               </div>
               <h1 className="mt-2 font-black text-slate-800 dark:text-white text-lg lg:text-xl tracking-tight uppercase leading-none">
@@ -8815,67 +8916,88 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               {/* Botão Início (Ação de navegação para a Home geral) */}
               <button
                 onClick={() => onBack()}
-                className="w-full flex items-center px-4 py-3.5 rounded-2xl font-black text-xs lg:text-sm uppercase tracking-wider transition-all text-left group active:scale-[0.98] bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60"
+                className="w-full relative overflow-hidden flex items-center px-4 py-3.5 rounded-2xl font-black text-xs lg:text-sm uppercase tracking-wider transition-all text-left group active:scale-[0.98] bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60"
                 title="Voltar para a página inicial"
               >
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors shrink-0 bg-slate-200/70 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 group-hover:bg-indigo-50 group-hover:text-indigo-600 dark:group-hover:bg-indigo-950/60 dark:group-hover:text-indigo-400">
-                    <HomeIcon size={18} strokeWidth={2.4} />
-                  </div>
+                {/* Ícone sombreado de fundo à direita (estilo tela inicial) */}
+                <div className="absolute -right-3 top-1/2 -translate-y-1/2 opacity-[0.07] dark:opacity-[0.06] pointer-events-none group-hover:scale-125 transition-transform duration-700">
+                  <HomeIcon className="w-16 h-16 stroke-[1.5]" />
+                </div>
+
+                <div className="relative z-10 flex items-center gap-3.5 min-w-0">
+                  <HomeIcon 
+                    size={22} 
+                    strokeWidth={2.5} 
+                    className="shrink-0 text-slate-600 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:scale-110 transition-all drop-shadow-[0_2px_4px_rgba(0,0,0,0.2)]" 
+                  />
                   <span className="truncate">Início</span>
                 </div>
               </button>
 
-              {/* Botão Desbravadores (com brasão oficial) */}
+              {/* Botão Desbravadores (brasão direto sem container interno + imagem sombreada à direita) */}
               <button
                 onClick={() => {
                   onSwitchClub(ClubType.PATHFINDER);
                   if (activeSubView !== 'MAIN') setActiveSubView('MAIN');
                 }}
-                className={`w-full flex items-center px-4 py-3.5 rounded-2xl font-black text-xs lg:text-sm uppercase tracking-wider transition-all text-left group active:scale-[0.98] ${
+                className={`w-full relative overflow-hidden flex items-center px-4 py-3.5 rounded-2xl font-black text-xs lg:text-sm uppercase tracking-wider transition-all text-left group active:scale-[0.98] ${
                   isPathfinder
                     ? 'bg-[#dc371b] text-white shadow-lg shadow-red-600/35 ring-2 ring-red-400 scale-[1.02]'
                     : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60'
                 }`}
                 title="Área de Desbravadores"
               >
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors shrink-0 p-1 ${
-                    isPathfinder ? 'bg-white/25' : 'bg-red-500/10'
-                  }`}>
-                    <img 
-                      src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png" 
-                      alt="Brasão Desbravadores" 
-                      className="w-full h-full object-contain drop-shadow-xs"
-                    />
-                  </div>
+                {/* Imagem sombreada de fundo à direita (estilo tela inicial) */}
+                <div className={`absolute -right-3 top-1/2 -translate-y-1/2 grayscale pointer-events-none group-hover:scale-125 transition-transform duration-700 ${
+                  isPathfinder ? 'opacity-20' : 'opacity-[0.08] dark:opacity-[0.06]'
+                }`}>
+                  <img 
+                    src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png" 
+                    alt="" 
+                    className="w-18 h-18 object-contain drop-shadow-md"
+                  />
+                </div>
+
+                <div className="relative z-10 flex items-center gap-3.5 min-w-0">
+                  <img 
+                    src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png" 
+                    alt="Brasão Desbravadores" 
+                    className="w-8 h-8 object-contain shrink-0 drop-shadow-[0_3px_6px_rgba(0,0,0,0.35)] group-hover:scale-110 transition-transform duration-300"
+                  />
                   <span className="truncate">Desbravadores</span>
                 </div>
               </button>
 
-              {/* Botão Aventureiros (com brasão oficial) */}
+              {/* Botão Aventureiros (brasão direto sem container interno + imagem sombreada à direita) */}
               <button
                 onClick={() => {
                   onSwitchClub(ClubType.ADVENTURER);
                   if (activeSubView !== 'MAIN') setActiveSubView('MAIN');
                 }}
-                className={`w-full flex items-center px-4 py-3.5 rounded-2xl font-black text-xs lg:text-sm uppercase tracking-wider transition-all text-left group active:scale-[0.98] ${
+                className={`w-full relative overflow-hidden flex items-center px-4 py-3.5 rounded-2xl font-black text-xs lg:text-sm uppercase tracking-wider transition-all text-left group active:scale-[0.98] ${
                   !isPathfinder
                     ? 'bg-[#800000] text-white shadow-lg shadow-red-950/45 ring-2 ring-amber-400/80 scale-[1.02]'
                     : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60'
                 }`}
                 title="Área de Aventureiros"
               >
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors shrink-0 p-1 ${
-                    !isPathfinder ? 'bg-white/25' : 'bg-amber-500/10'
-                  }`}>
-                    <img 
-                      src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png" 
-                      alt="Brasão Aventureiros" 
-                      className="w-full h-full object-contain drop-shadow-xs"
-                    />
-                  </div>
+                {/* Imagem sombreada de fundo à direita (estilo tela inicial) */}
+                <div className={`absolute -right-3 top-1/2 -translate-y-1/2 grayscale pointer-events-none group-hover:scale-125 transition-transform duration-700 ${
+                  !isPathfinder ? 'opacity-20' : 'opacity-[0.08] dark:opacity-[0.06]'
+                }`}>
+                  <img 
+                    src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png" 
+                    alt="" 
+                    className="w-18 h-18 object-contain drop-shadow-md"
+                  />
+                </div>
+
+                <div className="relative z-10 flex items-center gap-3.5 min-w-0">
+                  <img 
+                    src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png" 
+                    alt="Brasão Aventureiros" 
+                    className="w-8 h-8 object-contain shrink-0 drop-shadow-[0_3px_6px_rgba(0,0,0,0.35)] group-hover:scale-110 transition-transform duration-300"
+                  />
                   <span className="truncate">Aventureiros</span>
                 </div>
               </button>
@@ -8888,15 +9010,22 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           <div className="flex flex-col items-center w-full animate-fade-in">
             {/* 1. Topo do Menu: Logo do App Limpa e Direta (sem container em volta) */}
             <div 
-              onClick={() => setIsSidebarOpen(true)}
-              className="w-14 h-14 lg:w-16 lg:h-16 flex items-center justify-center cursor-pointer group transition-transform duration-300 hover:scale-110 active:scale-95"
+              onClick={() => {
+                triggerLogoWobble();
+                setIsSidebarOpen(true);
+              }}
+              onAnimationEnd={() => setIsLogoWobbling(false)}
+              className={`w-14 h-14 lg:w-16 lg:h-16 flex items-center justify-center cursor-pointer group transition-transform duration-300 hover:scale-110 select-none ${
+                isLogoWobbling ? 'animate-logo-wobble' : ''
+              }`}
               title="Clique para expandir o menu"
               aria-label="Expandir menu lateral"
             >
               <img 
                 src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/logo%20app.PNG" 
                 alt="Logo DBV Tudo" 
-                className="w-full h-full object-contain drop-shadow-md group-hover:drop-shadow-lg transition-all"
+                draggable={false}
+                className="w-full h-full object-contain drop-shadow-md group-hover:drop-shadow-lg transition-all select-none"
               />
             </div>
 
@@ -9137,7 +9266,20 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             <div className="w-11 h-11 md:w-12 md:h-12 landscape:w-9 landscape:h-9 flex items-center justify-center flex-shrink-0">
               {activeSubView === 'MAIN' ? (
                 /* No PC, o logo já está em destaque na barra lateral esquerda */
-                <img src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/logo%20app.PNG" className="w-full h-full object-contain md:hidden" />
+                <div
+                  onClick={triggerLogoWobble}
+                  onAnimationEnd={() => setIsLogoWobbling(false)}
+                  className={`w-full h-full flex items-center justify-center cursor-pointer select-none md:hidden ${
+                    isLogoWobbling ? 'animate-logo-wobble' : ''
+                  }`}
+                >
+                  <img 
+                    src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/logo%20app.PNG" 
+                    alt="Logo DBV Tudo"
+                    draggable={false}
+                    className="w-full h-full object-contain select-none" 
+                  />
+                </div>
               ) : (
               <button 
                 onClick={() => {

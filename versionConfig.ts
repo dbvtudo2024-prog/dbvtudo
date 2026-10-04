@@ -6,14 +6,66 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.34';
-export const APP_BUILD_DATE = '3 de Outubro de 2026';
+export const APP_VERSION = '3.0.39';
+export const APP_BUILD_DATE = '4 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '3.0.39',
+    date: '04/10/2026',
+    tag: 'NOVO',
+    title: 'Novo Visual do Menu Principal com Ícones/Brasões Livres e Marca d\'Água Sombreada à Direita',
+    changes: [
+      'Remoção dos containers quadrados internos em volta do ícone de Início e dos brasões de Desbravadores e Aventureiros no Menu Principal.',
+      'Aplicação do mesmo estilo visual da tela inicial nos botões do Menu Principal, com a imagem/ícone sombreado em marca d\'água à direita e preservação das cores de destaque de cada ministério.'
+    ]
+  },
+  {
+    version: '3.0.38',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Regra de Investidura de Líder no Perfil (18+ Anos e Todas as Classes Regulares Ativas)',
+    changes: [
+      'Bloqueio estrito do distintivo de Líder no bolso do perfil: liberado exclusivamente para quem possui 18 anos ou mais (idade oficial de investidura, apesar de poder iniciar a classe aos 16 anos) E está com todas as 6 Classes Regulares (Amigo, Companheiro, Pesquisador, Pioneiro, Excursionista e Guia) ativas.',
+      'Caso falte qualquer uma das 6 Classes Regulares ou a idade seja inferior a 18 anos, o distintivo de Líder permanece bloqueado com ícone de cadeado e opacidade reduzida igual a Líder Master e Líder Master Avançado.'
+    ]
+  },
+  {
+    version: '3.0.37',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Otimização de Imagens (99,6% Menos Peso no Banco), Padrão Emblemas Unificado e Créditos Oficiais do RUD',
+    changes: [
+      'Migração completa de imagens Base64 para URLs leves em CDN/Supabase Storage e Wiki Oficial MDA, reduzindo o tamanho da tabela Cultura de 8,64 MB para apenas 28,9 KB (redução de 99,66% de tráfego no banco de dados).',
+      'Estrutura de Uniformes 100% padronizada igual à aba de Emblemas (mesmo alinhamento de títulos, posição superior de imagem e proporção compacta em acordeão).',
+      'Adicionado rodapé oficial de créditos e referências técnicas (RUD da Divisão Sul-Americana da IASD, Wiki Oficial MDA e Portal Adventistas.org) nas abas de Uniformes e Emblemas.',
+      'Envio automático de novas imagens do painel administrativo de Cultura direto para o Supabase Storage em vez de gravar Base64 na tabela.'
+    ]
+  },
+  {
+    version: '3.0.36',
+    date: '03/10/2026',
+    tag: 'ATUAL',
+    title: 'Uniformes RUD Direto da Internet (Padrão Emblemas) para Desbravadores e Aventureiros',
+    changes: [
+      'Uniformes carregados diretamente da internet seguindo o RUD (Regulamento de Uniformes da DSA), sem necessidade de povoar o banco de dados Supabase e no mesmo padrão visual de acordeão da aba de Emblemas.',
+      'Catálogo completo do RUD de Desbravadores: Uniforme de Gala (10 a 15 anos e 16+ anos/Liderança), Posição de Emblemas/Tiras/Distintivos (camisa e mangas), Lenços e Prendedores, Faixa de Especialidades, Cobertura/Cinto/Calçados/Torçal/Colete/Jaqueta, todas as Platinas/Galões ilustradas (Diretor a Associação Geral) e Uniforme de Atividades.',
+      'Catálogo oficial RUD de Uniformes e Emblemas de Aventureiros (6 a 9 anos e Liderança) integrado com imagens diretas da internet.'
+    ]
+  },
+  {
+    version: '3.0.35',
+    date: '03/10/2026',
+    tag: 'ATUAL',
+    title: 'Efeito Interativo de Clique (Balançada Suave) na Logo da Tela Inicial',
+    changes: [
+      'Adicionado efeito interativo de clique/toque na logo do aplicativo nas telas iniciais (Início, Login e Topo/Barra Lateral), com animação elástica de balanço suave e brilho sutil adaptado para celular, tablet, computador e modos claro/escuro.'
+    ]
+  },
+  {
     version: '3.0.34',
     date: '03/10/2026',
-    tag: 'NOVO',
+    tag: 'ATUAL',
     title: 'Correção Definitiva do Login no Celular/Vercel (Autenticação Multi-Instância Supabase) e Estabilização de Rolagem',
     changes: [
       'Correção da causa raiz do erro de "Credenciais Inválidas" no celular/Vercel: Na Vercel (sem variáveis de ambiente locais), o aplicativo apontava por padrão para a instância secundária do Supabase (dembhtmryutggifbpuka), enquanto as contas principais estão registradas na instância oficial (qfpyjavbncijowjvznkg). Agora o app autentica simultaneamente em ambas as instâncias e testa automaticamente variações de maiúscula/minúscula na 1ª letra da senha.',

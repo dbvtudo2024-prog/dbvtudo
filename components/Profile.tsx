@@ -120,13 +120,20 @@ export const getConquistaMinAge = (con: Conquista): number => {
 export const checkConquistaEligibility = (con: Conquista, age: number | null): { isEligible: boolean; minAge: number; msg?: string } => {
   const minAge = getConquistaMinAge(con);
   if (age === null) {
+    if (con.tipo === 'LIDERANCA') {
+      return {
+        isEligible: false,
+        minAge,
+        msg: 'Investidura disponível a partir dos 18 anos (informe sua data de nascimento no perfil)'
+      };
+    }
     return { isEligible: true, minAge };
   }
   const isEligible = age >= minAge;
   let msg = '';
   if (!isEligible) {
     if (con.tipo === 'LIDERANCA') {
-      msg = `Disponível a partir dos 18 anos (sua idade: ${age} anos)`;
+      msg = `Investidura disponível a partir dos 18 anos, apesar de poder iniciar a classe aos 16 anos (sua idade: ${age} anos)`;
     } else {
       msg = `Disponível a partir dos ${minAge} anos (sua idade: ${age} anos)`;
     }
@@ -581,8 +588,23 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     };
   }, []);
 
+  // IDs das 6 Classes Regulares (Amigo, Companheiro, Pesquisador, Pioneiro, Excursionista e Guia)
+  const regularClassIds = useMemo(() => {
+    const ids = allConquistas
+      .filter(c => c.tipo === 'CLASSE_REGULAR')
+      .map(c => c.id);
+    return ids.length >= 6 ? ids : [2, 3, 4, 5, 6, 7];
+  }, [allConquistas]);
+
+  // Verifica se TODAS as 6 Classes Regulares estão ativas
+  const hasAllRegularClasses = useMemo(() => {
+    return regularClassIds.length > 0 && regularClassIds.every(id => userAchievements.includes(id));
+  }, [regularClassIds, userAchievements]);
+
   // Verifica se o usuário tem o pin de Líder, Master ou Master Avançado ativo
+  // Regra: Só pode investir em Líder a partir de 18 anos e com todas as 6 classes regulares ativas
   const hasLeaderPin = useMemo(() => {
+    if (userAge === null || userAge < 18 || !hasAllRegularClasses) return false;
     const leaderIds = [9, 10, 11];
     if (userAchievements.some(id => leaderIds.includes(id))) return true;
 
@@ -596,7 +618,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
         ))
       )
     );
-  }, [userAchievements, allConquistas]);
+  }, [userAchievements, allConquistas, userAge, hasAllRegularClasses]);
 
   // Determina dinamicamente o Globo a ser exibido na ponta da faixa:
   // 1. Quem ativar o pin de líder, master e master avançado -> "globo lider"
@@ -939,7 +961,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
   const toggleAchievement = async (id: number) => {
     const con = allConquistas.find(c => c.id === id);
-    if (con && userAge !== null) {
+    if (con) {
       const eligibility = checkConquistaEligibility(con, userAge);
       if (!eligibility.isEligible) {
         alert(`⚠️ ${con.nome}: ${eligibility.msg}`);
@@ -948,6 +970,18 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     }
 
     // Regras de progressão de Liderança:
+    // 0. Só libera Líder (9), Líder Master (10) e Líder Master Avançado (11) se tiver 18+ anos e TODAS as 6 Classes Regulares ativas
+    if ((id === 9 || id === 10 || id === 11 || con?.tipo === 'LIDERANCA') && !userAchievements.includes(id)) {
+      if (userAge === null || userAge < 18) {
+        alert("⚠️ A investidura em Líder só é permitida a partir dos 18 anos (apesar de poder iniciar a classe aos 16 anos).");
+        return;
+      }
+      if (!hasAllRegularClasses) {
+        alert("⚠️ Para liberar o distintivo de Líder, é necessário estar com todas as 6 Classes Regulares (Amigo, Companheiro, Pesquisador, Pioneiro, Excursionista e Guia) ativas.");
+        return;
+      }
+    }
+
     // 1. Só pode selecionar Líder Master (ID 10) se Líder (ID 9) estiver selecionado
     if (id === 10 && !userAchievements.includes(10) && !userAchievements.includes(9)) {
       alert("⚠️ Para condecorar o distintivo de Líder Master, é necessário primeiro selecionar o distintivo de Líder.");
@@ -971,6 +1005,9 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
         } else if (id === 10) {
           // Ao desmarcar Líder Master (10), desmarca também Líder Master Avançado (11)
           newList = prev.filter(i => i !== 10 && i !== 11);
+        } else if (regularClassIds.includes(id)) {
+          // Ao desmarcar qualquer uma das 6 Classes Regulares, as classes de Liderança também são desativadas
+          newList = prev.filter(i => i !== id && i !== 9 && i !== 10 && i !== 11);
         } else {
           newList = prev.filter(i => i !== id);
         }
@@ -1907,11 +1944,13 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                           .map(con => {
                             const eligibility = checkConquistaEligibility(con, userAge);
                             const hasLeadershipPrerequisite = 
-                              con.id === 10 ? userAchievements.includes(9) :
-                              con.id === 11 ? userAchievements.includes(10) :
-                              true;
+                              con.id === 9 ? hasAllRegularClasses :
+                              con.id === 10 ? (hasAllRegularClasses && userAchievements.includes(9)) :
+                              con.id === 11 ? (hasAllRegularClasses && userAchievements.includes(9) && userAchievements.includes(10)) :
+                              hasAllRegularClasses;
 
                             const isAvailable = eligibility.isEligible && hasLeadershipPrerequisite;
+                            const isUnlocked = isAvailable && userAchievements.includes(con.id);
                             const sizeClasses = 
                               con.id === 9 
                                 ? 'w-7 h-7 sm:w-8 sm:h-8' // Líder
@@ -1919,7 +1958,9 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
                             let tooltipText = `${con.nome} • Distintivo de Liderança (Toque para alternar)`;
                             if (!eligibility.isEligible) {
-                              tooltipText = eligibility.msg || 'Idade mínima não atingida';
+                              tooltipText = eligibility.msg || 'Investidura disponível a partir dos 18 anos';
+                            } else if (!hasAllRegularClasses) {
+                              tooltipText = 'Requer todas as 6 Classes Regulares ativas (Amigo a Guia)';
                             } else if (!hasLeadershipPrerequisite) {
                               tooltipText = con.id === 10 
                                 ? 'Requer distintivo de Líder selecionado' 
@@ -1931,18 +1972,18 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                                 key={con.id}
                                 onClick={() => toggleAchievement(con.id)}
                                 className={`${sizeClasses} relative transition-all active:scale-95 group hover:scale-105 cursor-pointer flex items-center justify-center ${
-                                  !isAvailable && !userAchievements.includes(con.id) ? 'opacity-35 cursor-not-allowed' : ''
+                                  !isAvailable ? 'opacity-35 cursor-not-allowed' : ''
                                 }`}
                                 title={tooltipText}
                               >
                                 <img
-                                  src={userAchievements.includes(con.id) ? con.imagem_colorida : con.imagem_cinza}
+                                  src={isUnlocked ? con.imagem_colorida : con.imagem_cinza}
                                   className={`w-full h-full object-contain filter drop-shadow-[0_2px_3.5px_rgba(0,0,0,0.5)] transition-all ${
-                                    userAchievements.includes(con.id) ? 'opacity-100' : 'opacity-35 grayscale'
+                                    isUnlocked ? 'opacity-100' : 'opacity-35 grayscale'
                                   }`}
                                   alt={con.nome}
                                 />
-                                {(!isAvailable && !userAchievements.includes(con.id)) && (
+                                {!isAvailable && (
                                   <span className="absolute -top-0.5 -right-0.5 bg-black/80 text-amber-300 p-0.5 rounded-full leading-none z-20">
                                     <Lock size={7} />
                                   </span>

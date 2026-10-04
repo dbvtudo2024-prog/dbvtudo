@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '3.0.34';
+const appVersion = '3.0.39';
 
 function versionPlugin(): Plugin {
   return {
@@ -19,9 +19,9 @@ function versionPlugin(): Plugin {
           buildDate: new Date(buildTime).toISOString(),
           timestamp: buildTime,
           highlights: [
-            "Correção definitiva do erro de login ('Credenciais Inválidas') no celular/Vercel com autenticação simultânea entre instâncias do Supabase",
-            "Rolagem automática estabilizada para o topo ao abrir tópicos em Emblemas e Uniformes",
-            "Atualização dos modelos de IA (gemini-3.1-flash-lite e gemini-flash-latest) para geração instantânea no PowerPoint"
+            "Menu Principal com brasões e ícones livres (sem container quadrado interno) e imagem sombreada à direita no estilo da tela inicial",
+            "Distintivo de Líder no perfil liberado somente a partir dos 18 anos (idade de investidura) e quando todas as 6 Classes Regulares estiverem ativas",
+            "Otimização extrema do banco de dados: substituição de todas as imagens Base64 por URLs diretas (redução de 8,64 MB para 28,9 KB na tabela Cultura)"
           ]
         }, null, 2)
       });
@@ -37,9 +37,9 @@ function versionPlugin(): Plugin {
             buildDate: new Date(buildTime).toISOString(),
             timestamp: buildTime,
             highlights: [
-              "Correção definitiva do erro de login ('Credenciais Inválidas') no celular/Vercel com autenticação simultânea entre instâncias do Supabase",
-              "Rolagem automática estabilizada para o topo ao abrir tópicos em Emblemas e Uniformes",
-              "Atualização dos modelos de IA (gemini-3.1-flash-lite e gemini-flash-latest) para geração instantânea no PowerPoint"
+              "Menu Principal com brasões e ícones livres (sem container quadrado interno) e imagem sombreada à direita no estilo da tela inicial",
+              "Distintivo de Líder no perfil liberado somente a partir dos 18 anos (idade de investidura) e quando todas as 6 Classes Regulares estiverem ativas",
+              "Otimização extrema do banco de dados: substituição de todas as imagens Base64 por URLs diretas (redução de 8,64 MB para 28,9 KB na tabela Cultura)"
             ]
           }));
           return;

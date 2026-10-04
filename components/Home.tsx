@@ -15,6 +15,21 @@ interface HomeProps {
 const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile, isGuest = false }) => {
   const [userAvatar, setUserAvatar] = React.useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = React.useState<boolean>(false);
+  const [isLogoWobbling, setIsLogoWobbling] = React.useState<boolean>(false);
+
+  const handleLogoClick = () => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate(12);
+      }
+    } catch {}
+    setIsLogoWobbling(false);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setIsLogoWobbling(true);
+      });
+    });
+  };
 
   React.useEffect(() => {
     if (isGuest) {
@@ -125,11 +140,35 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
             
             {/* Lado Esquerdo no PC: Logo e Escritas perfeitamente centralizadas */}
             <div className="flex flex-col items-center justify-center text-center shrink-0 md:w-[380px] lg:w-[420px]">
-              <div className="relative animate-float">
-                <div className="relative w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 lg:w-56 lg:h-56 flex items-center justify-center transform hover:scale-105 transition-transform duration-700">
+              <div 
+                onClick={handleLogoClick}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleLogoClick();
+                  }
+                }}
+                aria-label="Logo DBV Tudo"
+                className="relative animate-float cursor-pointer select-none group focus:outline-none"
+              >
+                {/* Brilho suave ao clicar (adaptado para modo claro e escuro em todas as telas) */}
+                <div 
+                  className={`absolute inset-2 rounded-full bg-gradient-to-tr from-[#dc371b]/25 via-amber-400/25 to-indigo-500/25 dark:from-[#dc371b]/35 dark:via-amber-400/30 dark:to-indigo-400/35 blur-2xl pointer-events-none transition-all duration-500 ${
+                    isLogoWobbling ? 'opacity-100 scale-115' : 'opacity-0 scale-90 group-hover:opacity-60 group-hover:scale-105'
+                  }`}
+                />
+                <div 
+                  onAnimationEnd={() => setIsLogoWobbling(false)}
+                  className={`relative w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 lg:w-56 lg:h-56 flex items-center justify-center transform transition-transform duration-500 group-hover:scale-105 ${
+                    isLogoWobbling ? 'animate-logo-wobble' : ''
+                  }`}
+                >
                   <img 
                     src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/logo%20app.PNG" 
-                    className="w-full h-full object-contain drop-shadow-2xl" 
+                    draggable={false}
+                    className="w-full h-full object-contain drop-shadow-2xl select-none" 
                     alt="DBV Tudo Logo"
                   />
                 </div>
