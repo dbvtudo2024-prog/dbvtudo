@@ -1467,6 +1467,23 @@ REGRAS OBRIGATÓRIAS:
               )}
             </div>
           </div>
+
+          {/* 3. Créditos e Fontes Oficiais das Questões */}
+          <div className="bg-white dark:bg-slate-800 rounded-[24px] p-4 sm:p-5 border border-slate-200/80 dark:border-slate-700 shadow-xs">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/60 dark:border-indigo-800/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                <BookOpen size={18} />
+              </div>
+              <div className="space-y-1 min-w-0">
+                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 block">
+                  Créditos e Fontes Oficiais do Banco de Questões
+                </span>
+                <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
+                  Questões e gabaritos elaborados com base na <strong>Bíblia Sagrada</strong>, <strong>Nisto Cremos (28 Crenças Fundamentais da IASD)</strong>, <strong>Manual Administrativo do Clube de Desbravadores e Aventureiros (Divisão Sul-Americana — DSA)</strong>, <strong>Regulamento de Uniformes do Ministério de Desbravadores e Aventureiros (RUD/DSA)</strong>, <strong>Cadernos de Classes Regulares e Avançadas (DSA)</strong> e <strong>Manual Oficial de Especialidades MDA (mda.wiki.br)</strong>.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );

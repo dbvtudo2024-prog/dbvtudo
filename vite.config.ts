@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '3.0.69';
+const appVersion = '3.0.71';
 
 function versionPlugin(): Plugin {
   return {
@@ -19,10 +19,9 @@ function versionPlugin(): Plugin {
           buildDate: new Date(buildTime).toISOString(),
           timestamp: buildTime,
           highlights: [
-            "Novo botão 'Treinamento em Campo' agrupando Quiz & Simulado, Cantinho & Acamp., Guia de Campo e Ordem Unida, com remoção da aba redundante de Ordem Unida dentro do Guia de Campo",
-            "Acervo de Trunfos atualizado com 30 imagens reais dos emblemas bordados oficiais (Camporis Sul-Americanos DSA, Uniões, Associações e Dias Mundiais)",
-            "Alfabeto Manual Brasileiro de Libras oficial (A-Z, Ç e números 0-9) corrigindo as letras M e N e demais sinais para o padrão brasileiro",
-            "Ilustrações visuais de cada uma das 22 posições de Ordem Unida, rolagem pelo mouse no PC em todos os menus horizontais, seta discreta no menu flutuante e remoção de cabeçalho/botão voltar duplicado no Desbrava+"
+            "Botões principais no celular (Bíblia Sagrada, Classes e Especialidades) e botões da área de Treinamento em Campo reorganizados na horizontal, reduzindo a altura e removendo a palavra 'Acessar'",
+            "Materiais Gráficos com catálogo completo de Emblemas Oficiais (D1 a D5, L1 a L3, A1 a A5, L A1 e Bandeiras) no formato CorelDRAW (.CDR / .SVG / .EPS) e pacotes oficiais abertos do site da IASD",
+            "Certificados com visualização do Modelo Padrão Oficial e personalização em tempo real na hora de baixar (inserindo Nome do Clube, Associação/Missão, Classe/Especialidade e Nome do Investido em PDF A4 ou PNG)"
           ]
         }, null, 2)
       });
@@ -38,10 +37,9 @@ function versionPlugin(): Plugin {
             buildDate: new Date(buildTime).toISOString(),
             timestamp: buildTime,
             highlights: [
-              "Novo botão 'Treinamento em Campo' agrupando Quiz & Simulado, Cantinho & Acamp., Guia de Campo e Ordem Unida, com remoção da aba redundante de Ordem Unida dentro do Guia de Campo",
-              "Acervo de Trunfos atualizado com 30 imagens reais dos emblemas bordados oficiais (Camporis Sul-Americanos DSA, Uniões, Associações e Dias Mundiais)",
-              "Alfabeto Manual Brasileiro de Libras oficial (A-Z, Ç e números 0-9) corrigindo as letras M e N e demais sinais para o padrão brasileiro",
-              "Ilustrações visuais de cada uma das 22 posições de Ordem Unida, rolagem pelo mouse no PC em todos os menus horizontais, seta discreta no menu flutuante e remoção de cabeçalho/botão voltar duplicado no Desbrava+"
+              "Botões principais no celular (Bíblia Sagrada, Classes e Especialidades) e botões da área de Treinamento em Campo reorganizados na horizontal, reduzindo a altura e removendo a palavra 'Acessar'",
+              "Materiais Gráficos com catálogo completo de Emblemas Oficiais (D1 a D5, L1 a L3, A1 a A5, L A1 e Bandeiras) no formato CorelDRAW (.CDR / .SVG / .EPS) e pacotes oficiais abertos do site da IASD",
+              "Certificados com visualização do Modelo Padrão Oficial e personalização em tempo real na hora de baixar (inserindo Nome do Clube, Associação/Missão, Classe/Especialidade e Nome do Investido em PDF A4 ou PNG)"
             ]
           }));
           return;

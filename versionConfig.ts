@@ -6,14 +6,37 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.69';
+export const APP_VERSION = '3.0.71';
 export const APP_BUILD_DATE = '4 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
-    version: '3.0.69',
+    version: '3.0.71',
     date: '04/10/2026',
     tag: 'NOVO',
+    title: 'Botões Horizontais Compactos, Emblemas Oficiais em CorelDRAW (IASD) & Certificados Personalizáveis',
+    changes: [
+      'Reorganização horizontal dos botões principais no celular (Bíblia Sagrada, Classes e Especialidades) e dos botões da área de Treinamento em Campo (Quiz e Simulado, Cantinho & Acamp., Guia de Campo e Ordem Unida), reduzindo significativamente a altura dos botões e removendo a palavra "Acessar".',
+      'Adição da Central de Emblemas Oficiais no formato CorelDRAW (.CDR / .SVG / .EPS) em Materiais Gráficos, incluindo os pacotes oficiais abertos do Portal da IASD (downloads.adventistas.org) e download individual em curvas dos emblemas D1, D2, D3, D4, D5, L1, L2, L3, Bandeira DBV, A1, A2, A3, A4, A5, L A1 e Bandeira AVT.',
+      'Implementação de Modelo Padrão Oficial e Personalizador de Certificados na hora de baixar: exibe o padrão oficial e permite personalizar com o Nome do Clube, Associação/Missão, Classe/Especialidade, Nome do Investido, Cidade/Data e Diretor(a), gerando o arquivo em PDF A4 Paisagem ou PNG de alta resolução.'
+    ]
+  },
+  {
+    version: '3.0.70',
+    date: '04/10/2026',
+    tag: 'ESTÁVEL',
+    title: 'Sinais de Pista Oficiais (29 Sinais), Acervo de 45 Formulários DSA & Créditos Oficiais',
+    changes: [
+      'Atualização completa de Sinais de Pista no Guia de Campo com os 19 sinais fiéis à Tabela Oficial (Começo do jogo, Siga nesta direção, Volte ao ponto de partida, Diminuir a marcha, Apressar o passo, Caminho a evitar, Objeto escondido a 3 passos, Obstáculo a transpor, Perigo, Dividir o grupo, Virar à direita/esquerda, Seguir em frente, Reunir o grupo, Acampamento nessa direção, Siga rapidamente, Grupo dividido 2 e 3, Água potável e Água não potável) + 10 sinais verificados de Pioneiria, Pedras e Capim e quadro de regras de distância na trilha.',
+      'Preenchimento de Biblioteca → Materiais → Formulários com 45 documentos oficiais do Ministério de Desbravadores e Aventureiros (DSA), organizados nas 4 categorias: Fichas de Atividades (13 cadernos de classes regulares, avançadas, agrupadas e líder), Formulários (12 fichas de inscrição, ficha médica, autorizações ECA/LGPD, caderneta da unidade e inspeção), Certificados (13 certificados de investidura de classes, especialidades, mestrados e ano bíblico) e Materiais Gráficos (7 manuais de identidade visual, bandeiras, emblemas e folders).',
+      'Inclusão de filtros por Ministério (Todos, Desbravadores DSA e Aventureiros DSA) e barra de pesquisa rápida em Formulários, além de acesso liberado também no modo Aventureiros.',
+      'Adição de rodapés de Créditos e Fontes Oficiais em todas as novas áreas (Treinamento em Campo, Guia de Campo, Ordem Unida, Cantinho da Unidade & Acampamento, Quiz e Simulado, Trunfos, Formulários) e no programa Desbrava+.'
+    ]
+  },
+  {
+    version: '3.0.69',
+    date: '04/10/2026',
+    tag: 'ESTÁVEL',
     title: 'Central Treinamento em Campo, 30 Trunfos Bordados, Libras Brasileira Oficial & Posições de Ordem Unida',
     changes: [
       'Criação do botão unificado "Treinamento em Campo" na tela principal agrupando Quiz e Simulado, Cantinho & Acamp., Guia de Campo e Ordem Unida, eliminando a aba duplicada de Ordem Unida dentro do Guia de Campo.',

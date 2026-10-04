@@ -560,13 +560,506 @@ export async function fetchCampingDBV(): Promise<CampingDBV[]> {
   return [];
 }
 
+export const DEFAULT_FORMULARIOS: Formulario[] = [
+  // =========================================================================
+  // 1. FICHAS DE ATIVIDADES (CADERNOS DE ATIVIDADES, CONTROLE E PLANEJAMENTO - DSA)
+  // =========================================================================
+  {
+    id: 1,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Caderno de Atividades — Classe de Amigo (10 Anos • DSA)',
+    categoria: 'fichas',
+    link: 'https://drive.google.com/file/d/1-kWseNE44aLiWUjHrxhdYAbf3Q-wzYeh/view',
+    descricao: 'Caderno Oficial de Atividades • Amigo e Amigo da Natureza (Ministério de Desbravadores DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 2,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Caderno de Atividades — Classe de Companheiro (11 Anos • DSA)',
+    categoria: 'fichas',
+    link: 'https://drive.google.com/file/d/189OaiN30s1lSLX94KEUlc-k76x_SGMjh/view',
+    descricao: 'Caderno Oficial de Atividades • Companheiro e Companheiro de Excursionismo (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 3,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Caderno de Atividades — Classe de Pesquisador (12 Anos • DSA)',
+    categoria: 'fichas',
+    link: 'https://drive.google.com/file/d/1RkaEBL0BN1K0PABLg_4cC3N3sVLKwYvg/view',
+    descricao: 'Caderno Oficial de Atividades • Pesquisador e Pesquisador de Campo e Bosque (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 4,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Caderno de Atividades — Classe de Pioneiro (13 Anos • DSA)',
+    categoria: 'fichas',
+    link: 'https://drive.google.com/file/d/1eE8hfSfm6A1upwt5e8AMz9f7lubMcrdt/view',
+    descricao: 'Caderno Oficial de Atividades • Pioneiro e Pioneiro de Novas Fronteiras (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 5,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Caderno de Atividades — Classe de Excursionista (14 Anos • DSA)',
+    categoria: 'fichas',
+    link: 'https://drive.google.com/file/d/1OthPBySf5C_xNmiB9U8g94fl1EGjxFfa/view',
+    descricao: 'Caderno Oficial de Atividades • Excursionista e Excursionista na Mata (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 6,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Caderno de Atividades — Classe de Guia (15 Anos • DSA)',
+    categoria: 'fichas',
+    link: 'https://drive.google.com/file/d/1pEBX-uB3WflwqstFYufDfm-b7MFf2-Dz/view',
+    descricao: 'Caderno Oficial de Atividades • Guia e Guia de Exploração (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 7,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Caderno de Atividades — Classes Agrupadas Completo (DSA)',
+    categoria: 'fichas',
+    link: 'https://drive.google.com/file/d/1QEceSyWA9SKFaQ6uXebUPH3z7deMM4bU/view',
+    descricao: 'Caderno Oficial Integrado das Classes Regulares e Avançadas • 314 Páginas (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 8,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Guia do Aspirante — Caderno de Atividades para Líder (DSA)',
+    categoria: 'fichas',
+    link: 'https://drive.google.com/file/d/1IpfUtmDqBtnCT4BaPr5xfzVjMR7mGIJ8/view',
+    descricao: 'Caderno Oficial de Requisitos e Registro da Classe de Líder de Desbravadores (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 9,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Fichas de Controle do Instrutor — Classes Amigo a Guia (DSA)',
+    categoria: 'fichas',
+    link: 'https://drive.google.com/file/d/1-qYUV6GM_kNjnKtjUJb6V3XB_MqvnMSO/view',
+    descricao: 'Guia Oficial "Como Trabalhar com as Classes Regulares e Avançadas" e Controle de Requisitos (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 10,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Caderno de Atividades — Abelhinhas Laboriosas (6 Anos • Aventureiros DSA)',
+    categoria: 'fichas',
+    link: 'https://ministerioaventureirosases.org/wp-content/uploads/2021/05/caderno-de-atividades-abelhinhas-laboriosas.pdf',
+    descricao: 'Caderno Oficial de Atividades • Classe de Abelhinhas Laboriosas (Ministério de Aventureiros DSA)',
+    icone: 'AVT'
+  },
+  {
+    id: 11,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Caderno de Atividades — Luminares (7 Anos • Aventureiros DSA)',
+    categoria: 'fichas',
+    link: 'https://ministerioaventureirosases.org/wp-content/uploads/2021/05/caderno-de-atividades-luminares.pdf',
+    descricao: 'Caderno Oficial de Atividades • Classe de Luminares (Ministério de Aventureiros DSA)',
+    icone: 'AVT'
+  },
+  {
+    id: 12,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Caderno de Atividades — Edificadores (8 Anos • Aventureiros DSA)',
+    categoria: 'fichas',
+    link: 'https://ministerioaventureirosases.org/wp-content/uploads/2021/05/caderno-de-atvididades-edificadores.pdf',
+    descricao: 'Caderno Oficial de Atividades • Classe de Edificadores (Ministério de Aventureiros DSA)',
+    icone: 'AVT'
+  },
+  {
+    id: 13,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Caderno de Atividades — Mãos Ajudadoras (9 Anos • Aventureiros DSA)',
+    categoria: 'fichas',
+    link: 'https://ministerioaventureirosases.org/wp-content/uploads/2021/05/caderno-de-atividades-maos-ajudadoras.pdf',
+    descricao: 'Caderno Oficial de Atividades • Classe de Mãos Ajudadoras (Ministério de Aventureiros DSA)',
+    icone: 'AVT'
+  },
+
+  // =========================================================================
+  // 2. FORMULÁRIOS (SECRETARIA, INSCRIÇÃO, SAÚDE, AUTORIZAÇÕES E UNIDADE - DSA)
+  // =========================================================================
+  {
+    id: 14,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Ficha Oficial de Inscrição / Cadastro de Desbravador (DSA)',
+    categoria: 'forms',
+    link: 'https://arquivosadventistas.org/arquivos/DESBRAVADORES/fichas/Ficha%20de%20Cadastro%20de%20Desbravador%20OFICIAL%20EM%20BRANCO-1.pdf',
+    descricao: 'Formulário Oficial de Matrícula Individual para Secretaria do Clube (DSA / SGC)',
+    icone: 'DBV'
+  },
+  {
+    id: 15,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Ficha Médica e de Saúde Oficial — Desbravadores e Aventureiros (DSA)',
+    categoria: 'forms',
+    link: 'https://ministerioaventureirosases.org/wp-content/uploads/2025/06/ficha-medica.pdf',
+    descricao: 'Histórico Médico, Alergias, Vacinas, Restrições, Tipo Sanguíneo e Contato de Emergência (DSA)',
+    icone: 'ALL'
+  },
+  {
+    id: 16,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Ficha Oficial de Inscrição da Diretoria (+16 Anos • DSA)',
+    categoria: 'forms',
+    link: 'https://ministerioaventureirosases.org/wp-content/uploads/2025/06/ficha-de-inscricao-diretoria.pdf',
+    descricao: 'Formulário Oficial de Cadastro de Membros da Diretoria, Conselheiros e Instrutores (DSA)',
+    icone: 'ALL'
+  },
+  {
+    id: 17,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Caderno Completo de Formulários da Secretaria do Clube (DSA)',
+    categoria: 'forms',
+    link: 'https://arquivosadventistas.org/arquivos/DESBRAVADORES/Secretaria_Modelo%20documentos%20diversos.pdf',
+    descricao: 'Pacote Oficial: Registro Individual, Ficha Financeira, Livro Caixa, Atas, Ofícios e Relatórios (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 18,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Autorização dos Pais para Acampamento e Passeio (ECA / DSA)',
+    categoria: 'forms',
+    link: 'https://drive.google.com/file/d/1lmVGgPf6rahZP69yZjuw01dRzrVjnmD0/view',
+    descricao: 'Termo Oficial de Autorização de Saída para Menores de Idade em Atividades Externas (DSA)',
+    icone: 'ALL'
+  },
+  {
+    id: 19,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Autorização para Viagens Interestaduais de Menores (Camporis • DSA)',
+    categoria: 'forms',
+    link: 'https://drive.google.com/file/d/1OvcnV7iu3ZxmEmXfoqmV1zcWCR44Ue4m/view',
+    descricao: 'Modelo Oficial conforme o Estatuto da Criança e do Adolescente (ECA) para Viagens e Camporis (DSA)',
+    icone: 'ALL'
+  },
+  {
+    id: 20,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Termo Oficial de Consentimento dos Pais e Uso de Imagem/Dados (LGPD • IASD)',
+    categoria: 'forms',
+    link: 'https://drive.google.com/file/d/1r3W6NUcZI5VOfp5m3edw1-24pmiNgshD/view',
+    descricao: 'Termo de Concessão de Consentimento e Proteção de Dados da Igreja Adventista (SGC / ACMS)',
+    icone: 'ALL'
+  },
+  {
+    id: 21,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Autorização e Avaliação para Cerimônia de Admissão em Lenço (DSA)',
+    categoria: 'forms',
+    link: 'https://drive.google.com/file/d/1zj90ikCL5k3yVYpvl9_nBP1c9wJGH3a_/view',
+    descricao: 'Ficha Oficial de Verificação dos Requisitos do Cartão de Admissão em Lenço (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 22,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Caderneta Oficial de Controle da Unidade — Cantinho da Unidade (DSA)',
+    categoria: 'forms',
+    link: 'https://drive.google.com/file/d/11Nm6yFbtqOndQEfovhAUnUJ8g5usH6_K/view',
+    descricao: 'Ficha de Chamada, Pontuação Semanal, Patrimônio e Relatório do Capitão e Secretário (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 23,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Ficha Oficial de Inspeção de Uniforme (RUD / DSA)',
+    categoria: 'forms',
+    link: 'https://drive.google.com/file/d/1dk7Kh-Y57v8yPz9_oKM5c6zSHiM0ZrWy/view',
+    descricao: 'Checklist Oficial de Avaliação do Uniforme de Gala e Uniforme de Atividades (DSA)',
+    icone: 'ALL'
+  },
+  {
+    id: 24,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Regulamento Interno e Código de Disciplina do Clube (DSA)',
+    categoria: 'forms',
+    link: 'https://drive.google.com/file/d/1ZZc4OVCpC_PhTGgJc7YJ-uxOBxZ6quCK/view',
+    descricao: 'Normas Oficiais de Conduta, Direitos, Deveres e Sistema de Mérito do Clube (DSA)',
+    icone: 'ALL'
+  },
+  {
+    id: 25,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Ficha de Inscrição e Autorização de Saída — Clube de Aventureiros (DSA)',
+    categoria: 'forms',
+    link: 'https://ministerioaventureirosases.org/wp-content/uploads/2025/06/ficha-de-inscricao.pdf',
+    descricao: 'Formulário Oficial de Matrícula Infantil e Rede Familiar (Ministério de Aventureiros DSA)',
+    icone: 'AVT'
+  },
+
+  // =========================================================================
+  // 3. CERTIFICADOS (INVESTIDURA DE CLASSES, ESPECIALIDADES, MESTRADOS E ANO BÍBLICO - DSA)
+  // =========================================================================
+  {
+    id: 26,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Certificado Oficial de Investidura de Classes (Desbravadores DSA)',
+    categoria: 'certificados',
+    link: 'https://drive.google.com/file/d/1A72o2_Z_Pzdk8cyhEOZV-Ys4Q8KtT3T1/view',
+    descricao: 'Certificado Oficial para Cerimônia de Investidura das Classes Regulares e Avançadas (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 27,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Certificado Oficial de Especialidades (Desbravadores DSA)',
+    categoria: 'certificados',
+    link: 'https://drive.google.com/file/d/1iv2F0ToWCEWTYWAJse3JRf_LOXQAARR4/view',
+    descricao: 'Certificado Oficial de Conclusão e Outorga de Especialidades (Ministério de Desbravadores DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 28,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Certificado Oficial de Mestrado em Especialidades (DSA)',
+    categoria: 'certificados',
+    link: 'https://drive.google.com/file/d/109Ihh35_azZJSd1-GC41ygJ9CQaH8fPx/view',
+    descricao: 'Certificado Oficial de Outorga de Insígnia de Mestrado (Ministério de Desbravadores DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 29,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Certificado Oficial de Conclusão do Ano Bíblico (DSA)',
+    categoria: 'certificados',
+    link: 'https://drive.google.com/file/d/1zbAFN0gmAaRak6paZe7mHrR9mheP2KBR/view',
+    descricao: 'Certificado Oficial de Leitura Completa do Ano Bíblico Juvenil/Jovem (DSA)',
+    icone: 'ALL'
+  },
+  {
+    id: 30,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Certificado Oficial — Classes Agrupadas Formato A4 (DSA)',
+    categoria: 'certificados',
+    link: 'https://drive.google.com/file/d/1XJJrgHtA_VcTYPvGT0i-OMhtHCgRTfG7/view',
+    descricao: 'Certificado Oficial para Investidura Integrada de Classes Agrupadas (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 31,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Certificado Individual — Classe Amigo / Amigo da Natureza (DSA)',
+    categoria: 'certificados',
+    link: 'https://drive.google.com/file/d/1aOQfT1GfVBvUUAOW9lNUQILSRUlHxNbW/view',
+    descricao: 'Certificado Oficial de Investidura para a Classe de 10 Anos (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 32,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Certificado Individual — Classe Companheiro (DSA)',
+    categoria: 'certificados',
+    link: 'https://drive.google.com/file/d/1uZxwadTPYmf3bcr6zdMlyIBs_Ng4t5Qf/view',
+    descricao: 'Certificado Oficial de Investidura para a Classe de 11 Anos (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 33,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Certificado Individual — Classe Pesquisador (DSA)',
+    categoria: 'certificados',
+    link: 'https://drive.google.com/file/d/1IR_d35Pzxgj60HhJeE_gYadQr_Q46l-P/view',
+    descricao: 'Certificado Oficial de Investidura para a Classe de 12 Anos (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 34,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Certificado Individual — Classe Pioneiro / Novas Fronteiras (DSA)',
+    categoria: 'certificados',
+    link: 'https://drive.google.com/file/d/160bQV6C9Z6ntbIPNTCYJag7bfIoZgHYQ/view',
+    descricao: 'Certificado Oficial de Investidura para a Classe de 13 Anos (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 35,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Certificado Individual — Classe Excursionista (DSA)',
+    categoria: 'certificados',
+    link: 'https://drive.google.com/file/d/1OqpC8acxGMNuVqlvCHni-UIgfCn3_X_Y/view',
+    descricao: 'Certificado Oficial de Investidura para a Classe de 14 Anos (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 36,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Certificado Individual — Classe Guia (DSA)',
+    categoria: 'certificados',
+    link: 'https://drive.google.com/file/d/1RSfW_9232pkX5RI0WUp8fS_rUUYvGA1K/view',
+    descricao: 'Certificado Oficial de Investidura para a Classe de 15 Anos (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 37,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Pacote de Certificados Oficiais — Classes de Aventureiros (DSA)',
+    categoria: 'certificados',
+    link: 'https://arquivosadventistas.org/arquivos/Aventureiros/certificados%20aventureiros.pdf',
+    descricao: 'Abelhinhas Laboriosas, Luminares, Edificadores e Mãos Ajudadoras (Ministério de Aventureiros DSA)',
+    icone: 'AVT'
+  },
+  {
+    id: 38,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Certificado Oficial de Especialidades — Clube de Aventureiros (DSA)',
+    categoria: 'certificados',
+    link: 'https://ministerioaventureirosases.org/wp-content/uploads/2023/03/certificado-especialidades-av.pdf',
+    descricao: 'Certificado Oficial de Conclusão de Especialidades Infantis (Ministério de Aventureiros DSA)',
+    icone: 'AVT'
+  },
+
+  // =========================================================================
+  // 4. MATERIAIS GRÁFICOS (IDENTIDADE VISUAL, REGULAMENTOS, FOLDERS E EMBLEMAS - DSA)
+  // =========================================================================
+  {
+    id: 39,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Regulamento Oficial de Uniformes e Identidade Visual MDA (DSA)',
+    categoria: 'graficos',
+    link: 'https://drive.google.com/file/d/1WZpUbi4R2yAsMJJO0w_G4aOBdDkMMr-6/view',
+    descricao: 'Padrões Gráficos Oficiais dos Emblemas D1–D5 e A1–A5, Insígnias, Tiras e Uniformes (DSA)',
+    icone: 'ALL'
+  },
+  {
+    id: 40,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Manual Gráfico Oficial de Bandeiras, Bandeirins de Unidade e Mastros (DSA)',
+    categoria: 'graficos',
+    link: 'https://drive.google.com/file/d/1PpinqGUX6TJUZLVuyaxUgj6-Ycjc9GSo/view',
+    descricao: 'Medidas Exatas, Proporções, Cores e Diagramação da Bandeira Oficial e Bandeirim de Unidade (DSA)',
+    icone: 'ALL'
+  },
+  {
+    id: 41,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Apostila Visual de Emblemas Oficiais, Símbolos e Ideais (DSA)',
+    categoria: 'graficos',
+    link: 'https://drive.google.com/file/d/18cFv_Bw0-xzfWMR-TOAl8hd5o4475sR4/view',
+    descricao: 'Guia Gráfico Ilustrado dos Emblemas Oficiais e Simbologia do Clube (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 42,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'OMA 006 — Manual Oficial de Identidade Visual e Emblemas A1 a A5 (Aventureiros DSA)',
+    categoria: 'graficos',
+    link: 'https://ministerioaventureirosases.org/wp-content/uploads/2023/03/oma_006_2017_novo_logo.pdf',
+    descricao: 'Orientação Oficial do Ministério de Aventureiros sobre Uso da Marca, Cores e Emblemas A1–A5 (DSA)',
+    icone: 'AVT'
+  },
+  {
+    id: 43,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Folders Gráficos Explicativos das Classes — Amigo a Guia e Líder Master (DSA)',
+    categoria: 'graficos',
+    link: 'https://drive.google.com/file/d/1MoPqCLJybRtmgd0TdH29VX9eZbCpSapj/view',
+    descricao: 'Material Gráfico Oficial de Apresentação Visual dos Requisitos e Insígnias das Classes (DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 44,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Cartão Gráfico Oficial de Avaliação — Conselheiro Excelente (DSA)',
+    categoria: 'graficos',
+    link: 'https://drive.google.com/file/d/1tQLp_kBTjcnJr8gOJwI3agDNqtjqighm/view',
+    descricao: 'Arte Oficial e Guia de Metas para Conselheiros de Unidade (Ministério de Desbravadores DSA)',
+    icone: 'DBV'
+  },
+  {
+    id: 45,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Guia e Identidade Visual Oficial — Dia Mundial dos Aventureiros 2026 (DSA)',
+    categoria: 'graficos',
+    link: 'https://ministerioaventureirosases.org/wp-content/uploads/2026/02/dia-mundial-avt-2026.pdf',
+    descricao: 'Material Gráfico, Sermão e Diretrizes Visuais para o Dia Mundial dos Aventureiros (DSA)',
+    icone: 'AVT'
+  },
+  {
+    id: 46,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Pacote Oficial de Logotipos e Emblemas Abertos — Desbravadores (CorelDRAW .CDR / .EPS / .AI • IASD)',
+    categoria: 'graficos',
+    link: 'https://downloads.adventistas.org/pt/desbravadores/logomarcas/logos-abertos-desbravadores/',
+    descricao: 'Arquivo Oficial IASD contendo todos os Emblemas (D1, D2, D3, D4, L1–L4) nos formatos CorelDRAW (.CDR), Illustrator (.AI), .EPS e .JPG',
+    icone: 'DBV'
+  },
+  {
+    id: 47,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Pacote Oficial de Logotipos e Emblemas Abertos — Aventureiros A1 a A4, Bandeiras e Lenços (CorelDRAW • IASD)',
+    categoria: 'graficos',
+    link: 'https://downloads.adventistas.org/pt/aventureiros/logomarcas/logos-aberto-aventureiros/',
+    descricao: 'Arquivo Oficial IASD com as artes dos Emblemas A1, A2, A3, A4, Bandeiras, Lenços e Prendedores compatíveis com CorelDRAW e Illustrator',
+    icone: 'AVT'
+  },
+  {
+    id: 48,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Kit Completo de Identidade Visual e Emblemas em Curvas — Ministério de Desbravadores (IASD / DSA)',
+    categoria: 'graficos',
+    link: 'https://downloads.adventistas.org/pt/kits/identidade-visual-do-ministerio-de-desbravadores/',
+    descricao: 'Kit Oficial do Portal Adventistas.org com Emblemas Vetoriais, Tipografia, Cores CMYK/Pantone e Aplicações em CorelDRAW',
+    icone: 'DBV'
+  },
+  {
+    id: 49,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Emblema Oficial Clube de Aventureiros A1 — Arquivo Direto CorelDRAW (.CDR)',
+    categoria: 'graficos',
+    link: 'https://wp.logos-download.com/wp-content/uploads/2022/01/Clube_de_Aventureiros_Logo.cdr?dl',
+    descricao: 'Download Direto do Emblema Oficial do Clube de Aventureiros em Formato Nativo CorelDRAW (.CDR em Curvas)',
+    icone: 'AVT'
+  },
+  {
+    id: 50,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Emblema Oficial D1 — Clube de Desbravadores (Vetor em Curvas .SVG p/ CorelDRAW • DSA)',
+    categoria: 'graficos',
+    link: 'https://mda.wiki.br/site/@imgs_wiki/imagem@emblema_d1.svg',
+    descricao: 'Arquivo Vetorial Oficial em Curvas (.SVG importável diretamente no CorelDRAW sem perda de qualidade)',
+    icone: 'DBV'
+  },
+  {
+    id: 51,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Emblema Oficial A1 — Clube de Aventureiros (Vetor em Curvas .SVG p/ CorelDRAW • DSA)',
+    categoria: 'graficos',
+    link: 'https://mda.wiki.br/site/@imgs_wiki/imagem@emblema_a1.svg',
+    descricao: 'Arquivo Vetorial Oficial em Curvas (.SVG importável diretamente no CorelDRAW sem perda de qualidade)',
+    icone: 'AVT'
+  },
+  {
+    id: 52,
+    created_at: '2026-10-04T00:00:00Z',
+    titulo: 'Central de Logomarcas Oficiais do Ministério de Aventureiros — Portal IASD (CorelDRAW / Vetor)',
+    categoria: 'graficos',
+    link: 'https://downloads.adventistas.org/pt/aventureiros/logomarcas/logos-do-ministerio-de-aventureiros/',
+    descricao: 'Acervo Oficial de Logomarcas e Emblemas Vetoriais no Portal de Downloads da IASD (adventistas.org)',
+    icone: 'AVT'
+  }
+];
+
 export async function fetchFormularios(): Promise<Formulario[]> {
   try {
     const { data, error } = await supabase.from('Formularios').select('*').order('id', { ascending: true });
-    if (error) return [];
-    return data || [];
+    if (error || !data || data.length === 0) {
+      return DEFAULT_FORMULARIOS;
+    }
+    const existingLinks = new Set(data.map((item: Formulario) => (item.link || '').trim()));
+    const merged = [
+      ...data,
+      ...DEFAULT_FORMULARIOS.filter((d) => !existingLinks.has(d.link.trim()))
+    ];
+    return merged;
   } catch {
-    return [];
+    return DEFAULT_FORMULARIOS;
   }
 }
 

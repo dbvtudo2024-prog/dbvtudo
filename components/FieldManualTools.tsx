@@ -1013,269 +1013,317 @@ const LIBRAS_EXPRESSIONS: LibrasExpressionItem[] = [
   }
 ];
 
-// Sinais de Pista Oficiais para Trilhas (26 Sinais Completos divididos em 4 Categorias)
-type TrailSignCategory = 'TODOS' | 'DIRECAO' | 'PERIGO' | 'ACAMPAMENTO' | 'MENSAGENS';
+// Sinais de Pista Oficiais para Trilhas (19 Sinais da Tabela Oficial Imagem 1 + 10 Sinais Clássicos Verificados)
+type TrailSignCategory = 'TODOS' | 'DIRECAO' | 'PERIGO' | 'ACAMPAMENTO' | 'MENSAGENS' | 'NATURAIS';
 
 interface TrailSignItem {
   id: string;
   name: string;
   category: Exclude<TrailSignCategory, 'TODOS'>;
   categoryLabel: string;
+  sourceBadge: string;
   howToMake: string;
   description: string;
   svgType: string;
 }
 
 const TRAIL_SIGNS: TrailSignItem[] = [
-  // 1. DIREÇÃO E NAVEGAÇÃO
+  // =========================================================================
+  // 19 SINAIS OFICIAIS DA TABELA DE SINAIS DE PISTA (IMAGEM 1)
+  // =========================================================================
   {
-    id: 'ts_start',
-    name: 'Início de Pista (Ponto de Partida)',
+    id: 'ts_img1_1',
+    name: 'Começo do Jogo / Início de Pista',
     category: 'DIRECAO',
-    categoryLabel: 'Direção & Trilha',
-    howToMake: 'Seta com traço transversal na base ou círculo com seta saindo dele',
-    description: 'Marca o local exato onde começa a trilha sinalizada para a unidade.',
+    categoryLabel: 'Direção & Navegação',
+    sourceBadge: 'Tabela Oficial • Sinal 1',
+    howToMake: 'Círculo no chão atravessado horizontalmente por uma seta longa apontando na direção inicial',
+    description: 'Marca o ponto exato de partida do jogo de pista ou trilha orientada.',
     svgType: 'START_TRAIL'
   },
   {
-    id: 'ts_1',
-    name: 'Seguir em Frente (Caminho Certo)',
+    id: 'ts_img1_2',
+    name: 'Siga Nesta Direção (Caminho a Seguir)',
     category: 'DIRECAO',
-    categoryLabel: 'Direção & Trilha',
-    howToMake: 'Seta de gravetos/pedras apontando reto ou tufo de capim amarrado com a ponta para frente',
-    description: 'Continue caminhando na mesma direção principal da trilha.',
-    svgType: 'ARROW_UP'
+    categoryLabel: 'Direção & Navegação',
+    sourceBadge: 'Tabela Oficial • Sinal 2',
+    howToMake: 'Seta reta feita com gravetos, pedras ou risco firme no solo apontando o rumo',
+    description: 'Indica a direção correta que a unidade deve seguir a partir daquele ponto.',
+    svgType: 'FOLLOW_DIRECTION'
   },
   {
-    id: 'ts_2',
-    name: 'Virar à Direita',
+    id: 'ts_img1_3',
+    name: 'Volte ao Ponto de Partida (Retornar)',
     category: 'DIRECAO',
-    categoryLabel: 'Direção & Trilha',
-    howToMake: 'Seta dobrada para a direita, pedra menor à direita de uma maior ou capim amarrado inclinado à direita',
-    description: 'Tome o desvio ou trilha que entra para o lado direito.',
-    svgType: 'ARROW_RIGHT'
+    categoryLabel: 'Direção & Navegação',
+    sourceBadge: 'Tabela Oficial • Sinal 3',
+    howToMake: 'Seta apontando para trás com dois traços verticais paralelos na extremidade da haste',
+    description: 'Ordem para dar meia-volta e regressar ao ponto inicial da pista.',
+    svgType: 'RETURN_START'
   },
   {
-    id: 'ts_3',
-    name: 'Virar à Esquerda',
+    id: 'ts_img1_4',
+    name: 'Diminuir a Marcha (Andar Devagar)',
     category: 'DIRECAO',
-    categoryLabel: 'Direção & Trilha',
-    howToMake: 'Seta dobrada para a esquerda, pedra menor à esquerda de uma maior ou capim amarrado inclinado à esquerda',
-    description: 'Tome o desvio ou trilha que entra para o lado esquerdo.',
-    svgType: 'ARROW_LEFT'
+    categoryLabel: 'Direção & Navegação',
+    sourceBadge: 'Tabela Oficial • Sinal 4',
+    howToMake: 'Haste reta terminando em uma ponta triangular fechada (cabeça de seta em triângulo)',
+    description: 'Reduza o ritmo da caminhada; trecho que exige cautela ou observação atenta.',
+    svgType: 'SLOW_PACE'
   },
   {
-    id: 'ts_fast',
-    name: 'Passo Acelerado / Seguir Rápido (Correr)',
+    id: 'ts_img1_5',
+    name: 'Apressar o Passo (Passo Acelerado)',
     category: 'DIRECAO',
-    categoryLabel: 'Direção & Trilha',
-    howToMake: 'Seta com ponta dupla (duas cabeças de seta seguidas)',
-    description: 'A unidade deve apertar o passo ou trotar até o próximo sinal.',
-    svgType: 'ARROW_DOUBLE'
+    categoryLabel: 'Direção & Navegação',
+    sourceBadge: 'Tabela Oficial • Sinal 5',
+    howToMake: 'Seta formada por duas linhas paralelas (haste dupla) unidas na ponta da seta',
+    description: 'Aperte o passo ou trote até alcançar o próximo sinal da trilha.',
+    svgType: 'FAST_PACE'
   },
   {
-    id: 'ts_slow',
-    name: 'Andar Devagar / Cuidado no Passo',
-    category: 'DIRECAO',
-    categoryLabel: 'Direção & Trilha',
-    howToMake: 'Seta cortada por duas pequenas barras transversais no corpo',
-    description: 'Reduza a velocidade da caminhada; trecho íngreme ou de atenção.',
-    svgType: 'ARROW_BARS'
-  },
-  {
-    id: 'ts_return',
-    name: 'Retornar / Voltar pelo Mesmo Caminho',
-    category: 'DIRECAO',
-    categoryLabel: 'Direção & Trilha',
-    howToMake: 'Seta fazendo curva de 180° em formato de "U" para trás',
-    description: 'Meia-volta: retorne imediatamente pelo caminho de onde veio.',
-    svgType: 'ARROW_UTURN'
-  },
-  {
-    id: 'ts_fork',
-    name: 'Bifurcação: Siga pelo Ramo Indicado',
-    category: 'DIRECAO',
-    categoryLabel: 'Direção & Trilha',
-    howToMake: 'Forquilha em "Y" com seta num braço e "X" bloqueando o outro',
-    description: 'Na divisão da trilha, escolha o lado com a seta e ignore o lado com X.',
-    svgType: 'FORK_RIGHT'
-  },
-  {
-    id: 'ts_over',
-    name: 'Transpor / Passar por Cima do Obstáculo',
-    category: 'DIRECAO',
-    categoryLabel: 'Direção & Trilha',
-    howToMake: 'Linha com arco passando por cima de um bloco/tronco e ponta de seta',
-    description: 'Suba ou pule por cima do tronco caído, cerca ou rocha à frente.',
-    svgType: 'OVER_OBSTACLE'
-  },
-
-  // 2. AVISOS, PERIGOS E OBSTÁCULOS
-  {
-    id: 'ts_4',
-    name: 'Caminho Errado / Não Siga por Aqui',
+    id: 'ts_img1_6',
+    name: 'Caminho a Evitar (Caminho Errado)',
     category: 'PERIGO',
-    categoryLabel: 'Perigo & Avisos',
-    howToMake: 'Dois gravetos cruzados em "X" no meio da entrada ou três tufos de capim amarrados lado a lado',
-    description: 'Entrada bloqueada ou trilha falsa. Nunca ultrapasse um X na trilha.',
+    categoryLabel: 'Perigo & Obstáculos',
+    sourceBadge: 'Tabela Oficial • Sinal 6',
+    howToMake: 'Dois gravetos ou riscos cruzados em formato de "X" na entrada do atalho ou cruzamento',
+    description: 'Trilha bloqueada ou caminho incorreto. Obrigatório usar nos cruzamentos nas vias que não devem ser seguidas.',
     svgType: 'CROSS_X'
   },
   {
-    id: 'ts_5',
-    name: 'Perigo Geral / Atenção Redobrada!',
+    id: 'ts_img1_7',
+    name: 'Objeto ou Mensagem Escondida a 3 Passos',
+    category: 'MENSAGENS',
+    categoryLabel: 'Mensagens & Equipe',
+    sourceBadge: 'Tabela Oficial • Sinal 7',
+    howToMake: 'Quadrado com o número de passos dentro (ex.: 3) e uma seta saindo da lateral indicando a direção',
+    description: 'Há um objeto ou mensagem oculta a "N" passos (ex.: 3 passos) na direção apontada pela seta.',
+    svgType: 'MESSAGE'
+  },
+  {
+    id: 'ts_img1_8',
+    name: 'Obstáculo a Transpor (Passar por Cima)',
     category: 'PERIGO',
-    categoryLabel: 'Perigo & Avisos',
-    howToMake: 'Triângulo de três gravetos com uma pedra/ponto no centro ou 3 pedras empilhadas',
-    description: 'Alerta de perigo próximo (barranco, buraco, vespeiro ou animal peçonhento).',
+    categoryLabel: 'Perigo & Obstáculos',
+    sourceBadge: 'Tabela Oficial • Sinal 8',
+    howToMake: 'Linha que sobe em rampa, segue reta no topo com ponta de seta e possui um traço vertical sob a rampa',
+    description: 'Indica que a unidade deve subir ou transpor o obstáculo à frente (tronco, barranco, cerca ou rocha).',
+    svgType: 'OVER_OBSTACLE'
+  },
+  {
+    id: 'ts_img1_9',
+    name: 'Perigo (Atenção Redobrada)',
+    category: 'PERIGO',
+    categoryLabel: 'Perigo & Obstáculos',
+    sourceBadge: 'Tabela Oficial • Sinal 9',
+    howToMake: 'Triângulo equilátero feito com três gravetos ou riscado de forma bem visível no chão',
+    description: 'Alerta de perigo próximo na trilha (precipício, buraco, animais peçonhentos, vespeiro ou terreno instável).',
     svgType: 'TRIANGLE'
   },
   {
-    id: 'ts_dog',
-    name: 'Animal Bravio / Cão Feroz ou Gado Solto',
-    category: 'PERIGO',
-    categoryLabel: 'Perigo & Avisos',
-    howToMake: 'Triângulo com dois traços externos ou inscrição de alerta com pedras',
-    description: 'Cuidado com cães de guarda ou animais soltos na propriedade.',
-    svgType: 'DANGER_ANIMAL'
+    id: 'ts_img1_10',
+    name: 'Dividir o Grupo (Bifurcação da Equipe)',
+    category: 'MENSAGENS',
+    categoryLabel: 'Mensagens & Equipe',
+    sourceBadge: 'Tabela Oficial • Sinal 10',
+    howToMake: 'Haste horizontal única que se bifurca em duas setas diagonais (uma para cima e outra para baixo)',
+    description: 'O grupo deve se dividir em duas equipes seguindo as duas direções indicadas.',
+    svgType: 'SPLIT_GROUP'
   },
   {
-    id: 'ts_bridge',
-    name: 'Ponte Ruim ou Passagem Frágil',
+    id: 'ts_img1_11',
+    name: 'Virar à Direita',
+    category: 'DIRECAO',
+    categoryLabel: 'Direção & Navegação',
+    sourceBadge: 'Tabela Oficial • Sinal 11',
+    howToMake: 'Haste vertical que dobra em ângulo de 90° apontando a seta para o lado direito',
+    description: 'Pegue a trilha ou acesso que dobra imediatamente para a direita.',
+    svgType: 'ARROW_RIGHT'
+  },
+  {
+    id: 'ts_img1_12',
+    name: 'Virar à Esquerda',
+    category: 'DIRECAO',
+    categoryLabel: 'Direção & Navegação',
+    sourceBadge: 'Tabela Oficial • Sinal 12',
+    howToMake: 'Haste vertical que dobra em ângulo de 90° apontando a seta para o lado esquerdo',
+    description: 'Pegue a trilha ou acesso que dobra imediatamente para a esquerda.',
+    svgType: 'ARROW_LEFT'
+  },
+  {
+    id: 'ts_img1_13',
+    name: 'Seguir em Frente',
+    category: 'DIRECAO',
+    categoryLabel: 'Direção & Navegação',
+    sourceBadge: 'Tabela Oficial • Sinal 13',
+    howToMake: 'Seta vertical apontando diretamente para a frente da trilha',
+    description: 'Continue caminhando reto na direção principal da trilha.',
+    svgType: 'ARROW_UP'
+  },
+  {
+    id: 'ts_img1_14',
+    name: 'Reunir o Grupo (Ponto de Encontro)',
+    category: 'MENSAGENS',
+    categoryLabel: 'Mensagens & Equipe',
+    sourceBadge: 'Tabela Oficial • Sinal 14',
+    howToMake: 'Pequeno círculo central rodeado por quatro setas (cima, baixo, esquerda e direita) apontando para ele',
+    description: 'Toda a unidade ou patrulha deve se reunir e agrupar neste local antes de prosseguir.',
+    svgType: 'REUNION'
+  },
+  {
+    id: 'ts_img1_15',
+    name: 'Acampamento Nessa Direção',
+    category: 'ACAMPAMENTO',
+    categoryLabel: 'Água & Acampamento',
+    sourceBadge: 'Tabela Oficial • Sinal 15',
+    howToMake: 'Triângulo em formato de barraca com bandeirola no topo e uma seta indicando a direção',
+    description: 'Indica o rumo exato onde está montado o acampamento do clube ou unidade.',
+    svgType: 'CAMP'
+  },
+  {
+    id: 'ts_img1_16',
+    name: 'Siga Rapidamente (Urgência)',
+    category: 'DIRECAO',
+    categoryLabel: 'Direção & Navegação',
+    sourceBadge: 'Tabela Oficial • Sinal 16',
+    howToMake: 'Semicírculo fechado em formato de arco ("D") na base com uma seta longa saindo para a frente',
+    description: 'Avance imediatamente com rapidez na direção indicada pela seta.',
+    svgType: 'FOLLOW_QUICKLY'
+  },
+  {
+    id: 'ts_img1_17',
+    name: 'Grupo Dividido: 2 para um Lado e 3 para o Outro',
+    category: 'MENSAGENS',
+    categoryLabel: 'Mensagens & Equipe',
+    sourceBadge: 'Tabela Oficial • Sinal 17',
+    howToMake: 'Seta bifurcada com 2 traços transversais no ramo superior e 3 traços transversais no ramo inferior',
+    description: 'Indica quantos integrantes seguiram para cada lado (2 membros por um caminho e 3 pelo outro).',
+    svgType: 'SPLIT_2_AND_3'
+  },
+  {
+    id: 'ts_img1_18',
+    name: 'Água Potável (Boa para Beber)',
+    category: 'ACAMPAMENTO',
+    categoryLabel: 'Água & Acampamento',
+    sourceBadge: 'Tabela Oficial • Sinal 18',
+    howToMake: 'Duas linhas onduladas paralelas horizontais imitando ondas de água',
+    description: 'Fonte ou nascente de água limpa e segura para consumo da unidade.',
+    svgType: 'WATER_GOOD'
+  },
+  {
+    id: 'ts_img1_19',
+    name: 'Água Não Potável (Imprópria para Consumo)',
+    category: 'ACAMPAMENTO',
+    categoryLabel: 'Água & Acampamento',
+    sourceBadge: 'Tabela Oficial • Sinal 19',
+    howToMake: 'Duas linhas onduladas paralelas cortadas ao centro por um grande "X"',
+    description: 'Água contaminada ou salobra: proibido beber sem purificação/fervura.',
+    svgType: 'WATER_BAD'
+  },
+
+  // =========================================================================
+  // SINAIS ADICIONAIS VERIFICADOS DOS MANUAIS MDA / ESCOTISMO (UEB)
+  // =========================================================================
+  {
+    id: 'ts_end_trail',
+    name: 'Fim de Pista / Missão Cumprida ("Voltei para Casa")',
+    category: 'MENSAGENS',
+    categoryLabel: 'Mensagens & Equipe',
+    sourceBadge: 'Manual MDA & Escotismo (Baden-Powell)',
+    howToMake: 'Círculo de pedras ou risco circular com um ponto/pedra bem no centro (⊙)',
+    description: 'Sinal internacional escoteiro e desbravador que encerra oficialmente a trilha de sinais.',
+    svgType: 'END_TRAIL'
+  },
+  {
+    id: 'ts_wait',
+    name: 'Esperar Aqui por "N" Minutos (Ex.: 10 min)',
+    category: 'MENSAGENS',
+    categoryLabel: 'Mensagens & Equipe',
+    sourceBadge: 'Manual de Especialidades MDA',
+    howToMake: 'Retângulo (ou dois quadrados concêntricos) com o número de minutos de espera escrito dentro',
+    description: 'A unidade deve aguardar parada neste ponto pelo tempo determinado antes de abrir a próxima pista.',
+    svgType: 'WAIT_HERE'
+  },
+  {
+    id: 'ts_good_bridge',
+    name: 'Ponte Boa / Passagem Segura',
+    category: 'ACAMPAMENTO',
+    categoryLabel: 'Água & Acampamento',
+    sourceBadge: 'Manual de Pioneiria & Trilha',
+    howToMake: 'Duas barras paralelas horizontais abertas nas pontas representando as bordas firmes da ponte',
+    description: 'Indica que a ponte, pinguela ou travessia de riacho à frente é firme e segura.',
+    svgType: 'GOOD_BRIDGE'
+  },
+  {
+    id: 'ts_bad_bridge',
+    name: 'Ponte Ruim / Travessia Perigosa ou Quebrada',
     category: 'PERIGO',
-    categoryLabel: 'Perigo & Avisos',
-    howToMake: 'Duas linhas paralelas quebradas ao meio com sinal de X',
-    description: 'Pinguela ou ponte de madeira podre/instável; atravesse um por vez ou contorne.',
+    categoryLabel: 'Perigo & Obstáculos',
+    sourceBadge: 'Manual de Pioneiria & Trilha',
+    howToMake: 'Duas barras paralelas horizontais interrompidas ao meio por um "X"',
+    description: 'Ponte podre, quebrada ou submersa; não atravesse sobre ela — procure vau seguro.',
     svgType: 'BAD_BRIDGE'
   },
   {
     id: 'ts_hide',
-    name: 'Esconder-se / Camuflar-se Agora',
+    name: 'Esconder-se / Abrigar-se Próximo Daqui',
     category: 'PERIGO',
-    categoryLabel: 'Perigo & Avisos',
-    howToMake: 'Três traços verticais cobertos por um arco superior (sombra/cobertura)',
-    description: 'Abaixe-se e fique oculto na vegetação sem fazer barulho.',
+    categoryLabel: 'Perigo & Obstáculos',
+    sourceBadge: 'Jogos Noturnos & Campo MDA',
+    howToMake: 'Três traços verticais protegidos por um arco curvo superior (cobertura)',
+    description: 'A unidade deve se ocultar na vegetação ou buscar abrigo imediato.',
     svgType: 'HIDE_COVER'
   },
   {
-    id: 'ts_silence',
-    name: 'Silêncio Absoluto na Trilha',
-    category: 'PERIGO',
-    categoryLabel: 'Perigo & Avisos',
-    howToMake: 'Círculo atravessado por uma haste vertical no centro',
-    description: 'Proibido conversar ou fazer ruído a partir deste ponto.',
-    svgType: 'SILENCE'
-  },
-
-  // 3. ÁGUA, ACAMPAMENTO E RECURSOS
-  {
-    id: 'ts_6',
-    name: 'Água Potável (Boa para Beber)',
-    category: 'ACAMPAMENTO',
-    categoryLabel: 'Água & Acampamento',
-    howToMake: 'Duas ou três linhas onduladas dentro de um círculo ou com seta indicando a fonte',
-    description: 'Fonte ou nascente de água limpa e própria para consumo.',
-    svgType: 'WATER_GOOD'
-  },
-  {
-    id: 'ts_7',
-    name: 'Água NÃO Potável (Imprópria / Contaminada)',
-    category: 'ACAMPAMENTO',
-    categoryLabel: 'Água & Acampamento',
-    howToMake: 'Linhas onduladas cortadas por um "X" ou traço diagonal',
-    description: 'Proibido beber desta água sem filtragem e fervura/cloração.',
-    svgType: 'WATER_BAD'
-  },
-  {
-    id: 'ts_8',
-    name: 'Acampamento Nesta Direção',
-    category: 'ACAMPAMENTO',
-    categoryLabel: 'Água & Acampamento',
-    howToMake: 'Triângulo aberto na base (formato de barraca) com uma seta lateral',
-    description: 'Indica a direção exata onde está montado o acampamento da unidade/clube.',
-    svgType: 'CAMP'
-  },
-  {
-    id: 'ts_good_camp',
-    name: 'Bom Local para Acampar',
-    category: 'ACAMPAMENTO',
-    categoryLabel: 'Água & Acampamento',
-    howToMake: 'Desenho de barraca com base dupla firme e sinal positivo',
-    description: 'Área plana, segura, drenada e autorizada para montar as barracas.',
-    svgType: 'CAMP_GOOD'
-  },
-  {
-    id: 'ts_fire_ok',
-    name: 'Local Permitido para Fogueira / Cozinha',
-    category: 'ACAMPAMENTO',
-    categoryLabel: 'Água & Acampamento',
-    howToMake: 'Círculo de pedras com três pequenos gravetos convergente no centro',
-    description: 'Ponto limpo e seguro autorizado para o fogo de conselho ou cozinha.',
-    svgType: 'FIRE_OK'
-  },
-  {
-    id: 'ts_fire_no',
-    name: 'Proibido Acender Fogo (Risco de Incêndio)',
-    category: 'ACAMPAMENTO',
-    categoryLabel: 'Água & Acampamento',
-    howToMake: 'Desenho de chama/lenha cortado por um X ou diagonal',
-    description: 'Vegetação seca ou área de preservação: não acenda fogo nem fogareiro.',
-    svgType: 'FIRE_NO'
-  },
-
-  // 4. MENSAGENS, TEMPO E REAGRUPAMENTO
-  {
-    id: 'ts_9',
-    name: 'Mensagem Escondida a "N" Passos',
-    category: 'MENSAGENS',
-    categoryLabel: 'Mensagens & Equipe',
-    howToMake: 'Quadrado no chão com um número no centro e uma seta indicando a direção',
-    description: 'Caminhe o número de passos indicado na direção da seta para achar o bilhete oculto.',
-    svgType: 'MESSAGE'
-  },
-  {
-    id: 'ts_wait',
-    name: 'Esperar Aqui por "N" Minutos',
-    category: 'MENSAGENS',
-    categoryLabel: 'Mensagens & Equipe',
-    howToMake: 'Retângulo horizontal com barra lateral e número (ex.: 5 ou 10)',
-    description: 'A unidade deve aguardar parada neste local pelo tempo indicado.',
-    svgType: 'WAIT_HERE'
-  },
-  {
-    id: 'ts_reunion',
-    name: 'Reunir Toda a Unidade (Ponto de Encontro)',
-    category: 'MENSAGENS',
-    categoryLabel: 'Mensagens & Equipe',
-    howToMake: 'Círculo com quatro pequenas setas apontando para o centro',
-    description: 'Ninguém avança sozinho: aguarde até que todos os membros estejam reunidos.',
-    svgType: 'REUNION'
-  },
-  {
-    id: 'ts_split',
-    name: 'Dividir o Grupo em Duas Equipes',
-    category: 'MENSAGENS',
-    categoryLabel: 'Mensagens & Equipe',
-    howToMake: 'Haste única que se divide em duas setas opostas (metade para cada lado)',
-    description: 'Metade da unidade segue pela esquerda e metade pela direita.',
-    svgType: 'SPLIT_GROUP'
-  },
-  {
     id: 'ts_sos',
-    name: 'Pedido de Socorro / Emergência (S.O.S.)',
-    category: 'MENSAGENS',
-    categoryLabel: 'Mensagens & Equipe',
-    howToMake: 'Três sinais iguais alinhados (3 pilhas de pedras, 3 fogueiras ou 3 traços com "SOS")',
-    description: 'Sinal universal de emergência: qualquer grupo que avistar deve prestar socorro imediato.',
+    name: 'Pedido de Socorro Universal (S.O.S. — 3 Sinais Iguais)',
+    category: 'PERIGO',
+    categoryLabel: 'Perigo & Obstáculos',
+    sourceBadge: 'Código Internacional de Resgate',
+    howToMake: 'Três pilhas de pedras, três traços paralelos ou três silvos de apito alinhados',
+    description: 'Qualquer sinal repetido 3 vezes na natureza indica pedido oficial de socorro imediato.',
     svgType: 'SOS_SIGNAL'
   },
   {
-    id: 'ts_10',
-    name: 'Missão Cumprida / Fim de Pista (Chegada)',
-    category: 'MENSAGENS',
-    categoryLabel: 'Mensagens & Equipe',
-    howToMake: 'Dois círculos concêntricos (ou círculo de pedras com uma pedra maior no centro)',
-    description: 'Sinal internacional escoteiro de "Fim da Trilha / Chegamos ao Destino".',
-    svgType: 'END_TRAIL'
+    id: 'ts_grass_dir',
+    name: 'Sinal Natural em Capim: Seguir nesta Direção',
+    category: 'NATURAIS',
+    categoryLabel: 'Sinais Naturais (Pedra & Capim)',
+    sourceBadge: 'Classes Regulares DSA / MDA Wiki',
+    howToMake: 'Um tufo de capim vivo amarrado no topo com a ponta inclinada apontando para o caminho certo',
+    description: 'Usado em campos e pastagens onde não há gravetos soltos; a inclinação do feixe indica o rumo.',
+    svgType: 'GRASS_DIRECTION'
+  },
+  {
+    id: 'ts_grass_danger',
+    name: 'Sinal Natural em Capim: Perigo ou Caminho Errado (3 Tufos)',
+    category: 'NATURAIS',
+    categoryLabel: 'Sinais Naturais (Pedra & Capim)',
+    sourceBadge: 'Classes Regulares DSA / MDA Wiki',
+    howToMake: 'Três tufos de capim amarrados lado a lado em fileira',
+    description: 'Três feixes de capim amarrados significam alerta de perigo ou bloqueio da trilha.',
+    svgType: 'GRASS_DANGER'
+  },
+  {
+    id: 'ts_stone_dir',
+    name: 'Sinal Natural com Pedras: Seguir na Direção da Pedra Menor',
+    category: 'NATURAIS',
+    categoryLabel: 'Sinais Naturais (Pedra & Capim)',
+    sourceBadge: 'Classes Regulares DSA / MDA Wiki',
+    howToMake: 'Uma pedra menor apoiada sobre uma pedra maior, e outra pedrinha no chão indicando o lado a seguir',
+    description: 'Muito usado em leitos secos de rios e lajes rochosas onde não é possível riscar o solo.',
+    svgType: 'STONE_DIRECTION'
+  },
+  {
+    id: 'ts_stone_danger',
+    name: 'Sinal Natural com Pedras: Perigo / Alerta (3 Pedras Empilhadas)',
+    category: 'NATURAIS',
+    categoryLabel: 'Sinais Naturais (Pedra & Capim)',
+    sourceBadge: 'Classes Regulares DSA / MDA Wiki',
+    howToMake: 'Três pedras empilhadas verticalmente em torre (uma sobre a outra)',
+    description: 'Indica atenção redobrada ou perigo imediato em terrenos pedregosos e montanhosos.',
+    svgType: 'STONE_DANGER'
   }
 ];
 
@@ -2846,167 +2894,234 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
 
   const renderTrailSignSvg = (svgType: string) => {
     return (
-      <svg viewBox="0 0 80 60" className="w-16 h-12 shrink-0 text-indigo-600 dark:text-indigo-400">
+      <svg viewBox="0 0 84 60" className="w-16 h-12 shrink-0 text-slate-800 dark:text-slate-100">
+        {/* 1. Começo do jogo (Círculo cortado por seta horizontal — Imagem 1) */}
         {svgType === 'START_TRAIL' && (
+          <g stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="38" cy="30" r="15" />
+            <path d="M 8 30 L 74 30 M 62 20 L 74 30 L 62 40" />
+          </g>
+        )}
+        {/* 2. Siga nesta direção (Seta horizontal — Imagem 1) */}
+        {svgType === 'FOLLOW_DIRECTION' && (
           <g stroke="currentColor" strokeWidth="4.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="20" cy="30" r="8" />
-            <path d="M 28 30 L 66 30 M 54 18 L 66 30 L 54 42" />
+            <path d="M 10 30 L 72 30 M 58 18 L 72 30 L 58 42" />
           </g>
         )}
-        {svgType === 'ARROW_UP' && (
-          <path d="M 40 52 L 40 10 M 26 24 L 40 10 L 54 24" stroke="currentColor" strokeWidth="5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-        )}
-        {svgType === 'ARROW_RIGHT' && (
-          <path d="M 16 48 L 16 26 L 64 26 M 50 14 L 64 26 L 50 38" stroke="currentColor" strokeWidth="5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-        )}
-        {svgType === 'ARROW_LEFT' && (
-          <path d="M 64 48 L 64 26 L 16 26 M 30 14 L 16 26 L 30 38" stroke="currentColor" strokeWidth="5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-        )}
-        {svgType === 'ARROW_DOUBLE' && (
-          <g stroke="currentColor" strokeWidth="4.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M 12 30 L 66 30" />
-            <path d="M 40 18 L 52 30 L 40 42" />
-            <path d="M 54 18 L 66 30 L 54 42" />
+        {/* 3. Volte ao ponto de partida (Seta para a esquerda com 2 barras verticais na cauda — Imagem 1) */}
+        {svgType === 'RETURN_START' && (
+          <g stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M 74 30 L 12 30 M 24 18 L 12 30 L 24 42" />
+            <line x1="58" y1="17" x2="58" y2="43" />
+            <line x1="67" y1="17" x2="67" y2="43" />
           </g>
         )}
-        {svgType === 'ARROW_BARS' && (
-          <g stroke="currentColor" strokeWidth="4.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M 12 30 L 66 30 M 54 18 L 66 30 L 54 42" />
-            <line x1="26" y1="18" x2="26" y2="42" stroke="#f59e0b" />
-            <line x1="38" y1="18" x2="38" y2="42" stroke="#f59e0b" />
+        {/* 4. Diminuir a marcha (Linha horizontal com ponta triangular fechada — Imagem 1) */}
+        {svgType === 'SLOW_PACE' && (
+          <g stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="10" y1="30" x2="52" y2="30" />
+            <polygon points="52,17 72,30 52,43" />
           </g>
         )}
-        {svgType === 'ARROW_UTURN' && (
-          <path d="M 24 48 L 24 22 C 24 10, 56 10, 56 22 L 56 46 M 44 36 L 56 48 L 68 36" stroke="#f59e0b" strokeWidth="4.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-        )}
-        {svgType === 'FORK_RIGHT' && (
-          <g fill="none" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M 40 54 L 40 34 L 62 14 M 50 14 L 62 14 L 62 26" stroke="#10b981" />
-            <path d="M 40 34 L 20 16" stroke="#94a3b8" />
-            <path d="M 14 12 L 26 24 M 26 12 L 14 24" stroke="#ef4444" strokeWidth="4" />
+        {/* 5. Apressar o passo (Seta de haste dupla paralela — Imagem 1) */}
+        {svgType === 'FAST_PACE' && (
+          <g stroke="currentColor" strokeWidth="3.8" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="10" y1="25" x2="64" y2="25" />
+            <line x1="10" y1="35" x2="64" y2="35" />
+            <path d="M 54 16 L 72 30 L 54 44" strokeWidth="4.2" />
           </g>
         )}
-        {svgType === 'OVER_OBSTACLE' && (
-          <g fill="none" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="30" y="32" width="20" height="18" rx="3" fill="#94a3b8" />
-            <path d="M 12 44 C 20 10, 60 10, 68 40 M 58 38 L 68 42 L 68 30" stroke="currentColor" strokeWidth="4.5" />
-          </g>
-        )}
+        {/* 6. Caminho a evitar (X grande — Imagem 1) */}
         {svgType === 'CROSS_X' && (
-          <path d="M 22 12 L 58 48 M 58 12 L 22 48" stroke="#ef4444" strokeWidth="6" fill="none" strokeLinecap="round" />
+          <path d="M 22 12 L 62 48 M 62 12 L 22 48" stroke="#ef4444" strokeWidth="5.5" fill="none" strokeLinecap="round" />
         )}
-        {svgType === 'TRIANGLE' && (
-          <g fill="none" stroke="#f59e0b" strokeWidth="4.5" strokeLinejoin="round">
-            <polygon points="40,8 16,48 64,48" />
-            <circle cx="40" cy="36" r="3" fill="#ef4444" stroke="none" />
-            <line x1="40" y1="22" x2="40" y2="30" stroke="#ef4444" strokeLinecap="round" />
-          </g>
-        )}
-        {svgType === 'DANGER_ANIMAL' && (
-          <g fill="none" stroke="#ef4444" strokeWidth="4" strokeLinejoin="round">
-            <polygon points="40,8 16,48 64,48" />
-            <polygon points="40,18 26,43 54,43" stroke="#f59e0b" strokeWidth="3" />
-          </g>
-        )}
-        {svgType === 'BAD_BRIDGE' && (
-          <g fill="none" strokeLinecap="round">
-            <path d="M 12 24 L 34 24 M 46 24 L 68 24 M 12 38 L 34 38 M 46 38 L 68 38" stroke="#64748b" strokeWidth="4.5" />
-            <path d="M 32 14 L 48 48 M 48 14 L 32 48" stroke="#ef4444" strokeWidth="4.5" />
-          </g>
-        )}
-        {svgType === 'HIDE_COVER' && (
-          <g fill="none" stroke="#10b981" strokeWidth="4.5" strokeLinecap="round">
-            <path d="M 16 26 Q 40 6, 64 26" />
-            <line x1="28" y1="26" x2="28" y2="48" />
-            <line x1="40" y1="22" x2="40" y2="48" />
-            <line x1="52" y1="26" x2="52" y2="48" />
-          </g>
-        )}
-        {svgType === 'SILENCE' && (
-          <g fill="none" stroke="#6366f1" strokeWidth="4.5" strokeLinecap="round">
-            <circle cx="40" cy="30" r="18" />
-            <line x1="40" y1="8" x2="40" y2="52" />
-          </g>
-        )}
-        {svgType === 'WATER_GOOD' && (
-          <g stroke="#0ea5e9" strokeWidth="4" fill="none" strokeLinecap="round">
-            <path d="M 16 24 Q 28 16, 40 24 T 64 24" />
-            <path d="M 16 38 Q 28 30, 40 38 T 64 38" />
-          </g>
-        )}
-        {svgType === 'WATER_BAD' && (
-          <g fill="none" strokeLinecap="round">
-            <path d="M 16 24 Q 28 16, 40 24 T 64 24" stroke="#64748b" strokeWidth="4" />
-            <path d="M 16 38 Q 28 30, 40 38 T 64 38" stroke="#64748b" strokeWidth="4" />
-            <line x1="22" y1="12" x2="58" y2="48" stroke="#ef4444" strokeWidth="5" />
-          </g>
-        )}
-        {svgType === 'CAMP' && (
-          <g stroke="#10b981" strokeWidth="4.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
-            <polygon points="34,12 14,46 54,46" />
-            <path d="M 56 30 L 72 30 M 65 23 L 72 30 L 65 37" />
-          </g>
-        )}
-        {svgType === 'CAMP_GOOD' && (
-          <g stroke="#10b981" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round">
-            <polygon points="40,10 18,44 62,44" />
-            <line x1="12" y1="50" x2="68" y2="50" />
-            <path d="M 34 32 L 39 37 L 48 26" />
-          </g>
-        )}
-        {svgType === 'FIRE_OK' && (
-          <g fill="none" strokeLinecap="round">
-            <path d="M 22 46 L 58 34 M 22 34 L 58 46" stroke="#b45309" strokeWidth="4.5" />
-            <path d="M 40 10 C 50 20, 48 30, 40 34 C 32 30, 30 20, 40 10 Z" stroke="#f97316" strokeWidth="4" fill="#fb923c" fillOpacity="0.3" />
-          </g>
-        )}
-        {svgType === 'FIRE_NO' && (
-          <g fill="none" strokeLinecap="round">
-            <path d="M 40 10 C 50 20, 48 30, 40 36 C 32 30, 30 20, 40 10 Z" stroke="#64748b" strokeWidth="4" />
-            <line x1="18" y1="12" x2="62" y2="48" stroke="#ef4444" strokeWidth="5" />
-          </g>
-        )}
+        {/* 7. Objeto escondido a 3 passos (Quadrado com 3 e seta lateral — Imagem 1) */}
         {svgType === 'MESSAGE' && (
-          <g stroke="currentColor" strokeWidth="4" fill="none">
-            <rect x="16" y="14" width="34" height="32" rx="4" />
-            <text x="33" y="35" textAnchor="middle" stroke="none" fill="currentColor" className="text-xs font-black">
+          <g stroke="currentColor" strokeWidth="3.8" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="12" y="13" width="34" height="34" rx="2" />
+            <text x="29" y="36" textAnchor="middle" stroke="none" fill="currentColor" className="text-[15px] font-black">
               3
             </text>
-            <path d="M 54 30 L 70 30 M 64 24 L 70 30 L 64 36" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M 46 30 L 74 30 M 64 21 L 74 30 L 64 39" />
           </g>
         )}
+        {/* 8. Obstáculo a transpor (Rampa subindo com seta no topo e traço vertical na base — Imagem 1) */}
+        {svgType === 'OVER_OBSTACLE' && (
+          <g stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M 10 42 L 28 42 L 44 20 L 72 20 M 62 12 L 72 20 L 62 28" />
+            <line x1="36" y1="32" x2="36" y2="48" />
+          </g>
+        )}
+        {/* 9. Perigo (Triângulo equilátero — Imagem 1) */}
+        {svgType === 'TRIANGLE' && (
+          <g fill="none" stroke="#f59e0b" strokeWidth="4.5" strokeLinejoin="round">
+            <polygon points="42,9 16,49 68,49" />
+          </g>
+        )}
+        {/* 10. Dividir o grupo (Haste horizontal bifurcando em 2 setas — Imagem 1) */}
+        {svgType === 'SPLIT_GROUP' && (
+          <g stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="10" y1="30" x2="36" y2="30" />
+            <path d="M 36 30 L 68 13 M 57 11 L 68 13 L 64 23" />
+            <path d="M 36 30 L 68 47 M 64 37 L 68 47 L 57 49" />
+          </g>
+        )}
+        {/* 11. Virar à direita (Seta dobrando 90° à direita — Imagem 1) */}
+        {svgType === 'ARROW_RIGHT' && (
+          <path d="M 22 50 L 22 24 L 68 24 M 54 13 L 68 24 L 54 35" stroke="currentColor" strokeWidth="4.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        )}
+        {/* 12. Virar à esquerda (Seta dobrando 90° à esquerda — Imagem 1) */}
+        {svgType === 'ARROW_LEFT' && (
+          <path d="M 62 50 L 62 24 L 16 24 M 30 13 L 16 24 L 30 35" stroke="currentColor" strokeWidth="4.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        )}
+        {/* 13. Seguir em frente (Seta vertical apontando para cima — Imagem 1) */}
+        {svgType === 'ARROW_UP' && (
+          <path d="M 42 52 L 42 10 M 29 23 L 42 10 L 55 23" stroke="currentColor" strokeWidth="4.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        )}
+        {/* 14. Reunir o grupo (Círculo central com 4 setas apontando para o centro — Imagem 1) */}
+        {svgType === 'REUNION' && (
+          <g stroke="currentColor" strokeWidth="3.6" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="42" cy="30" r="6.5" />
+            {/* Cima */}
+            <path d="M 42 4 L 42 19 M 37 14 L 42 19 L 47 14" />
+            {/* Baixo */}
+            <path d="M 42 56 L 42 41 M 37 46 L 42 41 L 47 46" />
+            {/* Esquerda */}
+            <path d="M 10 30 L 30 30 M 25 25 L 30 30 L 25 35" />
+            {/* Direita */}
+            <path d="M 74 30 L 54 30 M 59 25 L 54 30 L 59 35" />
+          </g>
+        )}
+        {/* 15. Acampamento nessa direção (Barraca triangular com bandeirola no topo e seta à direita — Imagem 1) */}
+        {svgType === 'CAMP' && (
+          <g stroke="#10b981" strokeWidth="3.8" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="32,18 12,48 52,48" />
+            <path d="M 32 18 L 32 7 L 42 11 L 32 15" />
+            <path d="M 52 40 L 74 40 M 66 33 L 74 40 L 66 47" />
+          </g>
+        )}
+        {/* 16. Siga rapidamente (Arco "D" fechado à esquerda com seta longa à direita — Imagem 1) */}
+        {svgType === 'FOLLOW_QUICKLY' && (
+          <g stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M 28 14 C 10 14, 10 46, 28 46 Z" />
+            <path d="M 28 30 L 72 30 M 60 20 L 72 30 L 60 40" />
+          </g>
+        )}
+        {/* 17. Grupo dividido: 2 para um lado e 3 para o outro (Seta bifurcada com 2 e 3 traços — Imagem 1) */}
+        {svgType === 'SPLIT_2_AND_3' && (
+          <g stroke="currentColor" strokeWidth="3.6" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="8" y1="30" x2="28" y2="30" />
+            {/* Ramo superior (2 traços) */}
+            <path d="M 28 30 L 70 12 M 60 10 L 70 12 L 66 21" />
+            <line x1="40" y1="18" x2="45" y2="29" stroke="#f59e0b" />
+            <line x1="49" y1="14" x2="54" y2="25" stroke="#f59e0b" />
+            {/* Ramo inferior (3 traços) */}
+            <path d="M 28 30 L 70 48 M 66 39 L 70 48 L 60 50" />
+            <line x1="38" y1="31" x2="43" y2="42" stroke="#10b981" />
+            <line x1="46" y1="34" x2="51" y2="45" stroke="#10b981" />
+            <line x1="54" y1="38" x2="59" y2="49" stroke="#10b981" />
+          </g>
+        )}
+        {/* 18. Água potável (Duas linhas onduladas paralelas — Imagem 1) */}
+        {svgType === 'WATER_GOOD' && (
+          <g stroke="#0ea5e9" strokeWidth="4.2" fill="none" strokeLinecap="round">
+            <path d="M 14 23 Q 24 14, 34 23 T 54 23 T 72 23" />
+            <path d="M 14 37 Q 24 28, 34 37 T 54 37 T 72 37" />
+          </g>
+        )}
+        {/* 19. Água não potável (Duas linhas onduladas cortadas por X — Imagem 1) */}
+        {svgType === 'WATER_BAD' && (
+          <g fill="none" strokeLinecap="round">
+            <path d="M 14 23 Q 24 14, 34 23 T 54 23 T 72 23" stroke="#64748b" strokeWidth="4" />
+            <path d="M 14 37 Q 24 28, 34 37 T 54 37 T 72 37" stroke="#64748b" strokeWidth="4" />
+            <path d="M 26 11 L 58 49 M 58 11 L 26 49" stroke="#ef4444" strokeWidth="4.8" />
+          </g>
+        )}
+        {/* 20. Fim de Pista / Voltei para Casa (Círculo com ponto central ⊙) */}
+        {svgType === 'END_TRAIL' && (
+          <g stroke="#10b981" strokeWidth="4.2" fill="none">
+            <circle cx="42" cy="30" r="19" />
+            <circle cx="42" cy="30" r="5" fill="#10b981" />
+          </g>
+        )}
+        {/* 21. Esperar Aqui por N Minutos */}
         {svgType === 'WAIT_HERE' && (
-          <g stroke="#f59e0b" strokeWidth="4" fill="none">
-            <rect x="14" y="14" width="52" height="32" rx="5" />
-            <line x1="26" y1="14" x2="26" y2="46" />
-            <text x="46" y="35" textAnchor="middle" stroke="none" fill="currentColor" className="text-xs font-black">
-              5m
+          <g stroke="#f59e0b" strokeWidth="3.8" fill="none">
+            <rect x="14" y="13" width="56" height="34" rx="4" />
+            <rect x="20" y="18" width="44" height="24" rx="2" strokeWidth="2.5" />
+            <text x="42" y="35" textAnchor="middle" stroke="none" fill="currentColor" className="text-xs font-black">
+              10m
             </text>
           </g>
         )}
-        {svgType === 'REUNION' && (
-          <g stroke="#10b981" strokeWidth="4" fill="none" strokeLinecap="round">
-            <circle cx="40" cy="30" r="14" />
-            <path d="M 40 4 L 40 14 M 40 56 L 40 46 M 12 30 L 24 30 M 68 30 L 56 30" />
+        {/* 22. Ponte Boa / Passagem Segura */}
+        {svgType === 'GOOD_BRIDGE' && (
+          <g fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M 14 20 L 70 20 M 14 40 L 70 40" stroke="#10b981" strokeWidth="4.5" />
+            <path d="M 24 30 L 60 30 M 52 24 L 60 30 L 52 36" stroke="currentColor" strokeWidth="3.5" />
           </g>
         )}
-        {svgType === 'SPLIT_GROUP' && (
-          <g stroke="currentColor" strokeWidth="4.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M 40 52 L 40 30 L 18 14 M 18 24 L 18 14 L 28 14" />
-            <path d="M 40 30 L 62 14 M 52 14 L 62 14 L 62 24" />
+        {/* 23. Ponte Ruim / Passagem Quebrada */}
+        {svgType === 'BAD_BRIDGE' && (
+          <g fill="none" strokeLinecap="round">
+            <path d="M 12 22 L 35 22 M 49 22 L 72 22 M 12 38 L 35 38 M 49 38 L 72 38" stroke="#64748b" strokeWidth="4.2" />
+            <path d="M 33 13 L 51 47 M 51 13 L 33 47" stroke="#ef4444" strokeWidth="4.5" />
           </g>
         )}
+        {/* 24. Esconder-se / Abrigar-se */}
+        {svgType === 'HIDE_COVER' && (
+          <g fill="none" stroke="#10b981" strokeWidth="4.2" strokeLinecap="round">
+            <path d="M 16 26 Q 42 6, 68 26" />
+            <line x1="29" y1="26" x2="29" y2="48" />
+            <line x1="42" y1="22" x2="42" y2="48" />
+            <line x1="55" y1="26" x2="55" y2="48" />
+          </g>
+        )}
+        {/* 25. Pedido de Socorro S.O.S. (3 sinais iguais alinhados) */}
         {svgType === 'SOS_SIGNAL' && (
           <g fill="#ef4444">
             <circle cx="20" cy="30" r="7" />
-            <circle cx="40" cy="30" r="7" />
-            <circle cx="60" cy="30" r="7" />
+            <circle cx="42" cy="30" r="7" />
+            <circle cx="64" cy="30" r="7" />
           </g>
         )}
-        {svgType === 'END_TRAIL' && (
-          <g stroke="#10b981" strokeWidth="4.5" fill="none">
-            <circle cx="40" cy="30" r="20" />
-            <circle cx="40" cy="30" r="5" fill="#10b981" />
+        {/* 26. Sinal Natural em Capim: Seguir Direção */}
+        {svgType === 'GRASS_DIRECTION' && (
+          <g fill="none" stroke="#16a34a" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="16" y1="50" x2="68" y2="50" stroke="#94a3b8" strokeWidth="2.5" />
+            <path d="M 32 50 C 32 34, 36 24, 58 16" />
+            <path d="M 40 50 C 40 34, 42 26, 62 20" />
+            <path d="M 48 50 C 46 36, 46 28, 60 24" />
+            <line x1="34" y1="33" x2="49" y2="36" stroke="#f59e0b" strokeWidth="4" />
+          </g>
+        )}
+        {/* 27. Sinal Natural em Capim: Perigo (3 Tufos Amarrados) */}
+        {svgType === 'GRASS_DANGER' && (
+          <g fill="none" stroke="#16a34a" strokeWidth="3.2" strokeLinecap="round">
+            <line x1="10" y1="50" x2="74" y2="50" stroke="#94a3b8" strokeWidth="2.5" />
+            {[22, 42, 62].map((cx) => (
+              <g key={cx}>
+                <path d={`M ${cx - 5} 50 L ${cx} 16 L ${cx + 5} 50`} />
+                <line x1={cx} y1="14" x2={cx} y2="50" />
+                <line x1={cx - 5} y1="28" x2={cx + 5} y2="28" stroke="#ef4444" strokeWidth="3.5" />
+              </g>
+            ))}
+          </g>
+        )}
+        {/* 28. Sinal Natural com Pedras: Seguir Direção */}
+        {svgType === 'STONE_DIRECTION' && (
+          <g stroke="currentColor" strokeWidth="3" fill="#94a3b8" fillOpacity="0.25">
+            <ellipse cx="32" cy="42" rx="16" ry="9" />
+            <ellipse cx="32" cy="27" rx="10" ry="6.5" />
+            <ellipse cx="62" cy="44" rx="7" ry="5" fill="#f59e0b" fillOpacity="0.5" stroke="#f59e0b" />
+          </g>
+        )}
+        {/* 29. Sinal Natural com Pedras: Perigo (3 Pedras Empilhadas) */}
+        {svgType === 'STONE_DANGER' && (
+          <g stroke="#ef4444" strokeWidth="3" fill="#ef4444" fillOpacity="0.2">
+            <ellipse cx="42" cy="45" rx="17" ry="7" />
+            <ellipse cx="42" cy="32" rx="12" ry="6" />
+            <ellipse cx="42" cy="20" rx="7.5" ry="4.5" />
           </g>
         )}
       </svg>
@@ -4259,7 +4374,7 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
             </div>
           )}
 
-          {/* 2.4 TABELA VISUAL COMPLETA DE SINAIS DE PISTA PARA TRILHAS (26 SINAIS) */}
+          {/* 2.4 TABELA VISUAL COMPLETA DE SINAIS DE PISTA PARA TRILHAS (29 SINAIS) */}
           {codeSubTab === 'SINAIS_PISTA' && (
             <div className="space-y-4">
               <div className="bg-white dark:bg-slate-800 rounded-[26px] p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-sm space-y-4">
@@ -4269,8 +4384,25 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
                       Guia Completo de Sinais de Pista para Trilhas ({TRAIL_SIGNS.length} Sinais Oficiais)
                     </h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                      Feitos sempre do lado DIREITO da trilha com gravetos, pedras, capim amarrado ou giz (sem ferir árvores vivas).
+                      Inclui todos os 19 sinais da Tabela Clássica de Sinais de Pista + 10 sinais oficiais de Pioneiria, Pedras e Capim.
                     </p>
+                  </div>
+                </div>
+
+                {/* Regras Oficiais de Sinais de Pista (MDA / UEB) */}
+                <div className="p-3.5 rounded-2xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-300">
+                      📏 Regras Oficiais de Marcação e Distância na Trilha (MDA / Escotismo)
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-[11px] font-medium text-amber-950 dark:text-amber-100">
+                    <div>• <strong>Posição:</strong> Sempre do lado <strong>DIREITO</strong> da trilha e a no máximo <strong>1 metro</strong> do solo.</div>
+                    <div>• <strong>Cruzamentos:</strong> Sempre marcar <strong>"Caminho a evitar (X)"</strong> nas entradas que não devem ser seguidas.</div>
+                    <div>• <strong>Terreno Difícil /Rochas:</strong> A cada <strong>2 m</strong> (terreno difícil) ou <strong>5 m</strong> (rochas).</div>
+                    <div>• <strong>Matas / Campos:</strong> A cada <strong>20 m</strong> (matas/florestas) ou <strong>30 m</strong> (pastos e campos abertos).</div>
+                    <div>• <strong>Natureza:</strong> Usar gravetos secos, pedras ou capim sem ferir árvores vivas; evitar folhas soltas se houver vento.</div>
+                    <div>• <strong>Cerra-Fila:</strong> O último membro da unidade tem o dever de desmanchar os sinais após a passagem.</div>
                   </div>
                 </div>
 
@@ -4278,10 +4410,11 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
                 <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pb-1">
                   {[
                     { id: 'TODOS' as TrailSignCategory, label: `Todos os Sinais (${TRAIL_SIGNS.length})` },
-                    { id: 'DIRECAO' as TrailSignCategory, label: 'Direção e Navegação (9)' },
-                    { id: 'PERIGO' as TrailSignCategory, label: 'Perigo e Obstáculos (6)' },
-                    { id: 'ACAMPAMENTO' as TrailSignCategory, label: 'Água e Acampamento (6)' },
-                    { id: 'MENSAGENS' as TrailSignCategory, label: 'Mensagens e Equipe (6)' }
+                    { id: 'DIRECAO' as TrailSignCategory, label: 'Direção & Navegação (9)' },
+                    { id: 'PERIGO' as TrailSignCategory, label: 'Perigo & Obstáculos (6)' },
+                    { id: 'ACAMPAMENTO' as TrailSignCategory, label: 'Água & Acampamento (4)' },
+                    { id: 'MENSAGENS' as TrailSignCategory, label: 'Mensagens & Equipe (6)' },
+                    { id: 'NATURAIS' as TrailSignCategory, label: 'Sinais com Capim & Pedras (4)' }
                   ].map((cat) => (
                     <button
                       key={cat.id}
@@ -4310,9 +4443,14 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
                         {renderTrailSignSvg(sign.svgType)}
                       </div>
                       <div className="min-w-0 flex-1 space-y-1">
-                        <span className="inline-block text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
-                          {sign.categoryLabel}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="inline-block text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+                            {sign.categoryLabel}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[8.5px] font-black uppercase tracking-wider">
+                            {sign.sourceBadge}
+                          </span>
+                        </div>
                         <h5 className="font-black text-xs sm:text-sm text-slate-800 dark:text-white uppercase tracking-tight leading-snug">
                           {sign.name}
                         </h5>
@@ -5276,6 +5414,29 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
           )}
         </div>
       )}
+
+      {/* Rodapé de Créditos e Fontes Oficiais (Guia de Campo & Ordem Unida) */}
+      <div className="bg-white dark:bg-slate-800 rounded-[24px] p-4 sm:p-5 border border-slate-200/80 dark:border-slate-700 shadow-xs">
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/60 dark:border-indigo-800/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+            <BookOpen size={18} />
+          </div>
+          <div className="space-y-1 min-w-0">
+            <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 block">
+              Créditos e Fontes Oficiais de Referência
+            </span>
+            {standaloneDrill ? (
+              <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
+                Conteúdo técnico extraído do <strong>Manual de Ordem Unida do Ministério de Desbravadores (Divisão Sul-Americana da IASD — DSA)</strong>, <strong>Manual Administrativo do Clube de Desbravadores e Aventureiros (DSA)</strong>, <strong>Regulamento de Uniformes MDA (RUD)</strong>, <strong>MDA Wiki (mda.wiki.br)</strong> e diretrizes de Cadência e Evoluções da <strong>DSA (adventistas.org/pt/desbravadores)</strong>.
+              </p>
+            ) : (
+              <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
+                Informações técnicas compiladas dos <strong>Manuais Oficiais da Divisão Sul-Americana (DSA — Ministério de Desbravadores e Aventureiros)</strong>, <strong>Manual de Especialidades e Classes MDA (mda.wiki.br)</strong>, <strong>União dos Escoteiros do Brasil (UEB — Sinais de Pista e Pioneiria)</strong>, <strong>Portal Desbrava7 (Tabela de Sinais de Pista)</strong>, <strong>Instituto Nacional de Educação de Surdos (INES — Alfabeto Manual Brasileiro de Libras)</strong>, <strong>Animated Knots / 3D Knots</strong> e protocolos de Primeiros Socorros do <strong>Ministério da Saúde / Corpo de Bombeiros</strong>.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

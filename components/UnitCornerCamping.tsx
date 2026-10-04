@@ -1429,6 +1429,23 @@ const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club }) => {
           </div>
         </div>
       )}
+
+      {/* Rodapé de Créditos e Fontes Oficiais */}
+      <div className="bg-white dark:bg-slate-800 rounded-[24px] p-4 sm:p-5 border border-slate-200/80 dark:border-slate-700 shadow-xs">
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+            <BookOpen size={18} />
+          </div>
+          <div className="space-y-1 min-w-0">
+            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 block">
+              Créditos e Fontes Oficiais de Referência
+            </span>
+            <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
+              Conteúdo estruturado com base no <strong>Manual Administrativo do Clube de Desbravadores e Aventureiros (Divisão Sul-Americana da IASD — DSA)</strong>, <strong>Manual do Conselheiro de Unidade (DSA)</strong>, <strong>Caderneta Oficial do Capitão e Secretário de Unidade (DSA)</strong>, <strong>Sistema de Gerenciamento de Clubes (SGC)</strong> e requisitos oficiais das Especialidades de <strong>Arte de Acampar, Acampamento I a IV, Fogueiras e Cozinha ao Ar Livre e Pioneiria (mda.wiki.br)</strong>.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

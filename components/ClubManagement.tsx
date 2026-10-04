@@ -12,7 +12,7 @@ import {
   getLocalCatalogFavorites, saveLocalCatalogFavorites,
   fetchCultura, updateCultura, fetchUserProfile, supabase,
   fetchLivrosClasses, fetchLivrosAno, fetchOutrosLivros, fetchManuaisDBV,
-  fetchCampingDBV, fetchFormularios, createFormulario, updateFormulario, deleteFormulario,
+  fetchCampingDBV, fetchFormularios, DEFAULT_FORMULARIOS, createFormulario, updateFormulario, deleteFormulario,
   fetchVideos, fetchVideoCategories,
   fetchAtividadesJogosDBV, fetchCerimoniasDBV, fetchVideosDBV,
   createVideo, updateVideo, deleteVideo, createVideoCategory, updateVideoCategory, deleteVideoCategory,
@@ -23,6 +23,13 @@ import {
   getOfficialRudUniforms, getOfficialRudEmblems, uploadCultureAsset, RUD_CREDITS
 } from '../services/supabaseService';
 import { PROFILE_KEY } from '../constants';
+import {
+  OFFICIAL_COREL_EMBLEMS,
+  downloadEmblemForCorelDraw,
+  downloadCustomizedCertificatePdf,
+  downloadCustomizedCertificatePng,
+  CustomCertificateConfig
+} from '../services/materialsService';
 import { calculateAge } from './Profile';
 import { MASTERY_RULES } from '../masteryRules';
 import { APP_VERSION, APP_BUILD_DATE, VERSION_HISTORY } from '../versionConfig';
@@ -1859,7 +1866,24 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   const [outrosLivros, setOutrosLivros] = useState<OutroLivro[]>([]);
   const [manuaisDBV, setManuaisDBV] = useState<ManualDBV[]>([]);
   const [campingDBV, setCampingDBV] = useState<CampingDBV[]>([]);
-  const [formularios, setFormularios] = useState<Formulario[]>([]);
+  const [formularios, setFormularios] = useState<Formulario[]>(DEFAULT_FORMULARIOS);
+  const [formularioMinistryFilter, setFormularioMinistryFilter] = useState<'TODOS' | 'DBV' | 'AVT'>('TODOS');
+  const [formularioSearchQuery, setFormularioSearchQuery] = useState<string>('');
+  const [pdfReturnSubView, setPdfReturnSubView] = useState<'LIBRARY' | 'FORMULARIOS' | 'CAMPING'>('LIBRARY');
+  const [isCertCustomizerOpen, setIsCertCustomizerOpen] = useState<boolean>(true);
+  const [isDownloadingCustomCert, setIsDownloadingCustomCert] = useState<boolean>(false);
+  const [customCertConfig, setCustomCertConfig] = useState<CustomCertificateConfig>({
+    ministry: club === ClubType.ADVENTURER ? 'AVT' : 'DBV',
+    clubName: '',
+    associationName: '',
+    certificateTitle: 'CERTIFICADO OFICIAL DE INVESTIDURA',
+    achievementName: club === ClubType.ADVENTURER ? 'Classes e Especialidades de Aventureiros' : 'Classes e Especialidades de Desbravadores',
+    recipientName: '',
+    locationAndDate: `Emitido em ${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}`,
+    directorName: '',
+    regionalName: '',
+    pastorName: ''
+  });
   const [selectedLibraryCategory, setSelectedLibraryCategory] = useState<'CLASSES' | 'ANO' | 'OUTROS' | 'MANUAIS' | 'BOOKS_AVT' | 'MANUAIS_AVT' | 'MATERIALS' | null>(null);
   const [selectedPdfUrl, setSelectedPdfUrl] = useState<string | null>(null);
   const [selectedPdfThumbnail, setSelectedPdfThumbnail] = useState<string | null>(null);
@@ -5373,7 +5397,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       { id: 'MATERIALS', label: 'Materiais', icon: <Folder size={24} />, color: 'bg-purple-500' }
     ] : [
       { id: 'BOOKS_AVT', label: 'Livros', icon: <Book size={24} />, color: 'bg-emerald-500' },
-      { id: 'MANUAIS_AVT', label: 'Manuais AVT', icon: <FileText size={24} />, color: 'bg-indigo-500' }
+      { id: 'MANUAIS_AVT', label: 'Manuais AVT', icon: <FileText size={24} />, color: 'bg-indigo-500' },
+      { id: 'MATERIALS', label: 'Materiais', icon: <Folder size={24} />, color: 'bg-purple-500' }
     ];
 
     if (selectedLibraryCategory && selectedLibraryCategory !== 'MATERIALS') {
@@ -5445,6 +5470,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                       setSelectedPdfUrl(formatDriveUrl(url));
                       const thumb = item.Capa || item.capa || item.Imagem || item.imagem || item.ClasseIMG || '';
                       setSelectedPdfThumbnail(thumb ? getImageUrl(thumb) : null);
+                      setPdfReturnSubView('LIBRARY');
                       setActiveSubView('PDF_VIEWER');
                     }
                   }}
@@ -5620,6 +5646,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                   setSelectedPdfUrl(formatDriveUrl(url));
                   const thumb = item.Capa || '';
                   setSelectedPdfThumbnail(thumb ? getImageUrl(thumb) : null);
+                  setPdfReturnSubView('CAMPING');
                   setActiveSubView('PDF_VIEWER');
                 }
               }}
@@ -5646,82 +5673,591 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
   const renderFormularios = () => {
     const categories = [
-      { id: 'fichas', label: 'Fichas de Atividades', icon: <FileText size={18} /> },
-      { id: 'forms', label: 'Formulários', icon: <Layers size={18} /> },
-      { id: 'certificados', label: 'Certificados', icon: <Award size={18} /> },
-      { id: 'graficos', label: 'Materiais Gráficos', icon: <Sparkles size={18} /> }
+      { id: 'fichas', label: 'Fichas de Atividades', subtitle: 'Cadernos de Classes Regulares, Avançadas, Líder e Controle do Instrutor', icon: <FileText size={18} /> },
+      { id: 'forms', label: 'Formulários', subtitle: 'Secretaria, Matrícula, Ficha Médica, Autorizações ECA/LGPD e Cantinho', icon: <Layers size={18} /> },
+      { id: 'certificados', label: 'Certificados', subtitle: 'Investidura de Classes, Especialidades, Mestrados e Ano Bíblico', icon: <Award size={18} /> },
+      { id: 'graficos', label: 'Materiais Gráficos', subtitle: 'Identidade Visual MDA, Emblemas Oficiais, Bandeiras, Mastros e Folders', icon: <Sparkles size={18} /> }
     ];
+
+    const filteredAll = formularios.filter((f) => {
+      const iconTag = (f.icone || 'ALL').toUpperCase();
+      const matchesMinistry =
+        formularioMinistryFilter === 'TODOS' ||
+        iconTag === 'ALL' ||
+        iconTag === formularioMinistryFilter;
+      const q = formularioSearchQuery.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        (f.titulo || '').toLowerCase().includes(q) ||
+        (f.descricao || '').toLowerCase().includes(q);
+      return matchesMinistry && matchesSearch;
+    });
 
     return (
       <div className="animate-slide-in space-y-6 pt-2 pb-28">
-        {categories.map((cat) => (
-          <div key={cat.id} className="space-y-3">
-            <div className="flex items-center space-x-3 pl-1">
-              <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center text-white shadow-sm">
-                {cat.icon}
-              </div>
-              <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-tight text-sm">{cat.label}</h3>
-            </div>
-            
-            <div className="bg-slate-50 dark:bg-slate-900 rounded-[24px] p-3 border-l-4 border-red-500 space-y-3 shadow-sm">
-              {formularios.filter(f => f.categoria === cat.id).length === 0 ? (
-                <div className="bg-white dark:bg-slate-800 rounded-[18px] p-4 flex items-center justify-between shadow-sm border border-slate-100 dark:border-slate-700">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-red-50 dark:bg-red-950/40 rounded-xl flex items-center justify-center text-red-400">
-                      <Calendar size={20} />
-                    </div>
-                    <span className="text-xs font-black text-slate-400 uppercase tracking-tight">Em Breve Atualizações</span>
-                  </div>
-                  <div className="w-8 h-8 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-300 dark:text-slate-400">
-                    <Search size={16} />
-                  </div>
-                </div>
-              ) : (
-                formularios.filter(f => f.categoria === cat.id).map((form) => (
-                  <button 
-                    key={form.id}
-                    onClick={() => {
-                      if (form.link && (form.link.includes('.pdf') || form.link.includes('drive.google.com'))) {
-                        setPdfTitle(form.titulo);
-                        setSelectedPdfUrl(formatDriveUrl(form.link));
-                        setSelectedPdfThumbnail(null);
-                        setActiveSubView('PDF_VIEWER');
-                      } else {
-                        window.open(form.link, '_blank');
-                      }
-                    }}
-                    className="w-full bg-white dark:bg-slate-800 rounded-[18px] p-4 flex items-center justify-between shadow-sm border border-slate-100 dark:border-slate-700 active:scale-[0.98] transition-all group"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-red-50 dark:bg-red-950/40 rounded-xl flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform">
-                        <FileText size={20} />
-                      </div>
-                      <div className="text-left">
-                        <span className="text-xs font-black text-slate-700 dark:text-white uppercase tracking-tight block">{form.titulo}</span>
-                        {form.descricao && <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{form.descricao}</span>}
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.open(form.link, '_blank');
-                        }}
-                        className="w-8 h-8 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-300 hover:bg-red-50 hover:text-red-500 transition-colors"
-                        title="Download / Abrir Original"
-                      >
-                        <Download size={16} />
-                      </button>
-                      <div className="w-8 h-8 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-300 group-hover:bg-red-50 group-hover:text-red-500 transition-colors">
-                        <Search size={16} />
-                      </div>
-                    </div>
-                  </button>
-                ))
-              )}
+        {/* Cabeçalho com Filtro Oficial dos Ministérios (Desbravadores & Aventureiros - DSA) e Busca */}
+        <div className="bg-white dark:bg-slate-800 rounded-[28px] p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-sm space-y-3.5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 text-[10px] font-black uppercase tracking-widest">
+                Acervo Oficial dos Ministérios • DSA
+              </span>
+              <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-tight text-sm sm:text-base mt-1">
+                Central de Fichas, Formulários, Certificados e Materiais Gráficos ({filteredAll.length})
+              </h3>
             </div>
           </div>
-        ))}
+
+          <div className="flex flex-col sm:flex-row gap-2.5">
+            <div className="relative flex-1">
+              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={formularioSearchQuery}
+                onChange={(e) => setFormularioSearchQuery(e.target.value)}
+                placeholder="Buscar caderno de classe, ficha médica, autorização, certificado, bandeira..."
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-red-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide shrink-0">
+              {[
+                { id: 'TODOS' as const, label: 'Todos os Ministérios' },
+                { id: 'DBV' as const, label: 'Desbravadores (DSA)' },
+                { id: 'AVT' as const, label: 'Aventureiros (DSA)' }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setFormularioMinistryFilter(tab.id)}
+                  className={`px-3.5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider whitespace-nowrap transition-all cursor-pointer ${
+                    formularioMinistryFilter === tab.id
+                      ? 'bg-red-500 text-white shadow-xs'
+                      : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {categories.map((cat) => {
+          const catItems = filteredAll.filter((f) => f.categoria === cat.id);
+          const filteredCorelEmblems = OFFICIAL_COREL_EMBLEMS.filter(
+            (emb) => formularioMinistryFilter === 'TODOS' || emb.ministry === formularioMinistryFilter
+          );
+
+          return (
+            <div key={cat.id} className="space-y-3">
+              <div className="flex items-center justify-between pl-1 pr-2">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center text-white shadow-sm shrink-0">
+                    {cat.icon}
+                  </div>
+                  <div>
+                    <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-tight text-sm leading-tight">
+                      {cat.label}
+                    </h3>
+                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
+                      {cat.subtitle}
+                    </p>
+                  </div>
+                </div>
+                <span className="px-2.5 py-1 rounded-full bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 text-[10px] font-black uppercase tracking-wider shrink-0">
+                  {catItems.length} {catItems.length === 1 ? 'item' : 'itens'}
+                </span>
+              </div>
+
+              <div className="bg-slate-50 dark:bg-slate-900 rounded-[24px] p-3 border-l-4 border-red-500 space-y-3 shadow-sm">
+                {/* =========================================================================
+                    SEÇÃO ESPECIAL DE CERTIFICADOS: PADRÃO OFICIAL + PERSONALIZAÇÃO NO DOWNLOAD
+                   ========================================================================= */}
+                {cat.id === 'certificados' && (
+                  <div id="cert-customizer-anchor" className="bg-white dark:bg-slate-800 rounded-[20px] p-4 sm:p-5 border border-amber-200 dark:border-amber-800/60 shadow-sm space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-700 pb-3">
+                      <div>
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-[9px] font-black uppercase tracking-widest">
+                          Padrão Oficial DSA • Personalizável na Hora de Baixar
+                        </span>
+                        <h4 className="text-xs sm:text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight mt-1">
+                          Modelo Padrão de Certificado & Personalização (Clube e Associação)
+                        </h4>
+                        <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-bold">
+                          Visualize o modelo padrão abaixo e personalize com o nome do seu Clube e Associação/Missão antes de baixar em PDF A4 ou PNG.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsCertCustomizerOpen(!isCertCustomizerOpen)}
+                        className="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider shrink-0 transition-colors cursor-pointer"
+                      >
+                        {isCertCustomizerOpen ? 'Ocultar Personalizador' : 'Personalizar Certificado'}
+                      </button>
+                    </div>
+
+                    {/* PRÉ-VISUALIZAÇÃO DO CERTIFICADO PADRÃO (ATUALIZA AO VIVO COM CLUBE E ASSOCIAÇÃO) */}
+                    <div className="relative rounded-2xl p-4 sm:p-6 bg-gradient-to-br from-[#fffdf9] via-white to-[#fef9ee] border-4 border-double border-red-700 shadow-inner text-center space-y-2 overflow-hidden">
+                      <div className="border border-amber-500/60 rounded-xl p-3 sm:p-5 space-y-2">
+                        <div className="flex justify-center">
+                          <img
+                            src={
+                              customCertConfig.ministry === 'AVT'
+                                ? 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png'
+                                : 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png'
+                            }
+                            alt="Emblema Oficial"
+                            className="w-11 h-11 sm:w-14 sm:h-14 object-contain mx-auto"
+                          />
+                        </div>
+                        <p className="text-[8px] sm:text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                          Igreja Adventista do Sétimo Dia • Divisão Sul-Americana
+                        </p>
+                        <p className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-blue-900">
+                          {customCertConfig.associationName.trim() || 'ASSOCIAÇÃO / MISSÃO DA IASD (PADRÃO)'}
+                        </p>
+                        <div className="inline-block px-4 py-1 rounded-full bg-amber-100 border border-amber-400 text-red-800 text-[11px] sm:text-xs font-black uppercase tracking-wider">
+                          {customCertConfig.clubName.trim() ||
+                            (customCertConfig.ministry === 'AVT'
+                              ? 'CLUBE DE AVENTUREIROS (NOME DO CLUBE)'
+                              : 'CLUBE DE DESBRAVADORES (NOME DO CLUBE)')}
+                        </div>
+                        <h5 className="text-sm sm:text-lg font-black text-slate-900 uppercase tracking-tight pt-1 font-serif">
+                          {customCertConfig.certificateTitle || 'CERTIFICADO OFICIAL DE INVESTIDURA'}
+                        </h5>
+                        <p className="text-[10px] sm:text-xs italic text-slate-600 font-serif">
+                          Certificamos para os devidos fins de registro e mérito que
+                        </p>
+                        <div className="max-w-md mx-auto border-b border-slate-400 pb-0.5 text-xs sm:text-sm font-black text-red-800 uppercase">
+                          {customCertConfig.recipientName.trim() || '____________________________________________________'}
+                        </div>
+                        <p className="text-[10px] sm:text-[11px] text-slate-600">
+                          cumpriu todos os requisitos oficiais exigidos pelo Ministério de{' '}
+                          {customCertConfig.ministry === 'AVT' ? 'Aventureiros' : 'Desbravadores'} da DSA para:
+                        </p>
+                        <p className="text-xs sm:text-sm font-black text-blue-950 uppercase tracking-wide">
+                          {customCertConfig.achievementName || 'CLASSE / ESPECIALIDADE OFICIAL DSA'}
+                        </p>
+                        <div className="grid grid-cols-3 gap-2 pt-4 max-w-lg mx-auto text-[8px] sm:text-[9px] text-slate-600 font-bold">
+                          <div className="border-t border-slate-400 pt-1 truncate">
+                            {customCertConfig.directorName.trim() || 'Diretor(a) do Clube'}
+                          </div>
+                          <div className="border-t border-slate-400 pt-1 truncate">
+                            {customCertConfig.regionalName.trim() || 'Regional / Coordenador(a)'}
+                          </div>
+                          <div className="border-t border-slate-400 pt-1 truncate">
+                            {customCertConfig.pastorName.trim() || 'Pastor / Departamental'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* FORMULÁRIO DE PERSONALIZAÇÃO DO CERTIFICADO NA HORA DE BAIXAR */}
+                    {isCertCustomizerOpen && (
+                      <div className="space-y-3 pt-1">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          <div>
+                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-1">
+                              Nome do Clube (Personalizar) *
+                            </label>
+                            <input
+                              type="text"
+                              value={customCertConfig.clubName}
+                              onChange={(e) =>
+                                setCustomCertConfig((prev) => ({ ...prev, clubName: e.target.value }))
+                              }
+                              placeholder="Ex: Clube de Desbravadores Estrela de Davi"
+                              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-1">
+                              Associação / Missão (Campo) *
+                            </label>
+                            <input
+                              type="text"
+                              value={customCertConfig.associationName}
+                              onChange={(e) =>
+                                setCustomCertConfig((prev) => ({ ...prev, associationName: e.target.value }))
+                              }
+                              placeholder="Ex: Associação Paulistana — AP / UCB"
+                              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                          <div>
+                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-1">
+                              Ministério do Certificado
+                            </label>
+                            <select
+                              value={customCertConfig.ministry}
+                              onChange={(e) =>
+                                setCustomCertConfig((prev) => ({
+                                  ...prev,
+                                  ministry: e.target.value as 'DBV' | 'AVT'
+                                }))
+                              }
+                              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
+                            >
+                              <option value="DBV">Desbravadores (Emblema D1)</option>
+                              <option value="AVT">Aventureiros (Emblema A1)</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-1">
+                              Classe / Especialidade / Mérito
+                            </label>
+                            <input
+                              type="text"
+                              value={customCertConfig.achievementName}
+                              onChange={(e) =>
+                                setCustomCertConfig((prev) => ({ ...prev, achievementName: e.target.value }))
+                              }
+                              placeholder="Ex: Classe de Amigo / Especialidade"
+                              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-1">
+                              Nome do Investido (Opcional)
+                            </label>
+                            <input
+                              type="text"
+                              value={customCertConfig.recipientName}
+                              onChange={(e) =>
+                                setCustomCertConfig((prev) => ({ ...prev, recipientName: e.target.value }))
+                              }
+                              placeholder="Deixe vazio p/ preencher à mão"
+                              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          <div>
+                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-1">
+                              Cidade e Data (Opcional)
+                            </label>
+                            <input
+                              type="text"
+                              value={customCertConfig.locationAndDate}
+                              onChange={(e) =>
+                                setCustomCertConfig((prev) => ({ ...prev, locationAndDate: e.target.value }))
+                              }
+                              placeholder="Ex: São Paulo, 04 de Outubro de 2026"
+                              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-1">
+                              Nome do Diretor(a) do Clube (Opcional)
+                            </label>
+                            <input
+                              type="text"
+                              value={customCertConfig.directorName}
+                              onChange={(e) =>
+                                setCustomCertConfig((prev) => ({ ...prev, directorName: e.target.value }))
+                              }
+                              placeholder="Ex: Diretor(a) do Clube"
+                              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                          <button
+                            type="button"
+                            disabled={isDownloadingCustomCert}
+                            onClick={async () => {
+                              setIsDownloadingCustomCert(true);
+                              try {
+                                await downloadCustomizedCertificatePdf(customCertConfig);
+                              } finally {
+                                setIsDownloadingCustomCert(false);
+                              }
+                            }}
+                            className="flex-1 min-w-[200px] py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                          >
+                            <Download size={15} />
+                            <span>
+                              {isDownloadingCustomCert
+                                ? 'Gerando Certificado...'
+                                : 'Baixar Certificado Personalizado (PDF A4)'}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isDownloadingCustomCert}
+                            onClick={async () => {
+                              setIsDownloadingCustomCert(true);
+                              try {
+                                await downloadCustomizedCertificatePng(customCertConfig);
+                              } finally {
+                                setIsDownloadingCustomCert(false);
+                              }
+                            }}
+                            className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                          >
+                            <Download size={15} />
+                            <span>Baixar em PNG (Alta Resolução)</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* =========================================================================
+                    SEÇÃO ESPECIAL DE MATERIAIS GRÁFICOS: EMBLEMAS NO FORMATO CORELDRAW (IASD)
+                   ========================================================================= */}
+                {cat.id === 'graficos' && (
+                  <div className="bg-white dark:bg-slate-800 rounded-[20px] p-4 sm:p-5 border border-indigo-200 dark:border-indigo-900/60 shadow-sm space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-700 pb-3">
+                      <div>
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 text-[9px] font-black uppercase tracking-widest">
+                          Vetores em Curvas • CorelDRAW (.CDR / .SVG / .EPS) • Portal IASD
+                        </span>
+                        <h4 className="text-xs sm:text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight mt-1">
+                          Emblemas Oficiais para Baixar no Formato CorelDRAW (DSA / IASD)
+                        </h4>
+                        <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-bold">
+                          Baixe os pacotes oficiais abertos (.CDR / .EPS / .AI) do Portal Adventistas.org ou baixe cada emblema individualmente pronto para abrir no CorelDRAW.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 shrink-0">
+                        <a
+                          href="https://downloads.adventistas.org/pt/desbravadores/logomarcas/logos-abertos-desbravadores/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs transition-colors"
+                        >
+                          <Download size={13} />
+                          <span>Pacote .CDR DBV (IASD)</span>
+                        </a>
+                        <a
+                          href="https://downloads.adventistas.org/pt/aventureiros/logomarcas/logos-aberto-aventureiros/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs transition-colors"
+                        >
+                          <Download size={13} />
+                          <span>Pacote .CDR AVT (IASD)</span>
+                        </a>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {filteredCorelEmblems.map((emb) => (
+                        <div
+                          key={emb.id}
+                          className="rounded-2xl p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 flex items-center justify-between gap-3"
+                        >
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1.5 flex items-center justify-center shrink-0">
+                              <img
+                                src={emb.imageUrl}
+                                alt={emb.title}
+                                className="w-full h-full object-contain"
+                                referrerPolicy="no-referrer"
+                              />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-1">
+                                <span
+                                  className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                                    emb.ministry === 'DBV'
+                                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                                      : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                                  }`}
+                                >
+                                  {emb.ministry} • {emb.code}
+                                </span>
+                                <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 text-[8px] font-black uppercase">
+                                  CorelDRAW
+                                </span>
+                              </div>
+                              <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-tight truncate mt-0.5">
+                                {emb.title}
+                              </p>
+                              <p className="text-[9.5px] font-bold text-slate-500 dark:text-slate-400 truncate">
+                                {emb.dimensions}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {emb.directCdrUrl && (
+                              <a
+                                href={emb.directCdrUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors"
+                                title="Baixar Arquivo Nativo .CDR CorelDRAW"
+                              >
+                                <Download size={12} />
+                                <span>.CDR</span>
+                              </a>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => downloadEmblemForCorelDraw(emb)}
+                              className="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer"
+                              title="Baixar Vetor em Curvas para abrir no CorelDRAW"
+                            >
+                              <Download size={12} />
+                              <span>Baixar Corel</span>
+                            </button>
+                            <a
+                              href={emb.corelPortalUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="w-7 h-7 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-700 dark:text-slate-200 flex items-center justify-center transition-colors"
+                              title="Abrir Pacote Oficial .CDR no Portal Adventistas.org (IASD)"
+                            >
+                              <ExternalLink size={12} />
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {catItems.length === 0 ? (
+                  <div className="bg-white dark:bg-slate-800 rounded-[18px] p-4 flex items-center justify-between shadow-sm border border-slate-100 dark:border-slate-700">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-red-50 dark:bg-red-950/40 rounded-xl flex items-center justify-center text-red-400">
+                        <Calendar size={20} />
+                      </div>
+                      <span className="text-xs font-black text-slate-400 uppercase tracking-tight">
+                        Nenhum documento encontrado para este filtro
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  catItems.map((form) => {
+                    const ministryCode = (form.icone || 'ALL').toUpperCase();
+                    const ministryLabel =
+                      ministryCode === 'DBV'
+                        ? 'Oficial DSA • Desbravadores'
+                        : ministryCode === 'AVT'
+                        ? 'Oficial DSA • Aventureiros'
+                        : 'Oficial DSA • DBV & AVT';
+                    const ministryBadgeColor =
+                      ministryCode === 'DBV'
+                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                        : ministryCode === 'AVT'
+                        ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                        : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300';
+                    const isExternalPortalOrCdr =
+                      form.link.includes('downloads.adventistas.org') ||
+                      form.link.includes('.cdr') ||
+                      form.link.endsWith('.svg');
+
+                    return (
+                      <div
+                        key={form.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => {
+                          if (!form.link) return;
+                          if (isExternalPortalOrCdr) {
+                            window.open(form.link, '_blank', 'noopener,noreferrer');
+                          } else {
+                            setPdfTitle(form.titulo);
+                            setSelectedPdfUrl(formatDriveUrl(form.link));
+                            setSelectedPdfThumbnail(null);
+                            setPdfReturnSubView('FORMULARIOS');
+                            setActiveSubView('PDF_VIEWER');
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if ((e.key === 'Enter' || e.key === ' ') && form.link) {
+                            e.preventDefault();
+                            if (isExternalPortalOrCdr) {
+                              window.open(form.link, '_blank', 'noopener,noreferrer');
+                            } else {
+                              setPdfTitle(form.titulo);
+                              setSelectedPdfUrl(formatDriveUrl(form.link));
+                              setSelectedPdfThumbnail(null);
+                              setPdfReturnSubView('FORMULARIOS');
+                              setActiveSubView('PDF_VIEWER');
+                            }
+                          }
+                        }}
+                        className="w-full bg-white dark:bg-slate-800 rounded-[18px] p-3.5 sm:p-4 flex items-center justify-between gap-3 shadow-sm border border-slate-100 dark:border-slate-700 hover:border-red-300 dark:hover:border-red-800 active:scale-[0.99] transition-all group cursor-pointer"
+                      >
+                        <div className="flex items-start sm:items-center space-x-3 min-w-0 flex-1">
+                          <div className="w-10 h-10 bg-red-50 dark:bg-red-950/40 rounded-xl flex items-center justify-center text-red-500 group-hover:scale-105 transition-transform shrink-0">
+                            <FileText size={20} />
+                          </div>
+                          <div className="text-left min-w-0 flex-1 space-y-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className={`px-2 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-wider ${ministryBadgeColor}`}>
+                                {ministryLabel}
+                              </span>
+                            </div>
+                            <span className="text-xs sm:text-[13px] font-black text-slate-800 dark:text-white uppercase tracking-tight block leading-snug">
+                              {form.titulo}
+                            </span>
+                            {form.descricao && (
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold block leading-snug">
+                                {form.descricao}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-1.5 shrink-0">
+                          {cat.id === 'certificados' && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCustomCertConfig((prev) => ({
+                                  ...prev,
+                                  ministry: ministryCode === 'AVT' ? 'AVT' : 'DBV',
+                                  certificateTitle: form.titulo.replace(/\s*\(DSA\)\s*/gi, '').toUpperCase(),
+                                  achievementName: form.titulo.replace(/Certificado (Oficial|Individual)\s*[—-]?\s*/i, '').replace(/\s*\(DSA\)\s*/gi, '')
+                                }));
+                                setIsCertCustomizerOpen(true);
+                                const el = document.getElementById('cert-customizer-anchor');
+                                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                              }}
+                              className="px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer"
+                              title="Personalizar este Certificado com Nome do Clube e Associação para Baixar"
+                            >
+                              <Edit2 size={12} />
+                              <span className="hidden sm:inline">Personalizar</span>
+                            </button>
+                          )}
+                          <a
+                            href={form.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-9 h-9 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-500 dark:text-slate-300 hover:bg-red-500 hover:text-white transition-colors"
+                            title="Baixar / Abrir Arquivo Oficial"
+                          >
+                            <Download size={16} />
+                          </a>
+                          <div
+                            className="w-9 h-9 bg-red-50 dark:bg-red-950/50 rounded-full flex items-center justify-center text-red-500 group-hover:bg-red-500 group-hover:text-white transition-colors"
+                            title="Visualizar Padrão"
+                          >
+                            <BookOpen size={16} />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          );
+        })}
 
         {isUserAdmin && (
           <div className="mt-8 p-6 bg-white dark:bg-slate-800 rounded-[32px] border border-slate-100 dark:border-slate-700 shadow-sm space-y-4">
@@ -5729,17 +6265,36 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               <Settings size={16} className="text-red-500" />
               <span>Painel Admin: Formulários</span>
             </h4>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Adicione novos links para todos os usuários.</p>
-            
-            <button 
-              onClick={() => alert("Funcionalidade de adicionar formulário em desenvolvimento...")}
-              className="w-full py-3 bg-red-500 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2"
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
+              Gerencie ou adicione novos formulários oficiais para todos os usuários.
+            </p>
+
+            <button
+              onClick={() => setActiveSubView('FORM_ADMIN')}
+              className="w-full py-3 bg-red-500 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2 cursor-pointer"
             >
               <Plus size={16} />
-              <span>Novo Formulário</span>
+              <span>Gerenciar Formulários</span>
             </button>
           </div>
         )}
+
+        {/* Rodapé de Créditos e Fontes Oficiais dos Formulários e Materiais */}
+        <div className="bg-white dark:bg-slate-800 rounded-[24px] p-4 sm:p-5 border border-slate-200/80 dark:border-slate-700 shadow-xs">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200/60 dark:border-red-800/50 flex items-center justify-center text-red-500 shrink-0">
+              <BookOpen size={18} />
+            </div>
+            <div className="space-y-1 min-w-0">
+              <span className="text-[10px] font-black uppercase tracking-widest text-red-500 block">
+                Créditos e Fontes Oficiais dos Documentos
+              </span>
+              <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
+                Todos os cadernos de atividades, fichas médicas, termos de autorização, certificados de investidura e manuais de identidade visual disponibilizados nesta seção são documentos oficiais do <strong>Ministério de Desbravadores e Aventureiros da Divisão Sul-Americana da IASD (DSA — adventistas.org/pt/desbravadores e adventistas.org/pt/aventureiros)</strong>, <strong>Sistema de Gerenciamento de Clubes (SGC / ACMS)</strong>, <strong>Acervo Oficial Arquivos Adventistas (arquivosadventistas.org)</strong>, <strong>Ministério de Aventureiros ASES</strong> e <strong>MDA Wiki (mda.wiki.br)</strong>.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   };
@@ -6011,6 +6566,23 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             })()}
           </div>
         )}
+
+        {/* Rodapé de Créditos e Fontes Oficiais do Programa Desbrava+ */}
+        <div className="bg-white dark:bg-slate-800 rounded-[24px] p-4 sm:p-5 border border-slate-200/80 dark:border-slate-700 shadow-xs">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-fuchsia-50 dark:bg-fuchsia-950/60 border border-fuchsia-200/60 dark:border-fuchsia-800/50 flex items-center justify-center text-fuchsia-600 dark:text-fuchsia-400 shrink-0">
+              <BookOpen size={18} />
+            </div>
+            <div className="space-y-1 min-w-0">
+              <span className="text-[10px] font-black uppercase tracking-widest text-fuchsia-600 dark:text-fuchsia-400 block">
+                Créditos e Fontes Oficiais — Programa Desbrava+
+              </span>
+              <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
+                Diretrizes, requisitos de Nível 1 (16 anos) e Nível 2 (17 anos), Curso de Treinamento de Diretoria (10 horas) e orientações técnicas extraídos oficialmente do <strong>Programa Desbrava+ da Divisão Sul-Americana da IASD (DSA — Ministério de Desbravadores • adventistas.org/pt/desbravadores)</strong>, <strong>Manual Administrativo do Clube de Desbravadores (DSA)</strong>, <strong>Guia do Aspirante a Líder (DSA)</strong> e <strong>MDA Wiki (mda.wiki.br)</strong>.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   };
@@ -6075,10 +6647,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                 <ChevronRight size={20} className="text-white/40 group-hover:translate-x-1 transition-transform" />
               </button>
             )}
+
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                <strong>Fonte Oficial:</strong> Divisão Sul-Americana da Igreja Adventista do Sétimo Dia (DSA) — Ministério de Desbravadores e Aventureiros (adventistas.org/pt/desbravadores • Manual Administrativo DBV & MDA Wiki).
+              </p>
+            </div>
           </div>
         </div>
-
-        {/* Botão de Ajuda da IA removido */}
       </div>
     );
   };
@@ -7584,6 +8160,23 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             ))}
           </div>
         )}
+
+        {/* Rodapé de Créditos e Fontes Oficiais dos Trunfos */}
+        <div className="bg-white dark:bg-slate-800 rounded-[24px] p-4 sm:p-5 border border-slate-200/80 dark:border-slate-700 shadow-xs">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200/60 dark:border-teal-800/50 flex items-center justify-center text-teal-600 dark:text-teal-400 shrink-0">
+              <BookOpen size={18} />
+            </div>
+            <div className="space-y-1 min-w-0">
+              <span className="text-[10px] font-black uppercase tracking-widest text-teal-600 dark:text-teal-400 block">
+                Créditos e Fontes Históricas do Acervo de Trunfos
+              </span>
+              <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
+                Imagens de trunfos bordados e registros históricos catalogados a partir do <strong>Acervo Oficial de Camporis e Eventos da Divisão Sul-Americana (DSA — adventistas.org)</strong>, <strong>MDA Wiki (mda.wiki.br)</strong>, <strong>Uniões e Associações da IASD (UCB, UNeB, UNB, USB, UCOB, ULB, USEB, UNOB)</strong> e coleções históricas oficiais do Ministério de Desbravadores e Aventureiros.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   };
@@ -9394,32 +9987,32 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
   const renderFieldTraining = () => {
     return (
-      <div className="w-full max-w-5xl lg:max-w-6xl mx-auto px-2 sm:px-4 space-y-5 animate-slide-in pt-1 pb-24">
-        {/* Banner da Central de Treinamento em Campo */}
-        <div className="bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#334155] rounded-[28px] p-5 sm:p-6 text-white shadow-lg border border-white/10 relative overflow-hidden">
-          <div className="absolute -right-6 -bottom-6 text-white/10 pointer-events-none">
-            <Compass size={130} />
+      <div className="w-full max-w-5xl lg:max-w-6xl mx-auto px-2 sm:px-4 space-y-4 animate-slide-in pt-1 pb-24">
+        {/* Banner Compacto da Central de Treinamento em Campo */}
+        <div className="bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#334155] rounded-[24px] p-4 sm:p-5 text-white shadow-md border border-white/10 relative overflow-hidden">
+          <div className="absolute -right-4 -bottom-4 text-white/10 pointer-events-none">
+            <Compass size={96} />
           </div>
-          <div className="relative z-10 space-y-2">
+          <div className="relative z-10 space-y-1">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="px-3 py-1 rounded-full bg-amber-400/20 text-amber-300 border border-amber-300/30 text-[10px] font-black uppercase tracking-widest">
+              <span className="px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-300/30 text-[9px] font-black uppercase tracking-widest">
                 Central Prática • {isPathfinder ? 'Desbravadores' : 'Aventureiros'}
               </span>
-              <span className="px-3 py-1 rounded-full bg-white/10 text-white/80 text-[10px] font-black uppercase tracking-wider">
-                4 Módulos de Treinamento
+              <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-wider">
+                4 Módulos
               </span>
             </div>
-            <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tight leading-tight">
+            <h3 className="text-base sm:text-xl font-black uppercase tracking-tight leading-tight">
               Treinamento em Campo
             </h3>
-            <p className="text-xs sm:text-sm text-white/80 font-medium max-w-2xl leading-relaxed">
-              Escolha abaixo a área prática que deseja acessar para instrução da unidade, acampamento, simulados ou treino de Ordem Unida:
+            <p className="text-[11px] sm:text-xs text-white/80 font-medium max-w-2xl leading-snug">
+              Escolha a área prática para instrução da unidade, acampamento, simulados ou Ordem Unida:
             </p>
           </div>
         </div>
 
-        {/* Grid com as 4 novas áreas dentro de Treinamento em Campo */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+        {/* Grid Horizontal Compacto com as 4 áreas dentro de Treinamento em Campo */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {fieldAndPracticeButtons.map((item, i) => {
             const IconComp = item.icon;
             return (
@@ -9432,36 +10025,49 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                   }
                   setActiveSubView(item.view as any);
                 }}
-                className={`w-full relative overflow-hidden bg-gradient-to-br ${item.gradient} rounded-[28px] p-5 sm:p-6 flex flex-col justify-between text-left text-white shadow-md hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98] transition-all group min-h-[168px] sm:min-h-[184px] border border-white/20 cursor-pointer`}
+                className={`w-full relative overflow-hidden bg-gradient-to-br ${item.gradient} rounded-[22px] sm:rounded-[24px] px-4 py-3.5 sm:p-4 flex items-center justify-between gap-3.5 text-left text-white shadow-md hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98] transition-all group border border-white/20 cursor-pointer`}
               >
-                <div className="absolute -bottom-4 -right-4 text-white/15 pointer-events-none group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">
-                  <IconComp className="w-28 h-28 sm:w-32 sm:h-32 stroke-[1.4]" />
+                <div className="absolute -bottom-3 -right-3 text-white/15 pointer-events-none group-hover:scale-110 transition-transform duration-300">
+                  <IconComp className="w-20 h-20 stroke-[1.4]" />
                 </div>
 
-                <div className="relative z-10 flex items-center justify-between w-full">
-                  <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition-transform">
-                    <IconComp className="w-6 h-6" strokeWidth={2.4} />
+                <div className="relative z-10 flex items-center gap-3.5 min-w-0 flex-1">
+                  <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shadow-xs shrink-0 group-hover:scale-105 transition-transform">
+                    <IconComp className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={2.4} />
                   </div>
-                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/25 backdrop-blur-xs border border-white/20 text-[10px] font-black uppercase tracking-wider">
-                    <span>{item.badge}</span>
-                    <ChevronRight size={14} strokeWidth={2.5} />
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-sm sm:text-base font-black text-white uppercase tracking-tight leading-tight truncate drop-shadow-xs">
+                      {item.label}
+                    </h4>
+                    <p className="text-[10px] sm:text-[11px] font-bold text-white/85 uppercase tracking-wider truncate mt-0.5">
+                      {item.subtitle}
+                    </p>
                   </div>
                 </div>
 
-                <div className="relative z-10 mt-4 space-y-1">
-                  <h4 className="text-base sm:text-lg md:text-xl font-black text-white uppercase tracking-tight leading-tight drop-shadow-xs">
-                    {item.label}
-                  </h4>
-                  <p className="text-[10px] sm:text-[11px] font-black text-amber-200 uppercase tracking-wider">
-                    {item.subtitle}
-                  </p>
-                  <p className="text-xs text-white/85 font-medium leading-relaxed pt-1 line-clamp-2">
-                    {item.description}
-                  </p>
+                <div className="relative z-10 w-8 h-8 rounded-full bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shrink-0 group-hover:bg-white group-hover:text-slate-900 transition-colors">
+                  <ChevronRight size={16} strokeWidth={2.6} />
                 </div>
               </button>
             );
           })}
+        </div>
+
+        {/* Rodapé de Créditos e Fontes Oficiais da Central de Treinamento em Campo */}
+        <div className="bg-white dark:bg-slate-800 rounded-[24px] p-4 sm:p-5 border border-slate-200/80 dark:border-slate-700 shadow-xs">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200/60 dark:border-amber-800/50 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+              <BookOpen size={18} />
+            </div>
+            <div className="space-y-1 min-w-0">
+              <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 block">
+                Créditos e Fontes Oficiais — Treinamento em Campo
+              </span>
+              <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
+                Todos os módulos de instrução prática (Quiz e Simulado, Cantinho da Unidade & Acampamento, Guia de Campo e Ordem Unida) seguem as diretrizes oficiais da <strong>Divisão Sul-Americana da IASD (DSA — Ministério de Desbravadores e Aventureiros)</strong>, <strong>Manual Administrativo DBV e AVT</strong>, <strong>Manual de Ordem Unida DSA</strong>, <strong>Regulamento de Uniformes (RUD)</strong>, <strong>MDA Wiki (mda.wiki.br)</strong>, <strong>Escoteiros do Brasil (UEB)</strong>, <strong>Desbrava7</strong> e <strong>INES (Libras)</strong>.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -9521,78 +10127,75 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
     return (
       <div className="space-y-6 md:space-y-8 lg:space-y-10 animate-slide-up pt-2 md:pt-4 lg:pt-6 pb-24 landscape:pb-16">
-        {/* Visualização para Mobile: Botões com a nova identidade visual */}
-        <div className="md:hidden space-y-3 px-1">
-          {/* Cartão Mobile: Bíblia Sagrada */}
+        {/* Visualização para Mobile: Botões na horizontal compactos (sem a palavra Acessar) */}
+        <div className="md:hidden space-y-2.5 px-1">
+          {/* Cartão Mobile Horizontal: Bíblia Sagrada */}
           <button 
             onClick={() => setActiveSubView('BIBLE')}
-            className="w-full relative overflow-hidden bg-gradient-to-br from-[#1e40af] via-[#1d4ed8] to-[#3b82f6] rounded-[26px] p-5 flex flex-col justify-between text-left text-white shadow-lg active:scale-[0.98] transition-all group min-h-[120px] border border-white/20"
+            className="w-full relative overflow-hidden bg-gradient-to-br from-[#1e40af] via-[#1d4ed8] to-[#3b82f6] rounded-[22px] px-4 py-3.5 flex items-center justify-between gap-3.5 text-left text-white shadow-md active:scale-[0.98] transition-all group border border-white/20"
           >
             <div className="absolute -bottom-3 -right-3 text-white/15 pointer-events-none group-hover:scale-110 transition-transform">
-              <Book className="w-32 h-32 stroke-[1.4]" />
+              <Book className="w-20 h-20 stroke-[1.4]" />
             </div>
-            <div className="flex items-center justify-between w-full relative z-10">
-              <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shadow-xs">
-                <Book size={22} strokeWidth={2.4} />
+            <div className="flex items-center gap-3.5 min-w-0 flex-1 relative z-10">
+              <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shadow-xs shrink-0">
+                <Book size={21} strokeWidth={2.4} />
               </div>
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-[10px] font-black uppercase tracking-wider">
-                <span>Acessar</span>
-                <ChevronRight size={14} strokeWidth={2.5} />
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-black uppercase tracking-tight leading-tight truncate">Bíblia Sagrada</h3>
+                <p className="text-[10px] font-bold text-white/85 uppercase tracking-wider mt-0.5 truncate">Almeida Revista e Corrigida</p>
               </div>
             </div>
-            <div className="relative z-10 mt-3">
-              <h3 className="text-base font-black uppercase tracking-tight leading-tight">Bíblia Sagrada</h3>
-              <p className="text-[10px] font-bold text-white/80 uppercase tracking-wider mt-0.5">Almeida Revista e Corrigida</p>
+            <div className="relative z-10 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+              <ChevronRight size={16} strokeWidth={2.6} />
             </div>
           </button>
 
-          {/* Cartão Mobile: Classes */}
+          {/* Cartão Mobile Horizontal: Classes */}
           <button 
             onClick={() => setActiveSubView('CLASSES')}
             className={`w-full relative overflow-hidden ${
               isPathfinder 
                 ? 'bg-gradient-to-br from-[#dc2626] via-[#b91c1c] to-[#ef4444]' 
                 : 'bg-gradient-to-br from-[#800000] via-[#660000] to-[#991b1b]'
-            } rounded-[26px] p-5 flex flex-col justify-between text-left text-white shadow-lg active:scale-[0.98] transition-all group min-h-[120px] border border-white/20`}
+            } rounded-[22px] px-4 py-3.5 flex items-center justify-between gap-3.5 text-left text-white shadow-md active:scale-[0.98] transition-all group border border-white/20`}
           >
             <div className="absolute -bottom-3 -right-3 text-white/15 pointer-events-none group-hover:scale-110 transition-transform">
-              <Layers className="w-32 h-32 stroke-[1.4]" />
+              <Layers className="w-20 h-20 stroke-[1.4]" />
             </div>
-            <div className="flex items-center justify-between w-full relative z-10">
-              <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shadow-xs">
-                <Layers size={22} strokeWidth={2.4} />
+            <div className="flex items-center gap-3.5 min-w-0 flex-1 relative z-10">
+              <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shadow-xs shrink-0">
+                <Layers size={21} strokeWidth={2.4} />
               </div>
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-[10px] font-black uppercase tracking-wider">
-                <span>Acessar</span>
-                <ChevronRight size={14} strokeWidth={2.5} />
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-black uppercase tracking-tight leading-tight truncate">Classes</h3>
+                <p className="text-[10px] font-bold text-white/85 uppercase tracking-wider mt-0.5 truncate">Requisitos e Progresso</p>
               </div>
             </div>
-            <div className="relative z-10 mt-3">
-              <h3 className="text-base font-black uppercase tracking-tight leading-tight">Classes</h3>
-              <p className="text-[10px] font-bold text-white/80 uppercase tracking-wider mt-0.5">Requisitos e Progresso</p>
+            <div className="relative z-10 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+              <ChevronRight size={16} strokeWidth={2.6} />
             </div>
           </button>
 
-          {/* Cartão Mobile: Especialidades */}
+          {/* Cartão Mobile Horizontal: Especialidades */}
           <button 
             onClick={() => setActiveSubView('SPECIALTIES')}
-            className="w-full relative overflow-hidden bg-gradient-to-br from-[#d97706] via-[#b45309] to-[#f59e0b] rounded-[26px] p-5 flex flex-col justify-between text-left text-white shadow-lg active:scale-[0.98] transition-all group min-h-[120px] border border-white/20"
+            className="w-full relative overflow-hidden bg-gradient-to-br from-[#d97706] via-[#b45309] to-[#f59e0b] rounded-[22px] px-4 py-3.5 flex items-center justify-between gap-3.5 text-left text-white shadow-md active:scale-[0.98] transition-all group border border-white/20"
           >
             <div className="absolute -bottom-3 -right-3 text-white/15 pointer-events-none group-hover:scale-110 transition-transform">
-              <Award className="w-32 h-32 stroke-[1.4]" />
+              <Award className="w-20 h-20 stroke-[1.4]" />
             </div>
-            <div className="flex items-center justify-between w-full relative z-10">
-              <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shadow-xs">
-                <Award size={22} strokeWidth={2.4} />
+            <div className="flex items-center gap-3.5 min-w-0 flex-1 relative z-10">
+              <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shadow-xs shrink-0">
+                <Award size={21} strokeWidth={2.4} />
               </div>
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-[10px] font-black uppercase tracking-wider">
-                <span>Acessar</span>
-                <ChevronRight size={14} strokeWidth={2.5} />
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-black uppercase tracking-tight leading-tight truncate">Especialidades</h3>
+                <p className="text-[10px] font-bold text-white/85 uppercase tracking-wider mt-0.5 truncate">Manual, Áreas e Requisitos</p>
               </div>
             </div>
-            <div className="relative z-10 mt-3">
-              <h3 className="text-base font-black uppercase tracking-tight leading-tight">Especialidades</h3>
-              <p className="text-[10px] font-bold text-white/80 uppercase tracking-wider mt-0.5">Manual, Áreas e Requisitos</p>
+            <div className="relative z-10 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+              <ChevronRight size={16} strokeWidth={2.6} />
             </div>
           </button>
         </div>
@@ -9612,9 +10215,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                 <div className="w-11 h-11 lg:w-13 lg:h-13 bg-white/20 backdrop-blur-xs rounded-2xl border border-white/25 flex items-center justify-center text-white shadow-inner group-hover:scale-105 transition-transform shrink-0">
                   <Book className="w-5 h-5 lg:w-6 lg:h-6" strokeWidth={2.4} />
                 </div>
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/20 text-[9px] lg:text-[10px] font-black uppercase tracking-wider shrink-0">
-                  <span>Acessar</span>
-                  <ChevronRight className="w-3.5 h-3.5" strokeWidth={3} />
+                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                  <ChevronRight className="w-4 h-4" strokeWidth={2.8} />
                 </div>
               </div>
               <div className="relative z-10 mt-auto pt-2">
@@ -9643,9 +10245,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                 <div className="w-11 h-11 lg:w-13 lg:h-13 bg-white/20 backdrop-blur-xs rounded-2xl border border-white/25 flex items-center justify-center text-white shadow-inner group-hover:scale-105 transition-transform shrink-0">
                   <Layers className="w-5 h-5 lg:w-6 lg:h-6" strokeWidth={2.4} />
                 </div>
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/20 text-[9px] lg:text-[10px] font-black uppercase tracking-wider shrink-0">
-                  <span>Acessar</span>
-                  <ChevronRight className="w-3.5 h-3.5" strokeWidth={3} />
+                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                  <ChevronRight className="w-4 h-4" strokeWidth={2.8} />
                 </div>
               </div>
               <div className="relative z-10 mt-auto pt-2">
@@ -9670,9 +10271,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                 <div className="w-11 h-11 lg:w-13 lg:h-13 bg-white/20 backdrop-blur-xs rounded-2xl border border-white/25 flex items-center justify-center text-white shadow-inner group-hover:scale-105 transition-transform shrink-0">
                   <Award className="w-5 h-5 lg:w-6 lg:h-6" strokeWidth={2.4} />
                 </div>
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/20 text-[9px] lg:text-[10px] font-black uppercase tracking-wider shrink-0">
-                  <span>Acessar</span>
-                  <ChevronRight className="w-3.5 h-3.5" strokeWidth={3} />
+                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                  <ChevronRight className="w-4 h-4" strokeWidth={2.8} />
                 </div>
               </div>
               <div className="relative z-10 mt-auto pt-2">
@@ -9737,34 +10337,26 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         </div>
 
         {/* ========================================================
-            BOTÃO ÚNICO: TREINAMENTO EM CAMPO (AGRUPA AS NOVAS ÁREAS)
+            BOTÃO ÚNICO COMPACTO: TREINAMENTO EM CAMPO (AGRUPA AS NOVAS ÁREAS)
            ======================================================== */}
         <div className="w-full max-w-5xl lg:max-w-6xl mx-auto px-4">
           <button
             type="button"
             onClick={() => setActiveSubView('FIELD_TRAINING')}
-            className="w-full relative overflow-hidden bg-gradient-to-br from-[#0f766e] via-[#0284c7] to-[#1e40af] rounded-[24px] sm:rounded-[28px] md:rounded-[30px] p-5 sm:p-6 flex items-center justify-between text-left text-white shadow-lg hover:shadow-2xl hover:-translate-y-0.5 active:scale-[0.99] transition-all group border border-white/20 cursor-pointer"
+            className="w-full relative overflow-hidden bg-gradient-to-br from-[#0f766e] via-[#0284c7] to-[#1e40af] rounded-[22px] sm:rounded-[26px] px-4 py-3.5 sm:p-4 flex items-center justify-between gap-3.5 text-left text-white shadow-md hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.99] transition-all group border border-white/20 cursor-pointer"
           >
             {/* Marca d'água grande vazada no fundo direito */}
-            <div className="absolute -bottom-4 -right-4 text-white/15 pointer-events-none group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">
-              <Compass className="w-28 h-28 sm:w-36 sm:h-36 stroke-[1.3]" />
+            <div className="absolute -bottom-3 -right-3 text-white/15 pointer-events-none group-hover:scale-110 transition-transform duration-300">
+              <Compass className="w-24 h-24 stroke-[1.3]" />
             </div>
 
-            <div className="relative z-10 flex items-center gap-4 sm:gap-5 min-w-0">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shadow-xs shrink-0 group-hover:scale-105 transition-transform">
-                <Compass className="w-6 h-6 sm:w-7 sm:h-7" strokeWidth={2.4} />
+            <div className="relative z-10 flex items-center gap-3.5 min-w-0 flex-1">
+              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shadow-xs shrink-0 group-hover:scale-105 transition-transform">
+                <Compass className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={2.4} />
               </div>
 
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                  <span className="px-2.5 py-0.5 rounded-full bg-amber-400/25 border border-amber-300/40 text-amber-200 text-[9px] sm:text-[10px] font-black uppercase tracking-widest">
-                    Central Prática
-                  </span>
-                  <span className="text-[10px] font-bold text-white/80 hidden sm:inline">
-                    • 4 Áreas Integradas
-                  </span>
-                </div>
-                <h4 className="text-base sm:text-lg md:text-xl font-black text-white uppercase tracking-tight leading-tight drop-shadow-xs">
+              <div className="min-w-0 flex-1">
+                <h4 className="text-sm sm:text-base md:text-lg font-black text-white uppercase tracking-tight leading-tight truncate drop-shadow-xs">
                   Treinamento em Campo
                 </h4>
                 <p className="text-[10px] sm:text-xs font-bold text-white/85 uppercase tracking-wider mt-0.5 truncate">
@@ -9773,9 +10365,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               </div>
             </div>
 
-            <div className="relative z-10 flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 text-[10px] sm:text-xs font-black uppercase tracking-wider shrink-0 ml-3 group-hover:bg-white group-hover:text-slate-900 transition-colors">
-              <span className="hidden sm:inline">Abrir</span>
-              <ChevronRight size={16} strokeWidth={2.5} />
+            <div className="relative z-10 w-8 h-8 rounded-full bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shrink-0 group-hover:bg-white group-hover:text-slate-900 transition-colors">
+              <ChevronRight size={16} strokeWidth={2.6} />
             </div>
           </button>
         </div>
@@ -10327,7 +10918,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                   } else if (activeSubView === 'LIBRARY_BOOKS_MENU') {
                     setActiveSubView('LIBRARY');
                   } else if (activeSubView === 'PDF_VIEWER') {
-                    setActiveSubView('LIBRARY');
+                    setActiveSubView(pdfReturnSubView);
                   } else if (activeSubView === 'MATERIALS') {
                     setActiveSubView('LIBRARY');
                   } else if (activeSubView === 'CAMPING') {
