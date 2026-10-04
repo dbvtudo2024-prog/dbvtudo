@@ -1,11 +1,11 @@
 {
-  "version": 1759565800000,
-  "versionName": "3.0.49",
-  "buildDate": "2026-10-04T08:17:00.000Z",
-  "timestamp": 1759565800000,
+  "version": 1759570200000,
+  "versionName": "3.0.56",
+  "buildDate": "2026-10-04T09:32:00.000Z",
+  "timestamp": 1759570200000,
   "highlights": [
-    "Aleatorização balanceada das opções de resposta (A, B, C, D) sem repetição da opção A e categorias do livro 'Nisto Cremos' exclusivas para Desbravadores",
-    "Layout do Quiz 100% ajustado à tela sem rolagem, 2 colunas de modalidades no celular e insígnia da especialidade sem container",
-    "Gerador de Provas Oficiais das Especialidades em PDF (A4) com gabarito comentado destacável para o instrutor"
+    "Fotografias e ilustrações reais de cada Nó e Amarra com zoom em tela cheia e botão unificado 'Guia de Campo (Nós, Códigos e Socorros)' no Acesso Rápido",
+    "Passo a Passo de Nós e Amarras (Amigo a Guia), Tradutor de Códigos (Morse com apito/luz, Semáfora, Libras e Sinais de Pista) e Guia Rápido de Primeiros Socorros e Peçonhentos",
+    "Ajuste do formulário de cadastro de membro no topo com largura total no PC, nome da unidade vazio por padrão, botão para remover domingos e novos botões ao final da lista"
   ]
 }

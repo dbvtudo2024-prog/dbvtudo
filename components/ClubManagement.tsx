@@ -29,11 +29,13 @@ import { APP_VERSION } from '../versionConfig';
 import { generateSpecialtyPowerPoint, parseAndNormalizeRequirements, isRequirementSubItem } from '../services/presentationService';
 import { generateSpecialtyExamPdf, generateSpecialtyExamQuestions, ExamFormatMode, ExamQuestion } from '../services/examService';
 import ClubQuiz from './ClubQuiz';
+import UnitCornerCamping from './UnitCornerCamping';
+import FieldManualTools from './FieldManualTools';
 import { 
   Shield, Award, User, Layers, Sparkles, Home as HomeIcon, Search,
   ChevronRight, ChevronLeft, ChevronDown, ChevronUp, ListChecks, Info, Book, Settings, Zap, Music, Flag, Shirt, Globe, Key, FileText, Library, CreditCard, MapPin, Video, Folder, BookOpen, Heart, ArrowUp, ArrowDown,
   Trash2, Plus, Save, Share2, Calendar, X, Image as ImageIcon, Download, ArrowLeft, ExternalLink, Filter, Edit2, Edit3, Check,
-  AlignLeft, AlignCenter, AlignRight, ZoomIn, ZoomOut, Minus, Trophy, PanelLeftClose, PanelLeftOpen, Menu, Presentation, RefreshCw, ClipboardCheck
+  AlignLeft, AlignCenter, AlignRight, ZoomIn, ZoomOut, Minus, Trophy, PanelLeftClose, PanelLeftOpen, Menu, Presentation, RefreshCw, ClipboardCheck, Tent, Compass, Radio, HeartPulse
 } from 'lucide-react';
 
 
@@ -1747,7 +1749,7 @@ export type SubViewType =
   | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' 
   | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' 
   | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS' | 'PDF_VIEWER' | 'LIBRARY_BOOKS_MENU' 
-  | 'VIDEOS' | 'VIDEO_ADMIN' | 'FORM_ADMIN' | 'VIDEO_PLAYER' | 'LINKS_ADMIN' | 'ACHIEVEMENTS_ADMIN' | 'TRUNFOS' | 'TRUNFOS_ADMIN' | 'WEB_VIEWER' | 'FAIXA_ADMIN' | 'QUIZ';
+  | 'VIDEOS' | 'VIDEO_ADMIN' | 'FORM_ADMIN' | 'VIDEO_PLAYER' | 'LINKS_ADMIN' | 'ACHIEVEMENTS_ADMIN' | 'TRUNFOS' | 'TRUNFOS_ADMIN' | 'WEB_VIEWER' | 'FAIXA_ADMIN' | 'QUIZ' | 'UNIT_CORNER' | 'FIELD_MANUAL';
 
 interface ClubManagementProps {
   club: ClubType;
@@ -1856,6 +1858,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
   // Bible Settings State
   const [selectedHistory, setSelectedHistory] = useState<string | null>(null);
+  const [fieldManualTab, setFieldManualTab] = useState<'NOS_AMARRAS' | 'CODIGOS' | 'PRIMEIROS_SOCORROS'>('NOS_AMARRAS');
   const [bibleSettings, setBibleSettings] = useState(() => {
     const saved = localStorage.getItem('dbv_tudo_bible_settings');
     return saved ? JSON.parse(saved) : {
@@ -9029,19 +9032,29 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           </div>
         </button>
       ))}
+
+      <button
+        onClick={() => setActiveSubView('UNIT_CORNER')}
+        className="w-full bg-gradient-to-br from-emerald-800 via-teal-700 to-emerald-600 text-white rounded-[28px] p-5 flex items-center space-x-5 shadow-lg active:scale-[0.98] transition-all group border border-white/15"
+      >
+        <div className="w-14 h-14 bg-white/20 backdrop-blur-xs border border-white/30 rounded-2xl flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform shrink-0">
+          <Tent size={26} />
+        </div>
+        <div className="text-left flex-1 min-w-0">
+          <h4 className="font-black text-white uppercase tracking-tight text-sm sm:text-base truncate">
+            Cantinho da Unidade & Acampamento
+          </h4>
+          <p className="text-emerald-100 text-[10px] font-black uppercase tracking-widest mt-0.5">
+            Chamada de Domingo • Escala & Cardápio • Checklist Mochila
+          </p>
+        </div>
+        <ChevronRight size={20} className="text-white/80 shrink-0" />
+      </button>
     </div>
   );
 
   const renderDashboard = () => {
     const quickAccessButtons = [
-      { 
-        label: 'Quiz e Simulado', 
-        subtitle: isPathfinder ? 'Bom de Bíblia e Desafios' : 'Desafios e Concursos', 
-        icon: Zap, 
-        gradient: 'from-[#4f46e5] via-[#6366f1] to-[#818cf8]', 
-        view: 'QUIZ', 
-        show: true 
-      },
       { 
         label: 'Cultura', 
         subtitle: 'História e Ideais', 
@@ -9088,6 +9101,31 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         icon: Video, 
         gradient: 'from-[#059669] via-[#10b981] to-[#34d399]', 
         view: 'VIDEOS', 
+        show: true 
+      },
+      { 
+        label: 'Quiz e Simulado', 
+        subtitle: isPathfinder ? 'Bom de Bíblia e Desafios' : 'Desafios e Concursos', 
+        icon: Zap, 
+        gradient: 'from-[#4f46e5] via-[#6366f1] to-[#818cf8]', 
+        view: 'QUIZ', 
+        show: true 
+      },
+      { 
+        label: 'Cantinho & Acamp.', 
+        subtitle: 'Unidade, Escala e Mochila', 
+        icon: Tent, 
+        gradient: 'from-[#0f766e] via-[#0d9488] to-[#14b8a6]', 
+        view: 'UNIT_CORNER', 
+        show: true 
+      },
+      { 
+        label: 'Guia de Campo', 
+        subtitle: 'Nós, Códigos e Socorros', 
+        icon: Compass, 
+        gradient: 'from-[#9a3412] via-[#c2410c] to-[#ea580c]', 
+        view: 'FIELD_MANUAL',
+        manualTab: 'NOS_AMARRAS' as const,
         show: true 
       }
     ].filter(b => b.show);
@@ -9276,7 +9314,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               return (
                 <button 
                   key={i} 
-                  onClick={() => setActiveSubView(item.view as any)} 
+                  onClick={() => {
+                    if ((item as any).manualTab) {
+                      setFieldManualTab((item as any).manualTab);
+                    }
+                    setActiveSubView(item.view as any);
+                  }} 
                   className={`w-full relative overflow-hidden bg-gradient-to-br ${item.gradient} rounded-[24px] sm:rounded-[28px] md:rounded-[30px] p-4 sm:p-5 flex flex-col justify-between text-left text-white shadow-md hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98] transition-all group min-h-[112px] sm:min-h-[128px] md:min-h-[138px] border border-white/20`}
                 >
                   {/* Marca d'água grande vazada no fundo direito */}
@@ -9877,6 +9920,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                       return;
                     }
                     setActiveSubView('MAIN');
+                  } else if (activeSubView === 'UNIT_CORNER') {
+                    setActiveSubView('MAIN');
+                  } else if (activeSubView === 'FIELD_MANUAL') {
+                    setActiveSubView('MAIN');
                   } else {
                     setActiveSubView('MAIN');
                   }
@@ -9953,6 +10000,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                activeSubView === 'VIDEO_ADMIN' ? 'Gestão de Vídeos' :
                activeSubView === 'FORM_ADMIN' ? 'Gestão de Formulários' :
                activeSubView === 'QUIZ' ? 'Quiz & Bom de Bíblia' :
+               activeSubView === 'UNIT_CORNER' ? 'Cantinho da Unidade & Acampamento' :
+               activeSubView === 'FIELD_MANUAL' ? 'Nós e Amarras • Códigos • Primeiros Socorros' :
                activeSubView}
             </p>
           </div>
@@ -10070,6 +10119,19 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             onRegisterBackHandler={(fn) => {
               quizBackHandlerRef.current = fn;
             }}
+          />
+        )}
+        {activeSubView === 'UNIT_CORNER' && (
+          <UnitCornerCamping
+            club={club}
+            onBack={() => setActiveSubView('MAIN')}
+          />
+        )}
+        {activeSubView === 'FIELD_MANUAL' && (
+          <FieldManualTools
+            club={club}
+            initialTab={fieldManualTab}
+            onBack={() => setActiveSubView('MAIN')}
           />
         )}
       </div>

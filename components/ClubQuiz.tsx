@@ -1270,7 +1270,7 @@ REGRAS OBRIGATÓRIAS:
         </div>
 
         {/* 1. Grade de Modalidades: 2 Colunas no Celular, 3-4 no Desktop */}
-        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
+        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-0.5 py-0.5">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-2.5 h-full content-start">
             {arenaCards.map((card) => {
               const IconComp = card.icon;
@@ -1283,7 +1283,7 @@ REGRAS OBRIGATÓRIAS:
                   onClick={() => setSelectedArena(card.id)}
                   className={`w-full relative overflow-hidden rounded-2xl p-2.5 sm:p-3.5 text-left transition-all flex flex-col justify-between border ${
                     isSelected
-                      ? `bg-gradient-to-br ${card.gradient} text-white shadow-md ring-2 ring-indigo-400 dark:ring-indigo-400 border-white/30`
+                      ? `bg-gradient-to-br ${card.gradient} text-white shadow-md ring-2 ring-inset ring-white/50 border-transparent`
                       : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white border-slate-200/80 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700 shadow-xs'
                   }`}
                 >
@@ -1549,7 +1549,7 @@ REGRAS OBRIGATÓRIAS:
                 <img
                   src={currentQ.imageUrl}
                   alt="Insígnia da Especialidade"
-                  className="w-20 h-20 sm:w-28 sm:h-28 object-contain drop-shadow-xl select-none"
+                  className="w-36 h-36 sm:w-44 sm:h-44 md:w-48 md:h-48 object-contain drop-shadow-xl select-none my-0.5"
                   draggable={false}
                   referrerPolicy="no-referrer"
                 />
@@ -1797,7 +1797,7 @@ REGRAS OBRIGATÓRIAS:
                     <img
                       src={entry.question.imageUrl}
                       alt=""
-                      className="w-8 h-8 object-contain shrink-0"
+                      className="w-12 h-12 object-contain shrink-0"
                     />
                   )}
                   <div className="min-w-0">

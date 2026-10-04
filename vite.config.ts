@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '3.0.49';
+const appVersion = '3.0.56';
 
 function versionPlugin(): Plugin {
   return {
@@ -19,9 +19,9 @@ function versionPlugin(): Plugin {
           buildDate: new Date(buildTime).toISOString(),
           timestamp: buildTime,
           highlights: [
-            "Aleatorização balanceada das opções de resposta (A, B, C, D) sem repetição da opção A e categorias do livro 'Nisto Cremos' exclusivas para Desbravadores",
-            "Layout do Quiz 100% ajustado à tela sem rolagem, 2 colunas de modalidades no celular e insígnia da especialidade sem container",
-            "Gerador de Provas Oficiais das Especialidades em PDF (A4) com gabarito comentado destacável para o instrutor"
+            "Fotografias e ilustrações reais de cada Nó e Amarra com zoom em tela cheia e botão unificado 'Guia de Campo (Nós, Códigos e Socorros)' no Acesso Rápido",
+            "Passo a Passo de Nós e Amarras (Amigo a Guia), Tradutor de Códigos (Morse com apito/luz, Semáfora, Libras e Sinais de Pista) e Guia Rápido de Primeiros Socorros e Peçonhentos",
+            "Ajuste do formulário de cadastro de membro no topo com largura total no PC, nome da unidade vazio por padrão, botão para remover domingos e novos botões ao final da lista"
           ]
         }, null, 2)
       });
@@ -37,9 +37,9 @@ function versionPlugin(): Plugin {
             buildDate: new Date(buildTime).toISOString(),
             timestamp: buildTime,
             highlights: [
-              "Aleatorização balanceada das opções de resposta (A, B, C, D) sem repetição da opção A e categorias do livro 'Nisto Cremos' exclusivas para Desbravadores",
-              "Layout do Quiz 100% ajustado à tela sem rolagem, 2 colunas de modalidades no celular e insígnia da especialidade sem container",
-              "Gerador de Provas Oficiais das Especialidades em PDF (A4) com gabarito comentado destacável para o instrutor"
+              "Fotografias e ilustrações reais de cada Nó e Amarra com zoom em tela cheia e botão unificado 'Guia de Campo (Nós, Códigos e Socorros)' no Acesso Rápido",
+              "Passo a Passo de Nós e Amarras (Amigo a Guia), Tradutor de Códigos (Morse com apito/luz, Semáfora, Libras e Sinais de Pista) e Guia Rápido de Primeiros Socorros e Peçonhentos",
+              "Ajuste do formulário de cadastro de membro no topo com largura total no PC, nome da unidade vazio por padrão, botão para remover domingos e novos botões ao final da lista"
             ]
           }));
           return;

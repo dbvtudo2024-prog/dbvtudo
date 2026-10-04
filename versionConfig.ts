@@ -6,14 +6,86 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.49';
+export const APP_VERSION = '3.0.56';
 export const APP_BUILD_DATE = '4 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
-    version: '3.0.49',
+    version: '3.0.56',
     date: '04/10/2026',
     tag: 'NOVO',
+    title: 'Imagens Reais de Nós e Amarras com Zoom e Botão Único "Guia de Campo"',
+    changes: [
+      'Substituição dos diagramas esquemáticos por fotografias e ilustrações reais de cada nó e amarra (Nó Direito, Cirurgião, Lais de Guia em 4 etapas, Volta do Fiel, Escota, Catau, Pescador, Prusik e Amarras Quadrada, Diagonal, Paralela e Tripé) com opção de ampliar imagem em tela cheia.',
+      'Unificação dos 3 botões finais em um único botão "Guia de Campo (Nós, Códigos e Socorros)" no Acesso Rápido.'
+    ]
+  },
+  {
+    version: '3.0.55',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Passo a Passo de Nós e Amarras, Tradutor de Códigos e Guia de Primeiros Socorros',
+    changes: [
+      'Passo a Passo de Nós e Amarras: Guia visual separado por Classe (Amigo a Guia) com diagramas passo a passo de nós básicos e amarras de pioneiria (Quadrada, Diagonal, Paralela e Tripé), utilidade prática e marcação de nós dominados.',
+      'Tradutor e Guia de Códigos: Tradução instantânea da palavra digitada em Código Morse (com emissão de apito sonoro e sinal luminoso piscando a tela), Código Semáfora animado, Alfabeto Libras e tabela de Sinais de Pista para trilhas.',
+      'Guia Rápido de Primeiros Socorros e Peçonhentos: Cartões de consulta rápida sobre bandagens, transporte de acidentados, queimaduras, engasgo (Heimlich), picadas de animais peçonhentos e plantas tóxicas.'
+    ]
+  },
+  {
+    version: '3.0.54',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Ajustes de Layout no PC, Exclusão de Datas de Domingo e Reordenação de Botões',
+    changes: [
+      'Formulário "Cadastrar Membro na Unidade" posicionado no topo da aba Cantinho com largura total (100%), corrigindo o corte do botão Adicionar no computador.',
+      'Campo de nome da unidade iniciando vazio para preenchimento personalizado.',
+      'Botão de exclusão (X) em cada data de reunião de domingo para remover facilmente domingos adicionados.',
+      'Novas funções (Quiz e Simulado, Cantinho & Acampamento) posicionadas ao final da lista de botões de Acesso Rápido e Gerenciar.'
+    ]
+  },
+  {
+    version: '3.0.53',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Lista de Membros Limpa no Cantinho da Unidade',
+    changes: [
+      'A lista de membros do Cantinho da Unidade agora inicia vazia, permitindo que o conselheiro, capitão ou secretário cadastre diretamente os desbravadores/aventureiros reais da unidade sem precisar apagar nomes de exemplo.'
+    ]
+  },
+  {
+    version: '3.0.52',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Melhoria Visual do Menu Mobile no Cantinho da Unidade e Acampamento',
+    changes: [
+      'Novo design dos 3 botões de navegação (Cantinho / Chamada & Pontos, Acampamento / Escala & Cardápio e Mochila / Checklist) com ícone em destaque, título e subtítulo completos sem corte de texto no celular.'
+    ]
+  },
+  {
+    version: '3.0.51',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Ampliação da Insígnia da Especialidade e Ajuste de Borda das Modalidades no Quiz',
+    changes: [
+      'Aumento expressivo do tamanho da imagem da insígnia no desafio "Qual é esta Especialidade?" (no jogo e no gabarito final) para facilitar a visualização dos detalhes.',
+      'Correção do recorte lateral no botão selecionado da grade de modalidades no celular utilizando borda interna (ring-inset) e respiro lateral.'
+    ]
+  },
+  {
+    version: '3.0.50',
+    date: '04/10/2026',
+    tag: 'ATUAL',
+    title: 'Cantinho da Unidade e Acampamento (Para Conselheiros, Capitães e Secretários)',
+    changes: [
+      'Pontuação do Cantinho da Unidade: Caderneta digital de domingo para registrar presença, pontualidade, Bíblia, uniforme e mensalidade de cada membro, com ranking acumulado e envio de relatório via WhatsApp.',
+      'Planejador de Acampamento da Unidade: Escala interativa de tarefas por refeição (quem busca água/lenha, quem cozinha e quem lava a louça) com sorteio automático entre membros e lista de cardápio e ingredientes.',
+      'Checklist de Mochila de Acampamento: Lista interativa categorizada (Bíblia e Documentos, Uniformes, Dormitório, Higiene e Campo) com barra de progresso e adição de itens personalizados.'
+    ]
+  },
+  {
+    version: '3.0.49',
+    date: '04/10/2026',
+    tag: 'ATUAL',
     title: 'Aleatorização Balanceada de Alternativas (A, B, C, D) e Filtro Exclusivo do Livro Nisto Cremos para Desbravadores',
     changes: [
       'Restrição das categorias do livro "Nisto Cremos" (Capítulos 1-10, 11-20 e 21-28) exclusivamente para a área de Desbravadores.',
