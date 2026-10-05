@@ -1,9 +1,9 @@
 {
-  "version": 1759696000000,
-  "versionName": "3.0.84",
-  "buildDate": "2026-10-05T20:02:00.000Z",
-  "timestamp": 1759696000000,
+  "version": 1759786500000,
+  "versionName": "3.0.86",
+  "buildDate": "2026-10-06T22:10:00.000Z",
+  "timestamp": 1759786500000,
   "highlights": [
-    "Opção no modal do Quiz para avançar automaticamente em 3 segundos após responder, mantendo também a opção de clicar para ir para a próxima pergunta"
+    "Opção de Projetar o QR Code em Outra Tela (Telão da Igreja) no PC, subtítulo ajustado para Prova Ao Vivo e sincronização em nuvem reforçada"
   ]
 }

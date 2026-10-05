@@ -37,6 +37,7 @@ import { APP_VERSION, APP_BUILD_DATE, VERSION_HISTORY } from '../versionConfig';
 import { generateSpecialtyPowerPoint, parseAndNormalizeRequirements, isRequirementSubItem } from '../services/presentationService';
 import { generateSpecialtyExamPdf, generateSpecialtyExamQuestions, ExamFormatMode, ExamQuestion } from '../services/examService';
 import ClubQuiz from './ClubQuiz';
+import LiveSpecialtyExam from './LiveSpecialtyExam';
 import UnitCornerCamping from './UnitCornerCamping';
 import FieldManualTools from './FieldManualTools';
 import { DESBRAVA_MAIS_OFFICIAL_MATERIALS, DESBRAVA_MAIS_CHECKLIST } from '../services/desbravaMaisOfficialData';
@@ -44,7 +45,7 @@ import {
   Shield, Award, User, Layers, Sparkles, Home as HomeIcon, Search,
   ChevronRight, ChevronLeft, ChevronDown, ChevronUp, ListChecks, Info, Book, Settings, Zap, Music, Flag, Shirt, Globe, Key, FileText, Library, CreditCard, MapPin, Video, Folder, BookOpen, Heart, ArrowUp, ArrowDown,
   Trash2, Plus, Save, Share2, Calendar, X, Image as ImageIcon, Download, ArrowLeft, ExternalLink, Filter, Edit2, Edit3, Check,
-  AlignLeft, AlignCenter, AlignRight, ZoomIn, ZoomOut, Minus, Trophy, PanelLeftClose, PanelLeftOpen, Menu, Presentation, RefreshCw, ClipboardCheck, Tent, Compass, Radio, HeartPulse, CheckCircle2, History, Palette, Play
+  AlignLeft, AlignCenter, AlignRight, ZoomIn, ZoomOut, Minus, Trophy, PanelLeftClose, PanelLeftOpen, Menu, Presentation, RefreshCw, ClipboardCheck, Tent, Compass, Radio, HeartPulse, CheckCircle2, History, Palette, Play, QrCode
 } from 'lucide-react';
 
 
@@ -1766,7 +1767,7 @@ export type SubViewType =
   | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' 
   | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' 
   | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS' | 'PDF_VIEWER' | 'LIBRARY_BOOKS_MENU' 
-  | 'VIDEOS' | 'VIDEO_ADMIN' | 'FORM_ADMIN' | 'VIDEO_PLAYER' | 'LINKS_ADMIN' | 'ACHIEVEMENTS_ADMIN' | 'TRUNFOS' | 'TRUNFOS_ADMIN' | 'WEB_VIEWER' | 'FAIXA_ADMIN' | 'FIELD_TRAINING' | 'QUIZ' | 'UNIT_CORNER' | 'FIELD_MANUAL' | 'ORDEM_UNIDA' | 'VERSION_HISTORY';
+  | 'VIDEOS' | 'VIDEO_ADMIN' | 'FORM_ADMIN' | 'VIDEO_PLAYER' | 'LINKS_ADMIN' | 'ACHIEVEMENTS_ADMIN' | 'TRUNFOS' | 'TRUNFOS_ADMIN' | 'WEB_VIEWER' | 'FAIXA_ADMIN' | 'FIELD_TRAINING' | 'QUIZ' | 'LIVE_EXAM' | 'UNIT_CORNER' | 'FIELD_MANUAL' | 'ORDEM_UNIDA' | 'VERSION_HISTORY';
 
 interface ClubManagementProps {
   club: ClubType;
@@ -4702,9 +4703,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           </div>
         </div>
 
-        {/* Ações de Exportação: PDF (apenas usuários logados com 16+ anos), Apresentação PowerPoint Didática e Gerador de Prova Oficial (ocultos para sem login, <16 anos, Aspirante, Desbravador e Capitão) */}
+        {/* Ações de Exportação: PDF (apenas usuários logados com 16+ anos), Apresentação PowerPoint Didática, Gerador de Prova Oficial e Prova Ao Vivo com QR Code */}
         {(canGenerateSpecialtyPdf || canGenerateSpecialtyPptx) && (
-          <div className={`grid grid-cols-1 ${canGenerateSpecialtyPdf && canGenerateSpecialtyPptx ? 'sm:grid-cols-3' : ''} gap-3 pt-2`}>
+          <div className={`grid grid-cols-1 ${canGenerateSpecialtyPdf && canGenerateSpecialtyPptx ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-2'} gap-3 pt-2`}>
             {canGenerateSpecialtyPdf && (
               <button 
                 onClick={generateSpecialtyPDF}
@@ -4733,6 +4734,19 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               >
                 <ClipboardCheck size={18} className="shrink-0" />
                 <span>{isGeneratingExam ? 'Gerando Prova...' : 'Gerador de Prova (.pdf)'}</span>
+              </button>
+            )}
+
+            {canGenerateSpecialtyPptx && (
+              <button
+                onClick={() => {
+                  setActiveSubView('LIVE_EXAM');
+                }}
+                disabled={isGeneratingPDF || isGeneratingPptx || isGeneratingExam}
+                className="w-full py-4 px-3 bg-gradient-to-r from-rose-600 via-red-600 to-orange-500 hover:from-rose-500 hover:to-orange-400 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-lg hover:shadow-rose-500/25 active:scale-95 transition-all flex items-center justify-center space-x-2 disabled:opacity-50 cursor-pointer"
+              >
+                <QrCode size={18} className="shrink-0" />
+                <span>Prova Ao Vivo (QR Code)</span>
               </button>
             )}
 
@@ -10396,6 +10410,16 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
   const fieldAndPracticeButtons = [
     { 
+      label: 'Prova Ao Vivo (QR Code)', 
+      subtitle: 'Prova de Especialidade • Anti-Cola',
+      description: 'Crie uma prova de especialidade com QR Code, tempo limite, área isolada e alerta ao vivo se alguém minimizar a tela.',
+      badge: 'Anti-Cola',
+      icon: QrCode, 
+      gradient: 'from-[#be123c] via-[#e11d48] to-[#f43f5e]', 
+      view: 'LIVE_EXAM', 
+      show: true 
+    },
+    { 
       label: 'Quiz e Simulado', 
       subtitle: isPathfinder ? 'Bom de Bíblia, Classes e Desafios' : 'Desafios, Bíblia e Concursos',
       description: 'Treine para o Bom de Bíblia, classes regulares/progressivas, especialidades e história do clube.',
@@ -11395,6 +11419,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                       return;
                     }
                     setActiveSubView('FIELD_TRAINING');
+                  } else if (activeSubView === 'LIVE_EXAM') {
+                    setActiveSubView('FIELD_TRAINING');
                   } else if (activeSubView === 'UNIT_CORNER') {
                     setActiveSubView('FIELD_TRAINING');
                   } else if (activeSubView === 'FIELD_MANUAL') {
@@ -11482,6 +11508,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                activeSubView === 'FORM_ADMIN' ? 'Gestão de Formulários' :
                activeSubView === 'FIELD_TRAINING' ? 'Treinamento em Campo' :
                activeSubView === 'QUIZ' ? 'Quiz & Bom de Bíblia' :
+               activeSubView === 'LIVE_EXAM' ? 'Prova Ao Vivo' :
                activeSubView === 'UNIT_CORNER' ? 'Cantinho da Unidade & Acampamento' :
                activeSubView === 'FIELD_MANUAL' ? 'Nós • Códigos • Primeiros Socorros' :
                activeSubView === 'ORDEM_UNIDA' ? 'Guia de Ordem Unida & Vozes de Comando (DSA)' :
@@ -11614,9 +11641,19 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             specialties={specialties}
             getImageUrl={getImageUrl}
             onBack={() => setActiveSubView('FIELD_TRAINING')}
+            onOpenLiveExam={() => setActiveSubView('LIVE_EXAM')}
             onRegisterBackHandler={(fn) => {
               quizBackHandlerRef.current = fn;
             }}
+          />
+        )}
+        {activeSubView === 'LIVE_EXAM' && (
+          <LiveSpecialtyExam
+            key={club}
+            club={club}
+            specialties={specialties}
+            preselectedSpecialty={selectedSpecialty}
+            onBack={() => setActiveSubView('FIELD_TRAINING')}
           />
         )}
         {activeSubView === 'UNIT_CORNER' && (
@@ -11841,6 +11878,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           const isNewAreaWithHiddenFloatingMenu =
             activeSubView === 'FIELD_TRAINING' ||
             activeSubView === 'QUIZ' ||
+            activeSubView === 'LIVE_EXAM' ||
             activeSubView === 'UNIT_CORNER' ||
             activeSubView === 'FIELD_MANUAL' ||
             activeSubView === 'ORDEM_UNIDA';

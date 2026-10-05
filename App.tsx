@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { ViewState, ClubType } from './types';
 import Home from './components/Home';
 import ClubManagement, { SubViewType } from './components/ClubManagement';
+import LiveSpecialtyExam from './components/LiveSpecialtyExam';
 import Auth from './components/Auth';
 import Profile from './components/Profile';
 import UpdateNotification from './components/UpdateNotification';
@@ -231,6 +232,16 @@ const App: React.FC = () => {
 
   const [activeSubView, setActiveSubView] = useState<SubViewType | undefined>(undefined);
   const [selectedClub, setSelectedClub] = useState<ClubType | null>(null);
+  const [isolatedExamPin, setIsolatedExamPin] = useState<string | null>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const pin = params.get('prova');
+      if (pin && pin.trim().length > 0) {
+        return pin.trim();
+      }
+    } catch {}
+    return null;
+  });
   const [isGuest, setIsGuest] = useState<boolean>(() => {
     try {
       if (localStorage.getItem('dbv_is_guest') === 'true') return true;
@@ -703,6 +714,25 @@ const App: React.FC = () => {
   };
 
   const renderContent = () => {
+    if (isolatedExamPin !== null) {
+      return (
+        <LiveSpecialtyExam
+          club={selectedClub || ClubType.PATHFINDER}
+          initialMode="STUDENT"
+          initialPin={isolatedExamPin}
+          isIsolatedStudentMode={true}
+          onExitIsolatedMode={() => {
+            setIsolatedExamPin(null);
+            try {
+              const url = new URL(window.location.href);
+              url.searchParams.delete('prova');
+              window.history.replaceState({}, '', url.toString());
+            } catch {}
+          }}
+        />
+      );
+    }
+
     switch (currentView) {
       case 'LOGIN':
         return <Auth onLoginSuccess={(guest) => handleLoginSuccess(guest)} view="LOGIN" onViewChange={setCurrentView} />;

@@ -6,14 +6,37 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.84';
-export const APP_BUILD_DATE = '5 de Outubro de 2026';
+export const APP_VERSION = '3.0.86';
+export const APP_BUILD_DATE = '6 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '3.0.86',
+    date: '06/10/2026',
+    tag: 'NOVO',
+    title: 'Projeção do QR Code em Outra Tela (Telão da Igreja) & Ajustes de Títulos na Prova Ao Vivo',
+    changes: [
+      'Adicionada opção "Projetar em Outra Tela (Telão)" ao ampliar o QR Code da prova no PC, abrindo uma janela dedicada e sincronizada em tempo real para o telão/projetor da igreja (2ª tela HDMI) enquanto o instrutor mantém o painel de monitoramento aberto.',
+      'Subtítulo do cabeçalho na tela da avaliação simplificado para "Prova Ao Vivo" e remoção de referências externas nos títulos e selos.',
+      'Sincronização em nuvem das salas de prova ao vivo reforçada via Supabase para acesso imediato pelo QR Code e PIN em qualquer dispositivo.'
+    ]
+  },
+  {
+    version: '3.0.85',
+    date: '06/10/2026',
+    tag: 'ATUAL',
+    title: 'Prova Ao Vivo de Especialidade com QR Code, Área Isolada e Sistema Anti-Cola',
+    changes: [
+      'Criação de Salas de Prova Ao Vivo para qualquer Especialidade com geração automática de questões (IA + requisitos oficiais), edição de perguntas e definição de tempo limite.',
+      'Geração de QR Code e Código PIN de 6 dígitos que levam os alunos diretamente para uma Área Isolada de Prova em Tela Cheia (sem acesso aos menus do aplicativo).',
+      'Sistema Anti-Cola em Tempo Real: detecta instantaneamente se o aluno minimizar a tela, trocar de aba ou sair da tela cheia, bloqueando a prova do aluno e disparando um alerta visual e sonoro imediato no painel do instrutor.',
+      'Painel ao vivo do instrutor com lista em tempo real de todos que estão fazendo a prova, questão atual, progresso, nota final, histórico de alertas de cola e botão para liberar/inspecionar respostas.'
+    ]
+  },
+  {
     version: '3.0.84',
     date: '05/10/2026',
-    tag: 'NOVO',
+    tag: 'ATUAL',
     title: 'Avanço Automático em 3s no Quiz + Opção de Clicar para a Próxima',
     changes: [
       'Adicionada no modal de configuração do Quiz a opção de escolher entre "Clicar p/ Próxima" (manual) e "Automático (3s)" (conta 3 segundos após a resposta e avança sozinho).',

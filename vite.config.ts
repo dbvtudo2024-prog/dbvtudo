@@ -4,7 +4,8 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '3.0.84';
+const appVersion = '3.0.86';
+const liveExamRooms = new Map<string, any>();
 
 function versionPlugin(): Plugin {
   return {
@@ -19,7 +20,7 @@ function versionPlugin(): Plugin {
           buildDate: new Date(buildTime).toISOString(),
           timestamp: buildTime,
           highlights: [
-            "Opção no modal do Quiz para avançar automaticamente em 3 segundos após responder, mantendo também a opção de clicar para ir para a próxima pergunta"
+            "Opção de Projetar o QR Code em Outra Tela (Telão da Igreja) no PC, subtítulo ajustado para Prova Ao Vivo e sincronização em nuvem reforçada"
           ]
         }, null, 2)
       });
@@ -35,10 +36,101 @@ function versionPlugin(): Plugin {
             buildDate: new Date(buildTime).toISOString(),
             timestamp: buildTime,
             highlights: [
-              "Opção no modal do Quiz para avançar automaticamente em 3 segundos após responder, mantendo também a opção de clicar para ir para a próxima pergunta"
+              "Opção de Projetar o QR Code em Outra Tela (Telão da Igreja) no PC, subtítulo ajustado para Prova Ao Vivo e sincronização em nuvem reforçada"
             ]
           }));
           return;
+        }
+
+        // Endpoint em tempo real para sincronização de Salas de Prova Ao Vivo (QR Code + Anti-Cola)
+        if (req.url && req.url.startsWith('/api/live-exam')) {
+          if (req.method === 'GET') {
+            try {
+              const u = new URL(req.url, 'http://localhost:3000');
+              const pin = (u.searchParams.get('pin') || '').trim();
+              const room = liveExamRooms.get(pin) || null;
+              res.setHeader('Content-Type', 'application/json');
+              res.setHeader('Cache-Control', 'no-store');
+              res.end(JSON.stringify({ room }));
+            } catch (err: any) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: err?.message }));
+            }
+            return;
+          }
+
+          if (req.method === 'POST') {
+            let body = '';
+            req.on('data', (chunk) => {
+              body += chunk;
+            });
+            req.on('end', () => {
+              try {
+                const payload = JSON.parse(body || '{}');
+                const { action, pin, room, participant, alert } = payload;
+
+                if (action === 'UPSERT_ROOM' && room?.pin) {
+                  liveExamRooms.set(String(room.pin), room);
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify({ ok: true, room }));
+                  return;
+                }
+
+                if (action === 'STUDENT_UPDATE' && pin && participant?.id) {
+                  const existing = liveExamRooms.get(String(pin));
+                  if (existing) {
+                    const prevP = existing.participants?.[participant.id];
+                    const isLocked = prevP?.status === 'DISQUALIFIED' ? true : participant.isLocked;
+                    existing.participants = {
+                      ...(existing.participants || {}),
+                      [participant.id]: {
+                        ...prevP,
+                        ...participant,
+                        isLocked
+                      }
+                    };
+                    existing.updatedAt = Date.now();
+                    liveExamRooms.set(String(pin), existing);
+                  }
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify({ ok: true, room: existing || null }));
+                  return;
+                }
+
+                if (action === 'CHEAT_ALERT' && pin && alert && participant?.id) {
+                  const existing = liveExamRooms.get(String(pin));
+                  if (existing) {
+                    const shouldLock = Boolean(existing.lockOnCheat);
+                    existing.participants = {
+                      ...(existing.participants || {}),
+                      [participant.id]: {
+                        ...(existing.participants?.[participant.id] || {}),
+                        ...participant,
+                        isLocked: shouldLock,
+                        status: shouldLock ? 'LOCKED_CHEAT' : participant.status
+                      }
+                    };
+                    const currentAlerts = Array.isArray(existing.alerts) ? existing.alerts : [];
+                    if (!currentAlerts.some((a: any) => a.id === alert.id)) {
+                      existing.alerts = [alert, ...currentAlerts];
+                    }
+                    existing.updatedAt = Date.now();
+                    liveExamRooms.set(String(pin), existing);
+                  }
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify({ ok: true, room: existing || null }));
+                  return;
+                }
+
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ ok: true }));
+              } catch (err: any) {
+                res.statusCode = 500;
+                res.end(JSON.stringify({ error: err?.message }));
+              }
+            });
+            return;
+          }
         }
 
         // Endpoint de geração de respostas didáticas com IA no servidor

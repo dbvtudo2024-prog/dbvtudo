@@ -5,7 +5,7 @@ import { fetchEspecialidades, resolveGeminiApiKey } from '../services/supabaseSe
 import {
   Trophy, Timer, Zap, BookOpen, Award, Shield, Sparkles, Check, X,
   RefreshCw, Play, HelpCircle, ChevronRight, RotateCcw, Flame,
-  Lightbulb, Divide, Clock, Star, CheckCircle2, AlertCircle, Search, FileText, Book
+  Lightbulb, Divide, Clock, Star, CheckCircle2, AlertCircle, Search, FileText, Book, QrCode
 } from 'lucide-react';
 import {
   NISTO_CREMOS_1_10_QUESTIONS,
@@ -52,6 +52,7 @@ interface ClubQuizProps {
   onBack?: () => void;
   onRegisterBackHandler?: (handler: (() => boolean) | null) => void;
   onOpenSpecialtyDetails?: (specialty: Especialidade) => void;
+  onOpenLiveExam?: () => void;
 }
 
 const getImageUrl = (url: string | undefined | null) => {
@@ -648,7 +649,7 @@ function balanceAndShuffleQuizQuestions(questions: QuizQuestionItem[]): QuizQues
   });
 }
 
-const ClubQuiz: React.FC<ClubQuizProps> = ({ club, specialties, getImageUrl = (u) => u, onRegisterBackHandler }) => {
+const ClubQuiz: React.FC<ClubQuizProps> = ({ club, specialties, getImageUrl = (u) => u, onRegisterBackHandler, onOpenLiveExam }) => {
   const isPathfinder = club === ClubType.PATHFINDER;
   const storageKey = `dbv_quiz_scores_${isPathfinder ? 'DBV' : 'AVT'}`;
 
@@ -1367,19 +1368,32 @@ REGRAS OBRIGATÓRIAS:
                 </p>
               </div>
 
-              {activeArenaRecord && activeArenaRecord.gamesPlayed > 0 && (
-                <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl px-3.5 py-2 shrink-0 flex items-center space-x-2.5 self-start sm:self-auto">
-                  <Star size={18} className="text-amber-300 shrink-0" fill="currentColor" />
-                  <div className="text-left sm:text-right leading-tight">
-                    <span className="text-[8.5px] font-black uppercase tracking-wider text-slate-300 block">
-                      Melhor Recorde
-                    </span>
-                    <span className="text-xs sm:text-sm font-black text-white">
-                      {activeArenaRecord.bestScore} pts ({activeArenaRecord.bestAccuracy}%)
-                    </span>
+              <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto">
+                {onOpenLiveExam && (
+                  <button
+                    type="button"
+                    onClick={onOpenLiveExam}
+                    className="px-3.5 py-2 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-black text-[11px] uppercase tracking-wider shadow-md flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <QrCode size={15} />
+                    <span>Prova c/ QR Code (Anti-Cola)</span>
+                  </button>
+                )}
+
+                {activeArenaRecord && activeArenaRecord.gamesPlayed > 0 && (
+                  <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl px-3.5 py-2 shrink-0 flex items-center space-x-2.5">
+                    <Star size={18} className="text-amber-300 shrink-0" fill="currentColor" />
+                    <div className="text-left sm:text-right leading-tight">
+                      <span className="text-[8.5px] font-black uppercase tracking-wider text-slate-300 block">
+                        Melhor Recorde
+                      </span>
+                      <span className="text-xs sm:text-sm font-black text-white">
+                        {activeArenaRecord.bestScore} pts ({activeArenaRecord.bestAccuracy}%)
+                      </span>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
 
