@@ -6,14 +6,24 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.83';
+export const APP_VERSION = '3.0.84';
 export const APP_BUILD_DATE = '5 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
-    version: '3.0.83',
+    version: '3.0.84',
     date: '05/10/2026',
     tag: 'NOVO',
+    title: 'Avanço Automático em 3s no Quiz + Opção de Clicar para a Próxima',
+    changes: [
+      'Adicionada no modal de configuração do Quiz a opção de escolher entre "Clicar p/ Próxima" (manual) e "Automático (3s)" (conta 3 segundos após a resposta e avança sozinho).',
+      'Mesmo com o avanço automático de 3 segundos ativado, o botão "Próxima Pergunta" permanece visível e clicável com contador regressivo (3s, 2s, 1s) para quem desejar avançar imediatamente.'
+    ]
+  },
+  {
+    version: '3.0.83',
+    date: '05/10/2026',
+    tag: 'ATUAL',
     title: 'Novos Vídeos de Desbravadores & Permanência na Página ao Alternar Ministério no PC',
     changes: [
       'Adição de novos vídeos verificados para o Clube de Desbravadores nas categorias Tutorial de Especialidades (Temperança, Cactos, Sábado, Instrutor de Especialidades), Atividades e Jogos (Gincanas Partes 2, 3 e 4, Brincadeiras de Unidade) e Cerimônias (Admissão em Lenço e Investidura).',

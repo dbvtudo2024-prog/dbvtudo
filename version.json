@@ -1,9 +1,9 @@
 {
-  "version": 1759695000000,
-  "versionName": "3.0.83",
-  "buildDate": "2026-10-05T19:42:00.000Z",
-  "timestamp": 1759695000000,
+  "version": 1759696000000,
+  "versionName": "3.0.84",
+  "buildDate": "2026-10-05T20:02:00.000Z",
+  "timestamp": 1759696000000,
   "highlights": [
-    "Novos vídeos adicionados para Desbravadores e manutenção da página atual ao alternar entre Desbravadores e Aventureiros no PC"
+    "Opção no modal do Quiz para avançar automaticamente em 3 segundos após responder, mantendo também a opção de clicar para ir para a próxima pergunta"
   ]
 }

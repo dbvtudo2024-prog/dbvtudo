@@ -656,6 +656,14 @@ const ClubQuiz: React.FC<ClubQuizProps> = ({ club, specialties, getImageUrl = (u
   const [selectedArena, setSelectedArena] = useState<QuizCategoryMode>('BOM_DE_BIBLIA');
   const [questionLimit, setQuestionLimit] = useState<number>(10);
   const [secondsPerQuestion, setSecondsPerQuestion] = useState<number>(25);
+  const [autoAdvanceNext, setAutoAdvanceNext] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('dbv_quiz_auto_advance') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [autoNextTimeLeft, setAutoNextTimeLeft] = useState<number>(3);
   const [customBibleTopic, setCustomBibleTopic] = useState<string>('');
   const [selectedSpecialtyAreaFilter, setSelectedSpecialtyAreaFilter] = useState<string>('TODAS');
   const [showSpecialtyAreaBadgeInQuiz, setShowSpecialtyAreaBadgeInQuiz] = useState<boolean>(false);
@@ -720,6 +728,15 @@ const ClubQuiz: React.FC<ClubQuizProps> = ({ club, specialties, getImageUrl = (u
   });
 
   const timerRef = useRef<any>(null);
+  const autoNextTimerRef = useRef<any>(null);
+  const handleNextQuestionRef = useRef<() => void>(() => {});
+
+  const handleToggleAutoAdvance = (value: boolean) => {
+    setAutoAdvanceNext(value);
+    try {
+      localStorage.setItem('dbv_quiz_auto_advance', String(value));
+    } catch {}
+  };
 
   // Registra o botão Voltar do cabeçalho principal para voltar ao menu do Quiz quando estiver em partida ou fechar modal
   useEffect(() => {
@@ -731,6 +748,7 @@ const ClubQuiz: React.FC<ClubQuizProps> = ({ club, specialties, getImageUrl = (u
       }
       if (gameState !== 'SETUP') {
         if (timerRef.current) clearInterval(timerRef.current);
+        if (autoNextTimerRef.current) clearInterval(autoNextTimerRef.current);
         setGameState('SETUP');
         return true;
       }
@@ -1141,11 +1159,16 @@ REGRAS OBRIGATÓRIAS:
   };
 
   const handleNextQuestion = () => {
+    if (autoNextTimerRef.current) {
+      clearInterval(autoNextTimerRef.current);
+      autoNextTimerRef.current = null;
+    }
     if (currentIdx + 1 < activeQuestions.length) {
       setCurrentIdx((prev) => prev + 1);
       setSelectedOptionIdx(null);
       setIsAnswerLocked(false);
       setTimeLeft(secondsPerQuestion);
+      setAutoNextTimeLeft(3);
       setHiddenOptionIndices([]);
       setShowCurrentHint(false);
     } else {
@@ -1153,8 +1176,47 @@ REGRAS OBRIGATÓRIAS:
     }
   };
 
+  handleNextQuestionRef.current = handleNextQuestion;
+
+  // Avanço automático em 3 segundos após responder (quando ativado), mantendo o botão de clicar disponível
+  useEffect(() => {
+    if (autoNextTimerRef.current) {
+      clearInterval(autoNextTimerRef.current);
+      autoNextTimerRef.current = null;
+    }
+
+    if (gameState !== 'PLAYING' || !isAnswerLocked || !autoAdvanceNext) {
+      setAutoNextTimeLeft(3);
+      return;
+    }
+
+    setAutoNextTimeLeft(3);
+    let remaining = 3;
+
+    autoNextTimerRef.current = setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        if (autoNextTimerRef.current) {
+          clearInterval(autoNextTimerRef.current);
+          autoNextTimerRef.current = null;
+        }
+        handleNextQuestionRef.current();
+      } else {
+        setAutoNextTimeLeft(remaining);
+      }
+    }, 1000);
+
+    return () => {
+      if (autoNextTimerRef.current) {
+        clearInterval(autoNextTimerRef.current);
+        autoNextTimerRef.current = null;
+      }
+    };
+  }, [gameState, isAnswerLocked, currentIdx, autoAdvanceNext]);
+
   const finishGame = () => {
     if (timerRef.current) clearInterval(timerRef.current);
+    if (autoNextTimerRef.current) clearInterval(autoNextTimerRef.current);
     const total = activeQuestions.length || 1;
     const accuracy = Math.round((correctCount / total) * 100);
 
@@ -1458,6 +1520,44 @@ REGRAS OBRIGATÓRIAS:
                       </button>
                     ))}
                   </div>
+                </div>
+
+                {/* Modo de Avanço para a Próxima Pergunta (CLICAR vs AUTOMÁTICO 3S) */}
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">
+                    Avanço para a Próxima Pergunta
+                  </label>
+                  <div className="grid grid-cols-2 gap-1.5 bg-[#0b0f19] p-1.5 rounded-2xl border border-slate-800/80">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleAutoAdvance(false)}
+                      className={`py-2.5 px-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        !autoAdvanceNext
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <ChevronRight size={14} strokeWidth={2.5} />
+                      <span>Clicar p/ Próxima</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleAutoAdvance(true)}
+                      className={`py-2.5 px-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        autoAdvanceNext
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Zap size={13} fill="currentColor" />
+                      <span>Automático (3s)</span>
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-medium mt-1.5 px-1">
+                    {autoAdvanceNext
+                      ? 'Após responder, conta 3 segundos e vai para a próxima (mantendo também o botão para clicar se quiser avançar antes).'
+                      : 'Após responder, aguarda você clicar no botão para ir para a próxima pergunta.'}
+                  </p>
                 </div>
 
                 {/* Opções Extras para "Qual é esta Especialidade?" */}
@@ -1809,13 +1909,18 @@ REGRAS OBRIGATÓRIAS:
                   <button
                     type="button"
                     onClick={handleNextQuestion}
-                    className="w-full py-2.5 sm:py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black uppercase tracking-widest text-[11px] sm:text-xs shadow-md active:scale-[0.99] transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
+                    className="w-full py-2.5 sm:py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black uppercase tracking-widest text-[11px] sm:text-xs shadow-md active:scale-[0.99] transition-all flex items-center justify-center space-x-2 cursor-pointer"
                   >
                     <span>
                       {currentIdx + 1 < activeQuestions.length
                         ? 'Próxima Pergunta'
                         : 'Ver Resultado Final'}
                     </span>
+                    {autoAdvanceNext && (
+                      <span className="px-2 py-0.5 rounded-full bg-white/20 border border-white/30 text-white text-[10px] font-black tabular-nums">
+                        {autoNextTimeLeft}s
+                      </span>
+                    )}
                     <ChevronRight size={16} />
                   </button>
                 </div>

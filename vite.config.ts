@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '3.0.83';
+const appVersion = '3.0.84';
 
 function versionPlugin(): Plugin {
   return {
@@ -19,7 +19,7 @@ function versionPlugin(): Plugin {
           buildDate: new Date(buildTime).toISOString(),
           timestamp: buildTime,
           highlights: [
-            "Novos vídeos adicionados para Desbravadores e manutenção da página atual ao alternar entre Desbravadores e Aventureiros no PC"
+            "Opção no modal do Quiz para avançar automaticamente em 3 segundos após responder, mantendo também a opção de clicar para ir para a próxima pergunta"
           ]
         }, null, 2)
       });
@@ -35,7 +35,7 @@ function versionPlugin(): Plugin {
             buildDate: new Date(buildTime).toISOString(),
             timestamp: buildTime,
             highlights: [
-              "Novos vídeos adicionados para Desbravadores e manutenção da página atual ao alternar entre Desbravadores e Aventureiros no PC"
+              "Opção no modal do Quiz para avançar automaticamente em 3 segundos após responder, mantendo também a opção de clicar para ir para a próxima pergunta"
             ]
           }));
           return;
