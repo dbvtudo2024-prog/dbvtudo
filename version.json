@@ -1,9 +1,9 @@
 {
-  "version": 1759791000000,
-  "versionName": "3.0.88",
-  "buildDate": "2026-10-06T23:10:00.000Z",
-  "timestamp": 1759791000000,
+  "version": 1759793000000,
+  "versionName": "3.0.89",
+  "buildDate": "2026-10-06T23:55:00.000Z",
+  "timestamp": 1759793000000,
   "highlights": [
-    "Abertura de múltiplas provas ao vivo simultaneamente com alternador de salas e layout em tela única mantendo a lista de participantes sempre visível na tela"
+    "Sincronização automática em tempo real entre PC e Celular para o instrutor logado que criou a Prova Ao Vivo"
   ]
 }

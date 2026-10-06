@@ -6,14 +6,24 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.88';
+export const APP_VERSION = '3.0.89';
 export const APP_BUILD_DATE = '6 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
-    version: '3.0.88',
+    version: '3.0.89',
     date: '06/10/2026',
     tag: 'NOVO',
+    title: 'Sincronização Automática PC ↔ Celular do Instrutor Logado na Prova Ao Vivo',
+    changes: [
+      'Detecção automática do usuário/instrutor logado que criou a Prova Ao Vivo tanto no PC quanto no Celular.',
+      'Sincronização bidirecional em tempo real entre PC e Celular: ao abrir ou gerenciar salas de prova no PC e alternar para o Celular (ou vice-versa), todas as provas abertas, aba selecionada, cronômetro, status da sala, alertas anti-cola e lista de alunos aparecem sincronizados automaticamente.'
+    ]
+  },
+  {
+    version: '3.0.88',
+    date: '06/10/2026',
+    tag: 'ATUAL',
     title: 'Múltiplas Provas Simultâneas & Painel em Tela Única com Lista Ao Vivo',
     changes: [
       'Suporte para abrir e gerenciar múltiplas salas de Prova Ao Vivo simultaneamente, com barra de abas no topo mostrando cada especialidade, PIN, quantidade de alunos e alertas anti-cola em tempo real.',

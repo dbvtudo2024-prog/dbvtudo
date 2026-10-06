@@ -4,8 +4,20 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '3.0.88';
+const appVersion = '3.0.89';
 const liveExamRooms = new Map<string, any>();
+const liveExamInstructorSessions = new Map<
+  string,
+  {
+    instructorKey: string;
+    instructorEmail?: string;
+    instructorName?: string;
+    selectedRoomPin: string | null;
+    closedPins: string[];
+    roomPins: string[];
+    updatedAt: number;
+  }
+>();
 
 function versionPlugin(): Plugin {
   return {
@@ -20,7 +32,7 @@ function versionPlugin(): Plugin {
           buildDate: new Date(buildTime).toISOString(),
           timestamp: buildTime,
           highlights: [
-            "Abertura de múltiplas provas ao vivo simultaneamente com alternador de salas e layout em tela única mantendo a lista de participantes sempre visível na tela"
+            "Sincronização automática em tempo real entre PC e Celular para o instrutor logado que criou a Prova Ao Vivo"
           ]
         }, null, 2)
       });
@@ -36,18 +48,55 @@ function versionPlugin(): Plugin {
             buildDate: new Date(buildTime).toISOString(),
             timestamp: buildTime,
             highlights: [
-              "Abertura de múltiplas provas ao vivo simultaneamente com alternador de salas e layout em tela única mantendo a lista de participantes sempre visível na tela"
+              "Sincronização automática em tempo real entre PC e Celular para o instrutor logado que criou a Prova Ao Vivo"
             ]
           }));
           return;
         }
 
-        // Endpoint em tempo real para sincronização de Salas de Prova Ao Vivo (QR Code + Anti-Cola)
+        // Endpoint em tempo real para sincronização de Salas de Prova Ao Vivo (QR Code + Anti-Cola + Sincronia PC/Celular do Instrutor)
         if (req.url && req.url.startsWith('/api/live-exam')) {
           if (req.method === 'GET') {
             try {
               const u = new URL(req.url, 'http://localhost:3000');
               const pin = (u.searchParams.get('pin') || '').trim();
+              const instructorKey = (u.searchParams.get('instructor') || '').trim();
+
+              if (instructorKey) {
+                const session = liveExamInstructorSessions.get(instructorKey);
+                const closedSet = new Set(session?.closedPins || []);
+                const roomsMap = new Map<string, any>();
+
+                if (session?.roomPins) {
+                  session.roomPins.forEach((rPin) => {
+                    if (closedSet.has(rPin)) return;
+                    const r = liveExamRooms.get(String(rPin));
+                    if (r) roomsMap.set(String(rPin), r);
+                  });
+                }
+
+                Array.from(liveExamRooms.values()).forEach((r: any) => {
+                  if (r?.creatorKey === instructorKey && r?.pin && !closedSet.has(String(r.pin))) {
+                    roomsMap.set(String(r.pin), r);
+                  }
+                });
+
+                res.setHeader('Content-Type', 'application/json');
+                res.setHeader('Cache-Control', 'no-store');
+                res.end(
+                  JSON.stringify({
+                    instructorState: {
+                      instructorKey,
+                      selectedRoomPin: session?.selectedRoomPin || null,
+                      closedPins: Array.from(closedSet),
+                      rooms: Array.from(roomsMap.values()),
+                      updatedAt: session?.updatedAt || Date.now()
+                    }
+                  })
+                );
+                return;
+              }
+
               const room = liveExamRooms.get(pin) || null;
               res.setHeader('Content-Type', 'application/json');
               res.setHeader('Cache-Control', 'no-store');
@@ -67,12 +116,100 @@ function versionPlugin(): Plugin {
             req.on('end', () => {
               try {
                 const payload = JSON.parse(body || '{}');
-                const { action, pin, room, participant, alert } = payload;
+                const { action, pin, room, participant, alert, instructorKey, rooms, selectedRoomPin, closedPins } = payload;
 
                 if (action === 'UPSERT_ROOM' && room?.pin) {
                   liveExamRooms.set(String(room.pin), room);
+                  const cKey = String(room.creatorKey || instructorKey || '').trim();
+                  if (cKey) {
+                    const prevSession = liveExamInstructorSessions.get(cKey);
+                    const nextClosed = (prevSession?.closedPins || []).filter((p) => p !== String(room.pin));
+                    const nextPins = Array.from(new Set([...(prevSession?.roomPins || []), String(room.pin)]));
+                    liveExamInstructorSessions.set(cKey, {
+                      instructorKey: cKey,
+                      instructorEmail: room.creatorEmail || prevSession?.instructorEmail,
+                      instructorName: room.creatorName || prevSession?.instructorName,
+                      selectedRoomPin: selectedRoomPin || prevSession?.selectedRoomPin || String(room.pin),
+                      closedPins: nextClosed,
+                      roomPins: nextPins,
+                      updatedAt: Date.now()
+                    });
+                  }
                   res.setHeader('Content-Type', 'application/json');
                   res.end(JSON.stringify({ ok: true, room }));
+                  return;
+                }
+
+                if (action === 'CLOSE_ROOM' && pin) {
+                  const targetPin = String(pin);
+                  const existing = liveExamRooms.get(targetPin);
+                  const cKey = String(instructorKey || existing?.creatorKey || '').trim();
+                  liveExamRooms.delete(targetPin);
+                  if (cKey) {
+                    const prevSession = liveExamInstructorSessions.get(cKey);
+                    const nextPins = (prevSession?.roomPins || []).filter((p) => p !== targetPin);
+                    const nextClosed = Array.from(new Set([...(prevSession?.closedPins || []), targetPin]));
+                    liveExamInstructorSessions.set(cKey, {
+                      instructorKey: cKey,
+                      instructorEmail: prevSession?.instructorEmail,
+                      instructorName: prevSession?.instructorName,
+                      selectedRoomPin:
+                        prevSession?.selectedRoomPin === targetPin
+                          ? nextPins[0] || null
+                          : prevSession?.selectedRoomPin || null,
+                      closedPins: nextClosed,
+                      roomPins: nextPins,
+                      updatedAt: Date.now()
+                    });
+                  }
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify({ ok: true }));
+                  return;
+                }
+
+                if (action === 'SYNC_INSTRUCTOR_STATE' && instructorKey) {
+                  const cKey = String(instructorKey).trim();
+                  const prevSession = liveExamInstructorSessions.get(cKey);
+                  const nextClosed = Array.from(
+                    new Set([...(prevSession?.closedPins || []), ...(Array.isArray(closedPins) ? closedPins.map(String) : [])])
+                  );
+                  const closedSet = new Set(nextClosed);
+                  const incomingRooms = Array.isArray(rooms) ? rooms : [];
+                  const nextPins: string[] = [];
+
+                  incomingRooms.forEach((r: any) => {
+                    if (!r?.pin || closedSet.has(String(r.pin))) return;
+                    const rPin = String(r.pin);
+                    nextPins.push(rPin);
+                    const existingRoom = liveExamRooms.get(rPin);
+                    if (!existingRoom || (r.updatedAt || 0) >= (existingRoom.updatedAt || 0)) {
+                      liveExamRooms.set(rPin, {
+                        ...existingRoom,
+                        ...r,
+                        participants: {
+                          ...(existingRoom?.participants || {}),
+                          ...(r.participants || {})
+                        }
+                      });
+                    }
+                  });
+
+                  nextClosed.forEach((cPin) => {
+                    liveExamRooms.delete(cPin);
+                  });
+
+                  liveExamInstructorSessions.set(cKey, {
+                    instructorKey: cKey,
+                    instructorEmail: payload.instructorEmail || prevSession?.instructorEmail,
+                    instructorName: payload.instructorName || prevSession?.instructorName,
+                    selectedRoomPin: selectedRoomPin !== undefined ? selectedRoomPin : prevSession?.selectedRoomPin || nextPins[0] || null,
+                    closedPins: nextClosed,
+                    roomPins: Array.from(new Set(nextPins)),
+                    updatedAt: Date.now()
+                  });
+
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify({ ok: true }));
                   return;
                 }
 

@@ -11670,6 +11670,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             isSidebarOpen={isSidebarOpen}
             onToggleSidebar={setIsSidebarOpen}
             onActiveRoomChange={setHasActiveLiveExamRoom}
+            currentUserEmail={userEmail || userProfile?.email || ''}
+            currentUserName={userProfile?.nome || ''}
             onBack={() => setActiveSubView('FIELD_TRAINING')}
           />
         )}

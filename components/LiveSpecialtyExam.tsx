@@ -103,6 +103,9 @@ export interface LiveExamRoomState {
   participants: Record<string, LiveExamParticipant>;
   alerts: LiveExamCheatAlert[];
   updatedAt: number;
+  creatorKey?: string;
+  creatorEmail?: string;
+  creatorName?: string;
 }
 
 interface LiveSpecialtyExamProps {
@@ -117,6 +120,8 @@ interface LiveSpecialtyExamProps {
   isSidebarOpen?: boolean;
   onToggleSidebar?: (open: boolean) => void;
   onActiveRoomChange?: (hasActiveRoom: boolean) => void;
+  currentUserEmail?: string;
+  currentUserName?: string;
   onBack?: () => void;
 }
 
@@ -252,12 +257,91 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   isSidebarOpen = true,
   onToggleSidebar,
   onActiveRoomChange,
+  currentUserEmail = '',
+  currentUserName = '',
   onBack
 }) => {
   const isPathfinder = club === ClubType.PATHFINDER;
   const [roleMode, setRoleMode] = useState<'HOST' | 'STUDENT'>(
     isIsolatedStudentMode || initialPin ? 'STUDENT' : initialMode
   );
+
+  // ============================================================================
+  // DETECÇÃO DO INSTRUTOR LOGADO (PARA SINCRONIZAR PROVAS ENTRE PC E CELULAR)
+  // ============================================================================
+  const [instructorIdentity, setInstructorIdentity] = useState<{ email: string; name: string }>(() => {
+    let email = (currentUserEmail || '').trim().toLowerCase();
+    let name = (currentUserName || '').trim();
+    try {
+      const savedProfile = localStorage.getItem('dbv_tudo_global_user_profile');
+      if (savedProfile) {
+        const parsed = JSON.parse(savedProfile);
+        if (!email && parsed?.email && parsed.email !== 'email@exemplo.com') {
+          email = String(parsed.email).trim().toLowerCase();
+        }
+        if (!name && parsed?.name) {
+          name = String(parsed.name).trim();
+        }
+      }
+      if (!email) {
+        const lastEmail = localStorage.getItem('dbv_last_login_email');
+        if (lastEmail && lastEmail !== 'email@exemplo.com') {
+          email = String(lastEmail).trim().toLowerCase();
+        }
+      }
+    } catch {}
+    return { email, name };
+  });
+
+  useEffect(() => {
+    if (currentUserEmail || currentUserName) {
+      setInstructorIdentity((prev) => ({
+        email: (currentUserEmail || prev.email || '').trim().toLowerCase(),
+        name: (currentUserName || prev.name || '').trim()
+      }));
+    }
+  }, [currentUserEmail, currentUserName]);
+
+  useEffect(() => {
+    supabaseQfpy.auth
+      .getUser()
+      .then(({ data }) => {
+        if (data?.user) {
+          const uEmail = (data.user.email || '').trim().toLowerCase();
+          const uName = (data.user.user_metadata?.nome || data.user.user_metadata?.name || '').trim();
+          if (uEmail || uName) {
+            setInstructorIdentity((prev) => ({
+              email: prev.email || uEmail,
+              name: prev.name || uName
+            }));
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const instructorKey = useMemo(() => {
+    const raw = (
+      instructorIdentity.email && instructorIdentity.email !== 'email@exemplo.com'
+        ? instructorIdentity.email
+        : instructorIdentity.name || ''
+    )
+      .trim()
+      .toLowerCase();
+    if (!raw) return '';
+    return raw
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+  }, [instructorIdentity.email, instructorIdentity.name]);
+
+  const instructorKeyRef = useRef<string>(instructorKey);
+  instructorKeyRef.current = instructorKey;
+  const instructorIdentityRef = useRef(instructorIdentity);
+  instructorIdentityRef.current = instructorIdentity;
+  const instructorSyncChannelRef = useRef<any>(null);
+  const closedRoomPinsRef = useRef<Set<string>>(new Set());
 
   // ============================================================================
   // ESTADOS DO INSTRUTOR (HOST)
@@ -575,31 +659,103 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
       .catch(() => {});
   }, [examShareUrl]);
 
+  // Sincroniza a lista de salas abertas do instrutor logado (Nuvem Supabase + Servidor + Canal Realtime PC <-> Celular)
+  const syncInstructorCloudState = useCallback(
+    (
+      roomsList: LiveExamRoomState[],
+      selectedPinValue: string | null,
+      closedPinToAdd?: string
+    ) => {
+      const iKey = instructorKeyRef.current;
+      if (!iKey) return;
+
+      if (closedPinToAdd) {
+        closedRoomPinsRef.current.add(String(closedPinToAdd));
+      }
+      const closedPinsArray = Array.from(closedRoomPinsRef.current);
+      const statePayload = {
+        instructorKey: iKey,
+        instructorEmail: instructorIdentityRef.current.email,
+        instructorName: instructorIdentityRef.current.name,
+        selectedRoomPin: selectedPinValue,
+        closedPins: closedPinsArray,
+        rooms: roomsList,
+        updatedAt: Date.now()
+      };
+
+      try {
+        fetch('/api/live-exam', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'SYNC_INSTRUCTOR_STATE',
+            ...statePayload
+          })
+        }).catch(() => {});
+      } catch {}
+
+      try {
+        supabaseQfpy.storage
+          .from('App DBV Tudo')
+          .upload(`provas/instructor_${iKey}.json`, JSON.stringify(statePayload), {
+            upsert: true,
+            contentType: 'application/json',
+            cacheControl: '0'
+          })
+          .catch(() => {});
+      } catch {}
+
+      try {
+        instructorSyncChannelRef.current
+          ?.send({
+            type: 'broadcast',
+            event: 'instructor:state_sync',
+            payload: statePayload
+          })
+          .catch(() => {});
+      } catch {}
+    },
+    []
+  );
+
   // Salva uma sala do instrutor na lista de múltiplas salas abertas (localStorage, /api/live-exam e Supabase Storage)
   const persistHostRoom = useCallback(
     (
       room: LiveExamRoomState | null,
       options?: { closePin?: string; selectRoom?: boolean }
     ) => {
+      const iKey = instructorKeyRef.current;
       if (room) {
+        const enrichedRoom: LiveExamRoomState = {
+          ...room,
+          creatorKey: room.creatorKey || iKey || undefined,
+          creatorEmail: room.creatorEmail || instructorIdentityRef.current.email || undefined,
+          creatorName: room.creatorName || instructorIdentityRef.current.name || undefined
+        };
+
+        closedRoomPinsRef.current.delete(String(enrichedRoom.pin));
+
+        let nextSelectedPin = activeRoomRef.current?.pin || enrichedRoom.pin;
         if (options?.selectRoom) {
-          activeRoomRef.current = room;
-          setSelectedRoomPin(room.pin);
+          activeRoomRef.current = enrichedRoom;
+          nextSelectedPin = enrichedRoom.pin;
+          setSelectedRoomPin(enrichedRoom.pin);
           setIsCreatingNewRoom(false);
-        } else if (activeRoomRef.current?.pin === room.pin) {
-          activeRoomRef.current = room;
+        } else if (activeRoomRef.current?.pin === enrichedRoom.pin) {
+          activeRoomRef.current = enrichedRoom;
         }
 
         setHostRooms((prev) => {
-          const exists = prev.some((r) => r.pin === room.pin);
+          const exists = prev.some((r) => r.pin === enrichedRoom.pin);
           const nextList = exists
-            ? prev.map((r) => (r.pin === room.pin ? room : r))
-            : [...prev, room];
+            ? prev.map((r) => (r.pin === enrichedRoom.pin ? enrichedRoom : r))
+            : [...prev, enrichedRoom];
           hostRoomsRef.current = nextList;
           try {
             localStorage.setItem('dbv_instructor_active_exam_rooms', JSON.stringify(nextList));
-            localStorage.setItem('dbv_instructor_active_exam_room', JSON.stringify(room));
+            localStorage.setItem('dbv_instructor_active_exam_room', JSON.stringify(enrichedRoom));
           } catch {}
+          syncInstructorCloudState(nextList, nextSelectedPin);
           return nextList;
         });
 
@@ -607,11 +763,16 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
           fetch('/api/live-exam', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'UPSERT_ROOM', room })
+            body: JSON.stringify({
+              action: 'UPSERT_ROOM',
+              instructorKey: iKey,
+              selectedRoomPin: nextSelectedPin,
+              room: enrichedRoom
+            })
           }).catch(() => {});
           supabaseQfpy.storage
             .from('App DBV Tudo')
-            .upload(`provas/room_${room.pin}.json`, JSON.stringify(room), {
+            .upload(`provas/room_${enrichedRoom.pin}.json`, JSON.stringify(enrichedRoom), {
               upsert: true,
               contentType: 'application/json',
               cacheControl: '0'
@@ -621,19 +782,33 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
       } else {
         const targetPin = options?.closePin || activeRoomRef.current?.pin;
         if (targetPin) {
+          closedRoomPinsRef.current.add(String(targetPin));
           const ch = hostChannelsMapRef.current.get(targetPin);
           if (ch) {
             supabaseQfpy.removeChannel(ch);
             hostChannelsMapRef.current.delete(targetPin);
           }
+          try {
+            fetch('/api/live-exam', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'CLOSE_ROOM',
+                pin: targetPin,
+                instructorKey: iKey
+              })
+            }).catch(() => {});
+          } catch {}
         }
         setHostRooms((prev) => {
           const nextList = targetPin ? prev.filter((r) => r.pin !== targetPin) : [];
           hostRoomsRef.current = nextList;
           const fallbackRoom = nextList[0] || null;
+          let nextSelectedPin = activeRoomRef.current?.pin || null;
           if (!targetPin || activeRoomRef.current?.pin === targetPin) {
             activeRoomRef.current = fallbackRoom;
-            setSelectedRoomPin(fallbackRoom ? fallbackRoom.pin : null);
+            nextSelectedPin = fallbackRoom ? fallbackRoom.pin : null;
+            setSelectedRoomPin(nextSelectedPin);
           }
           if (!fallbackRoom) {
             setIsCreatingNewRoom(false);
@@ -650,12 +825,233 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
               localStorage.removeItem('dbv_instructor_active_exam_room');
             }
           } catch {}
+          syncInstructorCloudState(nextList, nextSelectedPin, targetPin || undefined);
           return nextList;
+        });
+      }
+    },
+    [syncInstructorCloudState]
+  );
+
+  // Mescla estado recebido de outro dispositivo (PC <-> Celular) do mesmo instrutor logado
+  const applyExternalInstructorState = useCallback(
+    (externalState: {
+      rooms?: LiveExamRoomState[];
+      selectedRoomPin?: string | null;
+      closedPins?: string[];
+      updatedAt?: number;
+    }) => {
+      if (!externalState) return;
+
+      if (Array.isArray(externalState.closedPins)) {
+        externalState.closedPins.forEach((cp) => {
+          if (cp) closedRoomPinsRef.current.add(String(cp));
+        });
+      }
+
+      const incomingRooms = Array.isArray(externalState.rooms)
+        ? externalState.rooms.filter(
+            (r) => r && r.pin && Array.isArray(r.questions) && !closedRoomPinsRef.current.has(String(r.pin))
+          )
+        : [];
+
+      setHostRooms((prev) => {
+        const filteredLocal = prev.filter((r) => !closedRoomPinsRef.current.has(String(r.pin)));
+        const byPin = new Map<string, LiveExamRoomState>();
+
+        filteredLocal.forEach((r) => {
+          byPin.set(String(r.pin), r);
+        });
+
+        let hasChanges = filteredLocal.length !== prev.length;
+
+        incomingRooms.forEach((extRoom) => {
+          const pin = String(extRoom.pin);
+          const locRoom = byPin.get(pin);
+          if (!locRoom) {
+            byPin.set(pin, extRoom);
+            hasChanges = true;
+          } else {
+            const isExtNewer = (extRoom.updatedAt || 0) >= (locRoom.updatedAt || 0);
+            const mergedParticipants: Record<string, LiveExamParticipant> = {
+              ...(locRoom.participants || {})
+            };
+
+            Object.values(extRoom.participants || {}).forEach((ep) => {
+              const lp = mergedParticipants[ep.id];
+              if (
+                !lp ||
+                ep.answeredCount > lp.answeredCount ||
+                ep.cheatCount > lp.cheatCount ||
+                (ep.status === 'FINISHED' && lp.status !== 'FINISHED') ||
+                isExtNewer
+              ) {
+                mergedParticipants[ep.id] = ep;
+              }
+            });
+
+            const alertIds = new Set((locRoom.alerts || []).map((a) => a.id));
+            const mergedAlerts = [...(locRoom.alerts || [])];
+            (extRoom.alerts || []).forEach((ea) => {
+              if (!alertIds.has(ea.id)) {
+                mergedAlerts.unshift(ea);
+              }
+            });
+
+            const nextStatus =
+              locRoom.status === 'FINISHED' || extRoom.status === 'FINISHED'
+                ? 'FINISHED'
+                : locRoom.status === 'ACTIVE' || extRoom.status === 'ACTIVE'
+                ? 'ACTIVE'
+                : 'WAITING';
+            const nextStartedAt = extRoom.startedAt || locRoom.startedAt || null;
+            const nextExtraSeconds = Math.max(
+              locRoom.extraSecondsAdded || 0,
+              extRoom.extraSecondsAdded || 0
+            );
+
+            if (
+              nextStatus !== locRoom.status ||
+              nextStartedAt !== locRoom.startedAt ||
+              nextExtraSeconds !== locRoom.extraSecondsAdded ||
+              Object.keys(mergedParticipants).length !== Object.keys(locRoom.participants || {}).length ||
+              mergedAlerts.length !== (locRoom.alerts || []).length ||
+              (extRoom.updatedAt || 0) > (locRoom.updatedAt || 0)
+            ) {
+              byPin.set(pin, {
+                ...(isExtNewer ? extRoom : locRoom),
+                status: nextStatus,
+                startedAt: nextStartedAt,
+                extraSecondsAdded: nextExtraSeconds,
+                participants: mergedParticipants,
+                alerts: mergedAlerts,
+                updatedAt: Math.max(locRoom.updatedAt || 0, extRoom.updatedAt || 0)
+              });
+              hasChanges = true;
+            }
+          }
+        });
+
+        if (!hasChanges) return prev;
+
+        const nextList = Array.from(byPin.values());
+        hostRoomsRef.current = nextList;
+        try {
+          if (nextList.length > 0) {
+            localStorage.setItem('dbv_instructor_active_exam_rooms', JSON.stringify(nextList));
+            localStorage.setItem('dbv_instructor_active_exam_room', JSON.stringify(nextList[0]));
+          } else {
+            localStorage.removeItem('dbv_instructor_active_exam_rooms');
+            localStorage.removeItem('dbv_instructor_active_exam_room');
+          }
+        } catch {}
+        return nextList;
+      });
+
+      if (externalState.selectedRoomPin && !closedRoomPinsRef.current.has(String(externalState.selectedRoomPin))) {
+        setSelectedRoomPin((prevPin) => {
+          if (!prevPin || closedRoomPinsRef.current.has(String(prevPin))) {
+            return String(externalState.selectedRoomPin);
+          }
+          return prevPin;
         });
       }
     },
     []
   );
+
+  // Canal e Polling de Sincronização entre Dispositivos (PC <-> Celular) do Instrutor Logado
+  useEffect(() => {
+    if (isIsolatedStudentMode || roleMode !== 'HOST' || !instructorKey) return;
+
+    const fetchRemoteInstructorRooms = async () => {
+      try {
+        const res = await fetch(`/api/live-exam?instructor=${encodeURIComponent(instructorKey)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.instructorState) {
+            applyExternalInstructorState(data.instructorState);
+          }
+        }
+      } catch {}
+
+      try {
+        const { data: blob } = await supabaseQfpy.storage
+          .from('App DBV Tudo')
+          .download(`provas/instructor_${instructorKey}.json`);
+        if (blob) {
+          const text = await blob.text();
+          const parsed = JSON.parse(text);
+          if (parsed && parsed.instructorKey === instructorKey) {
+            applyExternalInstructorState(parsed);
+          }
+        }
+      } catch {}
+    };
+
+    fetchRemoteInstructorRooms();
+
+    const syncChannel = supabaseQfpy.channel(`dbv_instructor_sync_${instructorKey}`, {
+      config: { broadcast: { self: false } }
+    });
+    instructorSyncChannelRef.current = syncChannel;
+
+    syncChannel
+      .on('broadcast', { event: 'instructor:request_sync' }, () => {
+        if (hostRoomsRef.current.length > 0 || closedRoomPinsRef.current.size > 0) {
+          syncChannel
+            .send({
+              type: 'broadcast',
+              event: 'instructor:state_sync',
+              payload: {
+                instructorKey,
+                instructorEmail: instructorIdentityRef.current.email,
+                instructorName: instructorIdentityRef.current.name,
+                selectedRoomPin: activeRoomRef.current?.pin || null,
+                closedPins: Array.from(closedRoomPinsRef.current),
+                rooms: hostRoomsRef.current,
+                updatedAt: Date.now()
+              }
+            })
+            .catch(() => {});
+        }
+      })
+      .on('broadcast', { event: 'instructor:state_sync' }, ({ payload }) => {
+        if (payload && payload.instructorKey === instructorKey) {
+          applyExternalInstructorState(payload);
+          if (payload.selectedRoomPin && !closedRoomPinsRef.current.has(String(payload.selectedRoomPin))) {
+            setSelectedRoomPin(String(payload.selectedRoomPin));
+          }
+        }
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          syncChannel
+            .send({
+              type: 'broadcast',
+              event: 'instructor:request_sync',
+              payload: { instructorKey }
+            })
+            .catch(() => {});
+          if (hostRoomsRef.current.length > 0) {
+            syncInstructorCloudState(
+              hostRoomsRef.current,
+              activeRoomRef.current?.pin || hostRoomsRef.current[0]?.pin || null
+            );
+          }
+        }
+      });
+
+    const intervalId = setInterval(fetchRemoteInstructorRooms, 3000);
+
+    return () => {
+      clearInterval(intervalId);
+      supabaseQfpy.removeChannel(syncChannel);
+      if (instructorSyncChannelRef.current === syncChannel) {
+        instructorSyncChannelRef.current = null;
+      }
+    };
+  }, [isIsolatedStudentMode, roleMode, instructorKey, applyExternalInstructorState, syncInstructorCloudState]);
 
   // Mantém referência do canal da sala atualmente selecionada
   useEffect(() => {
@@ -715,6 +1111,13 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
       const getRoomByPin = () => hostRoomsRef.current.find((r) => r.pin === pin) || null;
 
       channel
+        .on('broadcast', { event: 'host:room_sync' }, ({ payload }) => {
+          if (!payload?.room || String(payload.room.pin) !== String(pin)) return;
+          applyExternalInstructorState({
+            rooms: [payload.room],
+            updatedAt: payload.room.updatedAt
+          });
+        })
         .on('broadcast', { event: 'student:request_sync' }, () => {
           const current = getRoomByPin();
           if (current) {
@@ -885,9 +1288,32 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
               }
             });
 
+            const nextStatus =
+              latestLocal.status === 'FINISHED' || externalRoom.status === 'FINISHED'
+                ? 'FINISHED'
+                : latestLocal.status === 'ACTIVE' || externalRoom.status === 'ACTIVE'
+                ? 'ACTIVE'
+                : 'WAITING';
+            const nextStartedAt = externalRoom.startedAt || latestLocal.startedAt || null;
+            const nextExtraSeconds = Math.max(
+              latestLocal.extraSecondsAdded || 0,
+              externalRoom.extraSecondsAdded || 0
+            );
+
+            if (
+              nextStatus !== latestLocal.status ||
+              nextStartedAt !== latestLocal.startedAt ||
+              nextExtraSeconds !== latestLocal.extraSecondsAdded
+            ) {
+              changed = true;
+            }
+
             if (changed) {
               const nextRoom: LiveExamRoomState = {
                 ...latestLocal,
+                status: nextStatus,
+                startedAt: nextStartedAt,
+                extraSecondsAdded: nextExtraSeconds,
                 participants: mergedParticipants,
                 alerts: mergedAlerts,
                 updatedAt: Date.now()
@@ -2820,23 +3246,24 @@ REGRAS OBRIGATÓRIAS:
   return (
     <div className="w-full max-w-6xl mx-auto space-y-2.5 pb-4 animate-fade-in">
       {/* Barra Superior Compacta + Alternador de Múltiplas Provas */}
-      <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-[20px] p-2.5 sm:px-4 sm:py-3 text-white shadow-md border border-white/10 space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-300 text-[9px] font-black uppercase tracking-widest shrink-0">
-              <QrCode size={11} />
-              <span>Prova Ao Vivo</span>
-            </div>
-            <h3 className="text-xs sm:text-base font-black uppercase tracking-tight leading-tight truncate">
+      <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-[20px] p-3 sm:px-4 sm:py-3 text-white shadow-md border border-white/10 space-y-2.5 overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-xs sm:text-base font-black uppercase tracking-tight leading-snug break-words sm:truncate">
               {activeRoom
                 ? `Sala #${activeRoom.pin} — ${activeRoom.specialtyName}`
                 : hostRooms.length > 0
-                ? 'Abrir Nova Sala de Prova Simultânea'
-                : 'Criar Prova de Especialidade com QR Code'}
+                ? 'Abrir Nova Prova'
+                : 'Criar Nova Prova'}
             </h3>
+            {(instructorIdentity.name || instructorIdentity.email) && (
+              <p className="text-[9px] font-bold text-emerald-300/90 truncate mt-0.5">
+                🔄 Sincronizado PC ↔ Celular: {instructorIdentity.name || instructorIdentity.email}
+              </p>
+            )}
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 w-full sm:w-auto shrink-0">
             {hostRooms.length > 0 && !isCreatingNewRoom && (
               <button
                 type="button"
@@ -2845,11 +3272,11 @@ REGRAS OBRIGATÓRIAS:
                   setSelectedSpecialty(null);
                   setQuestions([]);
                 }}
-                className="px-2.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer shadow-sm transition-all"
+                className="flex-1 sm:flex-initial justify-center min-w-0 px-2.5 py-2 sm:py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer shadow-sm transition-all"
                 title="Abrir mais uma prova ao mesmo tempo sem fechar a sala atual"
               >
-                <Plus size={13} />
-                <span>Abrir Nova Prova</span>
+                <Plus size={13} className="shrink-0" />
+                <span className="truncate">Abrir Nova Prova</span>
               </button>
             )}
 
@@ -2857,10 +3284,10 @@ REGRAS OBRIGATÓRIAS:
               <button
                 type="button"
                 onClick={() => setIsCreatingNewRoom(false)}
-                className="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all"
+                className="flex-1 sm:flex-initial justify-center min-w-0 px-2.5 py-2 sm:py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all"
               >
-                <ChevronLeft size={13} />
-                <span>Voltar às Provas Abertas ({hostRooms.length})</span>
+                <ChevronLeft size={13} className="shrink-0" />
+                <span className="truncate">Voltar às Provas ({hostRooms.length})</span>
               </button>
             )}
 
@@ -2872,10 +3299,10 @@ REGRAS OBRIGATÓRIAS:
                 }
                 setRoleMode('STUDENT');
               }}
-              className="px-2.5 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+              className="flex-1 sm:flex-initial justify-center min-w-0 px-2.5 py-2 sm:py-1.5 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
             >
-              <QrCode size={12} />
-              <span>{activeRoom ? 'Testar como Aluno' : 'Entrar como Aluno (PIN)'}</span>
+              <QrCode size={12} className="shrink-0" />
+              <span className="truncate">{activeRoom ? 'Testar como Aluno' : 'Entrar como Aluno'}</span>
             </button>
           </div>
         </div>
@@ -2899,6 +3326,7 @@ REGRAS OBRIGATÓRIAS:
                     onClick={() => {
                       setSelectedRoomPin(roomTab.pin);
                       setIsCreatingNewRoom(false);
+                      syncInstructorCloudState(hostRoomsRef.current, roomTab.pin);
                     }}
                     className={`group flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-left transition-all shrink-0 cursor-pointer ${
                       isSelectedTab
@@ -3315,7 +3743,7 @@ REGRAS OBRIGATÓRIAS:
               className="w-full py-4 px-6 bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-600 hover:from-indigo-500 hover:to-blue-500 disabled:opacity-40 text-white rounded-2xl font-black uppercase tracking-wider text-xs sm:text-sm shadow-lg shadow-indigo-500/25 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <QrCode size={18} />
-              <span>Abrir Sala da Prova & Gerar QR Code</span>
+              <span>Abrir Sala</span>
             </button>
           </div>
         </div>

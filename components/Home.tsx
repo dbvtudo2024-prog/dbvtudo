@@ -112,7 +112,7 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
       {/* Área Principal de Conteúdo */}
       <div className="flex flex-col flex-1 h-full overflow-y-auto scrollbar-hide min-w-0">
         {/* Top Header Móvel (visível apenas em telas menores / mobile) */}
-        <header className="md:hidden sticky top-0 z-20 w-full bg-white/70 dark:bg-slate-900/70 backdrop-blur-md py-3 px-4 shrink-0 transition-colors border-b border-slate-200/40 dark:border-slate-800/40">
+        <header className="md:hidden sticky top-0 z-20 w-full bg-white/70 dark:bg-slate-900/70 backdrop-blur-md py-2 px-4 shrink-0 transition-colors border-b border-slate-200/40 dark:border-slate-800/40">
           <div className="w-full flex justify-between items-center">
             <button 
               onClick={onOpenSettings} 
@@ -134,12 +134,12 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
           </div>
         </header>
 
-        {/* Conteúdo Central no Corpo: Layout balanceado e centralizado */}
-        <main className="flex-1 flex items-center justify-center px-4 sm:px-8 lg:px-12 py-6 sm:py-10 max-w-6xl mx-auto w-full">
-          <div className="w-full flex flex-col md:flex-row items-center justify-center md:justify-around gap-8 md:gap-12 lg:gap-16">
+        {/* Conteúdo Central no Corpo: No celular posicionado mais para cima; no PC centralizado */}
+        <main className="flex-1 flex items-start md:items-center justify-center px-4 sm:px-8 lg:px-12 pt-1 pb-4 sm:py-8 md:py-10 max-w-6xl mx-auto w-full">
+          <div className="w-full flex flex-col md:flex-row items-center justify-center md:justify-around gap-5 sm:gap-8 md:gap-12 lg:gap-16">
             
             {/* Lado Esquerdo no PC: Logo e Escritas perfeitamente centralizadas */}
-            <div className="flex flex-col items-center justify-center text-center shrink-0 md:w-[380px] lg:w-[420px]">
+            <div className="flex flex-col items-center justify-center text-center shrink-0 -mt-1 sm:mt-0 md:w-[380px] lg:w-[420px]">
               <div 
                 onClick={handleLogoClick}
                 role="button"
@@ -174,7 +174,7 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
                 </div>
               </div>
               
-              <div className="mt-4 sm:mt-5 text-center flex flex-col items-center justify-center">
+              <div className="mt-2.5 sm:mt-5 text-center flex flex-col items-center justify-center">
                 <h1 className="text-3xl sm:text-4xl md:text-4xl lg:text-5xl font-black text-slate-800 dark:text-white tracking-tight leading-none mb-2">
                   DBV Tudo
                 </h1>
