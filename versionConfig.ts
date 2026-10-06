@@ -6,19 +6,31 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.86';
+export const APP_VERSION = '3.0.87';
 export const APP_BUILD_DATE = '6 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
-    version: '3.0.86',
+    version: '3.0.87',
     date: '06/10/2026',
     tag: 'NOVO',
-    title: 'Projeção do QR Code em Outra Tela (Telão da Igreja) & Ajustes de Títulos na Prova Ao Vivo',
+    title: 'Opção de Abrir no App ou no Navegador via QR Code & Efeito da Logo com a Cor do Fundo',
+    changes: [
+      'Ao escanear o QR Code da Prova Ao Vivo, o sistema detecta automaticamente se o aluno possui o aplicativo DBV Tudo instalado no aparelho e exibe a opção de escolher entre "Abrir no Aplicativo DBV Tudo" ou "Abrir no Navegador Padrão".',
+      'Caso a pessoa não possua o aplicativo instalado no dispositivo, a prova abre diretamente no navegador padrão sem etapas extras.',
+      'O efeito luminoso de clique na logo do aplicativo agora acompanha dinamicamente a cor de realce/fundo selecionada.'
+    ]
+  },
+  {
+    version: '3.0.86',
+    date: '06/10/2026',
+    tag: 'ATUAL',
+    title: 'Projeção do QR Code em Outra Tela (Telão da Igreja) & Ajustes na Prova Ao Vivo',
     changes: [
       'Adicionada opção "Projetar em Outra Tela (Telão)" ao ampliar o QR Code da prova no PC, abrindo uma janela dedicada e sincronizada em tempo real para o telão/projetor da igreja (2ª tela HDMI) enquanto o instrutor mantém o painel de monitoramento aberto.',
+      'Modal "Ampliar QR" mantido no formato modal centralizado com o mesmo padrão horizontal em 2 colunas do modo Projetar, sem cortar informações.',
       'Subtítulo do cabeçalho na tela da avaliação simplificado para "Prova Ao Vivo" e remoção de referências externas nos títulos e selos.',
-      'Sincronização em nuvem das salas de prova ao vivo reforçada via Supabase para acesso imediato pelo QR Code e PIN em qualquer dispositivo.'
+      'Sincronização em nuvem das salas de prova ao vivo reforçada via Supabase (com suporte a testes direto do Studio) e correção da digitação/teclado na entrada do aluno pelo celular.'
     ]
   },
   {

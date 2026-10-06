@@ -451,7 +451,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
           className="relative w-32 h-32 mb-6 animate-float cursor-pointer select-none group focus:outline-none"
         >
           <div 
-            className={`absolute inset-2 rounded-full bg-gradient-to-tr from-[#dc371b]/25 via-amber-400/25 to-emerald-500/25 dark:from-[#dc371b]/35 dark:via-amber-400/30 dark:to-emerald-400/35 blur-2xl pointer-events-none transition-all duration-500 ${
+            className={`absolute inset-2 rounded-full app-logo-click-glow blur-2xl pointer-events-none transition-all duration-500 ${
               isLogoWobbling ? 'opacity-100 scale-115' : 'opacity-0 scale-90 group-hover:opacity-60 group-hover:scale-105'
             }`}
           />

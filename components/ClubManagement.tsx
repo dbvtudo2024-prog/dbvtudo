@@ -10927,11 +10927,16 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                   isLogoWobbling ? 'animate-logo-wobble' : ''
                 }`}
               >
+                <div
+                  className={`absolute inset-1 rounded-full app-logo-click-glow blur-xl pointer-events-none transition-all duration-500 ${
+                    isLogoWobbling ? 'opacity-100 scale-115' : 'opacity-0 scale-90 group-hover:opacity-55 group-hover:scale-105'
+                  }`}
+                />
                 <img 
                   src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/logo%20app.PNG" 
                   alt="Logo DBV Tudo" 
                   draggable={false}
-                  className="w-full h-full object-contain drop-shadow-md group-hover:drop-shadow-lg transition-all select-none"
+                  className="relative w-full h-full object-contain drop-shadow-md group-hover:drop-shadow-lg transition-all select-none"
                 />
               </div>
               <h1 className="mt-2 font-black text-slate-800 dark:text-white text-lg lg:text-xl tracking-tight uppercase leading-none">
@@ -11065,17 +11070,22 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                 setIsSidebarOpen(true);
               }}
               onAnimationEnd={() => setIsLogoWobbling(false)}
-              className={`w-14 h-14 lg:w-16 lg:h-16 flex items-center justify-center cursor-pointer group transition-transform duration-300 hover:scale-110 select-none ${
+              className={`relative w-14 h-14 lg:w-16 lg:h-16 flex items-center justify-center cursor-pointer group transition-transform duration-300 hover:scale-110 select-none ${
                 isLogoWobbling ? 'animate-logo-wobble' : ''
               }`}
               title="Clique para expandir o menu"
               aria-label="Expandir menu lateral"
             >
+              <div
+                className={`absolute inset-1 rounded-full app-logo-click-glow blur-xl pointer-events-none transition-all duration-500 ${
+                  isLogoWobbling ? 'opacity-100 scale-115' : 'opacity-0 scale-90 group-hover:opacity-55 group-hover:scale-105'
+                }`}
+              />
               <img 
                 src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/logo%20app.PNG" 
                 alt="Logo DBV Tudo" 
                 draggable={false}
-                className="w-full h-full object-contain drop-shadow-md group-hover:drop-shadow-lg transition-all select-none"
+                className="relative w-full h-full object-contain drop-shadow-md group-hover:drop-shadow-lg transition-all select-none"
               />
             </div>
 

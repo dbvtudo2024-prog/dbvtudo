@@ -153,9 +153,9 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
                 aria-label="Logo DBV Tudo"
                 className="relative animate-float cursor-pointer select-none group focus:outline-none"
               >
-                {/* Brilho suave ao clicar (adaptado para modo claro e escuro em todas as telas) */}
+                {/* Brilho suave ao clicar (acompanha a cor de realce/fundo selecionada) */}
                 <div 
-                  className={`absolute inset-2 rounded-full bg-gradient-to-tr from-[#dc371b]/25 via-amber-400/25 to-indigo-500/25 dark:from-[#dc371b]/35 dark:via-amber-400/30 dark:to-indigo-400/35 blur-2xl pointer-events-none transition-all duration-500 ${
+                  className={`absolute inset-2 rounded-full app-logo-click-glow blur-2xl pointer-events-none transition-all duration-500 ${
                     isLogoWobbling ? 'opacity-100 scale-115' : 'opacity-0 scale-90 group-hover:opacity-60 group-hover:scale-105'
                   }`}
                 />

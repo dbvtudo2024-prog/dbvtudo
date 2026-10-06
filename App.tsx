@@ -36,13 +36,34 @@ const styles = `
     to { opacity: 1; transform: scale(1); }
   }
   @keyframes logoWobble {
-    0% { transform: scale(1) rotate(0deg); }
-    15% { transform: scale(0.93) rotate(-8deg); }
-    32% { transform: scale(1.08) rotate(7deg); }
-    48% { transform: scale(1.05) rotate(-5deg); }
-    64% { transform: scale(1.03) rotate(3.5deg); }
-    80% { transform: scale(1.01) rotate(-1.5deg); }
-    100% { transform: scale(1) rotate(0deg); }
+    0% {
+      transform: scale(1) rotate(0deg);
+      filter: drop-shadow(0 0 0px rgba(var(--app-accent-rgb, 220, 160, 72), 0));
+    }
+    15% {
+      transform: scale(0.93) rotate(-8deg);
+      filter: drop-shadow(0 0 18px rgba(var(--app-accent-rgb, 220, 160, 72), 0.75));
+    }
+    32% {
+      transform: scale(1.08) rotate(7deg);
+      filter: drop-shadow(0 0 28px rgba(var(--app-accent-rgb, 220, 160, 72), 0.95));
+    }
+    48% {
+      transform: scale(1.05) rotate(-5deg);
+      filter: drop-shadow(0 0 22px rgba(var(--app-accent-rgb, 220, 160, 72), 0.8));
+    }
+    64% {
+      transform: scale(1.03) rotate(3.5deg);
+      filter: drop-shadow(0 0 14px rgba(var(--app-accent-rgb, 220, 160, 72), 0.55));
+    }
+    80% {
+      transform: scale(1.01) rotate(-1.5deg);
+      filter: drop-shadow(0 0 6px rgba(var(--app-accent-rgb, 220, 160, 72), 0.3));
+    }
+    100% {
+      transform: scale(1) rotate(0deg);
+      filter: drop-shadow(0 0 0px rgba(var(--app-accent-rgb, 220, 160, 72), 0));
+    }
   }
   .animate-slide-up { animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
   .animate-slide-in { animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
@@ -52,6 +73,22 @@ const styles = `
   .animate-logo-wobble {
     animation: logoWobble 0.65s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
     transform-origin: center center;
+  }
+  .app-logo-click-glow {
+    background: radial-gradient(
+      circle,
+      rgba(var(--app-accent-rgb, 220, 160, 72), 0.55) 0%,
+      rgba(var(--app-accent-rgb, 220, 160, 72), 0.28) 45%,
+      transparent 75%
+    );
+  }
+  html.dark .app-logo-click-glow {
+    background: radial-gradient(
+      circle,
+      rgba(var(--app-accent-rgb, 220, 160, 72), 0.72) 0%,
+      rgba(var(--app-accent-rgb, 220, 160, 72), 0.35) 45%,
+      transparent 75%
+    );
   }
   
   .glass {

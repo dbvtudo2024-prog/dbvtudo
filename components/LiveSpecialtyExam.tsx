@@ -41,7 +41,9 @@ import {
   BookOpen,
   Edit3,
   Monitor,
-  Minimize2
+  Minimize2,
+  Smartphone,
+  Globe
 } from 'lucide-react';
 
 export interface LiveExamQuestion {
@@ -231,9 +233,11 @@ function buildFallbackSpecialtyQuestions(
   return generated.slice(0, count);
 }
 
+const EMPTY_SPECIALTIES: Especialidade[] = [];
+
 const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   club,
-  specialties = [],
+  specialties = EMPTY_SPECIALTIES,
   preselectedSpecialty = null,
   initialMode = 'HOST',
   initialPin = '',
@@ -329,6 +333,116 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   const [studentLastCheatReason, setStudentLastCheatReason] = useState<string>('');
   const [studentRemainingSeconds, setStudentRemainingSeconds] = useState<number>(900);
   const [studentStartTime, setStudentStartTime] = useState<number | null>(null);
+  const [showOpenModeChoiceModal, setShowOpenModeChoiceModal] = useState<boolean>(false);
+  const [isRunningInStandaloneApp, setIsRunningInStandaloneApp] = useState<boolean>(false);
+
+  // Ao escanear o QR Code (isIsolatedStudentMode):
+  // - Se a pessoa possuir o App instalado, exibe a opção de abrir no App ou no Navegador.
+  // - Se NÃO tiver o App instalado, abre direto no navegador padrão sem exibir o modal.
+  useEffect(() => {
+    if (!isIsolatedStudentMode || typeof window === 'undefined') return;
+
+    const pinCode = (studentPinInput || initialPin || '').replace(/\D/g, '');
+    const params = new URLSearchParams(window.location.search);
+    const openModeParam = params.get('open_mode');
+    const sessionChoiceKey = `dbv_qr_open_choice_${pinCode || 'active'}`;
+
+    const standalone =
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+      (window.navigator as any).standalone === true;
+    setIsRunningInStandaloneApp(standalone);
+
+    if (standalone) {
+      try {
+        localStorage.setItem('dbv_tudo_app_installed', 'true');
+      } catch {}
+    }
+
+    // Se já escolheu (via parâmetro de URL ou sessão atual), segue direto para a prova
+    try {
+      if (openModeParam === 'app' || openModeParam === 'browser' || sessionStorage.getItem(sessionChoiceKey)) {
+        setShowOpenModeChoiceModal(false);
+        return;
+      }
+    } catch {}
+
+    let cancelled = false;
+
+    const detectInstalledAppOrRedirectToBrowser = async () => {
+      const ua = navigator.userAgent || '';
+      const isAndroid = /\bAndroid\b/i.test(ua);
+      const isInAppWebView = /; wv\)|Instagram|FBAN|FBAV|Line\/|MicroMessenger/i.test(ua);
+
+      // 1. Se o QR Code já abriu dentro do App standalone (e ainda não escolheu), oferece continuar no App ou ir p/ Navegador
+      if (standalone) {
+        if (!cancelled) setShowOpenModeChoiceModal(true);
+        return;
+      }
+
+      // 2. Aguarda brevemente para permitir que beforeinstallprompt ou getInstalledRelatedApps respondam
+      await new Promise((r) => setTimeout(r, 320));
+      if (cancelled) return;
+
+      const bipFired = Boolean((window as any).__dbvBeforeInstallPromptFired);
+      let installedViaRelatedApps = false;
+
+      try {
+        if (typeof (navigator as any).getInstalledRelatedApps === 'function') {
+          const related = await (navigator as any).getInstalledRelatedApps();
+          if (Array.isArray(related) && related.length > 0) {
+            installedViaRelatedApps = true;
+            try {
+              localStorage.setItem('dbv_tudo_app_installed', 'true');
+            } catch {}
+          }
+        }
+      } catch {}
+
+      let storedInstalledFlag = false;
+      let hasExistingAppDataOnDevice = false;
+      try {
+        storedInstalledFlag = localStorage.getItem('dbv_tudo_app_installed') === 'true';
+        hasExistingAppDataOnDevice = Boolean(
+          localStorage.getItem('dbv_tudo_user_profile') ||
+            localStorage.getItem('dbv_tudo_global_user_profile') ||
+            localStorage.getItem('dbv_is_guest')
+        );
+      } catch {}
+
+      const isAndroidChrome = isAndroid && /\bChrome\//i.test(ua) && !isInAppWebView;
+      const hasActiveSwController = Boolean(navigator.serviceWorker && navigator.serviceWorker.controller);
+
+      // Se beforeinstallprompt disparou, o navegador confirmou que o PWA NÃO está instalado
+      const isAppInstalled =
+        !bipFired &&
+        (installedViaRelatedApps ||
+          storedInstalledFlag ||
+          (isAndroidChrome && (hasActiveSwController || hasExistingAppDataOnDevice)));
+
+      if (isAppInstalled) {
+        if (!cancelled) setShowOpenModeChoiceModal(true);
+      } else {
+        // Pessoa NÃO possui o app instalado: abre direto no navegador padrão
+        if (!cancelled) setShowOpenModeChoiceModal(false);
+
+        // Caso o leitor de QR Code tenha aberto uma WebView interna restrita no Android, redireciona direto para o navegador padrão
+        if (isAndroid && isInAppWebView && pinCode) {
+          try {
+            sessionStorage.setItem(sessionChoiceKey, 'browser');
+            const targetHost = window.location.host;
+            const intentUrl = `intent://${targetHost}/?prova=${pinCode}&open_mode=browser#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end`;
+            window.location.replace(intentUrl);
+          } catch {}
+        }
+      }
+    };
+
+    detectInstalledAppOrRedirectToBrowser();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isIsolatedStudentMode, initialPin, studentPinInput]);
 
   const hostChannelRef = useRef<any>(null);
   const studentChannelRef = useRef<any>(null);
@@ -338,12 +452,13 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   soundEnabledRef.current = soundAlertsEnabled;
   const lastCheatTimestampRef = useRef<number>(0);
 
-  // Carrega catálogo de especialidades
+  // Carrega catálogo de especialidades apenas quando necessário no modo Instrutor
   useEffect(() => {
     if (specialties && specialties.length > 0) {
       setCatalog(specialties.filter((s) => !s.nome?.toLowerCase().includes('mestrado')));
       return;
     }
+    if (roleMode !== 'HOST') return;
     let mounted = true;
     setIsLoadingCatalog(true);
     fetchEspecialidades(club, undefined, { excludeQuestions: false })
@@ -358,7 +473,7 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
     return () => {
       mounted = false;
     };
-  }, [club, specialties]);
+  }, [club, specialties, roleMode]);
 
   const availableAreas = useMemo(() => {
     const set = new Set<string>();
@@ -383,13 +498,14 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   }, [catalog, searchQuery, selectedAreaFilter]);
 
   // Gera o link direto da prova e o QR Code quando houver sala ativa
+  // Quando aberto dentro do AI Studio (.run.app ou localhost), usa https://dbvtudo.vercel.app para que o celular consiga abrir o QR Code sem bloqueio
   const examShareUrl = useMemo(() => {
     if (!activeRoom?.pin || typeof window === 'undefined') return '';
     let origin = window.location.origin;
-    if (origin.includes('ais-dev-')) {
-      origin = origin.replace('ais-dev-', 'ais-pre-');
+    if (origin.includes('.run.app') || origin.includes('localhost')) {
+      origin = 'https://dbvtudo.vercel.app';
     }
-    const base = origin + '/';
+    const base = origin.replace(/\/$/, '') + '/';
     return `${base}?prova=${activeRoom.pin}`;
   }, [activeRoom?.pin]);
 
@@ -437,15 +553,15 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   }, []);
 
   // ============================================================================
-  // SINCRONIZAÇÃO EM TEMPO REAL DO INSTRUTOR (SUPABASE REALTIME + SERVER POLL)
+  // SINCRONIZAÇÃO EM TEMPO REAL DO INSTRUTOR (SUPABASE REALTIME + NUVEM + SERVER POLL)
   // ============================================================================
   useEffect(() => {
-    if (roleMode !== 'HOST' || !activeRoom?.pin) return;
+    if (!activeRoom?.pin) return;
 
     const pin = activeRoom.pin;
     const channelName = `dbv_live_exam_${pin}`;
     const channel = supabaseQfpy.channel(channelName, {
-      config: { broadcast: { self: false } }
+      config: { broadcast: { self: true } }
     });
     hostChannelRef.current = channel;
 
@@ -569,52 +685,72 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
         }
       });
 
-    // Sincronização complementar via servidor a cada 2,5s para garantir entrega mesmo em redes restritas
+    // Sincronização complementar via servidor e nuvem Supabase a cada 2,5s (permite testar no AI Studio com celular lendo QR Code no Vercel)
     const pollInterval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/live-exam?pin=${pin}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.room && activeRoomRef.current) {
-            const serverRoom: LiveExamRoomState = data.room;
-            const localRoom = activeRoomRef.current;
-            let changed = false;
-            const mergedParticipants = { ...localRoom.participants };
+        let externalRoom: LiveExamRoomState | null = null;
+        try {
+          const res = await fetch(`/api/live-exam?pin=${pin}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.room) externalRoom = data.room;
+          }
+        } catch {}
 
-            Object.values(serverRoom.participants || {}).forEach((sp) => {
-              const lp = mergedParticipants[sp.id];
-              if (
-                !lp ||
-                sp.answeredCount > lp.answeredCount ||
-                sp.cheatCount > lp.cheatCount ||
-                (sp.status === 'FINISHED' && lp.status !== 'FINISHED')
-              ) {
-                if (sp.cheatCount > (lp?.cheatCount || 0) && soundEnabledRef.current) {
-                  playCheatAlertSound();
-                }
-                mergedParticipants[sp.id] = sp;
-                changed = true;
+        if (!externalRoom) {
+          try {
+            const { data: blob } = await supabaseQfpy.storage
+              .from('App DBV Tudo')
+              .download(`provas/room_${pin}.json`);
+            if (blob) {
+              const text = await blob.text();
+              const parsed = JSON.parse(text);
+              if (parsed && String(parsed.pin) === String(pin)) {
+                externalRoom = parsed;
               }
-            });
-
-            const existingAlertIds = new Set(localRoom.alerts.map((a) => a.id));
-            const mergedAlerts = [...localRoom.alerts];
-            (serverRoom.alerts || []).forEach((sa) => {
-              if (!existingAlertIds.has(sa.id)) {
-                mergedAlerts.unshift(sa);
-                changed = true;
-              }
-            });
-
-            if (changed) {
-              const nextRoom: LiveExamRoomState = {
-                ...localRoom,
-                participants: mergedParticipants,
-                alerts: mergedAlerts,
-                updatedAt: Date.now()
-              };
-              persistHostRoom(nextRoom);
             }
+          } catch {}
+        }
+
+        if (externalRoom && activeRoomRef.current) {
+          const localRoom = activeRoomRef.current;
+          let changed = false;
+          const mergedParticipants = { ...localRoom.participants };
+
+          Object.values(externalRoom.participants || {}).forEach((sp) => {
+            const lp = mergedParticipants[sp.id];
+            if (
+              !lp ||
+              sp.answeredCount > lp.answeredCount ||
+              sp.cheatCount > lp.cheatCount ||
+              (sp.status === 'FINISHED' && lp.status !== 'FINISHED')
+            ) {
+              if (sp.cheatCount > (lp?.cheatCount || 0) && soundEnabledRef.current) {
+                playCheatAlertSound();
+              }
+              mergedParticipants[sp.id] = sp;
+              changed = true;
+            }
+          });
+
+          const existingAlertIds = new Set(localRoom.alerts.map((a) => a.id));
+          const mergedAlerts = [...localRoom.alerts];
+          (externalRoom.alerts || []).forEach((sa) => {
+            if (!existingAlertIds.has(sa.id)) {
+              mergedAlerts.unshift(sa);
+              changed = true;
+            }
+          });
+
+          if (changed) {
+            const nextRoom: LiveExamRoomState = {
+              ...localRoom,
+              participants: mergedParticipants,
+              alerts: mergedAlerts,
+              updatedAt: Date.now()
+            };
+            persistHostRoom(nextRoom);
+            broadcastFullRoomSync(nextRoom);
           }
         }
       } catch {}
@@ -625,7 +761,7 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
       supabaseQfpy.removeChannel(channel);
       hostChannelRef.current = null;
     };
-  }, [roleMode, activeRoom?.pin, persistHostRoom]);
+  }, [activeRoom?.pin, persistHostRoom]);
 
   // Cronômetro regressivo da sala ativa no painel do Instrutor
   useEffect(() => {
@@ -1026,7 +1162,63 @@ REGRAS OBRIGATÓRIAS:
     ]
   );
 
-  // Conecta o Aluno à Sala pelo PIN (via Servidor + Supabase Realtime)
+  // Auxiliar para sincronizar dados do aluno também no arquivo da sala no Supabase Storage
+  const syncStudentToCloudRoom = useCallback(
+    async (pin: string, participant: LiveExamParticipant, newAlert?: LiveExamCheatAlert) => {
+      try {
+        const { data: blob } = await supabaseQfpy.storage
+          .from('App DBV Tudo')
+          .download(`provas/room_${pin}.json`);
+        if (!blob) return;
+        const text = await blob.text();
+        const cloudRoom: LiveExamRoomState = JSON.parse(text);
+        if (!cloudRoom || !cloudRoom.pin) return;
+
+        const prevP = cloudRoom.participants?.[participant.id];
+        const isLocked =
+          prevP?.status === 'DISQUALIFIED'
+            ? true
+            : newAlert && cloudRoom.lockOnCheat
+            ? true
+            : participant.isLocked;
+        const nextStatus =
+          prevP?.status === 'DISQUALIFIED'
+            ? 'DISQUALIFIED'
+            : isLocked
+            ? 'LOCKED_CHEAT'
+            : participant.status;
+
+        cloudRoom.participants = {
+          ...(cloudRoom.participants || {}),
+          [participant.id]: {
+            ...prevP,
+            ...participant,
+            isLocked,
+            status: nextStatus
+          }
+        };
+
+        if (newAlert) {
+          const alertsList = Array.isArray(cloudRoom.alerts) ? cloudRoom.alerts : [];
+          if (!alertsList.some((a) => a.id === newAlert.id)) {
+            cloudRoom.alerts = [newAlert, ...alertsList];
+          }
+        }
+        cloudRoom.updatedAt = Date.now();
+
+        await supabaseQfpy.storage
+          .from('App DBV Tudo')
+          .upload(`provas/room_${pin}.json`, JSON.stringify(cloudRoom), {
+            upsert: true,
+            contentType: 'application/json',
+            cacheControl: '0'
+          });
+      } catch {}
+    },
+    []
+  );
+
+  // Conecta o Aluno à Sala pelo PIN (via Servidor + Supabase Realtime + Supabase Storage)
   const handleStudentJoinRoom = async () => {
     const cleanPin = studentPinInput.replace(/\D/g, '').trim();
     if (cleanPin.length !== 6) {
@@ -1169,6 +1361,8 @@ REGRAS OBRIGATÓRIAS:
               participant: initialParticipant
             })
           }).catch(() => {});
+
+          syncStudentToCloudRoom(cleanPin, initialParticipant);
         }
       });
 
@@ -1197,33 +1391,52 @@ REGRAS OBRIGATÓRIAS:
     }, 4000);
   };
 
-  // Polling complementar do Aluno para sincronizar status da sala / desbloqueio do instrutor
+  // Polling complementar do Aluno para sincronizar status da sala / desbloqueio do instrutor (Servidor + Supabase Nuvem)
   useEffect(() => {
     if (roleMode !== 'STUDENT' || studentPhase === 'ENTER_PIN' || !studentRoom?.pin) return;
     const pin = studentRoom.pin;
 
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/live-exam?pin=${pin}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.room) {
-            const srv: LiveExamRoomState = data.room;
-            setStudentRoom(srv);
-            const me = srv.participants?.[studentId];
-            if (me) {
-              setStudentLocked(me.isLocked);
-              if (!me.isLocked) setStudentWarningModal(null);
-              if (me.status === 'DISQUALIFIED') {
-                setStudentLocked(true);
+        let srv: LiveExamRoomState | null = null;
+        try {
+          const res = await fetch(`/api/live-exam?pin=${pin}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.room) srv = data.room;
+          }
+        } catch {}
+
+        if (!srv) {
+          try {
+            const { data: blob } = await supabaseQfpy.storage
+              .from('App DBV Tudo')
+              .download(`provas/room_${pin}.json`);
+            if (blob) {
+              const text = await blob.text();
+              const parsed = JSON.parse(text);
+              if (parsed && String(parsed.pin) === String(pin)) {
+                srv = parsed;
               }
             }
-            if (srv.status === 'ACTIVE' && studentPhase === 'WAITING_HOST') {
-              setStudentPhase('PLAYING');
-              setStudentStartTime((prev) => prev || Date.now());
-            } else if (srv.status === 'FINISHED' && studentPhase !== 'FINISHED') {
-              setStudentPhase('FINISHED');
+          } catch {}
+        }
+
+        if (srv) {
+          setStudentRoom(srv);
+          const me = srv.participants?.[studentId];
+          if (me) {
+            setStudentLocked(me.isLocked);
+            if (!me.isLocked) setStudentWarningModal(null);
+            if (me.status === 'DISQUALIFIED') {
+              setStudentLocked(true);
             }
+          }
+          if (srv.status === 'ACTIVE' && studentPhase === 'WAITING_HOST') {
+            setStudentPhase('PLAYING');
+            setStudentStartTime((prev) => prev || Date.now());
+          } else if (srv.status === 'FINISHED' && studentPhase !== 'FINISHED') {
+            setStudentPhase('FINISHED');
           }
         }
       } catch {}
@@ -1297,6 +1510,8 @@ REGRAS OBRIGATÓRIAS:
           participant: updatedParticipant
         })
       }).catch(() => {});
+
+      syncStudentToCloudRoom(studentRoom.pin, updatedParticipant, alertEvent);
     },
     [
       roleMode,
@@ -1306,7 +1521,8 @@ REGRAS OBRIGATÓRIAS:
       studentId,
       studentName,
       studentUnit,
-      buildCurrentParticipantPayload
+      buildCurrentParticipantPayload,
+      syncStudentToCloudRoom
     ]
   );
 
@@ -1369,7 +1585,9 @@ REGRAS OBRIGATÓRIAS:
         participant: finalParticipant
       })
     }).catch(() => {});
-  }, [studentRoom, studentStartTime, buildCurrentParticipantPayload]);
+
+    syncStudentToCloudRoom(studentRoom.pin, finalParticipant);
+  }, [studentRoom, studentStartTime, buildCurrentParticipantPayload, syncStudentToCloudRoom]);
 
   useEffect(() => {
     if (roleMode !== 'STUDENT' || studentPhase !== 'PLAYING' || !studentRoom) return;
@@ -1425,6 +1643,8 @@ REGRAS OBRIGATÓRIAS:
         participant: updatedParticipant
       })
     }).catch(() => {});
+
+    syncStudentToCloudRoom(studentRoom.pin, updatedParticipant);
   };
 
   const formatTimeMMSS = (totalSec: number) => {
@@ -1800,13 +2020,24 @@ REGRAS OBRIGATÓRIAS:
     const mySummary = buildCurrentParticipantPayload();
     const totalQuestions = studentRoom?.questions.length || 1;
     const activeQuestion = studentRoom?.questions[studentCurrentQ];
+    const resetMobileViewportScroll = () => {
+      try {
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          document.documentElement.scrollTop = 0;
+          document.body.scrollTop = 0;
+        }, 60);
+      } catch {}
+    };
 
     return (
       <div
-        className="fixed inset-0 z-[9999] bg-slate-950 text-white flex flex-col overflow-y-auto select-none"
-        onCopy={(e) => e.preventDefault()}
-        onCut={(e) => e.preventDefault()}
-        onContextMenu={(e) => e.preventDefault()}
+        className={`h-full w-full bg-slate-950 text-white flex flex-col overflow-hidden ${
+          studentPhase === 'PLAYING' ? 'select-none' : ''
+        }`}
+        onCopy={studentPhase === 'PLAYING' ? (e) => e.preventDefault() : undefined}
+        onCut={studentPhase === 'PLAYING' ? (e) => e.preventDefault() : undefined}
+        onContextMenu={studentPhase === 'PLAYING' ? (e) => e.preventDefault() : undefined}
       >
         {/* Topbar Exclusiva da Área Isolada de Prova */}
         <div className="shrink-0 bg-slate-900/95 border-b border-slate-800 px-4 py-3 flex items-center justify-between gap-3">
@@ -1855,16 +2086,106 @@ REGRAS OBRIGATÓRIAS:
               className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
             >
               <LogOut size={13} />
-              <span>Sair da Prova</span>
+              <span>{activeRoom ? 'Voltar ao Painel' : 'Sair da Prova'}</span>
             </button>
           )}
         </div>
 
-        {/* CONTEÚDO PRINCIPAL DO ALUNO */}
-        <div className="flex-1 flex items-center justify-center p-4 sm:p-6">
+        {/* CONTEÚDO PRINCIPAL DO ALUNO (Scroll Fluido sem Travar com Teclado Mobile) */}
+        <div className="flex-1 w-full overflow-y-auto overscroll-contain px-4 py-4 sm:py-8 pb-28 scrollbar-hide">
+          {/* MODAL DE ESCOLHA: ABRIR NO APP INSTALADO OU NO NAVEGADOR PADRÃO (Exibido apenas se possuir o App instalado) */}
+          {showOpenModeChoiceModal && studentPhase === 'ENTER_PIN' && (
+            <div className="fixed inset-0 z-[99999] bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+              <div className="w-full max-w-md bg-slate-900 border border-indigo-500/40 rounded-[28px] p-5 sm:p-6 shadow-2xl space-y-4 text-center">
+                <div className="w-14 h-14 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 text-indigo-400 flex items-center justify-center mx-auto">
+                  <Smartphone size={28} />
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="inline-block px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-black uppercase tracking-widest">
+                    App DBV Tudo Detectado
+                  </span>
+                  <h3 className="text-lg sm:text-xl font-black uppercase tracking-tight text-white">
+                    Onde deseja abrir a Prova?
+                  </h3>
+                  <p className="text-xs text-slate-300 font-medium leading-relaxed">
+                    Identificamos que você possui o aplicativo <strong>DBV Tudo</strong> instalado neste aparelho. Escolha como prefere responder à prova da sala{' '}
+                    <strong className="text-amber-300">{studentPinInput || initialPin}</strong>:
+                  </p>
+                </div>
+
+                <div className="space-y-2.5 pt-1">
+                  {isRunningInStandaloneApp ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const pinCode = (studentPinInput || initialPin || '').replace(/\D/g, '');
+                        try {
+                          sessionStorage.setItem(`dbv_qr_open_choice_${pinCode || 'active'}`, 'app');
+                        } catch {}
+                        setShowOpenModeChoiceModal(false);
+                      }}
+                      className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-black uppercase tracking-wider text-xs sm:text-sm shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Smartphone size={17} />
+                      <span>Abrir no Aplicativo DBV Tudo</span>
+                    </button>
+                  ) : (
+                    <a
+                      href={`${window.location.origin}/?prova=${(studentPinInput || initialPin || '').replace(/\D/g, '')}&open_mode=app`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => {
+                        const pinCode = (studentPinInput || initialPin || '').replace(/\D/g, '');
+                        try {
+                          sessionStorage.setItem(`dbv_qr_open_choice_${pinCode || 'active'}`, 'app');
+                        } catch {}
+                        setTimeout(() => {
+                          setShowOpenModeChoiceModal(false);
+                        }, 400);
+                      }}
+                      className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-black uppercase tracking-wider text-xs sm:text-sm shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 cursor-pointer no-underline"
+                    >
+                      <Smartphone size={17} />
+                      <span>Abrir no Aplicativo DBV Tudo</span>
+                    </a>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const pinCode = (studentPinInput || initialPin || '').replace(/\D/g, '');
+                      try {
+                        sessionStorage.setItem(`dbv_qr_open_choice_${pinCode || 'active'}`, 'browser');
+                      } catch {}
+                      setShowOpenModeChoiceModal(false);
+
+                      const ua = navigator.userAgent || '';
+                      const isAndroid = /\bAndroid\b/i.test(ua);
+                      const isInAppWebView = /; wv\)|Instagram|FBAN|FBAV|Line\/|MicroMessenger/i.test(ua);
+
+                      if (isRunningInStandaloneApp && isAndroid && pinCode) {
+                        // Se estava dentro do App instalado e escolheu abrir no navegador padrão
+                        const intentUrl = `intent://${window.location.host}/?prova=${pinCode}&open_mode=browser#Intent;scheme=https;package=com.android.chrome;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end`;
+                        window.location.href = intentUrl;
+                      } else if (isAndroid && isInAppWebView && pinCode) {
+                        const intentUrl = `intent://${window.location.host}/?prova=${pinCode}&open_mode=browser#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end`;
+                        window.location.href = intentUrl;
+                      }
+                    }}
+                    className="w-full py-3.5 px-5 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-black uppercase tracking-wider text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer transition-all"
+                  >
+                    <Globe size={17} />
+                    <span>Abrir no Navegador Padrão</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 1. TELA DE ENTRADA COM PIN E IDENTIFICAÇÃO DO ALUNO */}
           {studentPhase === 'ENTER_PIN' && (
-            <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-[28px] p-5 sm:p-6 shadow-2xl space-y-4">
+            <div className="w-full max-w-md mx-auto bg-slate-900 border border-slate-800 rounded-[28px] p-5 sm:p-6 shadow-2xl space-y-4">
               <div className="text-center space-y-1.5">
                 <div className="w-14 h-14 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 text-indigo-400 flex items-center justify-center mx-auto mb-2">
                   <QrCode size={28} />
@@ -1880,7 +2201,7 @@ REGRAS OBRIGATÓRIAS:
                 </p>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-3.5">
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">
                     Código PIN da Sala (6 dígitos)
@@ -1891,8 +2212,10 @@ REGRAS OBRIGATÓRIAS:
                     maxLength={6}
                     value={studentPinInput}
                     onChange={(e) => setStudentPinInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    onBlur={resetMobileViewportScroll}
                     placeholder="Ex: 482915"
-                    className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-2xl px-4 py-3 text-center text-xl font-black tracking-[0.35em] text-amber-300 focus:outline-none"
+                    style={{ WebkitUserSelect: 'text', userSelect: 'text' }}
+                    className="w-full select-text bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-2xl px-4 py-3 text-center text-xl font-black tracking-[0.35em] text-amber-300 focus:outline-none"
                   />
                 </div>
 
@@ -1902,10 +2225,17 @@ REGRAS OBRIGATÓRIAS:
                   </label>
                   <input
                     type="text"
+                    name="studentFullName"
+                    autoComplete="name"
+                    autoCapitalize="words"
+                    autoCorrect="off"
+                    spellCheck={false}
                     value={studentName}
                     onChange={(e) => setStudentName(e.target.value)}
+                    onBlur={resetMobileViewportScroll}
                     placeholder="Digite seu nome e sobrenome"
-                    className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-2xl px-4 py-3 text-xs sm:text-sm font-bold text-white focus:outline-none"
+                    style={{ WebkitUserSelect: 'text', userSelect: 'text' }}
+                    className="w-full select-text bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-2xl px-4 py-3.5 text-base font-bold text-white placeholder:text-slate-500 focus:outline-none"
                   />
                 </div>
 
@@ -1915,10 +2245,17 @@ REGRAS OBRIGATÓRIAS:
                   </label>
                   <input
                     type="text"
+                    name="studentUnitName"
+                    autoComplete="organization"
+                    autoCapitalize="words"
+                    autoCorrect="off"
+                    spellCheck={false}
                     value={studentUnit}
                     onChange={(e) => setStudentUnit(e.target.value)}
+                    onBlur={resetMobileViewportScroll}
                     placeholder="Ex: Unidade Águia / Clube Orion"
-                    className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-2xl px-4 py-3 text-xs sm:text-sm font-bold text-white focus:outline-none"
+                    style={{ WebkitUserSelect: 'text', userSelect: 'text' }}
+                    className="w-full select-text bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-2xl px-4 py-3.5 text-base font-bold text-white placeholder:text-slate-500 focus:outline-none"
                   />
                 </div>
               </div>
@@ -1963,7 +2300,7 @@ REGRAS OBRIGATÓRIAS:
 
           {/* 2. SALA DE ESPERA DO ALUNO (AGUARDANDO O INSTRUTOR INICIAR) */}
           {studentPhase === 'WAITING_HOST' && studentRoom && (
-            <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-[28px] p-6 text-center space-y-4 shadow-2xl">
+            <div className="w-full max-w-md mx-auto bg-slate-900 border border-slate-800 rounded-[28px] p-6 text-center space-y-4 shadow-2xl">
               {studentRoom.specialtyLogo && (
                 <img
                   src={studentRoom.specialtyLogo}
@@ -1997,7 +2334,7 @@ REGRAS OBRIGATÓRIAS:
 
           {/* 3. REALIZAÇÃO DA PROVA PELO ALUNO */}
           {studentPhase === 'PLAYING' && studentRoom && activeQuestion && (
-            <div className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-[28px] p-4 sm:p-6 shadow-2xl space-y-4 relative">
+            <div className="w-full max-w-2xl mx-auto bg-slate-900 border border-slate-800 rounded-[28px] p-4 sm:p-6 shadow-2xl space-y-4 relative">
               {/* Navegador de Questões em Pílulas */}
               <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-800">
                 <span className="text-xs font-black uppercase tracking-wider text-indigo-400">
@@ -2101,7 +2438,7 @@ REGRAS OBRIGATÓRIAS:
 
           {/* 4. TELA DE CONCLUSÃO / ENTREGA DA PROVA PELO ALUNO */}
           {studentPhase === 'FINISHED' && studentRoom && (
-            <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-[28px] p-6 text-center space-y-4 shadow-2xl">
+            <div className="w-full max-w-md mx-auto bg-slate-900 border border-slate-800 rounded-[28px] p-6 text-center space-y-4 shadow-2xl">
               <div
                 className={`w-16 h-16 rounded-2xl mx-auto flex items-center justify-center ${
                   mySummary.scorePercent >= studentRoom.passingScorePercent
@@ -2220,11 +2557,16 @@ REGRAS OBRIGATÓRIAS:
         <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
           <button
             type="button"
-            onClick={() => setRoleMode('STUDENT')}
+            onClick={() => {
+              if (activeRoom?.pin) {
+                setStudentPinInput(activeRoom.pin);
+              }
+              setRoleMode('STUDENT');
+            }}
             className="px-3.5 py-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 text-white text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
           >
             <QrCode size={14} />
-            <span>Entrar como Aluno (PIN)</span>
+            <span>{activeRoom ? 'Testar como Aluno' : 'Entrar como Aluno (PIN)'}</span>
           </button>
         </div>
       </div>
@@ -2995,14 +3337,13 @@ REGRAS OBRIGATÓRIAS:
         </div>
       )}
 
-      {/* MODAL DO QR CODE AMPLIADO E PROJEÇÃO EM OUTRA TELA (TELÃO DA IGREJA) */}
+      {/* MODAL DO QR CODE AMPLIADO (MANTENDO O MODAL CENTRALIZADO NO PADRÃO DO PROJETAR) */}
       {isQrFullscreenModalOpen &&
         activeRoom &&
         typeof document !== 'undefined' &&
         createPortal(
           <div
-            ref={qrModalRef}
-            className="fixed inset-0 z-[99999] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in overflow-y-auto"
+            className="fixed inset-0 z-[99999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-fade-in select-none"
             onClick={() => {
               if (document.fullscreenElement) {
                 document.exitFullscreen().catch(() => {});
@@ -3012,44 +3353,54 @@ REGRAS OBRIGATÓRIAS:
             }}
           >
             <div
+              ref={qrModalRef}
               onClick={(e) => e.stopPropagation()}
-              className={`bg-slate-900 border border-slate-700 rounded-[32px] p-6 sm:p-8 text-center text-white space-y-5 shadow-2xl transition-all ${
-                isQrTelaoExpanded ? 'w-full max-w-5xl' : 'w-full max-w-lg'
+              style={{
+                background: 'radial-gradient(circle at top, #1e1b4b 0%, #090d16 70%)'
+              }}
+              className={`text-white flex flex-col justify-between transition-all overflow-y-auto scrollbar-hide ${
+                isQrTelaoExpanded
+                  ? 'w-full h-full p-6 sm:p-10'
+                  : 'w-full max-w-4xl max-h-[92vh] rounded-[32px] border border-indigo-500/35 shadow-2xl p-5 sm:p-7 gap-5'
               }`}
             >
-              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800">
-                <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-amber-400">
-                  Aponte a Câmera do Celular para Entrar na Prova
-                </span>
-                <div className="flex items-center gap-2">
+              {/* Barra Superior do Modal no padrão do Projetar */}
+              <div className="w-full flex flex-wrap items-center justify-between gap-2.5 pb-3.5 border-b border-white/10 shrink-0">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/20 border border-amber-400/35 text-amber-300 text-[11px] font-black uppercase tracking-[0.14em]">
+                  <QrCode size={14} />
+                  <span>PROVA AO VIVO</span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={handleProjectQrToAnotherScreen}
-                    className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] sm:text-xs font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-md"
-                    title="Abre uma janela exclusiva para você arrastar ou projetar no Telão da Igreja (2ª Tela / HDMI) mantendo seu painel no PC"
+                    className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-lg shadow-amber-500/25 transition-all"
+                    title="Abre uma janela exclusiva para projetar no Telão da Igreja (2ª Tela / HDMI) mantendo seu painel no PC"
                   >
                     <Monitor size={14} />
                     <span>Projetar em Outra Tela (Telão)</span>
                   </button>
+
                   <button
                     type="button"
                     onClick={async () => {
-                      const nextState = !isQrTelaoExpanded;
-                      setIsQrTelaoExpanded(nextState);
                       try {
-                        if (nextState && qrModalRef.current && !document.fullscreenElement) {
+                        if (!document.fullscreenElement && qrModalRef.current) {
                           await qrModalRef.current.requestFullscreen();
-                        } else if (!nextState && document.fullscreenElement) {
+                          setIsQrTelaoExpanded(true);
+                        } else if (document.fullscreenElement) {
                           await document.exitFullscreen();
+                          setIsQrTelaoExpanded(false);
                         }
                       } catch {}
                     }}
-                    className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] sm:text-xs font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
-                    title="Expandir em Tela Cheia nesta tela"
+                    className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 border border-white/20 text-white text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-lg shadow-indigo-600/30 transition-all"
                   >
                     {isQrTelaoExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-                    <span>{isQrTelaoExpanded ? 'Reduzir' : 'Tela Cheia Aqui'}</span>
+                    <span>{isQrTelaoExpanded ? 'Sair da Tela Cheia' : 'Tela Cheia (F11)'}</span>
                   </button>
+
                   <button
                     type="button"
                     onClick={() => {
@@ -3059,86 +3410,108 @@ REGRAS OBRIGATÓRIAS:
                       setIsQrTelaoExpanded(false);
                       setIsQrFullscreenModalOpen(false);
                     }}
-                    className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center cursor-pointer"
+                    className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all"
                   >
-                    <X size={16} />
+                    <X size={14} />
+                    <span>Fechar</span>
                   </button>
                 </div>
               </div>
 
-              <div
-                className={
-                  isQrTelaoExpanded
-                    ? 'grid grid-cols-1 md:grid-cols-2 gap-8 items-center text-left'
-                    : 'space-y-4'
-                }
-              >
-                <div className="flex flex-col items-center justify-center space-y-3">
+              {/* Conteúdo do Modal em 2 Colunas no mesmo padrão do Projetar */}
+              <div className="w-full grid grid-cols-1 md:grid-cols-12 gap-5 sm:gap-6 items-center my-auto">
+                {/* Coluna Esquerda: QR Code */}
+                <div className="md:col-span-5 bg-slate-900/80 border-2 border-indigo-500/35 rounded-[26px] p-4 sm:p-5 shadow-xl flex flex-col items-center justify-center text-center">
                   {qrCodeDataUrl && (
-                    <div className="p-5 bg-white rounded-3xl inline-block mx-auto shadow-xl">
+                    <div className="bg-white p-3.5 rounded-2xl shadow-lg mb-3">
                       <img
                         src={qrCodeDataUrl}
-                        alt="QR Code"
-                        className={
-                          isQrTelaoExpanded
-                            ? 'w-72 h-72 sm:w-96 sm:h-96 object-contain'
-                            : 'w-64 h-64 sm:w-72 sm:h-72 object-contain'
-                        }
+                        alt="QR Code da Prova"
+                        className="w-48 h-48 sm:w-56 sm:h-56 object-contain block mx-auto"
                       />
                     </div>
                   )}
+                  <p className="text-[11px] sm:text-xs font-extrabold text-slate-300 uppercase tracking-wider leading-snug">
+                    Aponte a Câmera do Celular para Entrar na Prova
+                  </p>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="flex items-center justify-center md:justify-start gap-3">
+                {/* Coluna Direita: Especialidade, PIN, Cronômetro, Status e Conectados */}
+                <div className="md:col-span-7 flex flex-col gap-3.5 text-left">
+                  <div className="flex items-center gap-3.5">
                     {activeRoom.specialtyLogo && (
                       <img
                         src={activeRoom.specialtyLogo}
                         alt={activeRoom.specialtyName}
-                        className="w-12 h-12 sm:w-14 sm:h-14 object-contain shrink-0"
+                        className="w-14 h-14 sm:w-16 sm:h-16 object-contain shrink-0 drop-shadow-lg"
                         referrerPolicy="no-referrer"
                       />
                     )}
-                    <h3 className="text-xl sm:text-3xl font-black uppercase leading-tight">
-                      {activeRoom.specialtyName}
-                    </h3>
-                  </div>
-
-                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-center">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
-                      Código PIN da Sala
-                    </span>
-                    <p className="text-3xl sm:text-5xl font-black tracking-[0.3em] text-amber-400 mt-1">
-                      {activeRoom.pin}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 text-center">
-                    <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">
-                        Tempo Restante
+                    <div className="min-w-0">
+                      <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.16em] text-indigo-400 block mb-0.5">
+                        ESPECIALIDADE EM AVALIAÇÃO
                       </span>
-                      <p className="text-xl sm:text-2xl font-black text-sky-400 tabular-nums mt-0.5">
+                      <h2 className="text-xl sm:text-3xl font-black uppercase tracking-tight leading-tight text-white break-words">
+                        {activeRoom.specialtyName}
+                      </h2>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-slate-900/85 border border-white/12 rounded-2xl p-3.5 sm:p-4">
+                      <span className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400 block mb-1">
+                        CÓDIGO PIN DA SALA
+                      </span>
+                      <div className="text-2xl sm:text-4xl font-black text-amber-400 tracking-[0.2em]">
+                        {activeRoom.pin}
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-900/85 border border-white/12 rounded-2xl p-3.5 sm:p-4">
+                      <span className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400 block mb-1">
+                        TEMPO RESTANTE
+                      </span>
+                      <div className="text-2xl sm:text-4xl font-black text-sky-400 tabular-nums">
                         {formatTimeMMSS(hostRemainingSeconds)}
-                      </p>
+                      </div>
                     </div>
-                    <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">
-                        Conectados na Sala
+                  </div>
+
+                  <div className="bg-emerald-500/15 border border-emerald-500/35 rounded-2xl px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-wider text-emerald-300">
+                      {activeRoom.status === 'ACTIVE'
+                        ? '🟢 PROVA EM ANDAMENTO'
+                        : activeRoom.status === 'FINISHED'
+                        ? '🏁 PROVA ENCERRADA'
+                        : '⏳ AGUARDANDO ALUNOS ESCANEAREM O QR CODE'}
+                    </span>
+                    <span className="text-xs sm:text-sm font-black text-white">
+                      {participantsList.length} participante(s) na sala
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-900/65 border border-white/10 rounded-2xl p-3.5 min-h-[76px] max-h-[115px] overflow-y-auto scrollbar-hide">
+                    <span className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400 block mb-1.5">
+                      PARTICIPANTES CONECTADOS AO VIVO
+                    </span>
+                    {participantsList.length === 0 ? (
+                      <span className="text-xs font-bold text-slate-500">
+                        Aguardando os alunos escanearem o QR Code...
                       </span>
-                      <p className="text-xl sm:text-2xl font-black text-emerald-400 mt-0.5">
-                        {participantsList.length}
-                      </p>
-                    </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {participantsList.map((p) => (
+                          <span
+                            key={p.id}
+                            className="px-3 py-1 rounded-full bg-indigo-500/25 border border-indigo-400/40 text-indigo-100 text-[11px] font-extrabold"
+                          >
+                            {p.name} ({p.unit})
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
-
-              <div className="pt-2 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-slate-400 font-bold">
-                <span>
-                  💡 No PC da igreja (HDMI/Telão estendido), clique em{' '}
-                  <strong className="text-amber-300">"Projetar em Outra Tela (Telão)"</strong> para jogar o QR Code no telão e manter seu painel de controle aberto aqui.
-                </span>
               </div>
             </div>
           </div>,
