@@ -3376,13 +3376,13 @@ REGRAS OBRIGATÓRIAS:
 
             {/* Corpo do Painel da Sala em 2 Colunas Equilibradas no PC */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-              {/* Lado Esquerdo (6 Colunas): QR Code + PIN + Cronômetro + Projeção */}
+              {/* Lado Esquerdo (6 Colunas): QR Code Grande Acima do PIN + Cronômetro + Projeção */}
               <div className="lg:col-span-6 flex flex-col justify-between gap-3">
-                <div className="flex flex-col sm:flex-row items-center gap-3 w-full min-w-0">
+                <div className="flex flex-col items-center gap-3 w-full min-w-0">
                   {qrCodeDataUrl && (
                     <div
                       onClick={() => setIsQrFullscreenModalOpen(true)}
-                      className="relative overflow-hidden w-36 h-36 sm:w-36 sm:h-36 shrink-0 aspect-square p-2.5 bg-white rounded-2xl border-2 border-indigo-500/30 shadow-sm cursor-pointer hover:scale-[1.02] transition-transform flex items-center justify-center"
+                      className="relative overflow-hidden w-48 h-48 sm:w-52 sm:h-52 shrink-0 aspect-square p-3 bg-white rounded-3xl border-2 border-indigo-500/35 shadow-md cursor-pointer hover:scale-[1.02] transition-transform flex items-center justify-center mx-auto"
                       title="Clique para ampliar o QR Code"
                     >
                       <img
@@ -3391,9 +3391,9 @@ REGRAS OBRIGATÓRIAS:
                         className="w-full h-full object-contain block"
                       />
                       {activeRoom.status === 'FINISHED' && (
-                        <div className="absolute inset-0 z-10 bg-slate-950/90 backdrop-blur-xs flex flex-col items-center justify-center p-2 text-center select-none">
-                          <span className="text-xl leading-none mb-1">🏁</span>
-                          <span className="text-sm sm:text-base font-black uppercase tracking-wider text-red-400 leading-tight drop-shadow-md">
+                        <div className="absolute inset-0 z-10 bg-slate-950/90 backdrop-blur-xs flex flex-col items-center justify-center p-3 text-center select-none">
+                          <span className="text-3xl leading-none mb-1.5">🏁</span>
+                          <span className="text-lg sm:text-xl font-black uppercase tracking-wider text-red-400 leading-tight drop-shadow-md">
                             PROVA ENCERRADA
                           </span>
                         </div>
@@ -3401,9 +3401,9 @@ REGRAS OBRIGATÓRIAS:
                     </div>
                   )}
 
-                  <div className="flex-1 w-full min-w-0 flex flex-col gap-2">
-                    <div className="grid grid-cols-2 sm:grid-cols-1 gap-2">
-                      <div className="w-full overflow-hidden bg-slate-900 text-white rounded-xl py-2 px-3 text-center border border-slate-800">
+                  <div className="w-full min-w-0 flex flex-col gap-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="w-full overflow-hidden bg-slate-900 text-white rounded-xl py-2.5 px-3 text-center border border-slate-800">
                         <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">
                           PIN da Sala
                         </span>
@@ -3412,7 +3412,7 @@ REGRAS OBRIGATÓRIAS:
                         </p>
                       </div>
 
-                      <div className="w-full overflow-hidden bg-slate-900 text-white rounded-xl py-2 px-3 text-center border border-slate-800">
+                      <div className="w-full overflow-hidden bg-slate-900 text-white rounded-xl py-2.5 px-3 text-center border border-slate-800">
                         <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">
                           Tempo Restante
                         </span>
