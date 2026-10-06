@@ -2017,6 +2017,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() => {
     return pinSidebar || false;
   });
+  const [hasActiveLiveExamRoom, setHasActiveLiveExamRoom] = useState<boolean>(false);
   const [isLogoWobbling, setIsLogoWobbling] = useState<boolean>(false);
 
   const triggerLogoWobble = () => {
@@ -2033,19 +2034,19 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     });
   };
 
-  // Manter sincronizado caso a configuração de fixação mude
+  // Manter sincronizado caso a configuração de fixação mude ou quando abrir sala de prova ao vivo
   useEffect(() => {
-    if (pinSidebar) {
+    if (pinSidebar || (activeSubView === 'LIVE_EXAM' && hasActiveLiveExamRoom)) {
       setIsSidebarOpen(true);
     }
-  }, [pinSidebar]);
+  }, [pinSidebar, activeSubView, hasActiveLiveExamRoom]);
 
   const sidebarRef = useRef<HTMLElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Fecha o menu lateral do PC ao clicar fora da área do menu (apenas se não estiver fixado)
+  // Fecha o menu lateral do PC ao clicar fora da área do menu (apenas se não estiver fixado e não estiver com sala de prova ao vivo aberta)
   useEffect(() => {
-    if (!isSidebarOpen || pinSidebar) return;
+    if (!isSidebarOpen || pinSidebar || (activeSubView === 'LIVE_EXAM' && hasActiveLiveExamRoom)) return;
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
         setIsSidebarOpen(false);
@@ -2057,7 +2058,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('touchstart', handleClickOutside);
     };
-  }, [isSidebarOpen, pinSidebar]);
+  }, [isSidebarOpen, pinSidebar, activeSubView, hasActiveLiveExamRoom]);
   const [lastRead, setLastRead] = useState<{ book: BibleBook, chapter: number } | null>(() => {
     const saved = localStorage.getItem('dbv_tudo_bible_last_read');
     return saved ? JSON.parse(saved) : null;
@@ -10902,7 +10903,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         }}
         className={`hidden md:flex flex-col h-full bg-white/80 dark:bg-slate-900/75 backdrop-blur-xl border-r border-slate-200/80 dark:border-slate-800 shrink-0 z-30 select-none shadow-sm transition-all duration-300 ease-in-out justify-between overflow-y-auto scrollbar-hide relative ${
           isSidebarOpen 
-            ? 'w-64 lg:w-72 p-5 lg:p-6 cursor-default' 
+            ? activeSubView === 'LIVE_EXAM' && hasActiveLiveExamRoom
+              ? 'w-72 lg:w-80 p-5 lg:p-6 cursor-default'
+              : 'w-64 lg:w-72 p-5 lg:p-6 cursor-default' 
             : 'w-[78px] lg:w-[84px] px-2.5 py-4 cursor-pointer'
         }`}
         title={!isSidebarOpen ? "Clique em qualquer lugar para expandir o menu" : undefined}
@@ -11320,7 +11323,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       {/* ÁREA DE CONTEÚDO PRINCIPAL (À DIREITA DO MENU NO PC) */}
       <div className="flex flex-col flex-1 h-full min-w-0 overflow-hidden relative">
         {activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && !selectedTrunfoModal && (
-          <div className="px-3.5 sm:px-6 md:px-10 lg:px-12 pt-3 sm:pt-4 md:pt-8 lg:pt-9 pb-2 sm:pb-3 md:pb-5 landscape:py-1.5 landscape:px-4 flex items-center justify-between z-10 bg-transparent transition-colors duration-500">
+          <div className="px-3.5 sm:px-6 md:px-10 lg:px-12 pt-2 sm:pt-4 md:pt-8 lg:pt-9 pb-2 sm:pb-3 md:pb-5 landscape:py-1.5 landscape:px-4 flex items-center justify-between z-10 bg-transparent transition-colors duration-500">
             <div className="w-11 h-11 md:w-12 md:h-12 landscape:w-9 landscape:h-9 flex items-center justify-center flex-shrink-0">
               {activeSubView === 'MAIN' ? (
                 /* No PC, o logo já está em destaque na barra lateral esquerda */
@@ -11663,6 +11666,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             club={club}
             specialties={specialties}
             preselectedSpecialty={selectedSpecialty}
+            sidebarOverlayTarget={sidebarRef.current}
+            isSidebarOpen={isSidebarOpen}
+            onToggleSidebar={setIsSidebarOpen}
+            onActiveRoomChange={setHasActiveLiveExamRoom}
             onBack={() => setActiveSubView('FIELD_TRAINING')}
           />
         )}

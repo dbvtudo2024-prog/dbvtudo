@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '3.0.87';
+const appVersion = '3.0.88';
 const liveExamRooms = new Map<string, any>();
 
 function versionPlugin(): Plugin {
@@ -20,7 +20,7 @@ function versionPlugin(): Plugin {
           buildDate: new Date(buildTime).toISOString(),
           timestamp: buildTime,
           highlights: [
-            "Opção de abrir a Prova Ao Vivo no Aplicativo instalado ou no Navegador ao escanear o QR Code (com abertura direta no navegador padrão caso não tenha o app)"
+            "Abertura de múltiplas provas ao vivo simultaneamente com alternador de salas e layout em tela única mantendo a lista de participantes sempre visível na tela"
           ]
         }, null, 2)
       });
@@ -36,7 +36,7 @@ function versionPlugin(): Plugin {
             buildDate: new Date(buildTime).toISOString(),
             timestamp: buildTime,
             highlights: [
-              "Opção de abrir a Prova Ao Vivo no Aplicativo instalado ou no Navegador ao escanear o QR Code (com abertura direta no navegador padrão caso não tenha o app)"
+              "Abertura de múltiplas provas ao vivo simultaneamente com alternador de salas e layout em tela única mantendo a lista de participantes sempre visível na tela"
             ]
           }));
           return;

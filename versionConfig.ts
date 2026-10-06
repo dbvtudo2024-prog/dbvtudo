@@ -6,14 +6,24 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.87';
+export const APP_VERSION = '3.0.88';
 export const APP_BUILD_DATE = '6 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
-    version: '3.0.87',
+    version: '3.0.88',
     date: '06/10/2026',
     tag: 'NOVO',
+    title: 'Múltiplas Provas Simultâneas & Painel em Tela Única com Lista Ao Vivo',
+    changes: [
+      'Suporte para abrir e gerenciar múltiplas salas de Prova Ao Vivo simultaneamente, com barra de abas no topo mostrando cada especialidade, PIN, quantidade de alunos e alertas anti-cola em tempo real.',
+      'Layout da sala ao vivo remodelado em tela única (2 colunas lado a lado): QR Code, PIN, cronômetro e controles à esquerda, e a lista ao vivo de quem entrou na prova sempre visível à direita sem precisar rolar a página.'
+    ]
+  },
+  {
+    version: '3.0.87',
+    date: '06/10/2026',
+    tag: 'ATUAL',
     title: 'Opção de Abrir no App ou no Navegador via QR Code & Efeito da Logo com a Cor do Fundo',
     changes: [
       'Ao escanear o QR Code da Prova Ao Vivo, o sistema detecta automaticamente se o aluno possui o aplicativo DBV Tudo instalado no aparelho e exibe a opção de escolher entre "Abrir no Aplicativo DBV Tudo" ou "Abrir no Navegador Padrão".',

@@ -43,7 +43,8 @@ import {
   Monitor,
   Minimize2,
   Smartphone,
-  Globe
+  Globe,
+  PanelLeftClose
 } from 'lucide-react';
 
 export interface LiveExamQuestion {
@@ -112,6 +113,10 @@ interface LiveSpecialtyExamProps {
   initialPin?: string;
   isIsolatedStudentMode?: boolean;
   onExitIsolatedMode?: () => void;
+  sidebarOverlayTarget?: HTMLElement | null;
+  isSidebarOpen?: boolean;
+  onToggleSidebar?: (open: boolean) => void;
+  onActiveRoomChange?: (hasActiveRoom: boolean) => void;
   onBack?: () => void;
 }
 
@@ -243,6 +248,10 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   initialPin = '',
   isIsolatedStudentMode = false,
   onExitIsolatedMode,
+  sidebarOverlayTarget = null,
+  isSidebarOpen = true,
+  onToggleSidebar,
+  onActiveRoomChange,
   onBack
 }) => {
   const isPathfinder = club === ClubType.PATHFINDER;
@@ -267,19 +276,55 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState<boolean>(false);
   const [editingQuestionIdx, setEditingQuestionIdx] = useState<number | null>(null);
 
-  // Estado da Sala Ativa do Instrutor
-  const [activeRoom, setActiveRoom] = useState<LiveExamRoomState | null>(() => {
+  // Estado de Múltiplas Salas Ativas do Instrutor (permite abrir várias provas simultâneas)
+  const [hostRooms, setHostRooms] = useState<LiveExamRoomState[]>(() => {
     try {
-      const saved = localStorage.getItem('dbv_instructor_active_exam_room');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && parsed.pin && Array.isArray(parsed.questions)) {
-          return parsed;
+      const savedMulti = localStorage.getItem('dbv_instructor_active_exam_rooms');
+      if (savedMulti) {
+        const parsedMulti = JSON.parse(savedMulti);
+        if (Array.isArray(parsedMulti) && parsedMulti.length > 0) {
+          return parsedMulti.filter((r: any) => r && r.pin && Array.isArray(r.questions));
         }
+      }
+      const savedSingle = localStorage.getItem('dbv_instructor_active_exam_room');
+      if (savedSingle) {
+        const parsed = JSON.parse(savedSingle);
+        if (parsed && parsed.pin && Array.isArray(parsed.questions)) {
+          return [parsed];
+        }
+      }
+    } catch {}
+    return [];
+  });
+  const [selectedRoomPin, setSelectedRoomPin] = useState<string | null>(() => {
+    try {
+      const savedMulti = localStorage.getItem('dbv_instructor_active_exam_rooms');
+      if (savedMulti) {
+        const parsedMulti = JSON.parse(savedMulti);
+        if (Array.isArray(parsedMulti) && parsedMulti[0]?.pin) return String(parsedMulti[0].pin);
+      }
+      const savedSingle = localStorage.getItem('dbv_instructor_active_exam_room');
+      if (savedSingle) {
+        const parsed = JSON.parse(savedSingle);
+        if (parsed?.pin) return String(parsed.pin);
       }
     } catch {}
     return null;
   });
+  const [isCreatingNewRoom, setIsCreatingNewRoom] = useState<boolean>(false);
+
+  const activeRoom = useMemo<LiveExamRoomState | null>(() => {
+    if (isCreatingNewRoom || hostRooms.length === 0) return null;
+    return hostRooms.find((r) => r.pin === selectedRoomPin) || hostRooms[0] || null;
+  }, [hostRooms, selectedRoomPin, isCreatingNewRoom]);
+
+  useEffect(() => {
+    const hasActive = !isIsolatedStudentMode && roleMode === 'HOST' && Boolean(activeRoom);
+    onActiveRoomChange?.(hasActive);
+    return () => {
+      onActiveRoomChange?.(false);
+    };
+  }, [isIsolatedStudentMode, roleMode, activeRoom, onActiveRoomChange]);
 
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [isQrFullscreenModalOpen, setIsQrFullscreenModalOpen] = useState<boolean>(false);
@@ -333,6 +378,7 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   const [studentLastCheatReason, setStudentLastCheatReason] = useState<string>('');
   const [studentRemainingSeconds, setStudentRemainingSeconds] = useState<number>(900);
   const [studentStartTime, setStudentStartTime] = useState<number | null>(null);
+  const [studentFinalTimeSpentSec, setStudentFinalTimeSpentSec] = useState<number>(0);
   const [showOpenModeChoiceModal, setShowOpenModeChoiceModal] = useState<boolean>(false);
   const [isRunningInStandaloneApp, setIsRunningInStandaloneApp] = useState<boolean>(false);
 
@@ -445,7 +491,10 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   }, [isIsolatedStudentMode, initialPin, studentPinInput]);
 
   const hostChannelRef = useRef<any>(null);
+  const hostChannelsMapRef = useRef<Map<string, any>>(new Map());
   const studentChannelRef = useRef<any>(null);
+  const hostRoomsRef = useRef<LiveExamRoomState[]>(hostRooms);
+  hostRoomsRef.current = hostRooms;
   const activeRoomRef = useRef<LiveExamRoomState | null>(activeRoom);
   activeRoomRef.current = activeRoom;
   const soundEnabledRef = useRef<boolean>(soundAlertsEnabled);
@@ -526,277 +575,397 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
       .catch(() => {});
   }, [examShareUrl]);
 
-  // Salva a sala ativa do instrutor no localStorage, no servidor (/api/live-exam) e no Supabase Storage (nuvem)
-  const persistHostRoom = useCallback((room: LiveExamRoomState | null) => {
-    setActiveRoom(room);
-    activeRoomRef.current = room;
-    try {
+  // Salva uma sala do instrutor na lista de múltiplas salas abertas (localStorage, /api/live-exam e Supabase Storage)
+  const persistHostRoom = useCallback(
+    (
+      room: LiveExamRoomState | null,
+      options?: { closePin?: string; selectRoom?: boolean }
+    ) => {
       if (room) {
-        localStorage.setItem('dbv_instructor_active_exam_room', JSON.stringify(room));
-        fetch('/api/live-exam', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'UPSERT_ROOM', room })
-        }).catch(() => {});
-        supabaseQfpy.storage
-          .from('App DBV Tudo')
-          .upload(`provas/room_${room.pin}.json`, JSON.stringify(room), {
-            upsert: true,
-            contentType: 'application/json',
-            cacheControl: '0'
-          })
-          .catch(() => {});
-      } else {
-        localStorage.removeItem('dbv_instructor_active_exam_room');
-      }
-    } catch {}
-  }, []);
-
-  // ============================================================================
-  // SINCRONIZAÇÃO EM TEMPO REAL DO INSTRUTOR (SUPABASE REALTIME + NUVEM + SERVER POLL)
-  // ============================================================================
-  useEffect(() => {
-    if (!activeRoom?.pin) return;
-
-    const pin = activeRoom.pin;
-    const channelName = `dbv_live_exam_${pin}`;
-    const channel = supabaseQfpy.channel(channelName, {
-      config: { broadcast: { self: true } }
-    });
-    hostChannelRef.current = channel;
-
-    const broadcastFullRoomSync = (roomToBroadcast: LiveExamRoomState) => {
-      channel
-        .send({
-          type: 'broadcast',
-          event: 'host:room_sync',
-          payload: { room: roomToBroadcast }
-        })
-        .catch(() => {});
-    };
-
-    channel
-      .on('broadcast', { event: 'student:request_sync' }, () => {
-        if (activeRoomRef.current) {
-          broadcastFullRoomSync(activeRoomRef.current);
-        }
-      })
-      .on('broadcast', { event: 'student:join' }, ({ payload }) => {
-        if (!payload?.participant || !activeRoomRef.current) return;
-        const p: LiveExamParticipant = payload.participant;
-        const current = activeRoomRef.current;
-        const existing = current.participants[p.id];
-        const mergedParticipant: LiveExamParticipant = existing
-          ? {
-              ...existing,
-              name: p.name || existing.name,
-              unit: p.unit || existing.unit,
-              status:
-                existing.status === 'FINISHED' || existing.status === 'DISQUALIFIED'
-                  ? existing.status
-                  : existing.isLocked
-                  ? 'LOCKED_CHEAT'
-                  : current.status === 'ACTIVE'
-                  ? 'PLAYING'
-                  : 'WAITING'
-            }
-          : {
-              ...p,
-              status: current.status === 'ACTIVE' ? 'PLAYING' : 'WAITING'
-            };
-
-        const updated: LiveExamRoomState = {
-          ...current,
-          participants: {
-            ...current.participants,
-            [p.id]: mergedParticipant
-          },
-          updatedAt: Date.now()
-        };
-        persistHostRoom(updated);
-        broadcastFullRoomSync(updated);
-      })
-      .on('broadcast', { event: 'student:update' }, ({ payload }) => {
-        if (!payload?.participant || !activeRoomRef.current) return;
-        const p: LiveExamParticipant = payload.participant;
-        const current = activeRoomRef.current;
-        const prevP = current.participants[p.id];
-        // Preserva bloqueio ou desclassificação decidida pelo instrutor
-        const isLocked = prevP?.status === 'DISQUALIFIED' ? true : p.isLocked;
-        const status =
-          prevP?.status === 'DISQUALIFIED'
-            ? 'DISQUALIFIED'
-            : p.status === 'FINISHED'
-            ? 'FINISHED'
-            : isLocked
-            ? 'LOCKED_CHEAT'
-            : p.status;
-
-        const updated: LiveExamRoomState = {
-          ...current,
-          participants: {
-            ...current.participants,
-            [p.id]: {
-              ...prevP,
-              ...p,
-              isLocked,
-              status
-            }
-          },
-          updatedAt: Date.now()
-        };
-        persistHostRoom(updated);
-        broadcastFullRoomSync(updated);
-      })
-      .on('broadcast', { event: 'student:cheat_alert' }, ({ payload }) => {
-        if (!payload?.alert || !payload?.participant || !activeRoomRef.current) return;
-        const alertItem: LiveExamCheatAlert = payload.alert;
-        const p: LiveExamParticipant = payload.participant;
-        const current = activeRoomRef.current;
-
-        if (soundEnabledRef.current) {
-          playCheatAlertSound();
+        if (options?.selectRoom) {
+          activeRoomRef.current = room;
+          setSelectedRoomPin(room.pin);
+          setIsCreatingNewRoom(false);
+        } else if (activeRoomRef.current?.pin === room.pin) {
+          activeRoomRef.current = room;
         }
 
-        const shouldLock = current.lockOnCheat;
-        const updatedParticipant: LiveExamParticipant = {
-          ...(current.participants[p.id] || p),
-          ...p,
-          isLocked: shouldLock,
-          status: shouldLock ? 'LOCKED_CHEAT' : p.status
-        };
-
-        const alreadyHasAlert = current.alerts.some((a) => a.id === alertItem.id);
-        const updated: LiveExamRoomState = {
-          ...current,
-          participants: {
-            ...current.participants,
-            [p.id]: updatedParticipant
-          },
-          alerts: alreadyHasAlert ? current.alerts : [alertItem, ...current.alerts],
-          updatedAt: Date.now()
-        };
-        persistHostRoom(updated);
-        broadcastFullRoomSync(updated);
-      })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED' && activeRoomRef.current) {
-          broadcastFullRoomSync(activeRoomRef.current);
-        }
-      });
-
-    // Sincronização complementar via servidor e nuvem Supabase a cada 2,5s (permite testar no AI Studio com celular lendo QR Code no Vercel)
-    const pollInterval = setInterval(async () => {
-      try {
-        let externalRoom: LiveExamRoomState | null = null;
-        try {
-          const res = await fetch(`/api/live-exam?pin=${pin}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data?.room) externalRoom = data.room;
-          }
-        } catch {}
-
-        if (!externalRoom) {
+        setHostRooms((prev) => {
+          const exists = prev.some((r) => r.pin === room.pin);
+          const nextList = exists
+            ? prev.map((r) => (r.pin === room.pin ? room : r))
+            : [...prev, room];
+          hostRoomsRef.current = nextList;
           try {
-            const { data: blob } = await supabaseQfpy.storage
-              .from('App DBV Tudo')
-              .download(`provas/room_${pin}.json`);
-            if (blob) {
-              const text = await blob.text();
-              const parsed = JSON.parse(text);
-              if (parsed && String(parsed.pin) === String(pin)) {
-                externalRoom = parsed;
-              }
+            localStorage.setItem('dbv_instructor_active_exam_rooms', JSON.stringify(nextList));
+            localStorage.setItem('dbv_instructor_active_exam_room', JSON.stringify(room));
+          } catch {}
+          return nextList;
+        });
+
+        try {
+          fetch('/api/live-exam', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'UPSERT_ROOM', room })
+          }).catch(() => {});
+          supabaseQfpy.storage
+            .from('App DBV Tudo')
+            .upload(`provas/room_${room.pin}.json`, JSON.stringify(room), {
+              upsert: true,
+              contentType: 'application/json',
+              cacheControl: '0'
+            })
+            .catch(() => {});
+        } catch {}
+      } else {
+        const targetPin = options?.closePin || activeRoomRef.current?.pin;
+        if (targetPin) {
+          const ch = hostChannelsMapRef.current.get(targetPin);
+          if (ch) {
+            supabaseQfpy.removeChannel(ch);
+            hostChannelsMapRef.current.delete(targetPin);
+          }
+        }
+        setHostRooms((prev) => {
+          const nextList = targetPin ? prev.filter((r) => r.pin !== targetPin) : [];
+          hostRoomsRef.current = nextList;
+          const fallbackRoom = nextList[0] || null;
+          if (!targetPin || activeRoomRef.current?.pin === targetPin) {
+            activeRoomRef.current = fallbackRoom;
+            setSelectedRoomPin(fallbackRoom ? fallbackRoom.pin : null);
+          }
+          if (!fallbackRoom) {
+            setIsCreatingNewRoom(false);
+          }
+          try {
+            if (nextList.length > 0) {
+              localStorage.setItem('dbv_instructor_active_exam_rooms', JSON.stringify(nextList));
+              localStorage.setItem(
+                'dbv_instructor_active_exam_room',
+                JSON.stringify(activeRoomRef.current || fallbackRoom)
+              );
+            } else {
+              localStorage.removeItem('dbv_instructor_active_exam_rooms');
+              localStorage.removeItem('dbv_instructor_active_exam_room');
             }
           } catch {}
-        }
+          return nextList;
+        });
+      }
+    },
+    []
+  );
 
-        if (externalRoom && activeRoomRef.current) {
-          const localRoom = activeRoomRef.current;
-          let changed = false;
-          const mergedParticipants = { ...localRoom.participants };
+  // Mantém referência do canal da sala atualmente selecionada
+  useEffect(() => {
+    hostChannelRef.current = activeRoom?.pin
+      ? hostChannelsMapRef.current.get(activeRoom.pin) || null
+      : null;
+  }, [activeRoom?.pin]);
 
-          Object.values(externalRoom.participants || {}).forEach((sp) => {
-            const lp = mergedParticipants[sp.id];
-            if (
-              !lp ||
-              sp.answeredCount > lp.answeredCount ||
-              sp.cheatCount > lp.cheatCount ||
-              (sp.status === 'FINISHED' && lp.status !== 'FINISHED')
-            ) {
-              if (sp.cheatCount > (lp?.cheatCount || 0) && soundEnabledRef.current) {
-                playCheatAlertSound();
-              }
-              mergedParticipants[sp.id] = sp;
-              changed = true;
-            }
-          });
+  const openRoomPinsKey = useMemo(
+    () =>
+      hostRooms
+        .map((r) => r.pin)
+        .sort()
+        .join(','),
+    [hostRooms]
+  );
 
-          const existingAlertIds = new Set(localRoom.alerts.map((a) => a.id));
-          const mergedAlerts = [...localRoom.alerts];
-          (externalRoom.alerts || []).forEach((sa) => {
-            if (!existingAlertIds.has(sa.id)) {
-              mergedAlerts.unshift(sa);
-              changed = true;
-            }
-          });
+  // ============================================================================
+  // SINCRONIZAÇÃO EM TEMPO REAL DE TODAS AS SALAS ABERTAS PELO INSTRUTOR
+  // ============================================================================
+  useEffect(() => {
+    if (!openRoomPinsKey) return;
 
-          if (changed) {
-            const nextRoom: LiveExamRoomState = {
-              ...localRoom,
-              participants: mergedParticipants,
-              alerts: mergedAlerts,
-              updatedAt: Date.now()
-            };
-            persistHostRoom(nextRoom);
-            broadcastFullRoomSync(nextRoom);
+    const currentPins = new Set(openRoomPinsKey.split(',').filter(Boolean));
+
+    // Remove canais de salas que foram fechadas
+    Array.from(hostChannelsMapRef.current.entries()).forEach(([pin, ch]) => {
+      if (!currentPins.has(pin)) {
+        supabaseQfpy.removeChannel(ch);
+        hostChannelsMapRef.current.delete(pin);
+      }
+    });
+
+    // Cria canais para novas salas abertas
+    currentPins.forEach((pin) => {
+      if (hostChannelsMapRef.current.has(pin)) return;
+
+      const channelName = `dbv_live_exam_${pin}`;
+      const channel = supabaseQfpy.channel(channelName, {
+        config: { broadcast: { self: true } }
+      });
+      hostChannelsMapRef.current.set(pin, channel);
+      if (activeRoomRef.current?.pin === pin) {
+        hostChannelRef.current = channel;
+      }
+
+      const broadcastRoomSync = (roomToBroadcast: LiveExamRoomState) => {
+        channel
+          .send({
+            type: 'broadcast',
+            event: 'host:room_sync',
+            payload: { room: roomToBroadcast }
+          })
+          .catch(() => {});
+      };
+
+      const getRoomByPin = () => hostRoomsRef.current.find((r) => r.pin === pin) || null;
+
+      channel
+        .on('broadcast', { event: 'student:request_sync' }, () => {
+          const current = getRoomByPin();
+          if (current) {
+            broadcastRoomSync(current);
           }
-        }
-      } catch {}
+        })
+        .on('broadcast', { event: 'student:join' }, ({ payload }) => {
+          const current = getRoomByPin();
+          if (!payload?.participant || !current) return;
+          const p: LiveExamParticipant = payload.participant;
+          const existing = current.participants[p.id];
+          const mergedParticipant: LiveExamParticipant = existing
+            ? {
+                ...existing,
+                name: p.name || existing.name,
+                unit: p.unit || existing.unit,
+                status:
+                  existing.status === 'FINISHED' || existing.status === 'DISQUALIFIED'
+                    ? existing.status
+                    : existing.isLocked
+                    ? 'LOCKED_CHEAT'
+                    : current.status === 'ACTIVE'
+                    ? 'PLAYING'
+                    : 'WAITING'
+              }
+            : {
+                ...p,
+                status: current.status === 'ACTIVE' ? 'PLAYING' : 'WAITING'
+              };
+
+          const updated: LiveExamRoomState = {
+            ...current,
+            participants: {
+              ...current.participants,
+              [p.id]: mergedParticipant
+            },
+            updatedAt: Date.now()
+          };
+          persistHostRoom(updated);
+          broadcastRoomSync(updated);
+        })
+        .on('broadcast', { event: 'student:update' }, ({ payload }) => {
+          const current = getRoomByPin();
+          if (!payload?.participant || !current) return;
+          const p: LiveExamParticipant = payload.participant;
+          const prevP = current.participants[p.id];
+          const isLocked = prevP?.status === 'DISQUALIFIED' ? true : p.isLocked;
+          const status =
+            prevP?.status === 'DISQUALIFIED'
+              ? 'DISQUALIFIED'
+              : p.status === 'FINISHED'
+              ? 'FINISHED'
+              : isLocked
+              ? 'LOCKED_CHEAT'
+              : p.status;
+
+          const updated: LiveExamRoomState = {
+            ...current,
+            participants: {
+              ...current.participants,
+              [p.id]: {
+                ...prevP,
+                ...p,
+                isLocked,
+                status
+              }
+            },
+            updatedAt: Date.now()
+          };
+          persistHostRoom(updated);
+          broadcastRoomSync(updated);
+        })
+        .on('broadcast', { event: 'student:cheat_alert' }, ({ payload }) => {
+          const current = getRoomByPin();
+          if (!payload?.alert || !payload?.participant || !current) return;
+          const alertItem: LiveExamCheatAlert = payload.alert;
+          const p: LiveExamParticipant = payload.participant;
+
+          if (soundEnabledRef.current) {
+            playCheatAlertSound();
+          }
+
+          const shouldLock = current.lockOnCheat;
+          const updatedParticipant: LiveExamParticipant = {
+            ...(current.participants[p.id] || p),
+            ...p,
+            isLocked: shouldLock,
+            status: shouldLock ? 'LOCKED_CHEAT' : p.status
+          };
+
+          const alreadyHasAlert = current.alerts.some((a) => a.id === alertItem.id);
+          const updated: LiveExamRoomState = {
+            ...current,
+            participants: {
+              ...current.participants,
+              [p.id]: updatedParticipant
+            },
+            alerts: alreadyHasAlert ? current.alerts : [alertItem, ...current.alerts],
+            updatedAt: Date.now()
+          };
+          persistHostRoom(updated);
+          broadcastRoomSync(updated);
+        })
+        .subscribe((status) => {
+          const current = getRoomByPin();
+          if (status === 'SUBSCRIBED' && current) {
+            broadcastRoomSync(current);
+          }
+        });
+    });
+
+    // Sincronização complementar via servidor e nuvem Supabase a cada 2,5s para todas as salas abertas
+    const pollInterval = setInterval(async () => {
+      for (const localRoom of hostRoomsRef.current) {
+        const pin = localRoom.pin;
+        try {
+          let externalRoom: LiveExamRoomState | null = null;
+          try {
+            const res = await fetch(`/api/live-exam?pin=${pin}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data?.room) externalRoom = data.room;
+            }
+          } catch {}
+
+          if (!externalRoom) {
+            try {
+              const { data: blob } = await supabaseQfpy.storage
+                .from('App DBV Tudo')
+                .download(`provas/room_${pin}.json`);
+              if (blob) {
+                const text = await blob.text();
+                const parsed = JSON.parse(text);
+                if (parsed && String(parsed.pin) === String(pin)) {
+                  externalRoom = parsed;
+                }
+              }
+            } catch {}
+          }
+
+          const latestLocal = hostRoomsRef.current.find((r) => r.pin === pin);
+          if (externalRoom && latestLocal) {
+            let changed = false;
+            const mergedParticipants = { ...latestLocal.participants };
+
+            Object.values(externalRoom.participants || {}).forEach((sp) => {
+              const lp = mergedParticipants[sp.id];
+              if (
+                !lp ||
+                sp.answeredCount > lp.answeredCount ||
+                sp.cheatCount > lp.cheatCount ||
+                (sp.status === 'FINISHED' && lp.status !== 'FINISHED')
+              ) {
+                if (sp.cheatCount > (lp?.cheatCount || 0) && soundEnabledRef.current) {
+                  playCheatAlertSound();
+                }
+                mergedParticipants[sp.id] = sp;
+                changed = true;
+              }
+            });
+
+            const existingAlertIds = new Set(latestLocal.alerts.map((a) => a.id));
+            const mergedAlerts = [...latestLocal.alerts];
+            (externalRoom.alerts || []).forEach((sa) => {
+              if (!existingAlertIds.has(sa.id)) {
+                mergedAlerts.unshift(sa);
+                changed = true;
+              }
+            });
+
+            if (changed) {
+              const nextRoom: LiveExamRoomState = {
+                ...latestLocal,
+                participants: mergedParticipants,
+                alerts: mergedAlerts,
+                updatedAt: Date.now()
+              };
+              persistHostRoom(nextRoom);
+              hostChannelsMapRef.current
+                .get(pin)
+                ?.send({
+                  type: 'broadcast',
+                  event: 'host:room_sync',
+                  payload: { room: nextRoom }
+                })
+                .catch(() => {});
+            }
+          }
+        } catch {}
+      }
     }, 2500);
 
     return () => {
       clearInterval(pollInterval);
-      supabaseQfpy.removeChannel(channel);
+    };
+  }, [openRoomPinsKey, persistHostRoom]);
+
+  // Limpa todos os canais ao desmontar o componente
+  useEffect(() => {
+    return () => {
+      Array.from(hostChannelsMapRef.current.values()).forEach((ch) => {
+        supabaseQfpy.removeChannel(ch);
+      });
+      hostChannelsMapRef.current.clear();
       hostChannelRef.current = null;
     };
-  }, [activeRoom?.pin, persistHostRoom]);
+  }, []);
 
-  // Cronômetro regressivo da sala ativa no painel do Instrutor
+  // Cronômetro regressivo de todas as salas ativas no painel do Instrutor
   useEffect(() => {
-    if (!activeRoom || activeRoom.status !== 'ACTIVE' || !activeRoom.startedAt) {
-      setHostRemainingSeconds(activeRoom ? activeRoom.durationMinutes * 60 : 0);
-      return;
-    }
-
-    const updateTimer = () => {
-      const totalAllowed = activeRoom.durationMinutes * 60 + (activeRoom.extraSecondsAdded || 0);
-      const elapsed = Math.floor((Date.now() - (activeRoom.startedAt || Date.now())) / 1000);
-      const remaining = Math.max(0, totalAllowed - elapsed);
-      setHostRemainingSeconds(remaining);
-
-      if (remaining <= 0 && activeRoomRef.current && activeRoomRef.current.status === 'ACTIVE') {
-        const finishedRoom: LiveExamRoomState = {
-          ...activeRoomRef.current,
-          status: 'FINISHED',
-          updatedAt: Date.now()
-        };
-        persistHostRoom(finishedRoom);
-        hostChannelRef.current
-          ?.send({
-            type: 'broadcast',
-            event: 'host:room_sync',
-            payload: { room: finishedRoom }
-          })
-          .catch(() => {});
+    const updateTimers = () => {
+      const currentSelected = activeRoomRef.current;
+      if (!currentSelected || currentSelected.status !== 'ACTIVE' || !currentSelected.startedAt) {
+        setHostRemainingSeconds(currentSelected ? currentSelected.durationMinutes * 60 : 0);
+      } else {
+        const totalAllowed =
+          currentSelected.durationMinutes * 60 + (currentSelected.extraSecondsAdded || 0);
+        const elapsed = Math.floor((Date.now() - (currentSelected.startedAt || Date.now())) / 1000);
+        setHostRemainingSeconds(Math.max(0, totalAllowed - elapsed));
       }
+
+      // Verifica se alguma sala aberta esgotou o tempo
+      hostRoomsRef.current.forEach((roomItem) => {
+        if (roomItem.status === 'ACTIVE' && roomItem.startedAt) {
+          const totalAllowed = roomItem.durationMinutes * 60 + (roomItem.extraSecondsAdded || 0);
+          const elapsed = Math.floor((Date.now() - roomItem.startedAt) / 1000);
+          const remaining = Math.max(0, totalAllowed - elapsed);
+          if (remaining <= 0) {
+            const finishedRoom: LiveExamRoomState = {
+              ...roomItem,
+              status: 'FINISHED',
+              updatedAt: Date.now()
+            };
+            persistHostRoom(finishedRoom);
+            hostChannelsMapRef.current
+              .get(roomItem.pin)
+              ?.send({
+                type: 'broadcast',
+                event: 'host:room_sync',
+                payload: { room: finishedRoom }
+              })
+              .catch(() => {});
+          }
+        }
+      });
     };
 
-    updateTimer();
-    const timer = setInterval(updateTimer, 1000);
+    updateTimers();
+    const timer = setInterval(updateTimers, 1000);
     return () => clearInterval(timer);
-  }, [activeRoom, persistHostRoom]);
+  }, [activeRoom, openRoomPinsKey, persistHostRoom]);
 
   // ============================================================================
   // GERAÇÃO DE QUESTÕES DA ESPECIALIDADE (IA + REQUISITOS OFICIAIS)
@@ -933,10 +1102,14 @@ REGRAS OBRIGATÓRIAS:
     }
   }, [preselectedSpecialty]);
 
-  // Cria a Sala da Prova com PIN de 6 dígitos e QR Code
+  // Cria a Sala da Prova com PIN de 6 dígitos único e QR Code (suporta múltiplas provas abertas)
   const handleCreateLiveExamRoom = () => {
     if (!selectedSpecialty || questions.length === 0) return;
-    const pin = String(Math.floor(100000 + Math.random() * 900000));
+    let pin = String(Math.floor(100000 + Math.random() * 900000));
+    const existingPins = new Set(hostRoomsRef.current.map((r) => r.pin));
+    while (existingPins.has(pin)) {
+      pin = String(Math.floor(100000 + Math.random() * 900000));
+    }
     const newRoom: LiveExamRoomState = {
       pin,
       club,
@@ -956,7 +1129,7 @@ REGRAS OBRIGATÓRIAS:
       alerts: [],
       updatedAt: Date.now()
     };
-    persistHostRoom(newRoom);
+    persistHostRoom(newRoom, { selectRoom: true });
   };
 
   // Comandos do Instrutor na Sala Ao Vivo
@@ -1082,8 +1255,8 @@ REGRAS OBRIGATÓRIAS:
       .catch(() => {});
   };
 
-  const handleCloseAndResetRoom = () => {
-    persistHostRoom(null);
+  const handleCloseAndResetRoom = (pinToClose?: string) => {
+    persistHostRoom(null, { closePin: pinToClose || activeRoom?.pin });
     setIsQrFullscreenModalOpen(false);
     setInspectingStudent(null);
   };
@@ -1255,11 +1428,21 @@ REGRAS OBRIGATÓRIAS:
 
     if (!resolvedRoom) {
       try {
-        const localSaved = localStorage.getItem('dbv_instructor_active_exam_room');
-        if (localSaved) {
-          const parsed = JSON.parse(localSaved);
-          if (parsed && String(parsed.pin) === cleanPin) {
-            resolvedRoom = parsed;
+        const localMulti = localStorage.getItem('dbv_instructor_active_exam_rooms');
+        if (localMulti) {
+          const parsedMulti = JSON.parse(localMulti);
+          if (Array.isArray(parsedMulti)) {
+            const matched = parsedMulti.find((r: any) => r && String(r.pin) === cleanPin);
+            if (matched) resolvedRoom = matched;
+          }
+        }
+        if (!resolvedRoom) {
+          const localSaved = localStorage.getItem('dbv_instructor_active_exam_room');
+          if (localSaved) {
+            const parsed = JSON.parse(localSaved);
+            if (parsed && String(parsed.pin) === cleanPin) {
+              resolvedRoom = parsed;
+            }
           }
         }
       } catch {}
@@ -1312,6 +1495,13 @@ REGRAS OBRIGATÓRIAS:
           setStudentPhase((prev) => (prev === 'FINISHED' ? 'FINISHED' : 'PLAYING'));
           setStudentStartTime((prev) => prev || Date.now());
         } else if (incomingRoom.status === 'FINISHED') {
+          setStudentFinalTimeSpentSec((prev) => {
+            if (prev > 0) return prev;
+            const recSpent = incomingRoom.participants?.[studentId]?.timeSpentSeconds;
+            if (recSpent && recSpent > 0) return recSpent;
+            const base = studentStartTime || incomingRoom.startedAt || Date.now();
+            return Math.max(1, Math.floor((Date.now() - base) / 1000));
+          });
           setStudentPhase('FINISHED');
         } else {
           setStudentPhase((prev) => (prev === 'FINISHED' ? 'FINISHED' : 'WAITING_HOST'));
@@ -1436,6 +1626,13 @@ REGRAS OBRIGATÓRIAS:
             setStudentPhase('PLAYING');
             setStudentStartTime((prev) => prev || Date.now());
           } else if (srv.status === 'FINISHED' && studentPhase !== 'FINISHED') {
+            setStudentFinalTimeSpentSec((prev) => {
+              if (prev > 0) return prev;
+              const recSpent = srv?.participants?.[studentId]?.timeSpentSeconds;
+              if (recSpent && recSpent > 0) return recSpent;
+              const base = studentStartTime || srv.startedAt || Date.now();
+              return Math.max(1, Math.floor((Date.now() - base) / 1000));
+            });
             setStudentPhase('FINISHED');
           }
         }
@@ -1559,7 +1756,9 @@ REGRAS OBRIGATÓRIAS:
   // Cronômetro regressivo do Aluno durante a Prova
   const handleStudentSubmitExam = useCallback(() => {
     if (!studentRoom) return;
-    const spent = studentStartTime ? Math.max(1, Math.floor((Date.now() - studentStartTime) / 1000)) : 0;
+    const baseStart = studentStartTime || studentRoom.startedAt || Date.now();
+    const spent = Math.max(1, Math.floor((Date.now() - baseStart) / 1000));
+    setStudentFinalTimeSpentSec(spent);
     const finalParticipant = buildCurrentParticipantPayload({
       status: 'FINISHED',
       isLocked: false,
@@ -1652,6 +1851,24 @@ REGRAS OBRIGATÓRIAS:
     const secs = totalSec % 60;
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
+
+  const formatDurationDetailed = (totalSec: number) => {
+    const safe = Math.max(1, Math.floor(totalSec || 0));
+    const mins = Math.floor(safe / 60);
+    const secs = safe % 60;
+    if (mins <= 0) return `${secs} seg`;
+    return `${mins} min e ${String(secs).padStart(2, '0')} seg`;
+  };
+
+  const handleCloseProjectionWindow = useCallback(() => {
+    try {
+      if (projectorWindowRef.current && !projectorWindowRef.current.closed) {
+        projectorWindowRef.current.close();
+      }
+    } catch {}
+    projectorWindowRef.current = null;
+    setIsSecondScreenActive(false);
+  }, []);
 
   // ============================================================================
   // PROJEÇÃO DO QR CODE EM OUTRA TELA / TELÃO DA IGREJA (PC / 2ª TELA HDMI)
@@ -1784,6 +2001,8 @@ REGRAS OBRIGATÓRIAS:
       text-align: center;
     }
     .qr-box {
+      position: relative;
+      overflow: hidden;
       background: #ffffff;
       padding: 20px;
       border-radius: 28px;
@@ -1794,6 +2013,33 @@ REGRAS OBRIGATÓRIAS:
       width: min(46vh, 380px);
       height: min(46vh, 380px);
       display: block;
+    }
+    .qr-finished-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      background: rgba(9, 13, 22, 0.9);
+      backdrop-filter: blur(4px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      text-align: center;
+    }
+    .qr-finished-overlay .flag {
+      font-size: clamp(36px, 5vw, 56px);
+      line-height: 1;
+      margin-bottom: 10px;
+    }
+    .qr-finished-overlay .txt {
+      font-size: clamp(28px, 4vw, 46px);
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #f87171;
+      line-height: 1.08;
+      text-shadow: 0 6px 20px rgba(0,0,0,0.6);
     }
     .qr-caption {
       font-size: 15px;
@@ -1919,6 +2165,10 @@ REGRAS OBRIGATÓRIAS:
     <div class="qr-column">
       <div class="qr-box">
         <img id="telao-qr" src="${qrCodeDataUrl}" alt="QR Code da Prova" />
+        <div id="telao-qr-finished" class="qr-finished-overlay" style="display:${activeRoom.status === 'FINISHED' ? 'flex' : 'none'};">
+          <div class="flag">🏁</div>
+          <div class="txt">PROVA ENCERRADA</div>
+        </div>
       </div>
       <div class="qr-caption">Aponte a Câmera do Celular para Entrar na Prova</div>
     </div>
@@ -1983,6 +2233,13 @@ REGRAS OBRIGATÓRIAS:
       if (qrEl && qrCodeDataUrl && qrEl.src !== qrCodeDataUrl) {
         qrEl.src = qrCodeDataUrl;
       }
+      const logoEl = doc.getElementById('telao-logo') as HTMLImageElement | null;
+      if (logoEl && activeRoom.specialtyLogo) {
+        logoEl.src = activeRoom.specialtyLogo;
+      }
+      const titleEl = doc.getElementById('telao-title');
+      if (titleEl) titleEl.textContent = activeRoom.specialtyName;
+
       const pinEl = doc.getElementById('telao-pin');
       if (pinEl) pinEl.textContent = activeRoom.pin;
 
@@ -1997,6 +2254,10 @@ REGRAS OBRIGATÓRIAS:
             : activeRoom.status === 'FINISHED'
             ? '🏁 PROVA ENCERRADA'
             : '⏳ AGUARDANDO ALUNOS ESCANEAREM O QR CODE';
+      }
+      const qrFinishedEl = doc.getElementById('telao-qr-finished');
+      if (qrFinishedEl) {
+        qrFinishedEl.style.display = activeRoom.status === 'FINISHED' ? 'flex' : 'none';
       }
 
       const pList = Object.values(activeRoom.participants || {}) as LiveExamParticipant[];
@@ -2039,8 +2300,8 @@ REGRAS OBRIGATÓRIAS:
         onCut={studentPhase === 'PLAYING' ? (e) => e.preventDefault() : undefined}
         onContextMenu={studentPhase === 'PLAYING' ? (e) => e.preventDefault() : undefined}
       >
-        {/* Topbar Exclusiva da Área Isolada de Prova */}
-        <div className="shrink-0 bg-slate-900/95 border-b border-slate-800 px-4 py-3 flex items-center justify-between gap-3">
+        {/* Topbar Exclusiva da Área Isolada de Prova (Com recuo superior de segurança para câmeras centrais / notch no celular) */}
+        <div className="shrink-0 bg-slate-900/95 border-b border-slate-800 px-4 pt-[max(calc(env(safe-area-inset-top,0px)+14px),2.5rem)] sm:pt-3 pb-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-9 h-9 rounded-xl bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-400 shrink-0">
               <ShieldCheck size={18} />
@@ -2436,34 +2697,55 @@ REGRAS OBRIGATÓRIAS:
             </div>
           )}
 
-          {/* 4. TELA DE CONCLUSÃO / ENTREGA DA PROVA PELO ALUNO */}
+          {/* 4. TELA DE CONCLUSÃO / ENTREGA DA PROVA PELO ALUNO (Exibe o tempo gasto; a nota fica exclusiva para o instrutor) */}
           {studentPhase === 'FINISHED' && studentRoom && (
             <div className="w-full max-w-md mx-auto bg-slate-900 border border-slate-800 rounded-[28px] p-6 text-center space-y-4 shadow-2xl">
-              <div
-                className={`w-16 h-16 rounded-2xl mx-auto flex items-center justify-center ${
-                  mySummary.scorePercent >= studentRoom.passingScorePercent
-                    ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-400'
-                    : 'bg-amber-500/20 border border-amber-500/40 text-amber-400'
-                }`}
-              >
-                <Award size={34} />
+              <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center bg-indigo-500/20 border border-indigo-500/40 text-indigo-400">
+                <Clock size={34} />
               </div>
 
               <div className="space-y-1">
-                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">
-                  Prova Entregue ao Instrutor
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
+                  Prova Entregue com Sucesso
                 </span>
                 <h3 className="text-xl font-black uppercase text-white">
-                  Nota: {mySummary.grade10.toFixed(1)} ({mySummary.scorePercent}%)
+                  Avaliação Finalizada!
                 </h3>
-                <p className="text-xs text-slate-300 font-bold">
-                  Acertos: {mySummary.correctCount} de {studentRoom.questions.length} questões
+                <p className="text-xs text-slate-400 font-medium">
+                  Suas respostas foram enviadas para correção no painel do instrutor.
                 </p>
               </div>
 
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 text-xs space-y-1">
+              {/* Destaque do Tempo que o Aluno Levou para Terminar a Prova */}
+              <div className="bg-indigo-950/50 border border-indigo-500/35 rounded-2xl p-4 space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-300 block">
+                  Tempo que você levou para terminar a prova
+                </span>
+                <p className="text-2xl sm:text-3xl font-black text-amber-300 tabular-nums">
+                  {formatDurationDetailed(
+                    studentFinalTimeSpentSec ||
+                      studentRoom.participants?.[studentId]?.timeSpentSeconds ||
+                      1
+                  )}
+                </p>
+                <span className="text-[11px] font-bold text-slate-400 block tabular-nums">
+                  Cronômetro registrado: {formatTimeMMSS(
+                    studentFinalTimeSpentSec ||
+                      studentRoom.participants?.[studentId]?.timeSpentSeconds ||
+                      1
+                  )}
+                </span>
+              </div>
+
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 text-xs space-y-1.5">
                 <p className="font-bold text-slate-300">
                   Aluno: <span className="text-white">{studentName}</span>
+                </p>
+                <p className="font-bold text-slate-300">
+                  Questões respondidas:{' '}
+                  <span className="text-white">
+                    {Object.keys(studentAnswers).length} de {studentRoom.questions.length}
+                  </span>
                 </p>
                 <p className="font-bold text-slate-300">
                   Status Anti-Cola:{' '}
@@ -2536,39 +2818,145 @@ REGRAS OBRIGATÓRIAS:
   const activeCheatCount = participantsList.filter((p) => p.status === 'LOCKED_CHEAT' || p.cheatCount > 0).length;
 
   return (
-    <div className="w-full max-w-6xl mx-auto space-y-4 pb-24 animate-fade-in">
-      {/* Barra Superior: Alternar entre Painel do Instrutor e Área do Aluno (PIN) */}
-      <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-[24px] p-4 sm:p-5 text-white shadow-md border border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="space-y-1">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-300 text-[9px] sm:text-[10px] font-black uppercase tracking-widest">
-            <QrCode size={12} />
-            <span>Prova de Especialidade Ao Vivo</span>
+    <div className="w-full max-w-6xl mx-auto space-y-2.5 pb-4 animate-fade-in">
+      {/* Barra Superior Compacta + Alternador de Múltiplas Provas */}
+      <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-[20px] p-2.5 sm:px-4 sm:py-3 text-white shadow-md border border-white/10 space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-300 text-[9px] font-black uppercase tracking-widest shrink-0">
+              <QrCode size={11} />
+              <span>Prova Ao Vivo</span>
+            </div>
+            <h3 className="text-xs sm:text-base font-black uppercase tracking-tight leading-tight truncate">
+              {activeRoom
+                ? `Sala #${activeRoom.pin} — ${activeRoom.specialtyName}`
+                : hostRooms.length > 0
+                ? 'Abrir Nova Sala de Prova Simultânea'
+                : 'Criar Prova de Especialidade com QR Code'}
+            </h3>
           </div>
-          <h3 className="text-base sm:text-xl font-black uppercase tracking-tight">
-            {activeRoom
-              ? `Sala Ativa #${activeRoom.pin} — ${activeRoom.specialtyName}`
-              : 'Criar Prova de Especialidade com QR Code'}
-          </h3>
-          <p className="text-[11px] sm:text-xs text-slate-300 font-medium">
-            Gere um QR Code para a turma responder em área isolada com tempo limite e receba alertas em tempo real se alguém minimizar a tela.
-          </p>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            {hostRooms.length > 0 && !isCreatingNewRoom && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCreatingNewRoom(true);
+                  setSelectedSpecialty(null);
+                  setQuestions([]);
+                }}
+                className="px-2.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer shadow-sm transition-all"
+                title="Abrir mais uma prova ao mesmo tempo sem fechar a sala atual"
+              >
+                <Plus size={13} />
+                <span>Abrir Nova Prova</span>
+              </button>
+            )}
+
+            {hostRooms.length > 0 && isCreatingNewRoom && (
+              <button
+                type="button"
+                onClick={() => setIsCreatingNewRoom(false)}
+                className="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all"
+              >
+                <ChevronLeft size={13} />
+                <span>Voltar às Provas Abertas ({hostRooms.length})</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                if (activeRoom?.pin) {
+                  setStudentPinInput(activeRoom.pin);
+                }
+                setRoleMode('STUDENT');
+              }}
+              className="px-2.5 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+            >
+              <QrCode size={12} />
+              <span>{activeRoom ? 'Testar como Aluno' : 'Entrar como Aluno (PIN)'}</span>
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
-          <button
-            type="button"
-            onClick={() => {
-              if (activeRoom?.pin) {
-                setStudentPinInput(activeRoom.pin);
-              }
-              setRoleMode('STUDENT');
-            }}
-            className="px-3.5 py-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 text-white text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
-          >
-            <QrCode size={14} />
-            <span>{activeRoom ? 'Testar como Aluno' : 'Entrar como Aluno (PIN)'}</span>
-          </button>
-        </div>
+        {/* BARRA DE ABAS DE MÚLTIPLAS PROVAS ABERTAS SIMULTANEAMENTE (No celular: título em cima e provas abertas abaixo) */}
+        {hostRooms.length > 0 && (
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 pt-2 border-t border-white/10">
+            <span className="text-[9px] font-black uppercase tracking-widest text-indigo-300 shrink-0 sm:mr-1">
+              Provas Abertas ({hostRooms.length}):
+            </span>
+
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide w-full sm:w-auto pb-0.5 sm:pb-0">
+              {hostRooms.map((roomTab) => {
+                const isSelectedTab = !isCreatingNewRoom && activeRoom?.pin === roomTab.pin;
+                const pCount = Object.keys(roomTab.participants || {}).length;
+                const aCount = (roomTab.alerts || []).length;
+
+                return (
+                  <div
+                    key={roomTab.pin}
+                    onClick={() => {
+                      setSelectedRoomPin(roomTab.pin);
+                      setIsCreatingNewRoom(false);
+                    }}
+                    className={`group flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-left transition-all shrink-0 cursor-pointer ${
+                      isSelectedTab
+                        ? 'bg-indigo-600 border-indigo-400 text-white shadow-md'
+                        : 'bg-slate-900/80 hover:bg-slate-800 border-white/10 text-slate-300'
+                    }`}
+                  >
+                    {roomTab.specialtyLogo && (
+                      <img
+                        src={roomTab.specialtyLogo}
+                        alt={roomTab.specialtyName}
+                        className="w-5 h-5 object-contain shrink-0"
+                        referrerPolicy="no-referrer"
+                      />
+                    )}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-black uppercase truncate max-w-[120px] sm:max-w-[160px]">
+                          {roomTab.specialtyName}
+                        </span>
+                        <span
+                          className={`text-[9px] font-black px-1.5 py-0.5 rounded-md ${
+                            isSelectedTab ? 'bg-black/25 text-amber-300' : 'bg-slate-800 text-amber-400'
+                          }`}
+                        >
+                          #{roomTab.pin}
+                        </span>
+                      </div>
+                    </div>
+
+                    <span className="text-[10px] font-black flex items-center gap-1">
+                      {roomTab.status === 'ACTIVE' ? '🟢' : roomTab.status === 'FINISHED' ? '🏁' : '⏳'}
+                      <span>{pCount}</span>
+                    </span>
+
+                    {aCount > 0 && (
+                      <span className="px-1.5 py-0.5 rounded-full bg-red-600 text-white text-[9px] font-black animate-pulse">
+                        🚨 {aCount}
+                      </span>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCloseAndResetRoom(roomTab.pin);
+                      }}
+                      title={`Fechar sala #${roomTab.pin}`}
+                      className="p-0.5 rounded-md hover:bg-red-500/30 text-slate-300 hover:text-red-200 transition-colors cursor-pointer"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ========================================================================
@@ -2934,198 +3322,207 @@ REGRAS OBRIGATÓRIAS:
       )}
 
       {/* ========================================================================
-          MODO 2 DO INSTRUTOR: SALA AO VIVO COM QR CODE, CONTROLE DE TEMPO E ANTI-COLA
+          MODO 2 DO INSTRUTOR: SALA AO VIVO (LISTA DE QUEM ESTÁ FAZENDO A PROVA SOBRE O MENU LATERAL NO PC + PAINEL ESPAÇOSO)
          ======================================================================== */}
       {activeRoom && (
-        <div className="space-y-4">
-          {/* Card Principal da Sala: QR Code + PIN + Cronômetro + Comandos */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            {/* Cartão do QR Code e PIN */}
-            <div className="lg:col-span-5 bg-white dark:bg-slate-800 rounded-[24px] p-4 sm:p-5 border border-slate-200/80 dark:border-slate-700 shadow-xs flex flex-col items-center text-center space-y-3">
-              <div className="flex items-center gap-2">
+        <div className="space-y-3">
+          {/* PAINEL PRINCIPAL DA SALA ATIVA (COM ESPAÇO AMPLO PARA NÃO CORTAR EM TELAS DE PC MENORES) */}
+          <div className="bg-white dark:bg-slate-800 rounded-[24px] p-4 sm:p-5 border border-slate-200/80 dark:border-slate-700 shadow-xs space-y-4 overflow-hidden">
+            {/* Cabeçalho da Especialidade + Status + Indicadores Rápidos */}
+            <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-700">
+              <div className="flex items-center gap-2.5 min-w-0">
                 {activeRoom.specialtyLogo && (
                   <img
                     src={activeRoom.specialtyLogo}
                     alt={activeRoom.specialtyName}
-                    className="w-10 h-10 object-contain"
+                    className="w-10 h-10 object-contain shrink-0"
                     referrerPolicy="no-referrer"
                   />
                 )}
-                <div className="text-left">
+                <div className="min-w-0">
                   <span className="text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 block">
-                    Escaneie para Entrar na Área de Prova
+                    Especialidade em Avaliação • {activeRoom.questions.length} Questões
                   </span>
-                  <h4 className="text-sm font-black uppercase text-slate-800 dark:text-white">
+                  <h4 className="text-sm sm:text-base font-black uppercase text-slate-800 dark:text-white leading-tight break-words">
                     {activeRoom.specialtyName}
                   </h4>
                 </div>
               </div>
 
-              {qrCodeDataUrl && (
-                <div
-                  onClick={() => setIsQrFullscreenModalOpen(true)}
-                  className="p-3 bg-white rounded-2xl border-2 border-indigo-500/30 shadow-md cursor-pointer hover:scale-[1.02] transition-transform"
-                  title="Clique para ampliar o QR Code na tela inteira"
-                >
-                  <img src={qrCodeDataUrl} alt="QR Code da Prova" className="w-48 h-48 sm:w-52 sm:h-52 mx-auto" />
-                </div>
-              )}
-
-              <div className="w-full bg-slate-900 text-white rounded-2xl p-3 space-y-0.5">
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">
-                  Código PIN da Sala
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200/70 dark:border-slate-700 text-[10px] font-black uppercase text-slate-700 dark:text-slate-200">
+                  Na Sala: <strong className="text-indigo-600 dark:text-indigo-400">{participantsList.length}</strong>
                 </span>
-                <p className="text-2xl sm:text-3xl font-black tracking-[0.28em] text-amber-400">
-                  {activeRoom.pin}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 w-full">
-                <button
-                  type="button"
-                  onClick={() => setIsQrFullscreenModalOpen(true)}
-                  className="py-2.5 px-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
+                <span className="px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-900/50 text-[10px] font-black uppercase text-emerald-700 dark:text-emerald-300">
+                  Entregaram: <strong>{participantsList.filter((p) => p.status === 'FINISHED').length}</strong>
+                </span>
+                <span
+                  className={`px-2.5 py-1 rounded-xl border text-[10px] font-black uppercase ${
+                    activeRoom.status === 'ACTIVE'
+                      ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border-emerald-500/30'
+                      : activeRoom.status === 'FINISHED'
+                      ? 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600'
+                      : 'bg-amber-500/20 text-amber-600 dark:text-amber-300 border-amber-500/30'
+                  }`}
                 >
-                  <Maximize2 size={13} />
-                  <span>Ampliar QR</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!examShareUrl) return;
-                    navigator.clipboard?.writeText(examShareUrl);
-                    setCopiedLink(true);
-                    setTimeout(() => setCopiedLink(false), 2000);
-                  }}
-                  className="py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  {copiedLink ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
-                  <span>{copiedLink ? 'Link Copiado!' : 'Copiar Link'}</span>
-                </button>
+                  {activeRoom.status === 'ACTIVE'
+                    ? '🟢 Ativa'
+                    : activeRoom.status === 'FINISHED'
+                    ? '🏁 Encerrada'
+                    : '⏳ Aguardando'}
+                </span>
               </div>
-              <button
-                type="button"
-                onClick={handleProjectQrToAnotherScreen}
-                className="w-full py-2.5 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer transition-all"
-              >
-                <Monitor size={14} />
-                <span>{isSecondScreenActive ? 'Atualizar / Focar Janela do Telão' : 'Projetar em Outra Tela (Telão)'}</span>
-              </button>
             </div>
 
-            {/* Painel de Controle Ao Vivo e Feed de Alertas Anti-Cola */}
-            <div className="lg:col-span-7 bg-white dark:bg-slate-800 rounded-[24px] p-4 sm:p-5 border border-slate-200/80 dark:border-slate-700 shadow-xs flex flex-col justify-between space-y-4">
-              <div className="space-y-3">
-                {/* Status + Cronômetro Geral + Som */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-700">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                        activeRoom.status === 'ACTIVE'
-                          ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30'
-                          : activeRoom.status === 'FINISHED'
-                          ? 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-                          : 'bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/30'
-                      }`}
+            {/* Corpo do Painel da Sala em 2 Colunas Equilibradas no PC */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+              {/* Lado Esquerdo (6 Colunas): QR Code + PIN + Cronômetro + Projeção */}
+              <div className="lg:col-span-6 flex flex-col justify-between gap-3">
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full min-w-0">
+                  {qrCodeDataUrl && (
+                    <div
+                      onClick={() => setIsQrFullscreenModalOpen(true)}
+                      className="relative overflow-hidden w-36 h-36 sm:w-36 sm:h-36 shrink-0 aspect-square p-2.5 bg-white rounded-2xl border-2 border-indigo-500/30 shadow-sm cursor-pointer hover:scale-[1.02] transition-transform flex items-center justify-center"
+                      title="Clique para ampliar o QR Code"
                     >
-                      {activeRoom.status === 'ACTIVE'
-                        ? '🟢 Prova em Andamento'
-                        : activeRoom.status === 'FINISHED'
-                        ? '🏁 Prova Encerrada'
-                        : '⏳ Aguardando Alunos Escanearem'}
-                    </span>
+                      <img
+                        src={qrCodeDataUrl}
+                        alt="QR Code da Prova"
+                        className="w-full h-full object-contain block"
+                      />
+                      {activeRoom.status === 'FINISHED' && (
+                        <div className="absolute inset-0 z-10 bg-slate-950/90 backdrop-blur-xs flex flex-col items-center justify-center p-2 text-center select-none">
+                          <span className="text-xl leading-none mb-1">🏁</span>
+                          <span className="text-sm sm:text-base font-black uppercase tracking-wider text-red-400 leading-tight drop-shadow-md">
+                            PROVA ENCERRADA
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex-1 w-full min-w-0 flex flex-col gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-1 gap-2">
+                      <div className="w-full overflow-hidden bg-slate-900 text-white rounded-xl py-2 px-3 text-center border border-slate-800">
+                        <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">
+                          PIN da Sala
+                        </span>
+                        <p className="text-lg sm:text-xl font-black tracking-[0.14em] text-amber-400 leading-tight truncate">
+                          {activeRoom.pin}
+                        </p>
+                      </div>
+
+                      <div className="w-full overflow-hidden bg-slate-900 text-white rounded-xl py-2 px-3 text-center border border-slate-800">
+                        <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">
+                          Tempo Restante
+                        </span>
+                        <div className="text-lg sm:text-xl font-black text-sky-400 tabular-nums leading-tight flex items-center justify-center gap-1">
+                          <Timer size={14} className="shrink-0" />
+                          <span>{formatTimeMMSS(hostRemainingSeconds)}</span>
+                        </div>
+                      </div>
+                    </div>
 
                     <button
                       type="button"
                       onClick={() => setSoundAlertsEnabled((prev) => !prev)}
-                      className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase flex items-center gap-1 border cursor-pointer ${
+                      className={`w-full py-2 px-3 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-1.5 border cursor-pointer whitespace-nowrap truncate ${
                         soundAlertsEnabled
                           ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800'
                           : 'bg-slate-100 dark:bg-slate-900 text-slate-400 border-slate-200 dark:border-slate-700'
                       }`}
-                      title="Ativar/Desativar som quando alguém minimizar a tela"
                     >
-                      {soundAlertsEnabled ? <Volume2 size={13} /> : <VolumeX size={13} />}
-                      <span>{soundAlertsEnabled ? 'Som Anti-Cola ON' : 'Mudo'}</span>
+                      {soundAlertsEnabled ? <Volume2 size={12} className="shrink-0" /> : <VolumeX size={12} className="shrink-0" />}
+                      <span className="truncate">{soundAlertsEnabled ? 'Som Anti-Cola: Ativado' : 'Som Anti-Cola: Mudo'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Botões de QR Code e Projeção no Telão (Transforma em Fechar Projeção quando projetado) */}
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsQrFullscreenModalOpen(true)}
+                      className="py-2.5 px-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-[10px] sm:text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+                    >
+                      <Maximize2 size={13} className="shrink-0" />
+                      <span>Ampliar QR</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!examShareUrl) return;
+                        navigator.clipboard?.writeText(examShareUrl);
+                        setCopiedLink(true);
+                        setTimeout(() => setCopiedLink(false), 2000);
+                      }}
+                      className="py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[10px] sm:text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+                    >
+                      {copiedLink ? <Check size={13} className="text-emerald-500 shrink-0" /> : <Copy size={13} className="shrink-0" />}
+                      <span>{copiedLink ? 'Copiado!' : 'Copiar Link'}</span>
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <div className="px-3.5 py-1.5 rounded-xl bg-slate-900 text-amber-300 font-black text-sm tabular-nums flex items-center gap-1.5">
-                      <Timer size={15} />
-                      <span>{formatTimeMMSS(hostRemainingSeconds)}</span>
-                    </div>
-                  </div>
+                  {isSecondScreenActive ? (
+                    <button
+                      type="button"
+                      onClick={handleCloseProjectionWindow}
+                      className="hidden md:flex w-full py-2.5 px-3 rounded-xl bg-red-500/15 hover:bg-red-500/25 text-red-600 dark:text-red-300 border border-red-500/40 text-[10px] sm:text-[11px] font-black uppercase tracking-wider items-center justify-center gap-1.5 cursor-pointer transition-all"
+                    >
+                      <X size={14} className="shrink-0" />
+                      <span>Fechar Projeção</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleProjectQrToAnotherScreen}
+                      className="hidden md:flex w-full py-2.5 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[10px] sm:text-[11px] font-black uppercase tracking-wider items-center justify-center gap-1.5 cursor-pointer transition-all"
+                    >
+                      <Monitor size={14} className="shrink-0" />
+                      <span>Projetar em Outra Tela (Telão)</span>
+                    </button>
+                  )}
                 </div>
+              </div>
 
-                {/* Resumo Rápido de Participantes e Alertas */}
-                <div className="grid grid-cols-3 gap-2.5">
-                  <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/70 dark:border-slate-700 text-center">
-                    <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">
-                      Na Prova
+              {/* Lado Direito (6 Colunas): Comandos da Sala + Monitoramento Anti-Cola */}
+              <div className="lg:col-span-6 flex flex-col justify-between gap-3 bg-slate-50/70 dark:bg-slate-900/50 rounded-2xl p-3.5 border border-slate-200/70 dark:border-slate-700/70">
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                      <ShieldAlert size={14} className="text-red-500 shrink-0" />
+                      <span>Monitoramento Anti-Cola ({activeRoom.alerts.length})</span>
                     </span>
-                    <span className="text-lg sm:text-xl font-black text-slate-800 dark:text-white">
-                      {participantsList.length}
-                    </span>
-                  </div>
-                  <div className="p-3 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-900/50 text-center">
-                    <span className="text-[9px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block">
-                      Entregaram
-                    </span>
-                    <span className="text-lg sm:text-xl font-black text-emerald-700 dark:text-emerald-300">
-                      {participantsList.filter((p) => p.status === 'FINISHED').length}
+                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 dark:text-red-300 border border-red-500/20">
+                      {activeRoom.lockOnCheat ? '🔒 Bloqueio Ativo' : '⚠️ Alerta Ativo'}
                     </span>
                   </div>
-                  <div
-                    className={`p-3 rounded-2xl border text-center ${
-                      activeRoom.alerts.length > 0
-                        ? 'bg-red-50 dark:bg-red-950/50 border-red-400 animate-pulse'
-                        : 'bg-slate-50 dark:bg-slate-900 border-slate-200/70 dark:border-slate-700'
-                    }`}
-                  >
-                    <span className="text-[9px] font-black uppercase tracking-wider text-red-600 dark:text-red-400 block">
-                      Alertas de Cola
-                    </span>
-                    <span className="text-lg sm:text-xl font-black text-red-600 dark:text-red-400">
-                      {activeRoom.alerts.length}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Central de Alertas Anti-Cola Ao Vivo */}
-                <div className="space-y-1.5">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400 flex items-center gap-1.5">
-                    <ShieldAlert size={14} />
-                    <span>Monitoramento Anti-Cola em Tempo Real</span>
-                  </span>
 
                   {activeRoom.alerts.length === 0 ? (
-                    <div className="p-3.5 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40 flex items-center gap-2.5 text-emerald-700 dark:text-emerald-300 text-xs font-bold">
-                      <ShieldCheck size={18} className="shrink-0" />
-                      <span>Nenhuma saída de tela ou tentativa de cola detectada até o momento.</span>
+                    <div className="px-3 py-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/25 border border-emerald-200/60 dark:border-emerald-900/40 flex items-center gap-2 text-emerald-700 dark:text-emerald-300 text-xs font-bold">
+                      <ShieldCheck size={16} className="shrink-0" />
+                      <span>Nenhuma saída de tela detectada até o momento.</span>
                     </div>
                   ) : (
-                    <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1 scrollbar-hide">
+                    <div className="max-h-28 overflow-y-auto space-y-1.5 pr-1 scrollbar-hide">
                       {activeRoom.alerts.map((al) => {
                         const stu = activeRoom.participants[al.studentId];
                         return (
                           <div
                             key={al.id}
-                            className="p-2.5 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-300 dark:border-red-800 flex items-center justify-between gap-2"
+                            className="px-3 py-2 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-300 dark:border-red-800 flex items-center justify-between gap-2"
                           >
                             <div className="min-w-0">
-                              <p className="text-xs font-black text-red-800 dark:text-red-200 truncate">
+                              <p className="text-[11px] font-black text-red-800 dark:text-red-200 truncate">
                                 🚨 {al.studentName} ({al.studentUnit}) — {al.violationNumber}ª saída às {al.timestamp}
-                              </p>
-                              <p className="text-[10px] font-bold text-red-600 dark:text-red-300 truncate">
-                                {al.reason}
                               </p>
                             </div>
                             {stu?.isLocked && (
                               <button
                                 type="button"
                                 onClick={() => handleUnlockStudent(al.studentId)}
-                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black uppercase shrink-0 cursor-pointer"
+                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[9px] font-black uppercase shrink-0 cursor-pointer"
                               >
                                 Liberar
                               </button>
@@ -3135,80 +3532,90 @@ REGRAS OBRIGATÓRIAS:
                       })}
                     </div>
                   )}
-                </div>
-              </div>
 
-              {/* Botões de Ação da Sala (Iniciar / +Tempo / Encerrar / Nova Prova) */}
-              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
-                {activeRoom.status === 'WAITING' && (
+                  {sidebarOverlayTarget && isSidebarOpen && (
+                    <div className="hidden md:flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/70 dark:border-indigo-800/60 text-[11px] font-bold text-indigo-700 dark:text-indigo-300">
+                      <span>👈 A lista de quem está fazendo a prova está visível sobre o menu lateral à esquerda.</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Botões de Controle da Sala (Iniciar / +Tempo / Encerrar / Fechar) */}
+                <div className="flex flex-col gap-2 pt-2 border-t border-slate-200/70 dark:border-slate-700/70">
+                  {activeRoom.status === 'WAITING' && (
+                    <button
+                      type="button"
+                      onClick={handleStartExamForAll}
+                      className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-black uppercase tracking-wider text-xs shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Play size={15} fill="currentColor" className="shrink-0" />
+                      <span>Iniciar Prova ({participantsList.length} na sala)</span>
+                    </button>
+                  )}
+
+                  {activeRoom.status === 'ACTIVE' && (
+                    <div className="grid grid-cols-2 gap-2 w-full">
+                      <button
+                        type="button"
+                        onClick={() => handleAddExtraTime(5)}
+                        className="py-2.5 px-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-[10px] sm:text-xs font-black uppercase flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+                      >
+                        <Clock size={13} className="shrink-0" />
+                        <span>+5 Minutos</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleFinishExamForAll}
+                        className="py-2.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-[10px] sm:text-xs font-black uppercase flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+                      >
+                        <Square size={13} fill="currentColor" className="shrink-0" />
+                        <span>Encerrar Prova</span>
+                      </button>
+                    </div>
+                  )}
+
                   <button
                     type="button"
-                    onClick={handleStartExamForAll}
-                    className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black uppercase tracking-wider text-xs shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 cursor-pointer"
+                    onClick={() => handleCloseAndResetRoom(activeRoom.pin)}
+                    className="w-full py-2 px-3 rounded-xl bg-slate-200/70 dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-950/50 text-slate-600 dark:text-slate-300 hover:text-red-600 text-[10px] font-black uppercase cursor-pointer transition-colors"
                   >
-                    <Play size={16} fill="currentColor" />
-                    <span>Iniciar Prova Agora ({participantsList.length} na sala)</span>
+                    Fechar Sala
                   </button>
-                )}
-
-                {activeRoom.status === 'ACTIVE' && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => handleAddExtraTime(5)}
-                      className="py-2.5 px-4 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-xs font-black uppercase flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Clock size={14} />
-                      <span>+5 Minutos</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleFinishExamForAll}
-                      className="flex-1 py-2.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-black uppercase flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <Square size={14} fill="currentColor" />
-                      <span>Encerrar Prova</span>
-                    </button>
-                  </>
-                )}
-
-                <button
-                  type="button"
-                  onClick={handleCloseAndResetRoom}
-                  className="py-2.5 px-3.5 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-red-50 dark:hover:bg-red-950/50 text-slate-600 dark:text-slate-300 hover:text-red-600 text-xs font-black uppercase cursor-pointer"
-                >
-                  Fechar Sala
-                </button>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* LISTA AO VIVO DE QUEM ESTÁ FAZENDO A PROVA */}
-          <div className="bg-white dark:bg-slate-800 rounded-[24px] p-4 sm:p-5 border border-slate-200/80 dark:border-slate-700 shadow-xs space-y-3">
-            <div className="flex items-center justify-between gap-2">
+          {/* LISTA DE QUEM ESTÁ FAZENDO A PROVA NO CELULAR (OU NO PC SE O MENU LATERAL ESTIVER RECOLHIDO) */}
+          <div className={`${sidebarOverlayTarget && isSidebarOpen ? 'md:hidden' : ''} bg-white dark:bg-slate-800 rounded-[22px] p-3.5 sm:p-4 border border-slate-200/80 dark:border-slate-700 shadow-xs flex flex-col gap-2.5`}>
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100 dark:border-slate-700">
               <div className="flex items-center gap-2">
-                <Users size={18} className="text-indigo-600 dark:text-indigo-400" />
+                <Users size={17} className="text-indigo-600 dark:text-indigo-400 shrink-0" />
                 <h4 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-800 dark:text-white">
-                  Lista ao Vivo de Quem Está Fazendo a Prova ({participantsList.length})
+                  Quem Está Fazendo a Prova ({participantsList.length})
                 </h4>
               </div>
-              {activeCheatCount > 0 && (
-                <span className="px-2.5 py-1 rounded-full bg-red-100 dark:bg-red-950/80 text-red-700 dark:text-red-300 text-[10px] font-black uppercase">
-                  ⚠️ {activeCheatCount} com Alerta Anti-Cola
-                </span>
+              {sidebarOverlayTarget && !isSidebarOpen && (
+                <button
+                  type="button"
+                  onClick={() => onToggleSidebar?.(true)}
+                  className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-[10px] font-black uppercase cursor-pointer"
+                >
+                  <span>Fixar sobre o Menu Lateral</span>
+                </button>
               )}
             </div>
 
             {participantsList.length === 0 ? (
-              <div className="py-10 text-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl space-y-1.5">
-                <QrCode size={28} className="text-slate-400 mx-auto" />
+              <div className="py-8 flex flex-col items-center justify-center text-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-4 space-y-1.5">
+                <QrCode size={26} className="text-slate-400 mx-auto" />
                 <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                  Aguardando os desbravadores/aventureiros escanearem o QR Code ou digitarem o PIN{' '}
+                  Aguardando os alunos escanearem o QR Code ou digitarem o PIN{' '}
                   <strong className="text-indigo-600 dark:text-indigo-400">{activeRoom.pin}</strong>.
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[360px] overflow-y-auto pr-1 scrollbar-hide content-start">
                 {participantsList.map((p) => {
                   const totalQ = activeRoom.questions.length || 1;
                   const progressPct = Math.round((p.answeredCount / totalQ) * 100);
@@ -3217,7 +3624,7 @@ REGRAS OBRIGATÓRIAS:
                   return (
                     <div
                       key={p.id}
-                      className={`p-3.5 rounded-2xl border transition-all space-y-2.5 ${
+                      className={`p-3 rounded-2xl border transition-all space-y-2 ${
                         p.status === 'LOCKED_CHEAT'
                           ? 'bg-red-50/90 dark:bg-red-950/50 border-red-500 ring-1 ring-red-500/40'
                           : p.status === 'FINISHED'
@@ -3228,22 +3635,20 @@ REGRAS OBRIGATÓRIAS:
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <h5 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white truncate">
+                            <h5 className="text-xs font-black text-slate-900 dark:text-white truncate">
                               {p.name}
                             </h5>
-                            <span className="px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[9px] font-black uppercase">
+                            <span className="px-1.5 py-0.5 rounded-full bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[8px] font-black uppercase">
                               {p.unit}
                             </span>
                           </div>
-                          <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">
-                            Questão atual: {Math.min(totalQ, p.currentQuestionIdx + 1)}/{totalQ} • Respondidas:{' '}
-                            {p.answeredCount}/{totalQ}
+                          <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                            Questão {Math.min(totalQ, p.currentQuestionIdx + 1)}/{totalQ} • Respondidas: {p.answeredCount}/{totalQ}
                           </p>
                         </div>
 
-                        {/* Badge de Status ao Vivo */}
                         <span
-                          className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase shrink-0 ${
+                          className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase shrink-0 ${
                             p.status === 'LOCKED_CHEAT'
                               ? 'bg-red-600 text-white animate-pulse'
                               : p.status === 'FINISHED'
@@ -3256,19 +3661,18 @@ REGRAS OBRIGATÓRIAS:
                           }`}
                         >
                           {p.status === 'LOCKED_CHEAT'
-                            ? '🚨 Bloqueado (Cola)'
+                            ? '🚨 Bloqueado'
                             : p.status === 'FINISHED'
                             ? `✅ Nota ${p.grade10.toFixed(1)}`
                             : p.status === 'DISQUALIFIED'
                             ? '⛔ Desclassificado'
                             : p.status === 'PLAYING'
                             ? '🟢 Respondendo'
-                            : '⏳ Aguardando'}
+                            : '⏳ Na Sala'}
                         </span>
                       </div>
 
-                      {/* Barra de Progresso do Aluno */}
-                      <div className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
                         <div
                           className={`h-full transition-all duration-300 ${
                             p.status === 'LOCKED_CHEAT'
@@ -3281,29 +3685,33 @@ REGRAS OBRIGATÓRIAS:
                         />
                       </div>
 
-                      {/* Rodapé do Card do Aluno: Nota Parcial/Final + Alertas + Botões do Instrutor */}
-                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                        <div className="flex items-center gap-2 text-[10px] font-black">
+                      <div className="flex flex-wrap items-center justify-between gap-1.5">
+                        <div className="flex items-center gap-1.5 text-[9px] font-black flex-wrap">
                           <span className={isApproved ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500'}>
-                            Acertos: {p.correctCount}/{totalQ} ({p.scorePercent}%)
+                            {p.correctCount}/{totalQ} ({p.scorePercent}%)
                           </span>
+                          {p.timeSpentSeconds !== undefined && p.timeSpentSeconds > 0 && (
+                            <span className="px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-300">
+                              ⏱️ {formatTimeMMSS(p.timeSpentSeconds)}
+                            </span>
+                          )}
                           {p.cheatCount > 0 ? (
-                            <span className="px-2 py-0.5 rounded-lg bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-200">
-                              ⚠️ {p.cheatCount} {p.cheatCount === 1 ? 'saída de tela' : 'saídas de tela'}
+                            <span className="px-1.5 py-0.5 rounded-md bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-200">
+                              ⚠️ {p.cheatCount} {p.cheatCount === 1 ? 'saída' : 'saídas'}
                             </span>
                           ) : (
                             <span className="text-emerald-600 dark:text-emerald-400">🛡️ 0 saídas</span>
                           )}
                         </div>
 
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1">
                           {p.isLocked ? (
                             <button
                               type="button"
                               onClick={() => handleUnlockStudent(p.id)}
-                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black uppercase flex items-center gap-1 cursor-pointer"
+                              className="px-2 py-0.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[9px] font-black uppercase flex items-center gap-1 cursor-pointer"
                             >
-                              <Unlock size={11} />
+                              <Unlock size={10} />
                               <span>Liberar</span>
                             </button>
                           ) : (
@@ -3311,9 +3719,9 @@ REGRAS OBRIGATÓRIAS:
                               <button
                                 type="button"
                                 onClick={() => handleLockOrDisqualifyStudent(p.id, false)}
-                                className="px-2.5 py-1 rounded-lg bg-red-100 dark:bg-red-950/70 text-red-600 dark:text-red-300 text-[10px] font-black uppercase flex items-center gap-1 cursor-pointer"
+                                className="px-2 py-0.5 rounded-lg bg-red-100 dark:bg-red-950/70 text-red-600 dark:text-red-300 text-[9px] font-black uppercase flex items-center gap-1 cursor-pointer"
                               >
-                                <Lock size={11} />
+                                <Lock size={10} />
                                 <span>Bloquear</span>
                               </button>
                             )
@@ -3321,9 +3729,9 @@ REGRAS OBRIGATÓRIAS:
                           <button
                             type="button"
                             onClick={() => setInspectingStudent(p)}
-                            className="px-2.5 py-1 rounded-lg bg-slate-200/80 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[10px] font-black uppercase flex items-center gap-1 cursor-pointer"
+                            className="px-2 py-0.5 rounded-lg bg-slate-200/80 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[9px] font-black uppercase flex items-center gap-1 cursor-pointer"
                           >
-                            <Eye size={11} />
+                            <Eye size={10} />
                             <span>Respostas</span>
                           </button>
                         </div>
@@ -3336,6 +3744,246 @@ REGRAS OBRIGATÓRIAS:
           </div>
         </div>
       )}
+
+      {/* OVERLAY SOBRE O MENU LATERAL ESQUERDO DO PC COM A LISTA DE QUEM ESTÁ FAZENDO A PROVA */}
+      {!isIsolatedStudentMode &&
+        roleMode === 'HOST' &&
+        activeRoom &&
+        sidebarOverlayTarget &&
+        createPortal(
+          <div
+            className="absolute inset-0 z-40 bg-slate-950/88 dark:bg-slate-950/92 backdrop-blur-xl flex flex-col justify-between p-3.5 lg:p-4 animate-fade-in text-white cursor-default select-none shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {isSidebarOpen ? (
+              <>
+                {/* Topo do Overlay sobre o Menu Lateral */}
+                <div className="w-full space-y-2.5 pb-2.5 border-b border-white/10 shrink-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-500/20 border border-indigo-400/35 rounded-full">
+                      <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                      <span className="text-[9px] font-black uppercase tracking-wider text-indigo-200">
+                        Fazendo a Prova ({participantsList.length})
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => onToggleSidebar?.(false)}
+                      className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 hover:text-white flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+                      title="Recolher lista lateral"
+                    >
+                      <PanelLeftClose size={15} />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2 min-w-0">
+                    {activeRoom.specialtyLogo && (
+                      <img
+                        src={activeRoom.specialtyLogo}
+                        alt={activeRoom.specialtyName}
+                        className="w-7 h-7 object-contain shrink-0"
+                        referrerPolicy="no-referrer"
+                      />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-xs font-black uppercase text-white truncate">
+                        {activeRoom.specialtyName}
+                      </h4>
+                      <span className="text-[9px] font-black text-amber-400 tracking-wider block">
+                        PIN #{activeRoom.pin} • {participantsList.filter((p) => p.status === 'FINISHED').length} entregaram
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Lista ao Vivo de Quem Está Fazendo a Prova sobre o Menu Lateral */}
+                <div className="flex-1 overflow-y-auto space-y-2 my-2.5 pr-1 scrollbar-hide">
+                  {participantsList.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center p-4 border border-dashed border-white/15 rounded-2xl space-y-2">
+                      <Users size={24} className="text-indigo-400/80 mx-auto" />
+                      <p className="text-xs font-black uppercase text-white/90">
+                        Nenhum aluno na sala ainda
+                      </p>
+                      <p className="text-[10px] font-medium text-slate-400 leading-relaxed">
+                        Assim que escanearem o QR Code ou digitarem o PIN <strong className="text-amber-400">#{activeRoom.pin}</strong>, aparecerão listados aqui.
+                      </p>
+                    </div>
+                  ) : (
+                    participantsList.map((p) => {
+                      const totalQ = activeRoom.questions.length || 1;
+                      const progressPct = Math.round((p.answeredCount / totalQ) * 100);
+                      const isApproved = p.scorePercent >= activeRoom.passingScorePercent;
+
+                      return (
+                        <div
+                          key={p.id}
+                          className={`p-2.5 rounded-2xl border transition-all space-y-1.5 ${
+                            p.status === 'LOCKED_CHEAT'
+                              ? 'bg-red-950/75 border-red-500 ring-1 ring-red-500/40'
+                              : p.status === 'FINISHED'
+                              ? 'bg-emerald-950/45 border-emerald-500/40'
+                              : 'bg-slate-900/90 border-white/10'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-1.5">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1 flex-wrap">
+                                <h5 className="text-xs font-black text-white truncate">
+                                  {p.name}
+                                </h5>
+                                <span className="px-1.5 py-0.5 rounded-full bg-white/10 text-slate-300 text-[8px] font-black uppercase shrink-0">
+                                  {p.unit}
+                                </span>
+                              </div>
+                              <p className="text-[9px] font-bold text-slate-400">
+                                Q. {Math.min(totalQ, p.currentQuestionIdx + 1)}/{totalQ} • Resp: {p.answeredCount}/{totalQ}
+                              </p>
+                            </div>
+
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase shrink-0 ${
+                                p.status === 'LOCKED_CHEAT'
+                                  ? 'bg-red-600 text-white animate-pulse'
+                                  : p.status === 'FINISHED'
+                                  ? 'bg-emerald-600 text-white'
+                                  : p.status === 'DISQUALIFIED'
+                                  ? 'bg-slate-800 text-red-400'
+                                  : p.status === 'PLAYING'
+                                  ? 'bg-indigo-600 text-white'
+                                  : 'bg-amber-500/25 text-amber-300'
+                              }`}
+                            >
+                              {p.status === 'LOCKED_CHEAT'
+                                ? '🚨 Bloqueado'
+                                : p.status === 'FINISHED'
+                                ? `✅ Nota ${p.grade10.toFixed(1)}`
+                                : p.status === 'DISQUALIFIED'
+                                ? '⛔ Desclass.'
+                                : p.status === 'PLAYING'
+                                ? '🟢 Fazendo'
+                                : '⏳ Na Sala'}
+                            </span>
+                          </div>
+
+                          <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full transition-all duration-300 ${
+                                p.status === 'LOCKED_CHEAT'
+                                  ? 'bg-red-500'
+                                  : p.status === 'FINISHED'
+                                  ? 'bg-emerald-400'
+                                  : 'bg-indigo-500'
+                              }`}
+                              style={{ width: `${progressPct}%` }}
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-between gap-1 pt-0.5">
+                            <div className="flex items-center gap-1 text-[8.5px] font-black flex-wrap">
+                              <span className={isApproved ? 'text-emerald-400' : 'text-slate-400'}>
+                                {p.correctCount}/{totalQ} ({p.scorePercent}%)
+                              </span>
+                              {p.timeSpentSeconds !== undefined && p.timeSpentSeconds > 0 && (
+                                <span className="px-1.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300">
+                                  ⏱️ {formatTimeMMSS(p.timeSpentSeconds)}
+                                </span>
+                              )}
+                              {p.cheatCount > 0 && (
+                                <span className="px-1.5 py-0.5 rounded-md bg-red-500/25 text-red-300">
+                                  ⚠️ {p.cheatCount}x
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              {p.isLocked ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleUnlockStudent(p.id)}
+                                  className="px-2 py-0.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[8.5px] font-black uppercase flex items-center gap-0.5 cursor-pointer"
+                                >
+                                  <Unlock size={9} />
+                                  <span>Liberar</span>
+                                </button>
+                              ) : (
+                                p.status === 'PLAYING' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleLockOrDisqualifyStudent(p.id, false)}
+                                    className="px-2 py-0.5 rounded-lg bg-red-500/20 hover:bg-red-500/35 text-red-300 text-[8.5px] font-black uppercase flex items-center gap-0.5 cursor-pointer"
+                                  >
+                                    <Lock size={9} />
+                                    <span>Bloquear</span>
+                                  </button>
+                                )
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setInspectingStudent(p)}
+                                className="px-2 py-0.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-200 text-[8.5px] font-black uppercase flex items-center gap-0.5 cursor-pointer"
+                              >
+                                <Eye size={9} />
+                                <span>Ver</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Rodapé do Overlay sobre o Menu Lateral */}
+                <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[9px] font-black uppercase tracking-wider text-slate-400 shrink-0">
+                  <span>Na Sala: {participantsList.length}</span>
+                  <span className={activeRoom.alerts.length > 0 ? 'text-red-400 animate-pulse' : 'text-emerald-400'}>
+                    Alertas: {activeRoom.alerts.length}
+                  </span>
+                </div>
+              </>
+            ) : (
+              /* Modo Compacto quando a barra lateral está recolhida */
+              <div
+                onClick={() => onToggleSidebar?.(true)}
+                className="h-full w-full flex flex-col items-center justify-between py-2 cursor-pointer"
+                title="Clique para abrir a lista de quem está fazendo a prova"
+              >
+                <div className="flex flex-col items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[8px] font-black uppercase tracking-wider text-indigo-300">
+                    Prova
+                  </span>
+                </div>
+
+                <div className="flex flex-col items-center gap-2">
+                  {activeRoom.specialtyLogo && (
+                    <img
+                      src={activeRoom.specialtyLogo}
+                      alt={activeRoom.specialtyName}
+                      className="w-10 h-10 object-contain"
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
+                  <div className="px-2 py-1 rounded-xl bg-indigo-600 text-white text-[10px] font-black flex items-center gap-1">
+                    <Users size={11} />
+                    <span>{participantsList.length}</span>
+                  </div>
+                  {activeRoom.alerts.length > 0 && (
+                    <div className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[9px] font-black animate-pulse">
+                      🚨 {activeRoom.alerts.length}
+                    </div>
+                  )}
+                </div>
+
+                <span className="text-[9px] font-black uppercase text-white/80 hover:text-white">
+                  Abrir
+                </span>
+              </div>
+            )}
+          </div>,
+          sidebarOverlayTarget
+        )}
 
       {/* MODAL DO QR CODE AMPLIADO (MANTENDO O MODAL CENTRALIZADO NO PADRÃO DO PROJETAR) */}
       {isQrFullscreenModalOpen &&
@@ -3372,15 +4020,27 @@ REGRAS OBRIGATÓRIAS:
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleProjectQrToAnotherScreen}
-                    className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-lg shadow-amber-500/25 transition-all"
-                    title="Abre uma janela exclusiva para projetar no Telão da Igreja (2ª Tela / HDMI) mantendo seu painel no PC"
-                  >
-                    <Monitor size={14} />
-                    <span>Projetar em Outra Tela (Telão)</span>
-                  </button>
+                  {isSecondScreenActive ? (
+                    <button
+                      type="button"
+                      onClick={handleCloseProjectionWindow}
+                      className="hidden md:flex px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-[11px] font-black uppercase tracking-wider items-center gap-1.5 cursor-pointer shadow-lg shadow-red-600/25 transition-all"
+                      title="Fechar a janela de projeção do Telão"
+                    >
+                      <X size={14} />
+                      <span>Fechar Projeção</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleProjectQrToAnotherScreen}
+                      className="hidden md:flex px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-[11px] font-black uppercase tracking-wider items-center gap-1.5 cursor-pointer shadow-lg shadow-amber-500/25 transition-all"
+                      title="Abre uma janela exclusiva para projetar no Telão da Igreja (2ª Tela / HDMI) mantendo seu painel no PC"
+                    >
+                      <Monitor size={14} />
+                      <span>Projetar em Outra Tela (Telão)</span>
+                    </button>
+                  )}
 
                   <button
                     type="button"
@@ -3395,7 +4055,7 @@ REGRAS OBRIGATÓRIAS:
                         }
                       } catch {}
                     }}
-                    className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 border border-white/20 text-white text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-lg shadow-indigo-600/30 transition-all"
+                    className="hidden md:flex px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 border border-white/20 text-white text-[11px] font-black uppercase tracking-wider items-center gap-1.5 cursor-pointer shadow-lg shadow-indigo-600/30 transition-all"
                   >
                     {isQrTelaoExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
                     <span>{isQrTelaoExpanded ? 'Sair da Tela Cheia' : 'Tela Cheia (F11)'}</span>
@@ -3410,10 +4070,12 @@ REGRAS OBRIGATÓRIAS:
                       setIsQrTelaoExpanded(false);
                       setIsQrFullscreenModalOpen(false);
                     }}
-                    className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all"
+                    title="Fechar"
+                    aria-label="Fechar"
+                    className="p-2 md:px-3 md:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer transition-all"
                   >
-                    <X size={14} />
-                    <span>Fechar</span>
+                    <X size={16} />
+                    <span className="hidden md:inline">Fechar</span>
                   </button>
                 </div>
               </div>
@@ -3423,12 +4085,20 @@ REGRAS OBRIGATÓRIAS:
                 {/* Coluna Esquerda: QR Code */}
                 <div className="md:col-span-5 bg-slate-900/80 border-2 border-indigo-500/35 rounded-[26px] p-4 sm:p-5 shadow-xl flex flex-col items-center justify-center text-center">
                   {qrCodeDataUrl && (
-                    <div className="bg-white p-3.5 rounded-2xl shadow-lg mb-3">
+                    <div className="relative overflow-hidden bg-white p-3.5 rounded-2xl shadow-lg mb-3">
                       <img
                         src={qrCodeDataUrl}
                         alt="QR Code da Prova"
                         className="w-48 h-48 sm:w-56 sm:h-56 object-contain block mx-auto"
                       />
+                      {activeRoom.status === 'FINISHED' && (
+                        <div className="absolute inset-0 z-10 bg-slate-950/90 backdrop-blur-xs flex flex-col items-center justify-center p-4 text-center select-none">
+                          <span className="text-3xl sm:text-4xl leading-none mb-2">🏁</span>
+                          <span className="text-2xl sm:text-3xl font-black uppercase tracking-wider text-red-400 leading-tight drop-shadow-lg">
+                            PROVA ENCERRADA
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
                   <p className="text-[11px] sm:text-xs font-extrabold text-slate-300 uppercase tracking-wider leading-snug">
