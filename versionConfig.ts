@@ -6,14 +6,25 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.97';
-export const APP_BUILD_DATE = '7 de Outubro de 2026';
+export const APP_VERSION = '3.0.98';
+export const APP_BUILD_DATE = '11 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '3.0.98',
+    date: '11/10/2026',
+    tag: 'NOVO',
+    title: 'Área de Provas Aplicadas (com Opção de Excluir) & Prova dos Livros na Prova Ao Vivo',
+    changes: [
+      'Separação Definitiva entre "Provas Aplicadas" e "Meu Histórico de Provas Feitas": Provas que você criou e que foram respondidas por outras pessoas (como Fisiologia Vegetal) não aparecem mais misturadas nas suas provas feitas — agora elas ficam organizadas exclusivamente na nova seção "Provas Aplicadas".',
+      'Nova Área "Provas Aplicadas" com Opção de Excluir: Visualize quem respondeu cada prova que você aplicou, confira a nota, o gabarito individual de cada aluno e exclua qualquer prova aplicada ou histórico quando necessário.',
+      'Nova Modalidade "Prova dos Livros": Agora na Prova Ao Vivo você pode selecionar qualquer livro do catálogo (Livro das Classes, Livros do Ano, Outros Livros e Aventureiros) para gerar automaticamente as questões da prova com base no livro escolhido.'
+    ]
+  },
+  {
     version: '3.0.97',
     date: '07/10/2026',
-    tag: 'NOVO',
+    tag: 'ATUAL',
     title: 'Sincronização Automática em Nuvem Multi-Dispositivo (Celular ↔ PC) em Todo o App',
     changes: [
       'Sincronização Instantânea do Cantinho da Unidade (Celular ↔ PC): Agora os membros da unidade cadastrados no celular, o nome da unidade, conselheiro(a), chamadas de domingo e pontuações aparecem automaticamente quando você abre o aplicativo no PC (e vice-versa).',

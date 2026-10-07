@@ -306,7 +306,20 @@ export default async function handler(
             updatedAt: Math.max(Number(prev?.updatedAt || 0), Number(payload.bundle.updatedAt || Date.now()))
           };
           globalUserCloudBundles.set(uKey, savedBundle);
-          globalUserCloudBundles.set('shared_unit_fallback', savedBundle);
+
+          // No fallback compartilhado salva apenas chaves de unidade/estudo (nunca históricos pessoais de provas)
+          const unitOnlyEntries: Record<string, any> = {};
+          const prevFallback = globalUserCloudBundles.get('shared_unit_fallback');
+          Object.entries({ ...(prevFallback?.entries || {}), ...mergedEntries }).forEach(([k, v]) => {
+            if (k.startsWith('dbv_unit_corner_') || k === 'markedVerses' || k === 'bibleNotes') {
+              unitOnlyEntries[k] = v;
+            }
+          });
+          globalUserCloudBundles.set('shared_unit_fallback', {
+            ...savedBundle,
+            userKey: 'shared_unit_fallback',
+            entries: unitOnlyEntries
+          });
           res.statusCode = 200;
           res.end(JSON.stringify({ ok: true, bundle: savedBundle }));
           return;
@@ -314,16 +327,47 @@ export default async function handler(
 
         if (action === 'SYNC_STUDENT_HISTORY' && Array.isArray(payload?.keys) && Array.isArray(payload?.entries)) {
           const keys = payload.keys.map((k: any) => String(k || '').trim()).filter(Boolean);
-          let combined = payload.entries;
-          keys.forEach((k: string) => {
-            const existing = globalStudentHistories.get(k) || [];
-            combined = mergeStudentHistoryEntries(existing, combined);
-          });
+          const replace = Boolean(payload?.replace);
+          const deletedPins = new Set(
+            Array.isArray(payload?.deletedPins) ? payload.deletedPins.map((p: any) => String(p)) : []
+          );
+          let combined = (payload.entries || []).filter((e: any) => e?.pin && !deletedPins.has(String(e.pin)));
+          if (!replace) {
+            keys.forEach((k: string) => {
+              const existing = (globalStudentHistories.get(k) || []).filter(
+                (e: any) => e?.pin && !deletedPins.has(String(e.pin))
+              );
+              combined = mergeStudentHistoryEntries(existing, combined);
+            });
+          }
           keys.forEach((k: string) => {
             globalStudentHistories.set(k, combined);
           });
           res.statusCode = 200;
           res.end(JSON.stringify({ ok: true, entries: combined }));
+          return;
+        }
+
+        if (action === 'DELETE_APPLIED_EXAM' && pin) {
+          const rPin = String(pin);
+          globalRooms.delete(rPin);
+          if (instructorKey) {
+            const iKey = String(instructorKey).trim();
+            const existingSession = globalInstructorSessions.get(iKey);
+            const closedSet = new Set(existingSession?.closedPins || []);
+            closedSet.add(rPin);
+            const nextRoomPins = (existingSession?.roomPins || []).filter((p) => p !== rPin);
+            globalInstructorSessions.set(iKey, {
+              instructorKey: iKey,
+              selectedRoomPin:
+                existingSession?.selectedRoomPin === rPin ? nextRoomPins[0] || null : existingSession?.selectedRoomPin || null,
+              closedPins: Array.from(closedSet),
+              roomPins: nextRoomPins,
+              updatedAt: Date.now()
+            });
+          }
+          res.statusCode = 200;
+          res.end(JSON.stringify({ ok: true }));
           return;
         }
 

@@ -1,9 +1,9 @@
 {
-  "version": 1759877700000,
-  "versionName": "3.0.97",
-  "buildDate": "2026-10-07T22:55:00.000Z",
-  "timestamp": 1759877700000,
+  "version": 1760208000000,
+  "versionName": "3.0.98",
+  "buildDate": "2026-10-11T18:55:00.000Z",
+  "timestamp": 1760208000000,
   "highlights": [
-    "Sincronização Automática em Nuvem Multi-Dispositivo (Celular ↔ PC) para Cantinho da Unidade, Membros, Acampamento, Mochila, Bíblia, Faixa e Provas"
+    "Nova Área de Provas Aplicadas (com opção de excluir e ver respostas dos alunos) separada do Histórico Pessoal + Nova Área Prova dos Livros"
   ]
 }

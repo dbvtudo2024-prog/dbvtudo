@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '3.0.97';
+const appVersion = '3.0.98';
 const liveExamRooms = new Map<string, any>();
 const userCloudSyncBundles = new Map<string, any>();
 const liveExamInstructorSessions = new Map<
@@ -347,7 +347,24 @@ function versionPlugin(): Plugin {
                     updatedAt: Math.max(Number(prev?.updatedAt || 0), Number(payload.bundle.updatedAt || Date.now()))
                   };
                   userCloudSyncBundles.set(uKey, savedBundle);
-                  userCloudSyncBundles.set('shared_unit_fallback', savedBundle);
+
+                  // No fallback compartilhado da unidade, salva APENAS chaves de Cantinho da Unidade (nunca históricos pessoais de provas!)
+                  const unitOnlyEntries: Record<string, string> = {};
+                  const prevShared = userCloudSyncBundles.get('shared_unit_fallback');
+                  if (prevShared?.entries) {
+                    Object.entries(prevShared.entries).forEach(([k, v]) => {
+                      if (k.startsWith('dbv_unit_corner_')) unitOnlyEntries[k] = String(v);
+                    });
+                  }
+                  Object.entries(mergedEntries).forEach(([k, v]) => {
+                    if (k.startsWith('dbv_unit_corner_')) unitOnlyEntries[k] = String(v);
+                  });
+                  userCloudSyncBundles.set('shared_unit_fallback', {
+                    ...savedBundle,
+                    userKey: 'shared_unit_fallback',
+                    entries: unitOnlyEntries
+                  });
+
                   res.setHeader('Content-Type', 'application/json');
                   res.end(JSON.stringify({ ok: true, bundle: savedBundle }));
                   return;
@@ -355,16 +372,52 @@ function versionPlugin(): Plugin {
 
                 if (action === 'SYNC_STUDENT_HISTORY' && Array.isArray(payload?.keys) && Array.isArray(payload?.entries)) {
                   const keys = payload.keys.map((k: any) => String(k || '').trim()).filter(Boolean);
-                  let combined = payload.entries;
-                  keys.forEach((k: string) => {
-                    const existing = liveExamStudentHistories.get(k) || [];
-                    combined = mergeStudentHistoryEntriesSrv(existing, combined);
-                  });
+                  const replaceMode = Boolean(payload?.replace);
+                  const deletedPinsSet = new Set<string>(
+                    Array.isArray(payload?.deletedPins)
+                      ? payload.deletedPins.map((p: any) => String(p || '').trim()).filter(Boolean)
+                      : []
+                  );
+                  let combined = payload.entries.filter(
+                    (e: any) => e?.pin && !deletedPinsSet.has(String(e.pin).trim())
+                  );
+                  if (!replaceMode) {
+                    keys.forEach((k: string) => {
+                      const existing = (liveExamStudentHistories.get(k) || []).filter(
+                        (e: any) => e?.pin && !deletedPinsSet.has(String(e.pin).trim())
+                      );
+                      combined = mergeStudentHistoryEntriesSrv(existing, combined);
+                    });
+                  }
                   keys.forEach((k: string) => {
                     liveExamStudentHistories.set(k, combined);
                   });
                   res.setHeader('Content-Type', 'application/json');
                   res.end(JSON.stringify({ ok: true, entries: combined }));
+                  return;
+                }
+
+                if (action === 'DELETE_APPLIED_EXAM' && roomPin) {
+                  const rPin = String(roomPin).trim();
+                  liveExamRooms.delete(rPin);
+                  const cKey = String(instructorKey || payload?.instructorKey || '').trim();
+                  if (cKey) {
+                    const prevSession = liveExamInstructorSessions.get(cKey);
+                    const nextPins = (prevSession?.roomPins || []).filter((p) => p !== rPin);
+                    const nextClosed = Array.from(new Set([...(prevSession?.closedPins || []), rPin]));
+                    liveExamInstructorSessions.set(cKey, {
+                      instructorKey: cKey,
+                      instructorEmail: prevSession?.instructorEmail,
+                      instructorName: prevSession?.instructorName,
+                      selectedRoomPin:
+                        prevSession?.selectedRoomPin === rPin ? nextPins[0] || '' : prevSession?.selectedRoomPin,
+                      closedPins: nextClosed,
+                      roomPins: nextPins,
+                      updatedAt: Date.now()
+                    });
+                  }
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify({ ok: true, deletedPin: rPin }));
                   return;
                 }
 

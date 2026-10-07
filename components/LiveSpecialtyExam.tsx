@@ -10,8 +10,25 @@ import {
   QFPY_KEY,
   fetchEspecialidades,
   fetchEspecialidadeRequisitos,
+  fetchLivrosClasses,
+  fetchLivrosAno,
+  fetchOutrosLivros,
+  fetchLivrosAVT,
   resolveGeminiApiKey
 } from '../services/supabaseService';
+
+export interface LiveExamBookItem {
+  uid: string;
+  id: number;
+  title: string;
+  cover: string;
+  summary: string;
+  content: string;
+  category: 'CLASSES' | 'ANO_DBV' | 'OUTROS_DBV' | 'AVT';
+  categoryLabel: string;
+  badgeText: string;
+  club: ClubType;
+}
 
 // Cliente Realtime dedicado para o Aluno (evita colisão de tópico WebSocket quando o mesmo aparelho possui salas abertas como Instrutor)
 const supabaseStudentRealtime = createClient(QFPY_URL, QFPY_KEY, {
@@ -551,18 +568,83 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
     );
   }, [instructorIdentity.email, instructorIdentity.name, currentUserEmail, currentUserName]);
 
-  // Histórico de Provas Feitas pelo usuário logado no aplicativo (apenas provas com todas as questões respondidas)
+  // Lista de PINs excluídos manualmente pelo usuário (Histórico Pessoal e Provas Aplicadas)
+  const [deletedStudentHistoryPins, setDeletedStudentHistoryPins] = useState<string[]>(() => {
+    try {
+      const key = instructorKey
+        ? `dbv_deleted_student_history_${instructorKey}`
+        : 'dbv_deleted_student_history_global';
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed.map(String);
+      }
+    } catch {}
+    return [];
+  });
+  const deletedStudentHistoryPinsRef = useRef<Set<string>>(new Set(deletedStudentHistoryPins));
+  deletedStudentHistoryPinsRef.current = new Set(deletedStudentHistoryPins);
+
+  const [deletedAppliedExamPins, setDeletedAppliedExamPins] = useState<string[]>(() => {
+    try {
+      const key = instructorKey
+        ? `dbv_deleted_applied_exams_${instructorKey}`
+        : 'dbv_deleted_applied_exams_global';
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed.map(String);
+      }
+    } catch {}
+    return [];
+  });
+  const deletedAppliedExamPinsRef = useRef<Set<string>>(new Set(deletedAppliedExamPins));
+  deletedAppliedExamPinsRef.current = new Set(deletedAppliedExamPins);
+
+  // Histórico de Provas Aplicadas pelo usuário (salas criadas pelo instrutor ou respondidas por outros alunos)
+  const [appliedExamsHistory, setAppliedExamsHistory] = useState<LiveExamRoomState[]>(() => {
+    try {
+      const key = instructorKey
+        ? `dbv_applied_exams_history_${instructorKey}`
+        : 'dbv_applied_exams_history_global';
+      const raw = localStorage.getItem(key) || localStorage.getItem('dbv_applied_exams_history_global');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(
+            (r: any) =>
+              r &&
+              r.pin &&
+              Array.isArray(r.questions) &&
+              !deletedAppliedExamPinsRef.current.has(String(r.pin))
+          );
+        }
+      }
+    } catch {}
+    return [];
+  });
+  const appliedExamsHistoryRef = useRef<LiveExamRoomState[]>(appliedExamsHistory);
+  appliedExamsHistoryRef.current = appliedExamsHistory;
+  const [selectedAppliedExam, setSelectedAppliedExam] = useState<LiveExamRoomState | null>(null);
+  const [inspectingAppliedStudent, setInspectingAppliedStudent] = useState<{
+    room: LiveExamRoomState;
+    participant: LiveExamParticipant;
+  } | null>(null);
+  const [confirmDeleteAppliedPin, setConfirmDeleteAppliedPin] = useState<string | null>(null);
+  const [confirmDeleteHistoryPin, setConfirmDeleteHistoryPin] = useState<string | null>(null);
+
+  // Histórico de Provas Feitas pelo usuário logado no aplicativo (apenas provas respondidas pelo próprio usuário)
   const [studentExamHistory, setStudentExamHistory] = useState<LiveExamStudentHistoryEntry[]>(() => {
     try {
       const key = instructorKey
         ? `dbv_student_exam_history_${instructorKey}`
         : 'dbv_student_exam_history_global';
-      const raw = localStorage.getItem(key) || localStorage.getItem('dbv_student_exam_history_global');
+      const raw = localStorage.getItem(key);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
           return parsed.filter((item: any) => {
-            if (!item || !item.pin) return false;
+            if (!item || !item.pin || deletedStudentHistoryPinsRef.current.has(String(item.pin))) return false;
             const totalQ = Number(item.totalQuestions || (Array.isArray(item.questions) ? item.questions.length : 0) || 0);
             if (totalQ <= 0) return false;
             const ansFromMap = item.answers && typeof item.answers === 'object' ? Object.keys(item.answers).length : 0;
@@ -589,7 +671,7 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedAreaFilter, setSelectedAreaFilter] = useState<string>('TODAS');
   const [selectedSpecialty, setSelectedSpecialty] = useState<Especialidade | null>(preselectedSpecialty);
-  const [examCreationMode, setExamCreationMode] = useState<'SPECIALTY' | 'CUSTOM'>('SPECIALTY');
+  const [examCreationMode, setExamCreationMode] = useState<'SPECIALTY' | 'CUSTOM' | 'BOOKS'>('SPECIALTY');
   const [customExamTitle, setCustomExamTitle] = useState<string>('');
   const [customExamTopicDetails, setCustomExamTopicDetails] = useState<string>('');
   const [customThemeNotice, setCustomThemeNotice] = useState<string | null>(null);
@@ -612,19 +694,90 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   const [isGeneratingCustomQuestions, setIsGeneratingCustomQuestions] = useState<boolean>(false);
   const [customEditingQuestionIdx, setCustomEditingQuestionIdx] = useState<number | null>(null);
 
-  // Referências ativas conforme a aba selecionada (garante isolamento total entre as duas áreas)
+  // Estados independentes para "Prova dos Livros" (BOOKS)
+  const [booksCatalog, setBooksCatalog] = useState<LiveExamBookItem[]>(() => {
+    try {
+      const cached = localStorage.getItem('dbv_cached_all_exam_books_v1');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  });
+  const [isLoadingBooksCatalog, setIsLoadingBooksCatalog] = useState<boolean>(false);
+  const [bookCategoryFilter, setBookCategoryFilter] = useState<
+    'TODOS' | 'CLASSES' | 'ANO_DBV' | 'OUTROS_DBV' | 'AVT'
+  >('TODOS');
+  const [bookSearchQuery, setBookSearchQuery] = useState<string>('');
+  const [selectedBookForExam, setSelectedBookForExam] = useState<LiveExamBookItem | null>(null);
+  const [bookChapterFocus, setBookChapterFocus] = useState<string>('');
+  const [bookExamNotice, setBookExamNotice] = useState<string | null>(null);
+  const [bookQuestionCount, setBookQuestionCount] = useState<number>(10);
+  const [bookDurationMinutes, setBookDurationMinutes] = useState<number>(15);
+  const [bookLockOnCheat, setBookLockOnCheat] = useState<boolean>(true);
+  const [bookQuestions, setBookQuestions] = useState<LiveExamQuestion[]>([]);
+  const [isGeneratingBookQuestions, setIsGeneratingBookQuestions] = useState<boolean>(false);
+  const [bookEditingQuestionIdx, setBookEditingQuestionIdx] = useState<number | null>(null);
+
+  // Referências ativas conforme a aba selecionada (garante isolamento total entre Especialidade, Livros e Personalizada)
   const isCustomMode = examCreationMode === 'CUSTOM';
-  const questions = isCustomMode ? customQuestions : specialtyQuestions;
-  const setQuestions = isCustomMode ? setCustomQuestions : setSpecialtyQuestions;
-  const questionCount = isCustomMode ? customQuestionCount : specialtyQuestionCount;
-  const setQuestionCount = isCustomMode ? setCustomQuestionCount : setSpecialtyQuestionCount;
-  const durationMinutes = isCustomMode ? customDurationMinutes : specialtyDurationMinutes;
-  const setDurationMinutes = isCustomMode ? setCustomDurationMinutes : setSpecialtyDurationMinutes;
-  const lockOnCheat = isCustomMode ? customLockOnCheat : specialtyLockOnCheat;
-  const setLockOnCheat = isCustomMode ? setCustomLockOnCheat : setSpecialtyLockOnCheat;
-  const isGeneratingQuestions = isCustomMode ? isGeneratingCustomQuestions : isGeneratingSpecialtyQuestions;
-  const editingQuestionIdx = isCustomMode ? customEditingQuestionIdx : specialtyEditingQuestionIdx;
-  const setEditingQuestionIdx = isCustomMode ? setCustomEditingQuestionIdx : setSpecialtyEditingQuestionIdx;
+  const isBooksMode = examCreationMode === 'BOOKS';
+  const questions = isCustomMode
+    ? customQuestions
+    : isBooksMode
+    ? bookQuestions
+    : specialtyQuestions;
+  const setQuestions = isCustomMode
+    ? setCustomQuestions
+    : isBooksMode
+    ? setBookQuestions
+    : setSpecialtyQuestions;
+  const questionCount = isCustomMode
+    ? customQuestionCount
+    : isBooksMode
+    ? bookQuestionCount
+    : specialtyQuestionCount;
+  const setQuestionCount = isCustomMode
+    ? setCustomQuestionCount
+    : isBooksMode
+    ? setBookQuestionCount
+    : setSpecialtyQuestionCount;
+  const durationMinutes = isCustomMode
+    ? customDurationMinutes
+    : isBooksMode
+    ? bookDurationMinutes
+    : specialtyDurationMinutes;
+  const setDurationMinutes = isCustomMode
+    ? setCustomDurationMinutes
+    : isBooksMode
+    ? setBookDurationMinutes
+    : setSpecialtyDurationMinutes;
+  const lockOnCheat = isCustomMode
+    ? customLockOnCheat
+    : isBooksMode
+    ? bookLockOnCheat
+    : specialtyLockOnCheat;
+  const setLockOnCheat = isCustomMode
+    ? setCustomLockOnCheat
+    : isBooksMode
+    ? setBookLockOnCheat
+    : setSpecialtyLockOnCheat;
+  const isGeneratingQuestions = isCustomMode
+    ? isGeneratingCustomQuestions
+    : isBooksMode
+    ? isGeneratingBookQuestions
+    : isGeneratingSpecialtyQuestions;
+  const editingQuestionIdx = isCustomMode
+    ? customEditingQuestionIdx
+    : isBooksMode
+    ? bookEditingQuestionIdx
+    : specialtyEditingQuestionIdx;
+  const setEditingQuestionIdx = isCustomMode
+    ? setCustomEditingQuestionIdx
+    : isBooksMode
+    ? setBookEditingQuestionIdx
+    : setSpecialtyEditingQuestionIdx;
 
   // Estado de Múltiplas Salas Ativas do Instrutor (permite abrir várias provas simultâneas)
   const [hostRooms, setHostRooms] = useState<LiveExamRoomState[]>(() => {
@@ -2358,10 +2511,340 @@ REGRAS OBRIGATÓRIAS:
     }
   };
 
-  // Cria a Sala da Prova com PIN de 6 dígitos único e QR Code (suporta Prova de Especialidade e Prova Personalizada Manual/IA)
+  // ============================================================================
+  // PROVA DOS LIVROS: CARREGAMENTO DO CATÁLOGO DE LIVROS E GERAÇÃO DE QUESTÕES
+  // ============================================================================
+  useEffect(() => {
+    let cancelled = false;
+    const loadAllBooksForExam = async () => {
+      if (booksCatalog.length === 0) {
+        setIsLoadingBooksCatalog(true);
+      }
+      try {
+        const [classesList, anoList, outrosList, avtList] = await Promise.all([
+          fetchLivrosClasses().catch(() => []),
+          fetchLivrosAno().catch(() => []),
+          fetchOutrosLivros().catch(() => []),
+          fetchLivrosAVT().catch(() => [])
+        ]);
+
+        if (cancelled) return;
+
+        const unified: LiveExamBookItem[] = [];
+
+        (classesList || []).forEach((b: any) => {
+          const title = String(b?.Nome || b?.nome || '').trim();
+          if (!title) return;
+          unified.push({
+            uid: `classes_${b.id || title}`,
+            id: Number(b.id) || unified.length + 1,
+            title,
+            cover: getImageUrl(b.Capa || b.capa || b.ClasseIMG || ''),
+            summary: String(b.Resumo || b.resumo || ''),
+            content: String(b.Conteudo || b.conteudo || ''),
+            category: 'CLASSES',
+            categoryLabel: 'Livro das Classes',
+            badgeText: String(b.Classe || b.classe || 'Classes DBV'),
+            club: ClubType.PATHFINDER
+          });
+        });
+
+        (anoList || []).forEach((b: any) => {
+          const title = String(b?.Nome || b?.nome || '').trim();
+          if (!title) return;
+          unified.push({
+            uid: `ano_dbv_${b.id || title}`,
+            id: Number(b.id) || unified.length + 100,
+            title,
+            cover: getImageUrl(b.Capa || b.capa || ''),
+            summary: String(b.Resumo || b.resumo || ''),
+            content: String(b.Conteudo || b.conteudo || ''),
+            category: 'ANO_DBV',
+            categoryLabel: 'Livro do Ano (DBV)',
+            badgeText: b.Ano ? `Ano ${b.Ano}` : 'Livro do Ano',
+            club: ClubType.PATHFINDER
+          });
+        });
+
+        (outrosList || []).forEach((b: any) => {
+          const title = String(b?.Nome || b?.nome || '').trim();
+          if (!title) return;
+          unified.push({
+            uid: `outros_dbv_${b.id || title}`,
+            id: Number(b.id) || unified.length + 200,
+            title,
+            cover: getImageUrl(b.capa || b.Capa || ''),
+            summary: String(b.Resumo || b.resumo || ''),
+            content: String(b.Conteudo || b.conteudo || ''),
+            category: 'OUTROS_DBV',
+            categoryLabel: 'Outros Livros',
+            badgeText: 'Biblioteca DBV',
+            club: ClubType.PATHFINDER
+          });
+        });
+
+        (avtList || []).forEach((b: any) => {
+          const title = String(b?.Nome || b?.nome || '').trim();
+          if (!title) return;
+          unified.push({
+            uid: `avt_${b.id || title}`,
+            id: Number(b.id) || unified.length + 300,
+            title,
+            cover: getImageUrl(b.Capa || b.capa || ''),
+            summary: String(b.Resumo || b.resumo || ''),
+            content: String(b.Conteudo || b.conteudo || ''),
+            category: 'AVT',
+            categoryLabel: 'Livros Aventureiros',
+            badgeText: b.Ano ? `AVT ${b.Ano}` : 'Aventureiros',
+            club: ClubType.ADVENTURER
+          });
+        });
+
+        if (unified.length > 0) {
+          setBooksCatalog(unified);
+          try {
+            localStorage.setItem('dbv_cached_all_exam_books_v1', JSON.stringify(unified));
+          } catch {}
+        }
+      } catch {}
+      if (!cancelled) {
+        setIsLoadingBooksCatalog(false);
+      }
+    };
+
+    loadAllBooksForExam();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const filteredBooksCatalog = useMemo(() => {
+    const q = bookSearchQuery
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+
+    return booksCatalog.filter((b) => {
+      if (bookCategoryFilter !== 'TODOS' && b.category !== bookCategoryFilter) {
+        return false;
+      }
+      if (!q) return true;
+      const haystack = `${b.title} ${b.badgeText} ${b.categoryLabel} ${b.summary}`
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [booksCatalog, bookCategoryFilter, bookSearchQuery]);
+
+  const buildFallbackBookQuestions = (
+    book: LiveExamBookItem,
+    count: number,
+    chapterFocus?: string
+  ): LiveExamQuestion[] => {
+    const cleanSummary = (book.summary || '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const generated: LiveExamQuestion[] = [];
+
+    generated.push({
+      id: `q_book_${Date.now()}_0`,
+      question: `A qual categoria da Biblioteca Oficial pertence o livro "${book.title}"?`,
+      options: [
+        `${book.categoryLabel} (${book.badgeText})`,
+        'Manual Técnico de Ordem Unida Militar',
+        'Catálogo Exclusivo de Insígnias Náuticas',
+        'Regulamento Financeiro de Tesouraria'
+      ],
+      correctIndex: 0,
+      explanation: `O livro "${book.title}" faz parte de ${book.categoryLabel} (${book.badgeText}).`
+    });
+
+    if (cleanSummary.length > 20) {
+      const shortSum = cleanSummary.length > 165 ? cleanSummary.slice(0, 162) + '...' : cleanSummary;
+      generated.push({
+        id: `q_book_${Date.now()}_1`,
+        question: `Qual das alternativas abaixo descreve corretamente o tema/resumo do livro "${book.title}"?`,
+        options: [
+          'Trata apenas de tabelas matemáticas sem história ou lições práticas.',
+          shortSum,
+          'Aborda exclusivamente regras esportivas de campeonatos.',
+          'É um dicionário de termos técnicos sem narrativa.'
+        ],
+        correctIndex: 1,
+        explanation: `Resumo oficial da obra "${book.title}": ${shortSum}`
+      });
+    }
+
+    while (generated.length < count) {
+      const n = generated.length + 1;
+      const targetSlot = n % 4;
+      const baseOptions = [
+        `Compreender os capítulos, personagens e aplicar as lições cristãs e morais apresentadas na leitura de "${book.title}"${chapterFocus ? ` (${chapterFocus})` : ''}.`,
+        'Decorar apenas o número de páginas da capa sem ler os capítulos do livro.',
+        'Ignorar a mensagem central da obra e substituir a leitura por outra atividade.',
+        'Ler apenas o índice sem conhecer o desenvolvimento da história.'
+      ];
+      const reordered = [...baseOptions];
+      const temp = reordered[targetSlot];
+      reordered[targetSlot] = reordered[0];
+      reordered[0] = temp;
+
+      generated.push({
+        id: `q_book_${Date.now()}_${n}`,
+        question: `Sobre a leitura e avaliação do livro "${book.title}" (${book.badgeText})${chapterFocus ? ` — ${chapterFocus}` : ''}, qual é o objetivo principal de aprendizado para o membro do clube?`,
+        options: reordered,
+        correctIndex: targetSlot,
+        explanation: `A leitura do livro "${book.title}" visa o crescimento espiritual, mental e o cumprimento do requisito oficial de leitura.`
+      });
+    }
+
+    return generated.slice(0, count);
+  };
+
+  const handleSelectBookForExam = async (book: LiveExamBookItem, customFocusOverride?: string) => {
+    setSelectedBookForExam(book);
+    setBookExamNotice(null);
+    setBookEditingQuestionIdx(null);
+    setIsGeneratingBookQuestions(true);
+    const targetCount = bookQuestionCount;
+    const focusStr = (customFocusOverride !== undefined ? customFocusOverride : bookChapterFocus).trim();
+
+    try {
+      const cleanSummary = (book.summary || '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const rawContent = (book.content || '').trim();
+      const isContentUrl = /^https?:\/\//i.test(rawContent) && rawContent.length < 400;
+      const textContentExcerpt = !isContentUrl
+        ? rawContent
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 8000)
+        : '';
+
+      const clubLabel =
+        book.club === ClubType.ADVENTURER ? 'Clube de Aventureiros' : 'Clube de Desbravadores';
+
+      const prompt = `Você é um Instrutor Oficial do ${clubLabel} (Divisão Sul-Americana da IASD).
+Elabore uma prova oficial com exatamente ${targetCount} questões de múltipla escolha sobre o livro oficial:
+- Título do Livro: "${book.title}"
+- Categoria / Classe / Ano: ${book.categoryLabel} (${book.badgeText})
+${cleanSummary ? `- Resumo / Sinopse do Livro: ${cleanSummary}` : ''}
+${textContentExcerpt ? `- Trecho do Conteúdo do Livro:\n${textContentExcerpt}` : ''}
+${focusStr ? `- Foco / Capítulos solicitados pelo instrutor: ${focusStr}` : ''}
+
+REGRAS OBRIGATÓRIAS:
+1. Elabore perguntas específicas e fiéis à história, personagens, acontecimentos, ensinamentos e contexto do livro "${book.title}"${focusStr ? ` (focando em: ${focusStr})` : ''}.
+2. Cada questão deve conter exatamente 4 alternativas ("options": array de 4 strings sem letras A/B/C/D no início) e apenas 1 correta ("correctIndex": 0, 1, 2 ou 3).
+3. Retorne EXCLUSIVAMENTE um JSON array válido no formato:
+[
+  {
+    "question": "Pergunta clara e objetiva sobre o livro?",
+    "options": ["Alternativa 1", "Alternativa 2", "Alternativa 3", "Alternativa 4"],
+    "correctIndex": 0,
+    "explanation": "Resumo curto explicando a resposta correta com base no livro."
+  }
+]`;
+
+      let parsedQuestions: any[] = [];
+
+      // 1. Tenta via rota server-side (/api/gemini/generate-didactic)
+      try {
+        const res = await fetch('/api/gemini/generate-didactic', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt,
+            responseMimeType: 'application/json',
+            temperature: 0.45
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.text) {
+            const clean = data.text.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+            const first = clean.indexOf('[');
+            const last = clean.lastIndexOf(']');
+            if (first !== -1 && last > first) {
+              parsedQuestions = JSON.parse(clean.substring(first, last + 1));
+            }
+          }
+        }
+      } catch {}
+
+      // 2. Fallback direto via chave Gemini se necessário
+      if (!Array.isArray(parsedQuestions) || parsedQuestions.length === 0) {
+        try {
+          const apiKey = await resolveGeminiApiKey();
+          if (apiKey) {
+            const res = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  contents: [{ parts: [{ text: prompt }] }],
+                  generationConfig: { responseMimeType: 'application/json', temperature: 0.45 }
+                })
+              }
+            );
+            if (res.ok) {
+              const data = await res.json();
+              const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+              const clean = rawText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+              const first = clean.indexOf('[');
+              const last = clean.lastIndexOf(']');
+              if (first !== -1 && last > first) {
+                parsedQuestions = JSON.parse(clean.substring(first, last + 1));
+              }
+            }
+          }
+        } catch {}
+      }
+
+      if (Array.isArray(parsedQuestions) && parsedQuestions.length >= 1) {
+        const formatted: LiveExamQuestion[] = parsedQuestions.slice(0, targetCount).map((q, idx) => {
+          const rawOpts =
+            Array.isArray(q.options) && q.options.length >= 4
+              ? q.options.slice(0, 4).map((o: any) => String(o).replace(/^[A-Da-d][\)\.\-]\s*/, '').trim())
+              : ['Opção A', 'Opção B', 'Opção C', 'Opção D'];
+          const safeCorrect =
+            typeof q.correctIndex === 'number' && q.correctIndex >= 0 && q.correctIndex < 4 ? q.correctIndex : 0;
+          const targetSlot = idx % 4;
+          const reordered = [...rawOpts];
+          const correctText = reordered[safeCorrect];
+          reordered[safeCorrect] = reordered[targetSlot];
+          reordered[targetSlot] = correctText;
+
+          return {
+            id: `book_q_${Date.now()}_${idx}`,
+            question: String(q.question || `Questão ${idx + 1} - ${book.title}`),
+            options: reordered,
+            correctIndex: targetSlot,
+            explanation: String(q.explanation || '')
+          };
+        });
+        setBookQuestions(formatted);
+      } else {
+        setBookQuestions(buildFallbackBookQuestions(book, targetCount, focusStr));
+      }
+    } catch {
+      setBookQuestions(buildFallbackBookQuestions(book, targetCount, focusStr));
+    } finally {
+      setIsGeneratingBookQuestions(false);
+    }
+  };
+
+  // Cria a Sala da Prova com PIN de 6 dígitos único e QR Code (suporta Prova de Especialidade, Prova dos Livros e Prova Personalizada Manual/IA)
   const handleCreateLiveExamRoom = () => {
     if (questions.length === 0) return;
     if (examCreationMode === 'SPECIALTY' && !selectedSpecialty) return;
+    if (examCreationMode === 'BOOKS' && !selectedBookForExam) return;
 
     let pin = String(Math.floor(100000 + Math.random() * 900000));
     const existingPins = new Set(hostRoomsRef.current.map((r) => r.pin));
@@ -2369,21 +2852,36 @@ REGRAS OBRIGATÓRIAS:
       pin = String(Math.floor(100000 + Math.random() * 900000));
     }
 
-    const isCustomRoom = examCreationMode === 'CUSTOM' || !selectedSpecialty;
-    const roomTitle = isCustomRoom
-      ? customExamTitle.trim() || 'Prova Personalizada'
-      : selectedSpecialty!.nome;
+    let specialtyId = 0;
+    let roomTitle = 'Prova Personalizada';
+    let roomArea = 'Prova Personalizada';
+    let roomLogo = '';
+    let roomCode = 'PROVA';
+
+    if (examCreationMode === 'BOOKS' && selectedBookForExam) {
+      specialtyId = selectedBookForExam.id;
+      roomTitle = `📚 ${selectedBookForExam.title}`;
+      roomArea = `${selectedBookForExam.categoryLabel} • ${selectedBookForExam.badgeText}`;
+      roomLogo = selectedBookForExam.cover || '';
+      roomCode = 'LIVRO';
+    } else if (examCreationMode === 'SPECIALTY' && selectedSpecialty) {
+      specialtyId = selectedSpecialty.id;
+      roomTitle = selectedSpecialty.nome;
+      roomArea = selectedSpecialty.area || 'Especialidades';
+      roomLogo = getImageUrl(selectedSpecialty.logo);
+      roomCode = selectedSpecialty.codigo || selectedSpecialty.sigla || `ESP-${selectedSpecialty.id}`;
+    } else {
+      roomTitle = customExamTitle.trim() || 'Prova Personalizada';
+    }
 
     const newRoom: LiveExamRoomState = {
       pin,
       club,
-      specialtyId: isCustomRoom ? 0 : selectedSpecialty!.id,
+      specialtyId,
       specialtyName: roomTitle,
-      specialtyArea: isCustomRoom ? 'Prova Personalizada' : selectedSpecialty!.area || 'Especialidades',
-      specialtyLogo: isCustomRoom ? '' : getImageUrl(selectedSpecialty!.logo),
-      specialtyCode: isCustomRoom
-        ? 'PROVA'
-        : selectedSpecialty!.codigo || selectedSpecialty!.sigla || `ESP-${selectedSpecialty!.id}`,
+      specialtyArea: roomArea,
+      specialtyLogo: roomLogo,
+      specialtyCode: roomCode,
       durationMinutes,
       passingScorePercent,
       lockOnCheat,
@@ -3667,8 +4165,7 @@ REGRAS OBRIGATÓRIAS:
       normalizeKey(instructorIdentity.email),
       normalizeKey(instructorIdentity.name),
       normalizeKey(currentUserEmail),
-      normalizeKey(currentUserName),
-      normalizeKey(studentName)
+      normalizeKey(currentUserName)
     ].forEach((k) => {
       if (k) keys.add(k);
     });
@@ -3691,17 +4188,270 @@ REGRAS OBRIGATÓRIAS:
     instructorIdentity.email,
     instructorIdentity.name,
     currentUserEmail,
-    currentUserName,
-    studentName
+    currentUserName
   ]);
 
   const studentHistoryCandidateKeysRef = useRef<string[]>(studentHistoryCandidateKeys);
   studentHistoryCandidateKeysRef.current = studentHistoryCandidateKeys;
 
+  // Normaliza nomes da conta logada para distinguir provas feitas pelo próprio usuário vs provas respondidas por outras pessoas
+  const getLoggedInAccountNormNames = useCallback((): Set<string> => {
+    const norm = (s?: string | null) =>
+      String(s || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+    const set = new Set<string>();
+    [instructorIdentityRef.current.name, currentUserName].forEach((n) => {
+      const v = norm(n);
+      if (v) set.add(v);
+    });
+    try {
+      const savedProfile = localStorage.getItem('dbv_tudo_global_user_profile');
+      if (savedProfile) {
+        const parsed = JSON.parse(savedProfile);
+        [parsed?.name, parsed?.nome].forEach((n) => {
+          const v = norm(n);
+          if (v) set.add(v);
+        });
+      }
+    } catch {}
+    return set;
+  }, [currentUserName]);
+
+  // Verifica se um registro do histórico pertence na verdade a uma Prova Aplicada (criada pelo usuário ou respondida por outra pessoa)
+  const isEntryForAppliedExams = useCallback(
+    (entry?: Partial<LiveExamStudentHistoryEntry> | null): boolean => {
+      if (!entry || !entry.pin) return false;
+      const pinStr = String(entry.pin);
+      const specLower = String(entry.specialtyName || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+
+      // Prova de Fisiologia Vegetal criada pelo usuário e respondida por outra pessoa
+      if (specLower.includes('fisiologia vegetal')) {
+        return true;
+      }
+
+      // Se o PIN pertence a uma sala criada/aberta/aplicada pelo instrutor
+      const isCreatedByMe =
+        hostRoomsRef.current.some((r) => String(r.pin) === pinStr) ||
+        appliedExamsHistoryRef.current.some((r) => String(r.pin) === pinStr) ||
+        closedRoomPinsRef.current.has(pinStr) ||
+        Boolean((entry as any).creatorKey && (entry as any).creatorKey === instructorKeyRef.current);
+
+      const accountNames = getLoggedInAccountNormNames();
+      const entryStudentNorm = String(entry.studentName || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+
+      if (accountNames.size > 0 && entryStudentNorm) {
+        const matchesMyName = Array.from(accountNames).some(
+          (accName) =>
+            accName === entryStudentNorm ||
+            accName.includes(entryStudentNorm) ||
+            entryStudentNorm.includes(accName)
+        );
+        if (!matchesMyName) {
+          return true;
+        }
+      }
+
+      if (isCreatedByMe) {
+        return true;
+      }
+
+      return false;
+    },
+    [getLoggedInAccountNormNames]
+  );
+
+  // Converte um registro de resposta de aluno em objeto de Sala Aplicada para preservar respostas em "Provas Aplicadas"
+  const convertHistoryEntryToAppliedRoom = useCallback(
+    (entry: LiveExamStudentHistoryEntry): LiveExamRoomState => {
+      const pId = entry.id || `stu_${entry.pin}_${(entry.studentName || 'aluno').replace(/\s+/g, '_')}`;
+      const participant: LiveExamParticipant = {
+        id: pId,
+        name: entry.studentName || 'Participante',
+        unit: entry.studentUnit || 'Geral',
+        status: 'FINISHED',
+        joinedAt: entry.dateStr || '',
+        currentQuestionIdx: Math.max(0, (entry.totalQuestions || 1) - 1),
+        answeredCount: entry.answeredCount || Object.keys(entry.answers || {}).length || entry.totalQuestions || 0,
+        correctCount: entry.correctCount || 0,
+        scorePercent: entry.scorePercent || 0,
+        grade10: entry.grade10 || 0,
+        cheatCount: entry.cheatCount || 0,
+        isLocked: false,
+        answers: entry.answers || {},
+        finishedAt: entry.dateStr || '',
+        timeSpentSeconds: entry.timeSpentSeconds || 1
+      };
+      return {
+        pin: String(entry.pin),
+        club: entry.club || club,
+        specialtyId: entry.specialtyId || 0,
+        specialtyName: entry.specialtyName || 'Prova Aplicada',
+        specialtyArea: entry.specialtyArea || 'Especialidades',
+        specialtyLogo: entry.specialtyLogo || '',
+        specialtyCode: entry.specialtyCode || 'PROVA',
+        durationMinutes: 15,
+        passingScorePercent: entry.passingScorePercent || 70,
+        lockOnCheat: true,
+        status: 'FINISHED',
+        resultsReleased: Boolean(entry.resultsReleased ?? true),
+        startedAt: entry.completedAt || Date.now(),
+        extraSecondsAdded: 0,
+        questions: entry.questions || [],
+        participants: { [pId]: participant },
+        alerts: [],
+        updatedAt: entry.completedAt || Date.now(),
+        creatorKey: instructorKeyRef.current || undefined,
+        creatorEmail: instructorIdentityRef.current.email || undefined,
+        creatorName: instructorIdentityRef.current.name || undefined
+      };
+    },
+    [club]
+  );
+
+  // Salva e sincroniza a lista de "Provas Aplicadas" (criadas pelo instrutor)
+  const persistAppliedExamsList = useCallback(
+    (roomsList: LiveExamRoomState[], syncToCloud = true) => {
+      const deletedSet = deletedAppliedExamPinsRef.current;
+      const byPin = new Map<string, LiveExamRoomState>();
+
+      roomsList.forEach((rm) => {
+        if (!rm || !rm.pin || deletedSet.has(String(rm.pin))) return;
+        const pinKey = String(rm.pin);
+        const prev = byPin.get(pinKey);
+        if (!prev) {
+          byPin.set(pinKey, rm);
+        } else {
+          // Mescla participantes pelo id ou pelo nome normalizado para não duplicar o mesmo aluno
+          const mergedParticipants: Record<string, LiveExamParticipant> = {
+            ...(prev.participants || {})
+          };
+          Object.values(rm.participants || {}).forEach((incP) => {
+            if (!incP) return;
+            const normIncName = String(incP.name || '').trim().toLowerCase();
+            const existingKey =
+              mergedParticipants[incP.id]
+                ? incP.id
+                : Object.keys(mergedParticipants).find(
+                    (k) => String(mergedParticipants[k]?.name || '').trim().toLowerCase() === normIncName
+                  ) || incP.id;
+            const exP = mergedParticipants[existingKey];
+            if (!exP) {
+              mergedParticipants[existingKey] = incP;
+            } else {
+              const incAnsLen = Object.keys(incP.answers || {}).length;
+              const exAnsLen = Object.keys(exP.answers || {}).length;
+              mergedParticipants[existingKey] = {
+                ...exP,
+                ...incP,
+                id: existingKey,
+                answeredCount: Math.max(Number(exP.answeredCount || 0), Number(incP.answeredCount || 0), incAnsLen, exAnsLen),
+                correctCount: incAnsLen >= exAnsLen ? incP.correctCount ?? exP.correctCount : exP.correctCount ?? incP.correctCount,
+                scorePercent: incAnsLen >= exAnsLen ? incP.scorePercent ?? exP.scorePercent : exP.scorePercent ?? incP.scorePercent,
+                grade10: incAnsLen >= exAnsLen ? incP.grade10 ?? exP.grade10 : exP.grade10 ?? incP.grade10,
+                cheatCount: Math.max(Number(exP.cheatCount || 0), Number(incP.cheatCount || 0)),
+                answers: incAnsLen >= exAnsLen ? incP.answers || exP.answers || {} : exP.answers || incP.answers || {}
+              };
+            }
+          });
+
+          const newer = (rm.updatedAt || 0) >= (prev.updatedAt || 0) ? rm : prev;
+          const older = newer === rm ? prev : rm;
+          byPin.set(pinKey, {
+            ...older,
+            ...newer,
+            status:
+              prev.status === 'FINISHED' || rm.status === 'FINISHED'
+                ? 'FINISHED'
+                : prev.status === 'ACTIVE' || rm.status === 'ACTIVE'
+                ? 'ACTIVE'
+                : newer.status || 'WAITING',
+            resultsReleased: Boolean(prev.resultsReleased || rm.resultsReleased),
+            questions:
+              newer.questions && newer.questions.length > 0
+                ? newer.questions
+                : older.questions || [],
+            participants: mergedParticipants,
+            updatedAt: Math.max(Number(prev.updatedAt || 0), Number(rm.updatedAt || 0))
+          });
+        }
+      });
+
+      const sorted = Array.from(byPin.values()).sort(
+        (a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)
+      );
+
+      appliedExamsHistoryRef.current = sorted;
+      setAppliedExamsHistory(sorted);
+      setSelectedAppliedExam((prevSel) =>
+        prevSel ? sorted.find((r) => String(r.pin) === String(prevSel.pin)) || null : null
+      );
+
+      const candidateKeys =
+        studentHistoryCandidateKeysRef.current.length > 0
+          ? studentHistoryCandidateKeysRef.current
+          : instructorKeyRef.current
+          ? [instructorKeyRef.current]
+          : [];
+
+      try {
+        const jsonStr = JSON.stringify(sorted);
+        localStorage.setItem('dbv_applied_exams_history_global', jsonStr);
+        candidateKeys.forEach((k) => {
+          localStorage.setItem(`dbv_applied_exams_history_${k}`, jsonStr);
+        });
+      } catch {}
+
+      if (syncToCloud && candidateKeys.length > 0) {
+        candidateKeys.forEach((k) => {
+          supabaseQfpy.storage
+            .from('App DBV Tudo')
+            .upload(
+              `provas/applied_exams_${k}.json`,
+              JSON.stringify({
+                userKey: k,
+                updatedAt: Date.now(),
+                deletedPins: Array.from(deletedSet),
+                rooms: sorted
+              }),
+              {
+                upsert: true,
+                contentType: 'application/json',
+                cacheControl: '0'
+              }
+            )
+            .catch(() => {});
+        });
+      }
+    },
+    []
+  );
+
+  // Sincroniza automaticamente todas as salas criadas em hostRooms para "Provas Aplicadas"
+  useEffect(() => {
+    if (hostRooms.length === 0) return;
+    const validHostRooms = hostRooms.filter(
+      (r) => r && r.pin && !deletedAppliedExamPinsRef.current.has(String(r.pin))
+    );
+    if (validHostRooms.length > 0) {
+      persistAppliedExamsList([...validHostRooms, ...appliedExamsHistoryRef.current], true);
+    }
+  }, [hostRooms, persistAppliedExamsList]);
+
   const persistStudentHistoryList = useCallback(
     (entries: LiveExamStudentHistoryEntry[], syncToCloud = true) => {
+      const deletedHistorySet = deletedStudentHistoryPinsRef.current;
       const isFullyAnswered = (entry?: Partial<LiveExamStudentHistoryEntry> | null): boolean => {
-        if (!entry || !entry.pin) return false;
+        if (!entry || !entry.pin || deletedHistorySet.has(String(entry.pin))) return false;
         const totalQ = Number(
           entry.totalQuestions || (Array.isArray(entry.questions) ? entry.questions.length : 0) || 0
         );
@@ -3712,9 +4462,21 @@ REGRAS OBRIGATÓRIAS:
         return ansCount >= totalQ;
       };
 
+      const rescuedAppliedRooms: LiveExamRoomState[] = [];
       const byPin = new Map<string, LiveExamStudentHistoryEntry>();
+
       entries.forEach((item) => {
         if (!isFullyAnswered(item)) return;
+
+        // Se a prova foi criada pelo usuário ou respondida por outra pessoa (ex: Fisiologia Vegetal),
+        // move automaticamente para "Provas Aplicadas" e não deixa em "Minhas Provas Feitas"!
+        if (isEntryForAppliedExams(item)) {
+          if (!deletedAppliedExamPinsRef.current.has(String(item.pin))) {
+            rescuedAppliedRooms.push(convertHistoryEntryToAppliedRoom(item));
+          }
+          return;
+        }
+
         const prev = byPin.get(String(item.pin));
         if (!prev) {
           byPin.set(String(item.pin), item);
@@ -3739,6 +4501,10 @@ REGRAS OBRIGATÓRIAS:
           });
         }
       });
+
+      if (rescuedAppliedRooms.length > 0) {
+        persistAppliedExamsList([...rescuedAppliedRooms, ...appliedExamsHistoryRef.current], true);
+      }
 
       const sorted = Array.from(byPin.values()).sort(
         (a, b) => (b.completedAt || 0) - (a.completedAt || 0)
@@ -3772,7 +4538,9 @@ REGRAS OBRIGATÓRIAS:
             action: 'SYNC_STUDENT_HISTORY',
             payload: {
               keys: candidateKeys,
-              entries: sorted
+              entries: sorted,
+              replace: true,
+              deletedPins: Array.from(deletedHistorySet)
             }
           })
         }).catch(() => {});
@@ -3785,6 +4553,7 @@ REGRAS OBRIGATÓRIAS:
               JSON.stringify({
                 userKey: k,
                 updatedAt: Date.now(),
+                deletedPins: Array.from(deletedHistorySet),
                 entries: sorted
               }),
               {
@@ -3797,10 +4566,100 @@ REGRAS OBRIGATÓRIAS:
         });
       }
     },
-    []
+    [isEntryForAppliedExams, convertHistoryEntryToAppliedRoom, persistAppliedExamsList]
   );
 
-  // Carrega o histórico de provas do usuário logado da nuvem/servidor (sincronizando Celular e PC) e verifica se salas pendentes já tiveram resultado liberado
+  // Exclui uma Prova Aplicada (remove da lista de Provas Aplicadas, fecha sala se estiver aberta e impede reimportação)
+  const handleDeleteAppliedExam = useCallback(
+    (pinToDelete: string) => {
+      const cleanPin = String(pinToDelete || '').trim();
+      if (!cleanPin) return;
+
+      const nextDeleted = Array.from(new Set([...deletedAppliedExamPinsRef.current, cleanPin]));
+      deletedAppliedExamPinsRef.current = new Set(nextDeleted);
+      setDeletedAppliedExamPins(nextDeleted);
+
+      const candidateKeys =
+        studentHistoryCandidateKeysRef.current.length > 0
+          ? studentHistoryCandidateKeysRef.current
+          : instructorKeyRef.current
+          ? [instructorKeyRef.current]
+          : [];
+
+      try {
+        const delStr = JSON.stringify(nextDeleted);
+        localStorage.setItem('dbv_deleted_applied_exams_global', delStr);
+        candidateKeys.forEach((k) => {
+          localStorage.setItem(`dbv_deleted_applied_exams_${k}`, delStr);
+        });
+      } catch {}
+
+      // Se a sala estiver aberta em hostRooms, fecha também
+      if (hostRoomsRef.current.some((r) => String(r.pin) === cleanPin)) {
+        persistHostRoom(null, { closePin: cleanPin });
+      }
+
+      const remaining = appliedExamsHistoryRef.current.filter((r) => String(r.pin) !== cleanPin);
+      persistAppliedExamsList(remaining, true);
+
+      fetch('/api/live-exam', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'DELETE_APPLIED_EXAM',
+          pin: cleanPin,
+          instructorKey: instructorKeyRef.current
+        })
+      }).catch(() => {});
+
+      setConfirmDeleteAppliedPin(null);
+      if (selectedAppliedExam?.pin === cleanPin) {
+        setSelectedAppliedExam(null);
+      }
+      if (inspectingAppliedStudent?.room.pin === cleanPin) {
+        setInspectingAppliedStudent(null);
+      }
+    },
+    [persistAppliedExamsList, persistHostRoom, selectedAppliedExam, inspectingAppliedStudent]
+  );
+
+  // Exclui um item de "Meu Histórico de Provas Feitas"
+  const handleDeleteStudentHistoryEntry = useCallback(
+    (pinToDelete: string) => {
+      const cleanPin = String(pinToDelete || '').trim();
+      if (!cleanPin) return;
+
+      const nextDeleted = Array.from(new Set([...deletedStudentHistoryPinsRef.current, cleanPin]));
+      deletedStudentHistoryPinsRef.current = new Set(nextDeleted);
+      setDeletedStudentHistoryPins(nextDeleted);
+
+      const candidateKeys =
+        studentHistoryCandidateKeysRef.current.length > 0
+          ? studentHistoryCandidateKeysRef.current
+          : instructorKeyRef.current
+          ? [instructorKeyRef.current]
+          : [];
+
+      try {
+        const delStr = JSON.stringify(nextDeleted);
+        localStorage.setItem('dbv_deleted_student_history_global', delStr);
+        candidateKeys.forEach((k) => {
+          localStorage.setItem(`dbv_deleted_student_history_${k}`, delStr);
+        });
+      } catch {}
+
+      const remaining = studentExamHistory.filter((item) => String(item.pin) !== cleanPin);
+      persistStudentHistoryList(remaining, true);
+
+      setConfirmDeleteHistoryPin(null);
+      if (selectedHistoryExam?.pin === cleanPin) {
+        setSelectedHistoryExam(null);
+      }
+    },
+    [studentExamHistory, persistStudentHistoryList, selectedHistoryExam]
+  );
+
+  // Carrega o histórico de provas feitas e provas aplicadas do usuário logado da nuvem/servidor (sincronizando Celular e PC)
   useEffect(() => {
     if (!isLoggedInUser) return;
     let cancelled = false;
@@ -3812,6 +4671,42 @@ REGRAS OBRIGATÓRIAS:
           : instructorKey
           ? [instructorKey]
           : [];
+
+      // 1. Carrega Provas Aplicadas da nuvem e sincroniza salas abertas
+      try {
+        const cloudAppliedResults = await Promise.all(
+          candidateKeys.map((k) =>
+            downloadCloudExamJson<{ rooms?: LiveExamRoomState[]; deletedPins?: string[] }>(
+              `provas/applied_exams_${k}.json`
+            ).catch(() => null)
+          )
+        );
+        if (!cancelled) {
+          const cloudDeletedApplied: string[] = [];
+          const cloudAppliedRooms: LiveExamRoomState[] = [];
+          cloudAppliedResults.forEach((res) => {
+            if (Array.isArray(res?.deletedPins)) {
+              cloudDeletedApplied.push(...res.deletedPins.map(String));
+            }
+            if (Array.isArray(res?.rooms)) {
+              cloudAppliedRooms.push(...res.rooms);
+            }
+          });
+          if (cloudDeletedApplied.length > 0) {
+            const mergedDel = Array.from(
+              new Set([...deletedAppliedExamPinsRef.current, ...cloudDeletedApplied])
+            );
+            deletedAppliedExamPinsRef.current = new Set(mergedDel);
+            setDeletedAppliedExamPins(mergedDel);
+          }
+          if (cloudAppliedRooms.length > 0 || hostRooms.length > 0) {
+            persistAppliedExamsList(
+              [...hostRooms, ...appliedExamsHistoryRef.current, ...cloudAppliedRooms],
+              false
+            );
+          }
+        }
+      } catch {}
 
       let localEntries: LiveExamStudentHistoryEntry[] = [];
       try {
@@ -3853,12 +4748,18 @@ REGRAS OBRIGATÓRIAS:
         try {
           const results = await Promise.all(
             candidateKeys.map((k) =>
-              downloadCloudExamJson<{ entries?: LiveExamStudentHistoryEntry[] }>(
-                `provas/student_history_${k}.json`
-              ).catch(() => null)
+              downloadCloudExamJson<{
+                entries?: LiveExamStudentHistoryEntry[];
+                deletedPins?: string[];
+              }>(`provas/student_history_${k}.json`).catch(() => null)
             )
           );
           results.forEach((cloudData) => {
+            if (Array.isArray(cloudData?.deletedPins)) {
+              cloudData.deletedPins.forEach((dp) =>
+                deletedStudentHistoryPinsRef.current.add(String(dp))
+              );
+            }
             if (cloudData && Array.isArray(cloudData.entries)) {
               cloudEntries.push(...cloudData.entries);
             }
@@ -3866,76 +4767,12 @@ REGRAS OBRIGATÓRIAS:
         } catch {}
       }
 
-      // Verifica também se nas salas ativas/recentes há alguma prova concluída por este mesmo usuário (ex: feita no celular)
-      const roomDerivedEntries: LiveExamStudentHistoryEntry[] = [];
-      try {
-        const normNames = new Set(
-          [instructorIdentity.name, currentUserName, studentName]
-            .map((n) => String(n || '').trim().toLowerCase())
-            .filter(Boolean)
-        );
-        hostRooms.forEach((rm) => {
-          if (!rm?.pin || !rm.participants) return;
-          const matchedParticipant =
-            rm.participants[studentId] ||
-            Object.values(rm.participants).find(
-              (p) => p?.name && normNames.has(String(p.name).trim().toLowerCase())
-            );
-          const totalQ = rm.questions?.length || 0;
-          const ansCount = matchedParticipant
-            ? Math.max(
-                Number(matchedParticipant.answeredCount || 0),
-                matchedParticipant.answers ? Object.keys(matchedParticipant.answers).length : 0
-              )
-            : 0;
-          if (
-            matchedParticipant &&
-            totalQ > 0 &&
-            ansCount >= totalQ &&
-            (matchedParticipant.status === 'FINISHED' || rm.status === 'FINISHED')
-          ) {
-            const completedDate = new Date(rm.updatedAt || Date.now());
-            roomDerivedEntries.push({
-              id: `hist_${rm.pin}_${matchedParticipant.id || studentId}`,
-              pin: String(rm.pin),
-              club: rm.club || club,
-              specialtyId: rm.specialtyId,
-              specialtyName: rm.specialtyName,
-              specialtyArea: rm.specialtyArea,
-              specialtyLogo: rm.specialtyLogo,
-              specialtyCode: rm.specialtyCode,
-              studentName: matchedParticipant.name,
-              studentUnit: matchedParticipant.unit || 'Geral',
-              dateStr: `${completedDate.toLocaleDateString('pt-BR')} às ${completedDate.toLocaleTimeString(
-                'pt-BR',
-                { hour: '2-digit', minute: '2-digit' }
-              )}`,
-              completedAt: rm.updatedAt || Date.now(),
-              totalQuestions: totalQ,
-              answeredCount: ansCount,
-              correctCount: matchedParticipant.correctCount || 0,
-              scorePercent: matchedParticipant.scorePercent || 0,
-              grade10: matchedParticipant.grade10 || 0,
-              passingScorePercent: rm.passingScorePercent || 70,
-              cheatCount: matchedParticipant.cheatCount || 0,
-              timeSpentSeconds: matchedParticipant.timeSpentSeconds || 1,
-              resultsReleased: Boolean(rm.resultsReleased),
-              questions: rm.questions,
-              answers: matchedParticipant.answers || {}
-            });
-          }
-        });
-      } catch {}
-
       if (cancelled) return;
-      const mergedInitial = [
-        ...localEntries,
-        ...apiEntries,
-        ...cloudEntries,
-        ...roomDerivedEntries
-      ];
-      const hadIncompleteEntries = mergedInitial.some((entry) => {
+      const mergedInitial = [...localEntries, ...apiEntries, ...cloudEntries];
+      const hadEntriesToCleanOrMigrate = mergedInitial.some((entry) => {
         if (!entry || !entry.pin) return false;
+        if (deletedStudentHistoryPinsRef.current.has(String(entry.pin))) return true;
+        if (isEntryForAppliedExams(entry)) return true;
         const totalQ = Number(
           entry.totalQuestions || (Array.isArray(entry.questions) ? entry.questions.length : 0) || 0
         );
@@ -3944,17 +4781,18 @@ REGRAS OBRIGATÓRIAS:
         const ansCount = Math.max(Number(entry.answeredCount || 0), ansFromMap);
         return totalQ <= 0 || ansCount < totalQ;
       });
-      if (mergedInitial.length > 0 || hadIncompleteEntries) {
+      if (mergedInitial.length > 0 || hadEntriesToCleanOrMigrate) {
         const shouldPushSync =
-          hadIncompleteEntries ||
+          hadEntriesToCleanOrMigrate ||
           (localEntries.length > 0 && (apiEntries.length === 0 || cloudEntries.length === 0));
         persistStudentHistoryList(mergedInitial, shouldPushSync);
       }
 
-      // Verifica se alguma prova do histórico que estava aguardando liberação já teve o resultado liberado pelo instrutor
+      // Verifica se alguma prova do histórico pessoal que estava aguardando liberação já teve o resultado liberado
       const byPinMap = new Map<string, LiveExamStudentHistoryEntry>();
       mergedInitial.forEach((e) => {
-        if (!e?.pin) return;
+        if (!e?.pin || deletedStudentHistoryPinsRef.current.has(String(e.pin))) return;
+        if (isEntryForAppliedExams(e)) return;
         const totalQ = Number(
           e.totalQuestions || (Array.isArray(e.questions) ? e.questions.length : 0) || 0
         );
@@ -4032,6 +4870,8 @@ REGRAS OBRIGATÓRIAS:
     studentName,
     hostRooms,
     club,
+    isEntryForAppliedExams,
+    persistAppliedExamsList,
     persistStudentHistoryList
   ]);
 
@@ -5292,14 +6132,437 @@ REGRAS OBRIGATÓRIAS:
   };
 
   // ============================================================================
+  // SEÇÃO REUTILIZÁVEL: PROVAS APLICADAS PELO INSTRUTOR (COM OPÇÃO DE EXCLUIR E VER RESPOSTAS)
+  // ============================================================================
+  const renderAppliedExamsSection = () => {
+    if (!isLoggedInUser || (!hasHostPermission && appliedExamsHistory.length === 0)) return null;
+
+    return (
+      <div className="mt-4 bg-white dark:bg-slate-900/95 border border-slate-200/80 dark:border-slate-800 rounded-[26px] p-4 sm:p-5 text-slate-800 dark:text-white shadow-lg space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-500/40 text-indigo-600 dark:text-indigo-300 flex items-center justify-center shrink-0">
+              <Users size={16} />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-xs sm:text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white truncate">
+                Provas Aplicadas ({appliedExamsHistory.length})
+              </h3>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">
+                Provas que você criou e aplicou para outros participantes responderem
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {appliedExamsHistory.length === 0 ? (
+          <div className="py-5 px-3 text-center rounded-2xl bg-slate-50 dark:bg-slate-950/70 border border-dashed border-slate-200 dark:border-slate-800 space-y-1">
+            <Users size={22} className="text-slate-400 dark:text-slate-500 mx-auto" />
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+              Nenhuma prova aplicada registrada no momento.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1 scrollbar-hide">
+            {appliedExamsHistory.map((roomItem) => {
+              const pList = Object.values(roomItem.participants || {}) as LiveExamParticipant[];
+              const finishedCount = pList.filter((p) => p.status === 'FINISHED').length;
+              const dateFormatted = new Date(Number(roomItem.createdAt || Date.now())).toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+              });
+
+              return (
+                <div
+                  key={roomItem.pin}
+                  onClick={() => setSelectedAppliedExam(roomItem)}
+                  className="p-3 sm:p-3.5 rounded-2xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-950/90 dark:hover:bg-slate-800/80 border border-slate-200/80 dark:border-slate-800 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer"
+                >
+                  <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
+                    {roomItem.specialtyLogo ? (
+                      <img
+                        src={roomItem.specialtyLogo}
+                        alt={roomItem.specialtyName}
+                        className="w-10 h-10 object-contain rounded-lg shrink-0"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-300 shrink-0">
+                        <Award size={18} />
+                      </div>
+                    )}
+
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h4 className="text-xs font-black uppercase text-slate-900 dark:text-white truncate">
+                          {roomItem.specialtyName}
+                        </h4>
+                        <span className="px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-slate-800 text-amber-800 dark:text-amber-300 text-[9px] font-black">
+                          #{roomItem.pin}
+                        </span>
+                        <span
+                          className={`px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase ${
+                            roomItem.status === 'ACTIVE'
+                              ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                              : roomItem.status === 'FINISHED'
+                              ? 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                              : 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                          }`}
+                        >
+                          {roomItem.status === 'ACTIVE'
+                            ? '🟢 Ativa'
+                            : roomItem.status === 'FINISHED'
+                            ? '🏁 Encerrada'
+                            : '⏳ Aguardando'}
+                        </span>
+                      </div>
+
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">
+                        {dateFormatted} • {roomItem.questions?.length || 0} questões •{' '}
+                        <strong className="text-indigo-600 dark:text-indigo-400">
+                          {pList.length} participante(s)
+                        </strong>{' '}
+                        ({finishedCount} concluíram)
+                      </p>
+
+                      {pList.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                          {pList.slice(0, 4).map((p) => (
+                            <span
+                              key={p.id || p.name}
+                              className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[9px] font-bold text-slate-700 dark:text-slate-300 truncate max-w-[180px]"
+                            >
+                              👤 {p.name}: <strong className="text-emerald-600 dark:text-emerald-400">{Number(p.grade10 || 0).toFixed(1).replace('.', ',')}</strong> ({p.scorePercent || 0}%)
+                            </span>
+                          ))}
+                          {pList.length > 4 && (
+                            <span className="text-[9px] font-black text-indigo-600 dark:text-indigo-400">
+                              +{pList.length - 4} mais
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-1.5 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-slate-200/60 dark:border-slate-800/60">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedAppliedExam(roomItem);
+                      }}
+                      className="px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/20 dark:hover:bg-indigo-500/30 border border-indigo-200 dark:border-indigo-500/30 text-indigo-700 dark:text-indigo-300 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                    >
+                      <Eye size={12} />
+                      <span>Respostas ({pList.length})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setHostRooms((prev) => {
+                          const exists = prev.some((r) => r.pin === roomItem.pin);
+                          return exists ? prev : [roomItem, ...prev];
+                        });
+                        setSelectedRoomPin(roomItem.pin);
+                        setIsCreatingNewRoom(false);
+                        setRoleMode('HOST');
+                        setEntryScreenConfirmed(true);
+                      }}
+                      className="px-2.5 py-1.5 rounded-xl bg-slate-200/80 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                      title="Abrir sala no painel ao vivo"
+                    >
+                      <QrCode size={12} />
+                      <span>Sala</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConfirmDeleteAppliedPin(roomItem.pin);
+                      }}
+                      className="px-2.5 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-500/15 dark:hover:bg-red-500/30 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-300 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                      title="Excluir esta prova aplicada"
+                    >
+                      <Trash2 size={12} />
+                      <span>Excluir</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderAppliedExamModals = () => {
+    if (typeof document === 'undefined') return null;
+
+    return (
+      <>
+        {/* Modal de Confirmação de Exclusão de Prova Aplicada */}
+        {confirmDeleteAppliedPin &&
+          createPortal(
+            <div
+              className="fixed inset-0 z-[100010] bg-slate-900/70 dark:bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"
+              onClick={() => setConfirmDeleteAppliedPin(null)}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-sm bg-white dark:bg-slate-900 border border-red-200 dark:border-red-500/40 rounded-[26px] p-5 text-slate-800 dark:text-white shadow-2xl space-y-4 text-center"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-500/20 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto">
+                  <Trash2 size={24} />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm sm:text-base font-black uppercase text-slate-900 dark:text-white">
+                    Excluir Prova Aplicada?
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    Tem certeza que deseja excluir a sala <strong>#{confirmDeleteAppliedPin}</strong> e todas as respostas registradas nela da sua lista de Provas Aplicadas?
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteAppliedPin(null)}
+                    className="py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-black uppercase tracking-wider cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteAppliedExam(confirmDeleteAppliedPin)}
+                    className="py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-red-600/20"
+                  >
+                    <Trash2 size={14} />
+                    <span>Sim, Excluir</span>
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )}
+
+        {/* Modal de Detalhes e Respostas da Prova Aplicada */}
+        {selectedAppliedExam &&
+          createPortal(
+            <div
+              className="fixed inset-0 z-[100006] bg-slate-900/65 dark:bg-slate-950/88 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"
+              onClick={() => {
+                setSelectedAppliedExam(null);
+                setInspectingAppliedStudent(null);
+              }}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-2xl max-h-[88vh] overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-indigo-500/40 rounded-[28px] p-5 text-slate-800 dark:text-white space-y-4 shadow-2xl scrollbar-hide"
+              >
+                <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {selectedAppliedExam.specialtyLogo && (
+                      <img
+                        src={selectedAppliedExam.specialtyLogo}
+                        alt={selectedAppliedExam.specialtyName}
+                        className="w-10 h-10 object-contain rounded-lg shrink-0"
+                        referrerPolicy="no-referrer"
+                      />
+                    )}
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 block">
+                        Prova Aplicada • Sala #{selectedAppliedExam.pin}
+                      </span>
+                      <h4 className="text-sm sm:text-base font-black uppercase text-slate-900 dark:text-white truncate">
+                        {selectedAppliedExam.specialtyName}
+                      </h4>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteAppliedPin(selectedAppliedExam.pin)}
+                      className="px-2.5 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-500/15 dark:hover:bg-red-500/30 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-300 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                      title="Excluir esta prova aplicada"
+                    >
+                      <Trash2 size={13} />
+                      <span>Excluir</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedAppliedExam(null);
+                        setInspectingAppliedStudent(null);
+                      }}
+                      className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0 cursor-pointer"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                {inspectingAppliedStudent ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-950 p-3 rounded-2xl border border-slate-200 dark:border-slate-800">
+                      <div>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 block">
+                          Respostas do Participante
+                        </span>
+                        <h5 className="text-sm font-black uppercase text-slate-900 dark:text-white">
+                          👤 {inspectingAppliedStudent.name} ({inspectingAppliedStudent.unit || 'Geral'})
+                        </h5>
+                        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                          Nota: <strong className="text-emerald-600 dark:text-emerald-400">{Number(inspectingAppliedStudent.grade10 || 0).toFixed(1).replace('.', ',')} / 10</strong> ({inspectingAppliedStudent.scorePercent || 0}%) • Acertos: {inspectingAppliedStudent.correctCount || 0}/{selectedAppliedExam.questions?.length || 0} • Saídas: {inspectingAppliedStudent.cheatCount || 0}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setInspectingAppliedStudent(null)}
+                        className="px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[10px] font-black uppercase flex items-center gap-1 cursor-pointer"
+                      >
+                        <ChevronLeft size={13} />
+                        <span>Voltar à Lista</span>
+                      </button>
+                    </div>
+
+                    <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1 scrollbar-hide">
+                      {(selectedAppliedExam.questions || []).map((q, idx) => {
+                        const chosen = inspectingAppliedStudent.answers?.[idx];
+                        const isCorrect = chosen === q.correctIndex;
+                        return (
+                          <div
+                            key={q.id || idx}
+                            className={`p-3 rounded-2xl border text-xs space-y-1 ${
+                              chosen === undefined
+                                ? 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-500'
+                                : isCorrect
+                                ? 'bg-emerald-50/70 dark:bg-emerald-950/35 border-emerald-200 dark:border-emerald-700/60'
+                                : 'bg-red-50/70 dark:bg-red-950/35 border-red-200 dark:border-red-800/60'
+                            }`}
+                          >
+                            <p className="font-black text-slate-900 dark:text-white">
+                              {idx + 1}. {q.question}
+                            </p>
+                            <p className={isCorrect ? 'text-emerald-700 dark:text-emerald-300 font-bold' : 'text-red-700 dark:text-red-300 font-bold'}>
+                              Resposta de {inspectingAppliedStudent.name}:{' '}
+                              {chosen !== undefined && q.options?.[chosen]
+                                ? `${String.fromCharCode(65 + chosen)}) ${q.options[chosen]}`
+                                : 'Não respondida'}{' '}
+                              {chosen !== undefined ? (isCorrect ? '✅' : '❌') : ''}
+                            </p>
+                            {!isCorrect && q.options?.[q.correctIndex] && (
+                              <p className="text-emerald-600 dark:text-emerald-400 font-bold">
+                                Gabarito: {String.fromCharCode(65 + q.correctIndex)}) {q.options[q.correctIndex]}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                        Participantes que Responderam ({Object.keys(selectedAppliedExam.participants || {}).length})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHostRooms((prev) => {
+                            const exists = prev.some((r) => r.pin === selectedAppliedExam.pin);
+                            return exists ? prev : [selectedAppliedExam, ...prev];
+                          });
+                          setSelectedRoomPin(selectedAppliedExam.pin);
+                          setIsCreatingNewRoom(false);
+                          setRoleMode('HOST');
+                          setEntryScreenConfirmed(true);
+                          setSelectedAppliedExam(null);
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <QrCode size={13} />
+                        <span>Abrir Sala no Painel Ao Vivo</span>
+                      </button>
+                    </div>
+
+                    {Object.values(selectedAppliedExam.participants || {}).length === 0 ? (
+                      <div className="py-8 text-center rounded-2xl bg-slate-50 dark:bg-slate-950 border border-dashed border-slate-200 dark:border-slate-800 space-y-1">
+                        <Users size={24} className="text-slate-400 mx-auto" />
+                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                          Nenhum participante respondeu a esta prova ainda.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1 scrollbar-hide">
+                        {(Object.values(selectedAppliedExam.participants || {}) as LiveExamParticipant[]).map((p) => {
+                          const totalQ = selectedAppliedExam.questions?.length || 1;
+                          const approved = (p.scorePercent || 0) >= (selectedAppliedExam.passingScorePercent || 70);
+                          return (
+                            <div
+                              key={p.id || p.name}
+                              onClick={() => setInspectingAppliedStudent(p)}
+                              className="p-3 rounded-2xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800/80 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 cursor-pointer transition-all"
+                            >
+                              <div className="min-w-0 flex-1 space-y-0.5">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <h5 className="text-xs font-black uppercase text-slate-900 dark:text-white truncate">
+                                    👤 {p.name}
+                                  </h5>
+                                  <span className="px-1.5 py-0.5 rounded-md bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[9px] font-black uppercase">
+                                    {p.unit || 'Geral'}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold">
+                                  Acertos: {p.correctCount || 0}/{totalQ} ({p.scorePercent || 0}%) • Tempo: ⏱️ {formatTimeMMSS(p.timeSpentSeconds || 0)}
+                                  {p.cheatCount > 0 ? ` • ⚠️ ${p.cheatCount} saída(s)` : ' • 🛡️ 0 saídas'}
+                                </p>
+                              </div>
+
+                              <div className="flex flex-col items-end gap-1 shrink-0">
+                                <span
+                                  className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase ${
+                                    approved
+                                      ? 'bg-emerald-50 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
+                                      : 'bg-amber-50 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/40 text-amber-700 dark:text-amber-300'
+                                  }`}
+                                >
+                                  Nota {Number(p.grade10 || 0).toFixed(1).replace('.', ',')}
+                                </span>
+                                <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400">
+                                  Ver Respostas →
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>,
+            document.body
+          )}
+      </>
+    );
+  };
+
+  // ============================================================================
   // TELA INICIAL AO ENTRAR NA ÁREA DE PROVA AO VIVO (CELULAR E PC):
   // Botões compactos no celular e em grade no PC:
-  // 1. "Criar Prova de Especialidade" | 2. "Criar Prova (Manual ou IA)" | 3. "Escanear QR Code" (Celular) / "Entrar com PIN" (PC)
+  // 1. "Criar Prova de Especialidade" | 2. "Prova dos Livros" | 3. "Criar Prova (Manual ou IA)" | 4. "Escanear QR Code" / "Entrar com PIN"
   // ============================================================================
   if (!isIsolatedStudentMode && !initialPin && !entryScreenConfirmed) {
     return (
       <div className="w-full max-w-4xl mx-auto py-2.5 sm:py-6 px-2 animate-fade-in">
         {renderQrScannerModal()}
+        {renderAppliedExamModals()}
         <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 rounded-[24px] sm:rounded-[28px] p-4 sm:p-6 text-slate-800 dark:text-white shadow-xl space-y-3.5 sm:space-y-5">
           <div className="text-center space-y-1.5">
             <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-600/25 border border-indigo-200 dark:border-indigo-400/40 text-indigo-600 dark:text-indigo-300 flex items-center justify-center mx-auto shadow-sm">
@@ -5322,7 +6585,7 @@ REGRAS OBRIGATÓRIAS:
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 sm:gap-3.5 pt-0.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 pt-0.5">
             {/* Botão 1: Criar Prova de Especialidade (Conselheiro+) */}
             <button
               type="button"
@@ -5339,7 +6602,7 @@ REGRAS OBRIGATÓRIAS:
                 setIsCreatingNewRoom(true);
                 setEntryScreenConfirmed(true);
               }}
-              className={`group relative overflow-hidden rounded-2xl sm:rounded-[22px] p-3 sm:p-4 text-left border transition-all flex flex-row md:flex-col items-center md:items-stretch justify-between gap-3 cursor-pointer active:scale-[0.98] ${
+              className={`group relative overflow-hidden rounded-2xl sm:rounded-[22px] p-3 sm:p-4 text-left border transition-all flex flex-row sm:flex-col items-center sm:items-stretch justify-between gap-3 cursor-pointer active:scale-[0.98] ${
                 hasHostPermission
                   ? 'bg-gradient-to-br from-indigo-600 via-blue-600 to-indigo-700 hover:from-indigo-500 hover:to-blue-600 border-indigo-400/40 shadow-lg shadow-indigo-600/20 text-white'
                   : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 opacity-85 text-slate-600 dark:text-white'
@@ -5363,7 +6626,7 @@ REGRAS OBRIGATÓRIAS:
                   <Award className="w-5 h-5 sm:w-5 sm:h-5" />
                 </div>
                 <span
-                  className={`hidden md:inline-block px-2 py-0.5 rounded-full text-[8px] sm:text-[9px] font-black uppercase tracking-wider ${
+                  className={`hidden sm:inline-block px-2 py-0.5 rounded-full text-[8px] sm:text-[9px] font-black uppercase tracking-wider ${
                     hasHostPermission
                       ? 'bg-black/25 text-amber-300'
                       : 'bg-amber-100 dark:bg-black/25 text-amber-800 dark:text-amber-300'
@@ -5376,14 +6639,14 @@ REGRAS OBRIGATÓRIAS:
               <div className="min-w-0 flex-1 space-y-0.5 sm:space-y-1">
                 <div className="flex items-center justify-between gap-1.5">
                   <h3
-                    className={`text-xs sm:text-base font-black uppercase tracking-tight leading-snug ${
+                    className={`text-xs sm:text-sm font-black uppercase tracking-tight leading-snug ${
                       hasHostPermission ? 'text-white' : 'text-slate-800 dark:text-white'
                     }`}
                   >
-                    Criar Prova de Especialidade
+                    Prova de Especialidade
                   </h3>
                   <span
-                    className={`md:hidden shrink-0 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${
+                    className={`sm:hidden shrink-0 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${
                       hasHostPermission
                         ? 'bg-black/25 text-amber-300'
                         : 'bg-amber-100 dark:bg-black/25 text-amber-800 dark:text-amber-300'
@@ -5402,7 +6665,89 @@ REGRAS OBRIGATÓRIAS:
               </div>
             </button>
 
-            {/* Botão 2: Criar Prova (Manual ou Tema IA — Conselheiro+) */}
+            {/* Botão 2: Prova dos Livros (Novo — Conselheiro+) */}
+            <button
+              type="button"
+              onClick={() => {
+                if (!hasHostPermission) {
+                  setEntryPermissionNotice(
+                    '🔒 O recurso de Prova dos Livros é liberado apenas de Conselheiro para cima.'
+                  );
+                  return;
+                }
+                setEntryPermissionNotice(null);
+                setExamCreationMode('BOOKS');
+                setSelectedSpecialty(null);
+                setQuestions([]);
+                setEditingQuestionIdx(null);
+                setRoleMode('HOST');
+                setIsCreatingNewRoom(true);
+                setEntryScreenConfirmed(true);
+              }}
+              className={`group relative overflow-hidden rounded-2xl sm:rounded-[22px] p-3 sm:p-4 text-left border transition-all flex flex-row sm:flex-col items-center sm:items-stretch justify-between gap-3 cursor-pointer active:scale-[0.98] ${
+                hasHostPermission
+                  ? 'bg-gradient-to-br from-amber-500 via-orange-600 to-amber-700 hover:from-amber-400 hover:to-orange-500 border-amber-300/40 shadow-lg shadow-amber-600/20 text-white'
+                  : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 opacity-85 text-slate-600 dark:text-white'
+              }`}
+            >
+              <span className="ministry-orbit-ring" aria-hidden="true">
+                <span
+                  className={`ministry-orbit-spinner orbit-delay-1 ${
+                    isPathfinder ? 'ministry-orbit-dbv' : 'ministry-orbit-avt'
+                  }`}
+                />
+              </span>
+              <div className="flex items-center justify-between gap-2 shrink-0">
+                <div
+                  className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl flex items-center justify-center ${
+                    hasHostPermission
+                      ? 'bg-white/15 border border-white/20 text-white'
+                      : 'bg-slate-200 dark:bg-white/15 border border-slate-300 dark:border-white/20 text-slate-600 dark:text-white'
+                  }`}
+                >
+                  <BookOpen className="w-5 h-5 sm:w-5 sm:h-5" />
+                </div>
+                <span
+                  className={`hidden sm:inline-block px-2 py-0.5 rounded-full text-[8px] sm:text-[9px] font-black uppercase tracking-wider ${
+                    hasHostPermission
+                      ? 'bg-black/25 text-amber-200'
+                      : 'bg-amber-100 dark:bg-black/25 text-amber-800 dark:text-amber-300'
+                  }`}
+                >
+                  Biblioteca
+                </span>
+              </div>
+
+              <div className="min-w-0 flex-1 space-y-0.5 sm:space-y-1">
+                <div className="flex items-center justify-between gap-1.5">
+                  <h3
+                    className={`text-xs sm:text-sm font-black uppercase tracking-tight leading-snug ${
+                      hasHostPermission ? 'text-white' : 'text-slate-800 dark:text-white'
+                    }`}
+                  >
+                    Prova dos Livros
+                  </h3>
+                  <span
+                    className={`sm:hidden shrink-0 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${
+                      hasHostPermission
+                        ? 'bg-black/25 text-amber-200'
+                        : 'bg-amber-100 dark:bg-black/25 text-amber-800 dark:text-amber-300'
+                    }`}
+                  >
+                    Biblioteca
+                  </span>
+                </div>
+                <p
+                  className={`text-[10px] sm:text-[11px] font-medium leading-snug line-clamp-2 ${
+                    hasHostPermission ? 'text-amber-100/95' : 'text-slate-500 dark:text-amber-100/90'
+                  }`}
+                >
+                  Selecionar livros das Classes, Livros do Ano ou Biblioteca para criar a prova.
+                </p>
+              </div>
+            </button>
+
+            {/* Botão 3: Criar Prova (Manual ou Tema IA — Conselheiro+) */}
             <button
               type="button"
               onClick={() => {
@@ -5421,7 +6766,7 @@ REGRAS OBRIGATÓRIAS:
                 setIsCreatingNewRoom(true);
                 setEntryScreenConfirmed(true);
               }}
-              className={`group relative overflow-hidden rounded-2xl sm:rounded-[22px] p-3 sm:p-4 text-left border transition-all flex flex-row md:flex-col items-center md:items-stretch justify-between gap-3 cursor-pointer active:scale-[0.98] ${
+              className={`group relative overflow-hidden rounded-2xl sm:rounded-[22px] p-3 sm:p-4 text-left border transition-all flex flex-row sm:flex-col items-center sm:items-stretch justify-between gap-3 cursor-pointer active:scale-[0.98] ${
                 hasHostPermission
                   ? 'bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 hover:from-violet-500 hover:to-purple-600 border-violet-400/40 shadow-lg shadow-violet-600/20 text-white'
                   : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 opacity-85 text-slate-600 dark:text-white'
@@ -5445,7 +6790,7 @@ REGRAS OBRIGATÓRIAS:
                   <Sparkles className="w-5 h-5 sm:w-5 sm:h-5" />
                 </div>
                 <span
-                  className={`hidden md:inline-block px-2 py-0.5 rounded-full text-[8px] sm:text-[9px] font-black uppercase tracking-wider ${
+                  className={`hidden sm:inline-block px-2 py-0.5 rounded-full text-[8px] sm:text-[9px] font-black uppercase tracking-wider ${
                     hasHostPermission
                       ? 'bg-black/25 text-amber-300'
                       : 'bg-amber-100 dark:bg-black/25 text-amber-800 dark:text-amber-300'
@@ -5458,14 +6803,14 @@ REGRAS OBRIGATÓRIAS:
               <div className="min-w-0 flex-1 space-y-0.5 sm:space-y-1">
                 <div className="flex items-center justify-between gap-1.5">
                   <h3
-                    className={`text-xs sm:text-base font-black uppercase tracking-tight leading-snug ${
+                    className={`text-xs sm:text-sm font-black uppercase tracking-tight leading-snug ${
                       hasHostPermission ? 'text-white' : 'text-slate-800 dark:text-white'
                     }`}
                   >
-                    Criar Prova
+                    Criar Prova Livre
                   </h3>
                   <span
-                    className={`md:hidden shrink-0 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${
+                    className={`sm:hidden shrink-0 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${
                       hasHostPermission
                         ? 'bg-black/25 text-amber-300'
                         : 'bg-amber-100 dark:bg-black/25 text-amber-800 dark:text-amber-300'
@@ -5484,7 +6829,7 @@ REGRAS OBRIGATÓRIAS:
               </div>
             </button>
 
-            {/* Botão 3: Escanear QR Code (Celular) ou Entrar na Prova com PIN (PC) */}
+            {/* Botão 4: Escanear QR Code (Celular) ou Entrar na Prova com PIN (PC) */}
             {isMobileDevice ? (
               <button
                 type="button"
@@ -5494,7 +6839,7 @@ REGRAS OBRIGATÓRIAS:
                   setEntryScreenConfirmed(true);
                   setIsQrScannerOpen(true);
                 }}
-                className="group relative overflow-hidden rounded-2xl sm:rounded-[22px] p-3 sm:p-4 text-left bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-600 border border-emerald-400/40 shadow-lg shadow-emerald-600/20 transition-all flex flex-row md:flex-col items-center md:items-stretch justify-between gap-3 cursor-pointer active:scale-[0.98]"
+                className="group relative overflow-hidden rounded-2xl sm:rounded-[22px] p-3 sm:p-4 text-left bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-600 border border-emerald-400/40 shadow-lg shadow-emerald-600/20 transition-all flex flex-row sm:flex-col items-center sm:items-stretch justify-between gap-3 cursor-pointer active:scale-[0.98]"
               >
                 <span className="ministry-orbit-ring" aria-hidden="true">
                   <span
@@ -5507,17 +6852,17 @@ REGRAS OBRIGATÓRIAS:
                   <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center text-white">
                     <Camera className="w-5 h-5 sm:w-5 sm:h-5" />
                   </div>
-                  <span className="hidden md:inline-block px-2 py-0.5 rounded-full bg-black/25 text-emerald-200 text-[8px] sm:text-[9px] font-black uppercase tracking-wider">
+                  <span className="hidden sm:inline-block px-2 py-0.5 rounded-full bg-black/25 text-emerald-200 text-[8px] sm:text-[9px] font-black uppercase tracking-wider">
                     Área da Prova
                   </span>
                 </div>
 
                 <div className="min-w-0 flex-1 space-y-0.5 sm:space-y-1">
                   <div className="flex items-center justify-between gap-1.5">
-                    <h3 className="text-xs sm:text-base font-black uppercase tracking-tight leading-snug text-white">
+                    <h3 className="text-xs sm:text-sm font-black uppercase tracking-tight leading-snug text-white">
                       Escanear QR Code
                     </h3>
-                    <span className="md:hidden shrink-0 px-2 py-0.5 rounded-full bg-black/25 text-emerald-200 text-[8px] font-black uppercase tracking-wider">
+                    <span className="sm:hidden shrink-0 px-2 py-0.5 rounded-full bg-black/25 text-emerald-200 text-[8px] font-black uppercase tracking-wider">
                       Área da Prova
                     </span>
                   </div>
@@ -5534,7 +6879,7 @@ REGRAS OBRIGATÓRIAS:
                   setRoleMode('STUDENT');
                   setEntryScreenConfirmed(true);
                 }}
-                className="group relative overflow-hidden rounded-2xl sm:rounded-[22px] p-3 sm:p-4 text-left bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-600 border border-emerald-400/40 shadow-lg shadow-emerald-600/20 transition-all flex flex-row md:flex-col items-center md:items-stretch justify-between gap-3 cursor-pointer active:scale-[0.98]"
+                className="group relative overflow-hidden rounded-2xl sm:rounded-[22px] p-3 sm:p-4 text-left bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-600 border border-emerald-400/40 shadow-lg shadow-emerald-600/20 transition-all flex flex-row sm:flex-col items-center sm:items-stretch justify-between gap-3 cursor-pointer active:scale-[0.98]"
               >
                 <span className="ministry-orbit-ring" aria-hidden="true">
                   <span
@@ -5547,17 +6892,17 @@ REGRAS OBRIGATÓRIAS:
                   <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center text-white">
                     <QrCode className="w-5 h-5 sm:w-5 sm:h-5" />
                   </div>
-                  <span className="hidden md:inline-block px-2 py-0.5 rounded-full bg-black/25 text-emerald-200 text-[8px] sm:text-[9px] font-black uppercase tracking-wider">
+                  <span className="hidden sm:inline-block px-2 py-0.5 rounded-full bg-black/25 text-emerald-200 text-[8px] sm:text-[9px] font-black uppercase tracking-wider">
                     Área da Prova
                   </span>
                 </div>
 
                 <div className="min-w-0 flex-1 space-y-0.5 sm:space-y-1">
                   <div className="flex items-center justify-between gap-1.5">
-                    <h3 className="text-xs sm:text-base font-black uppercase tracking-tight leading-snug text-white">
+                    <h3 className="text-xs sm:text-sm font-black uppercase tracking-tight leading-snug text-white">
                       Entrar na Prova (PIN)
                     </h3>
-                    <span className="md:hidden shrink-0 px-2 py-0.5 rounded-full bg-black/25 text-emerald-200 text-[8px] font-black uppercase tracking-wider">
+                    <span className="sm:hidden shrink-0 px-2 py-0.5 rounded-full bg-black/25 text-emerald-200 text-[8px] font-black uppercase tracking-wider">
                       Área da Prova
                     </span>
                   </div>
@@ -5588,6 +6933,9 @@ REGRAS OBRIGATÓRIAS:
           )}
         </div>
 
+        {/* Seção de Provas Aplicadas pelo Instrutor (Criadas por você e respondidas por outros) */}
+        {renderAppliedExamsSection()}
+
         {/* Histórico de Provas Feitas pelo Usuário Logado na Tela Inicial do App */}
         {isLoggedInUser && (
           <div className="mt-4 bg-white dark:bg-slate-900/95 border border-slate-200/80 dark:border-slate-800 rounded-[26px] p-4 sm:p-5 text-slate-800 dark:text-white shadow-lg space-y-3">
@@ -5601,7 +6949,7 @@ REGRAS OBRIGATÓRIAS:
                     Meu Histórico de Provas Feitas ({studentExamHistory.length})
                   </h3>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">
-                    Conta conectada: {instructorIdentity.name || studentName || instructorIdentity.email}
+                    Provas respondidas pessoalmente por você ({instructorIdentity.name || studentName || instructorIdentity.email})
                   </p>
                 </div>
               </div>
@@ -5611,7 +6959,7 @@ REGRAS OBRIGATÓRIAS:
               <div className="py-5 px-3 text-center rounded-2xl bg-slate-50 dark:bg-slate-950/70 border border-dashed border-slate-200 dark:border-slate-800 space-y-1">
                 <BookOpen size={22} className="text-slate-400 dark:text-slate-500 mx-auto" />
                 <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                  Você ainda não possui provas finalizadas salvas no seu histórico.
+                  Você ainda não possui provas feitas por você no seu histórico pessoal.
                 </p>
               </div>
             ) : (
@@ -5655,32 +7003,46 @@ REGRAS OBRIGATÓRIAS:
                         </div>
                       </div>
 
-                      <div className="flex flex-col items-end gap-1 shrink-0">
-                        {item.resultsReleased ? (
-                          <>
-                            <span
-                              className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase ${
-                                approved
-                                  ? 'bg-emerald-50 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
-                                  : 'bg-amber-50 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/40 text-amber-700 dark:text-amber-300'
-                              }`}
-                            >
-                              Nota {item.grade10.toFixed(1).replace('.', ',')} ({item.scorePercent}%)
-                            </span>
-                            <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-300">
-                              Ver Gabarito →
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[9px] font-black uppercase">
-                              ⏳ Aguardando Nota
-                            </span>
-                            <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-300">
-                              Conferir →
-                            </span>
-                          </>
-                        )}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex flex-col items-end gap-1">
+                          {item.resultsReleased ? (
+                            <>
+                              <span
+                                className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase ${
+                                  approved
+                                    ? 'bg-emerald-50 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
+                                    : 'bg-amber-50 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/40 text-amber-700 dark:text-amber-300'
+                                }`}
+                              >
+                                Nota {item.grade10.toFixed(1).replace('.', ',')} ({item.scorePercent}%)
+                              </span>
+                              <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-300">
+                                Ver Gabarito →
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[9px] font-black uppercase">
+                                ⏳ Aguardando Nota
+                              </span>
+                              <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-300">
+                                Conferir →
+                              </span>
+                            </>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteStudentHistoryEntry(item.pin);
+                          }}
+                          className="p-2 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-500/15 dark:hover:bg-red-500/30 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-300 cursor-pointer"
+                          title="Excluir do meu histórico"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     </div>
                   );
@@ -6563,25 +7925,39 @@ REGRAS OBRIGATÓRIAS:
                           </div>
                         </div>
 
-                        <div className="flex flex-col items-end gap-1 shrink-0">
-                          {item.resultsReleased ? (
-                            <span
-                              className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase ${
-                                approved
-                                  ? 'bg-emerald-50 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
-                                  : 'bg-amber-50 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/40 text-amber-700 dark:text-amber-300'
-                              }`}
-                            >
-                              Nota {item.grade10.toFixed(1).replace('.', ',')}
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex flex-col items-end gap-1">
+                            {item.resultsReleased ? (
+                              <span
+                                className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase ${
+                                  approved
+                                    ? 'bg-emerald-50 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
+                                    : 'bg-amber-50 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/40 text-amber-700 dark:text-amber-300'
+                                }`}
+                              >
+                                Nota {item.grade10.toFixed(1).replace('.', ',')}
+                              </span>
+                            ) : (
+                              <span className="px-2 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[9px] font-black uppercase">
+                                ⏳ Pendente
+                              </span>
+                            )}
+                            <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400">
+                              Abrir →
                             </span>
-                          ) : (
-                            <span className="px-2 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[9px] font-black uppercase">
-                              ⏳ Pendente
-                            </span>
-                          )}
-                          <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400">
-                            Abrir →
-                          </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteStudentHistoryEntry(item.pin);
+                            }}
+                            className="p-2 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-500/15 dark:hover:bg-red-500/30 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-300 cursor-pointer"
+                            title="Excluir do meu histórico"
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         </div>
                       </div>
                     );
@@ -6791,6 +8167,7 @@ REGRAS OBRIGATÓRIAS:
   return (
     <div className="w-full max-w-6xl mx-auto space-y-2.5 pb-4 animate-fade-in">
       {renderQrScannerModal()}
+      {renderAppliedExamModals()}
       {/* Barra Superior Compacta + Alternador de Múltiplas Provas */}
       <div className="bg-white dark:bg-slate-900 rounded-[20px] p-3 sm:px-4 sm:py-3 text-slate-900 dark:text-white shadow-sm border border-slate-200/80 dark:border-white/10 space-y-2.5 overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
@@ -6798,6 +8175,8 @@ REGRAS OBRIGATÓRIAS:
             <h3 className="text-xs sm:text-base font-black uppercase tracking-tight leading-snug break-words sm:truncate text-slate-900 dark:text-white">
               {activeRoom
                 ? `Sala #${activeRoom.pin} — ${activeRoom.specialtyName}`
+                : examCreationMode === 'BOOKS'
+                ? 'Prova dos Livros (Biblioteca)'
                 : examCreationMode === 'CUSTOM'
                 ? 'Criar Prova (Manual ou Tema com IA)'
                 : 'Criar Prova de Especialidade'}
@@ -6817,7 +8196,19 @@ REGRAS OBRIGATÓRIAS:
                   title="Criar uma nova prova de especialidade"
                 >
                   <Plus size={13} className="shrink-0" />
-                  <span className="truncate">Prova de Especialidade</span>
+                  <span className="truncate">Especialidade</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setExamCreationMode('BOOKS');
+                    setIsCreatingNewRoom(true);
+                  }}
+                  className="flex-1 sm:flex-initial justify-center min-w-0 px-2.5 py-2 sm:py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer shadow-sm transition-all"
+                  title="Criar uma prova baseada nos livros"
+                >
+                  <BookOpen size={12} className="shrink-0" />
+                  <span className="truncate">Prova dos Livros</span>
                 </button>
                 <button
                   type="button"
@@ -6829,7 +8220,7 @@ REGRAS OBRIGATÓRIAS:
                   title="Criar prova adicionando questões manualmente ou pelo tema com IA"
                 >
                   <Sparkles size={12} className="shrink-0" />
-                  <span className="truncate">Criar Prova (Manual / IA)</span>
+                  <span className="truncate">Manual / IA</span>
                 </button>
               </>
             )}
@@ -6957,12 +8348,12 @@ REGRAS OBRIGATÓRIAS:
       </div>
 
       {/* ========================================================================
-          MODO 1 DO INSTRUTOR: CONFIGURAR ESPECIALIDADE OU PROVA PERSONALIZADA (MANUAL / TEMA IA)
+          MODO 1 DO INSTRUTOR: CONFIGURAR ESPECIALIDADE, PROVA DOS LIVROS OU PROVA PERSONALIZADA (MANUAL / TEMA IA)
          ======================================================================== */}
       {!activeRoom && (
         <div className="space-y-3">
-          {/* Seletor Superior de Modalidade de Criação (Visível no Celular e PC) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+          {/* Seletor Superior de Modalidade de Criação (3 Opções: Especialidade | Prova dos Livros | Manual ou IA) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
             <button
               type="button"
               onClick={() => {
@@ -6986,14 +8377,49 @@ REGRAS OBRIGATÓRIAS:
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-xs sm:text-sm font-black uppercase tracking-tight leading-snug break-words">
-                  Criar Prova de Especialidade
+                  Prova de Especialidade
                 </p>
                 <p
                   className={`text-[10px] sm:text-xs font-medium leading-snug mt-0.5 ${
                     examCreationMode === 'SPECIALTY' ? 'text-indigo-100' : 'text-slate-500 dark:text-slate-400'
                   }`}
                 >
-                  Escolher do catálogo oficial de especialidades
+                  Catálogo oficial de especialidades
+                </p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setExamCreationMode('BOOKS');
+                setCustomThemeNotice(null);
+              }}
+              className={`p-3 sm:p-3.5 rounded-2xl border text-left transition-all flex items-center gap-3 cursor-pointer ${
+                examCreationMode === 'BOOKS'
+                  ? 'bg-amber-600 border-amber-500 text-white shadow-md shadow-amber-600/20'
+                  : 'bg-white dark:bg-slate-800 hover:bg-amber-50/50 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200'
+              }`}
+            >
+              <div
+                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                  examCreationMode === 'BOOKS'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-amber-50 dark:bg-amber-500/20 text-amber-600 dark:text-amber-300'
+                }`}
+              >
+                <BookOpen size={18} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs sm:text-sm font-black uppercase tracking-tight leading-snug break-words">
+                  Prova dos Livros
+                </p>
+                <p
+                  className={`text-[10px] sm:text-xs font-medium leading-snug mt-0.5 ${
+                    examCreationMode === 'BOOKS' ? 'text-amber-100' : 'text-slate-500 dark:text-slate-400'
+                  }`}
+                >
+                  Escolher livro das Classes, Ano ou Biblioteca
                 </p>
               </div>
             </button>
@@ -7028,14 +8454,14 @@ REGRAS OBRIGATÓRIAS:
                     examCreationMode === 'CUSTOM' ? 'text-violet-100' : 'text-slate-500 dark:text-slate-400'
                   }`}
                 >
-                  Adicionar questões manualmente ou gerar por tema com IA
+                  Adicionar questões manualmente ou por tema
                 </p>
               </div>
             </button>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            {/* Coluna Esquerda: Escolher Especialidade OU Configurar Tema/Manual + Regras da Sala */}
+            {/* Coluna Esquerda: Escolher Especialidade, Livro OU Configurar Tema/Manual + Regras da Sala */}
             <div className="lg:col-span-5 bg-white dark:bg-slate-800 rounded-[24px] p-4 sm:p-5 border border-slate-200/80 dark:border-slate-700 shadow-xs space-y-4">
               {examCreationMode === 'SPECIALTY' ? (
                 <>
@@ -7115,6 +8541,155 @@ REGRAS OBRIGATÓRIAS:
                           </button>
                         );
                       })
+                    )}
+                  </div>
+                </>
+              ) : examCreationMode === 'BOOKS' ? (
+                <>
+                  <h4 className="text-xs font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">
+                    1. Escolha o Livro da Biblioteca para Criar a Prova
+                  </h4>
+
+                  {/* Busca e Filtro de Categoria de Livros */}
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        value={bookSearchQuery}
+                        onChange={(e) => setBookSearchQuery(e.target.value)}
+                        placeholder="Buscar livro pelo título, classe ou autor..."
+                        className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap gap-1">
+                      {[
+                        { id: 'TODOS', label: `Todos (${booksCatalog.length})` },
+                        { id: 'CLASSE', label: 'Livro das Classes' },
+                        { id: 'ANO', label: 'Livros do Ano' },
+                        { id: 'OUTROS', label: 'Outros Livros' },
+                        { id: 'AVENTUREIROS', label: 'Aventureiros' }
+                      ].map((cat) => (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => setBookCategoryFilter(cat.id as any)}
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all ${
+                            bookCategoryFilter === cat.id
+                              ? 'bg-amber-600 text-white shadow-xs'
+                              : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-amber-50 dark:hover:bg-slate-700'
+                          }`}
+                        >
+                          {cat.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Lista de Livros do Catálogo */}
+                  <div className="max-h-60 overflow-y-auto space-y-1.5 pr-1 scrollbar-hide border border-slate-100 dark:border-slate-700/60 rounded-2xl p-2 bg-slate-50/50 dark:bg-slate-900/40">
+                    {isLoadingBooksCatalog ? (
+                      <div className="py-8 text-center text-xs font-bold text-slate-400">
+                        Carregando livros da biblioteca...
+                      </div>
+                    ) : filteredBooksCatalog.length === 0 ? (
+                      <div className="py-8 text-center text-xs font-bold text-slate-400">
+                        Nenhum livro encontrado para este filtro.
+                      </div>
+                    ) : (
+                      filteredBooksCatalog.map((book) => {
+                        const isSelected = selectedBookForExam?.id === book.id;
+                        return (
+                          <button
+                            key={book.id}
+                            type="button"
+                            onClick={() => handleSelectBookForExam(book)}
+                            className={`w-full p-2.5 rounded-xl text-left flex items-center gap-3 transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-amber-600 text-white shadow-sm'
+                                : 'bg-white dark:bg-slate-800 hover:bg-amber-50/60 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 border border-slate-200/60 dark:border-slate-700'
+                            }`}
+                          >
+                            {book.cover ? (
+                              <img
+                                src={getImageUrl(book.cover)}
+                                alt={book.title}
+                                className="w-9 h-12 object-cover rounded-lg shrink-0 border border-black/10"
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              <div
+                                className={`w-9 h-12 rounded-lg flex items-center justify-center shrink-0 ${
+                                  isSelected
+                                    ? 'bg-white/20 text-white'
+                                    : 'bg-amber-50 dark:bg-amber-500/20 text-amber-600 dark:text-amber-300'
+                                }`}
+                              >
+                                <BookOpen size={16} />
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-black truncate">{book.title}</p>
+                              <p
+                                className={`text-[10px] font-bold truncate ${
+                                  isSelected ? 'text-amber-100' : 'text-slate-400'
+                                }`}
+                              >
+                                {book.categoryLabel}
+                                {book.classe ? ` • ${book.classe}` : ''}
+                                {book.year ? ` • ${book.year}` : ''}
+                                {book.author ? ` • ${book.author}` : ''}
+                              </p>
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Instruções Opcionais de Capítulo/Foco do Livro */}
+                  <div className="space-y-2 pt-1">
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1">
+                        Capítulos ou Foco Específico do Livro (Opcional)
+                      </label>
+                      <input
+                        type="text"
+                        value={bookFocusInstructions}
+                        onChange={(e) => setBookFocusInstructions(e.target.value)}
+                        placeholder="Ex: Capítulos 1 a 4, personagens principais, lições..."
+                        className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-800 dark:text-white focus:border-amber-500 focus:outline-none"
+                      />
+                    </div>
+
+                    {customThemeNotice && (
+                      <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/15 border border-amber-300 dark:border-amber-500/40 text-amber-800 dark:text-amber-200 text-[11px] font-bold">
+                        {customThemeNotice}
+                      </div>
+                    )}
+
+                    {selectedBookForExam && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          disabled={isGeneratingQuestions}
+                          onClick={() => handleSelectBookForExam(selectedBookForExam)}
+                          className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 disabled:opacity-50 text-white text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md shadow-amber-600/20 cursor-pointer transition-all"
+                        >
+                          <Sparkles size={14} className="shrink-0" />
+                          <span>Gerar do Livro com IA</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleAddManualQuestion}
+                          className="py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                        >
+                          <Plus size={14} className="shrink-0" />
+                          <span>Questão Manual</span>
+                        </button>
+                      </div>
                     )}
                   </div>
                 </>
@@ -7279,6 +8854,10 @@ REGRAS OBRIGATÓRIAS:
                         ? customExamTitle.trim()
                           ? `Tema: ${customExamTitle.trim()}`
                           : 'Adicione questões manualmente ou digite um tema ao lado para a IA gerar.'
+                        : examCreationMode === 'BOOKS'
+                        ? selectedBookForExam
+                          ? `Livro selecionado: ${selectedBookForExam.title}`
+                          : 'Selecione um livro na biblioteca ao lado para gerar as questões.'
                         : selectedSpecialty
                         ? `Especialidade selecionada: ${selectedSpecialty.nome}`
                         : 'Selecione uma especialidade ao lado para gerar as questões automaticamente.'}
@@ -7298,6 +8877,18 @@ REGRAS OBRIGATÓRIAS:
                       </button>
                     )}
 
+                    {examCreationMode === 'BOOKS' && selectedBookForExam && (
+                      <button
+                        type="button"
+                        disabled={isGeneratingQuestions}
+                        onClick={() => handleSelectBookForExam(selectedBookForExam)}
+                        className="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-300 border border-amber-500/30 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                      >
+                        <Sparkles size={12} />
+                        <span>Regerar do Livro com IA</span>
+                      </button>
+                    )}
+
                     {examCreationMode === 'CUSTOM' && (
                       <button
                         type="button"
@@ -7310,7 +8901,7 @@ REGRAS OBRIGATÓRIAS:
                       </button>
                     )}
 
-                    {(selectedSpecialty || examCreationMode === 'CUSTOM') && (
+                    {(selectedSpecialty || selectedBookForExam || examCreationMode === 'CUSTOM') && (
                       <button
                         type="button"
                         onClick={handleAddManualQuestion}
@@ -7329,6 +8920,8 @@ REGRAS OBRIGATÓRIAS:
                     <p className="text-xs font-black uppercase text-slate-600 dark:text-slate-300">
                       {examCreationMode === 'CUSTOM'
                         ? `Elaborando ${questionCount} questões com IA sobre "${customExamTitle.trim()}"...`
+                        : examCreationMode === 'BOOKS'
+                        ? `Elaborando ${questionCount} questões do livro "${selectedBookForExam?.title || customExamTitle.trim()}"...`
                         : `Elaborando questões oficiais da especialidade ${selectedSpecialty?.nome}...`}
                     </p>
                   </div>
@@ -7359,6 +8952,10 @@ REGRAS OBRIGATÓRIAS:
                           </button>
                         </div>
                       </>
+                    ) : examCreationMode === 'BOOKS' ? (
+                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                        Clique em um livro na lista ao lado (Livro das Classes, Livros do Ano, Outros Livros ou Aventureiros) para elaborar as questões da prova automaticamente.
+                      </p>
                     ) : (
                       <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
                         Clique em uma especialidade na lista ao lado para montar as questões da prova e gerar o QR Code.
@@ -7508,6 +9105,7 @@ REGRAS OBRIGATÓRIAS:
                 type="button"
                 disabled={
                   (examCreationMode === 'SPECIALTY' && !selectedSpecialty) ||
+                  (examCreationMode === 'BOOKS' && !selectedBookForExam && !customExamTitle.trim()) ||
                   questions.length === 0 ||
                   isGeneratingQuestions
                 }
@@ -8009,6 +9607,9 @@ REGRAS OBRIGATÓRIAS:
           </div>
         </div>
       )}
+
+      {/* SEÇÃO DE PROVAS APLICADAS PELO INSTRUTOR (SEMPRE VISÍVEL NO PAINEL DO INSTRUTOR) */}
+      {renderAppliedExamsSection()}
 
       {/* OVERLAY SOBRE O MENU LATERAL ESQUERDO DO PC COM A LISTA DE QUEM ESTÁ FAZENDO A PROVA */}
       {!isIsolatedStudentMode &&
