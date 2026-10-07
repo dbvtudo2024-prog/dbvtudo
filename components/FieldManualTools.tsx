@@ -3449,166 +3449,180 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
                 </button>
               ))}
             </div>
-
-            {/* Grade de Seleção de Nó / Amarra */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 pt-1">
-              {filteredKnots.map((k) => {
-                const isSelected = currentKnot.id === k.id;
-                const isMastered = masteredKnots.includes(k.id);
-                return (
-                  <button
-                    key={k.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedKnotId(k.id);
-                      setActiveStepIdx(0);
-                      setTimeout(() => {
-                        knotImageSectionRef.current?.scrollIntoView({
-                          behavior: 'smooth',
-                          block: 'center'
-                        });
-                      }, 50);
-                    }}
-                    className={`p-2.5 rounded-xl border text-left transition-all flex items-center justify-between gap-1.5 ${
-                      isSelected
-                        ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm'
-                        : 'bg-slate-50 dark:bg-slate-900/70 text-slate-700 dark:text-slate-200 border-slate-200/80 dark:border-slate-700 hover:border-indigo-300'
-                    }`}
-                  >
-                    <div className="min-w-0">
-                      <span
-                        className={`text-[8.5px] font-black uppercase tracking-wider block truncate ${
-                          isSelected ? 'text-indigo-200' : 'text-slate-400'
-                        }`}
-                      >
-                        {k.classLabel}
-                      </span>
-                      <span className="text-xs font-black leading-tight block truncate">
-                        {k.name}
-                      </span>
-                    </div>
-                    {isMastered && (
-                      <CheckCircle2
-                        size={15}
-                        className={isSelected ? 'text-amber-300 shrink-0' : 'text-emerald-500 shrink-0'}
-                      />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
           </div>
 
-          {/* Card Detalhado de Instrução Passo a Passo do Nó/Amarra Selecionado */}
-          <div className="bg-white dark:bg-slate-800 rounded-[26px] p-4 sm:p-6 border border-slate-100 dark:border-slate-700 shadow-sm space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 dark:border-slate-700 pb-4">
-              <div>
-                <span className={`inline-block px-2.5 py-0.5 rounded-full text-[9.5px] font-black uppercase tracking-wider ${currentKnot.classColor}`}>
-                  {currentKnot.classLabel}
+          {/* Área Útil Dividida: Lista dos Nós à Esquerda + Detalhes e Imagem 3D à Direita */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+            {/* Coluna Esquerda: Lista dos Nós e Amarras */}
+            <div className="md:col-span-4 lg:col-span-4 bg-white dark:bg-slate-800 rounded-[24px] p-3.5 sm:p-4 border border-slate-100 dark:border-slate-700 shadow-xs space-y-2.5 md:sticky md:top-3">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  Lista de Nós ({filteredKnots.length})
                 </span>
-                <h4 className="text-lg sm:text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight mt-1">
-                  {currentKnot.name}
-                </h4>
+                <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+                  Selecione um nó
+                </span>
               </div>
 
-              <button
-                type="button"
-                onClick={() => toggleMasteredKnot(currentKnot.id)}
-                className={`px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center space-x-1.5 border transition-all active:scale-95 shrink-0 ${
-                  masteredKnots.includes(currentKnot.id)
-                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                    : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600'
-                }`}
-              >
-                <Check size={15} strokeWidth={3} />
-                <span>{masteredKnots.includes(currentKnot.id) ? 'Nó Dominado!' : 'Marcar como Dominado'}</span>
-              </button>
-            </div>
-
-            {/* Imagem 3D Oficial + Seletor de Passos */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
-              <div
-                ref={knotImageSectionRef}
-                className="bg-slate-50 dark:bg-slate-900/80 rounded-2xl p-4 border border-slate-200/70 dark:border-slate-700 text-center space-y-3 scroll-mt-4"
-              >
-                <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-slate-400">
-                  <span>Visualização em 3D</span>
-                  <button
-                    type="button"
-                    onClick={() => setIsKnotZoomOpen(true)}
-                    className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:underline font-black"
-                  >
-                    <ZoomIn size={13} />
-                    <span>Ampliar Imagem</span>
-                  </button>
-                </div>
-
-                <div
-                  onClick={() => setIsKnotZoomOpen(true)}
-                  className="cursor-zoom-in bg-white rounded-xl p-3 border border-slate-200/80 flex items-center justify-center h-60 sm:h-68 overflow-hidden shadow-inner group relative"
-                >
-                  <img
-                    src={currentKnot.image3dUrl}
-                    alt={currentKnot.name}
-                    className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300 leading-snug">
-                    {currentKnot.imageCaption}
-                  </p>
-                  <p className="text-[9.5px] font-semibold text-slate-400 dark:text-slate-500">
-                    Créditos das imagens 3D: Knots 3D (knots3d.com)
-                  </p>
-                </div>
-              </div>
-
-              {/* Lista Interativa dos Passos */}
-              <div className="space-y-2.5">
-                {currentKnot.steps.map((st, idx) => {
-                  const isCurrentStep = activeStepIdx === idx;
+              <div className="grid grid-cols-2 md:grid-cols-1 gap-2 md:max-h-[620px] md:overflow-y-auto md:pr-1">
+                {filteredKnots.map((k) => {
+                  const isSelected = currentKnot.id === k.id;
+                  const isMastered = masteredKnots.includes(k.id);
                   return (
-                    <div
-                      key={idx}
-                      onClick={() => setActiveStepIdx(idx)}
-                      className={`cursor-pointer p-3.5 rounded-2xl border transition-all ${
-                        isCurrentStep
-                          ? 'bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-400 dark:border-indigo-500 shadow-xs'
-                          : 'bg-slate-50/70 dark:bg-slate-900/50 border-slate-200/70 dark:border-slate-700'
+                    <button
+                      key={k.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedKnotId(k.id);
+                        setActiveStepIdx(0);
+                        setTimeout(() => {
+                          knotImageSectionRef.current?.scrollIntoView({
+                            behavior: 'smooth',
+                            block: window.innerWidth < 768 ? 'center' : 'nearest'
+                          });
+                        }, 50);
+                      }}
+                      className={`p-2.5 rounded-xl border text-left transition-all flex items-center justify-between gap-2 cursor-pointer ${
+                        isSelected
+                          ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm'
+                          : 'bg-slate-50 dark:bg-slate-900/70 text-slate-700 dark:text-slate-200 border-slate-200/80 dark:border-slate-700 hover:border-indigo-300'
                       }`}
                     >
-                      <h5 className="font-black text-xs sm:text-sm text-indigo-700 dark:text-indigo-300 uppercase tracking-tight">
-                        {st.title}
-                      </h5>
-                      <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-1 leading-relaxed">
-                        {st.description}
-                      </p>
-                    </div>
+                      <div className="min-w-0">
+                        <span
+                          className={`text-[8.5px] font-black uppercase tracking-wider block truncate ${
+                            isSelected ? 'text-indigo-200' : 'text-slate-400'
+                          }`}
+                        >
+                          {k.classLabel}
+                        </span>
+                        <span className="text-xs font-black leading-tight block truncate">
+                          {k.name}
+                        </span>
+                      </div>
+                      {isMastered && (
+                        <CheckCircle2
+                          size={15}
+                          className={isSelected ? 'text-amber-300 shrink-0' : 'text-emerald-500 shrink-0'}
+                        />
+                      )}
+                    </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* Para que Serve na Pioneiria + Dica de Segurança */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-              <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-800/60 space-y-1">
-                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300 block">
-                  Para que serve na Prática e Pioneiria
-                </span>
-                <p className="text-xs font-medium text-slate-700 dark:text-slate-200 leading-relaxed">
-                  {currentKnot.practicalUse}
-                </p>
+            {/* Coluna Direita: Card Detalhado de Instrução Passo a Passo do Nó/Amarra Selecionado */}
+            <div className="md:col-span-8 lg:col-span-8 bg-white dark:bg-slate-800 rounded-[26px] p-4 sm:p-6 border border-slate-100 dark:border-slate-700 shadow-sm space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 dark:border-slate-700 pb-4">
+                <div>
+                  <span className={`inline-block px-2.5 py-0.5 rounded-full text-[9.5px] font-black uppercase tracking-wider ${currentKnot.classColor}`}>
+                    {currentKnot.classLabel}
+                  </span>
+                  <h4 className="text-lg sm:text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight mt-1">
+                    {currentKnot.name}
+                  </h4>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => toggleMasteredKnot(currentKnot.id)}
+                  className={`px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center space-x-1.5 border transition-all active:scale-95 shrink-0 ${
+                    masteredKnots.includes(currentKnot.id)
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                      : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600'
+                  }`}
+                >
+                  <Check size={15} strokeWidth={3} />
+                  <span>{masteredKnots.includes(currentKnot.id) ? 'Nó Dominado!' : 'Marcar como Dominado'}</span>
+                </button>
               </div>
 
-              <div className="p-3.5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-800/60 space-y-1">
-                <span className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300 block">
-                  Dica Técnica do Instrutor
-                </span>
-                <p className="text-xs font-medium text-slate-700 dark:text-slate-200 leading-relaxed">
-                  {currentKnot.safetyTip}
-                </p>
+              {/* Imagem 3D Oficial + Seletor de Passos */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+                <div
+                  ref={knotImageSectionRef}
+                  className="bg-slate-50 dark:bg-slate-900/80 rounded-2xl p-4 border border-slate-200/70 dark:border-slate-700 text-center space-y-3 scroll-mt-4"
+                >
+                  <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    <span>Visualização em 3D</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsKnotZoomOpen(true)}
+                      className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:underline font-black"
+                    >
+                      <ZoomIn size={13} />
+                      <span>Ampliar Imagem</span>
+                    </button>
+                  </div>
+
+                  <div
+                    onClick={() => setIsKnotZoomOpen(true)}
+                    className="cursor-zoom-in bg-white rounded-xl p-3 border border-slate-200/80 flex items-center justify-center h-60 sm:h-68 overflow-hidden shadow-inner group relative"
+                  >
+                    <img
+                      src={currentKnot.image3dUrl}
+                      alt={currentKnot.name}
+                      className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300 leading-snug">
+                      {currentKnot.imageCaption}
+                    </p>
+                    <p className="text-[9.5px] font-semibold text-slate-400 dark:text-slate-500">
+                      Créditos das imagens 3D: Knots 3D (knots3d.com)
+                    </p>
+                  </div>
+                </div>
+
+                {/* Lista Interativa dos Passos */}
+                <div className="space-y-2.5">
+                  {currentKnot.steps.map((st, idx) => {
+                    const isCurrentStep = activeStepIdx === idx;
+                    return (
+                      <div
+                        key={idx}
+                        onClick={() => setActiveStepIdx(idx)}
+                        className={`cursor-pointer p-3.5 rounded-2xl border transition-all ${
+                          isCurrentStep
+                            ? 'bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-400 dark:border-indigo-500 shadow-xs'
+                            : 'bg-slate-50/70 dark:bg-slate-900/50 border-slate-200/70 dark:border-slate-700'
+                        }`}
+                      >
+                        <h5 className="font-black text-xs sm:text-sm text-indigo-700 dark:text-indigo-300 uppercase tracking-tight">
+                          {st.title}
+                        </h5>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-1 leading-relaxed">
+                          {st.description}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Para que Serve na Pioneiria + Dica de Segurança */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-800/60 space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300 block">
+                    Para que serve na Prática e Pioneiria
+                  </span>
+                  <p className="text-xs font-medium text-slate-700 dark:text-slate-200 leading-relaxed">
+                    {currentKnot.practicalUse}
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-800/60 space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300 block">
+                    Dica Técnica do Instrutor
+                  </span>
+                  <p className="text-xs font-medium text-slate-700 dark:text-slate-200 leading-relaxed">
+                    {currentKnot.safetyTip}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
