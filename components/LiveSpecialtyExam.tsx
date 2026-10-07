@@ -1,13 +1,60 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { createClient } from '@supabase/supabase-js';
 import QRCode from 'qrcode';
 import { ClubType, Especialidade } from '../types';
 import {
   supabaseQfpy,
+  QFPY_URL,
+  QFPY_KEY,
   fetchEspecialidades,
   fetchEspecialidadeRequisitos,
   resolveGeminiApiKey
 } from '../services/supabaseService';
+
+// Cliente Realtime dedicado para o Aluno (evita colisão de tópico WebSocket quando o mesmo aparelho possui salas abertas como Instrutor)
+const supabaseStudentRealtime = createClient(QFPY_URL, QFPY_KEY, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false
+  }
+});
+
+// Faz download de arquivo JSON do bucket público "App DBV Tudo" sem cache de CDN/navegador
+async function downloadCloudExamJson<T = any>(filePath: string): Promise<T | null> {
+  try {
+    const encodedPath = filePath
+      .split('/')
+      .map((seg) => encodeURIComponent(seg))
+      .join('/');
+    const url = `${QFPY_URL}/storage/v1/object/public/App%20DBV%20Tudo/${encodedPath}?t=${Date.now()}_${Math.random()
+      .toString(36)
+      .slice(2, 7)}`;
+    const res = await fetch(url, {
+      method: 'GET',
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        Pragma: 'no-cache'
+      }
+    });
+    if (res.ok) {
+      const parsed = await res.json();
+      if (parsed) return parsed as T;
+    }
+  } catch {}
+
+  try {
+    const { data: blob } = await supabaseQfpy.storage.from('App DBV Tudo').download(filePath);
+    if (blob) {
+      const text = await blob.text();
+      return JSON.parse(text) as T;
+    }
+  } catch {}
+
+  return null;
+}
 import {
   QrCode,
   ShieldAlert,
@@ -426,17 +473,31 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   const [studentPinInput, setStudentPinInput] = useState<string>(initialPin.replace(/\D/g, '').slice(0, 6));
   const [studentName, setStudentName] = useState<string>(() => {
     try {
-      return localStorage.getItem('dbv_exam_student_name') || '';
-    } catch {
-      return '';
-    }
+      const savedStudentName = localStorage.getItem('dbv_exam_student_name');
+      if (savedStudentName && savedStudentName.trim()) return savedStudentName;
+      if (currentUserName && currentUserName.trim()) return currentUserName.trim();
+      const savedProfile = localStorage.getItem('dbv_tudo_global_user_profile');
+      if (savedProfile) {
+        const parsed = JSON.parse(savedProfile);
+        if (parsed?.name) return String(parsed.name).trim();
+        if (parsed?.nome) return String(parsed.nome).trim();
+      }
+    } catch {}
+    return '';
   });
   const [studentUnit, setStudentUnit] = useState<string>(() => {
     try {
-      return localStorage.getItem('dbv_exam_student_unit') || '';
-    } catch {
-      return '';
-    }
+      const savedStudentUnit = localStorage.getItem('dbv_exam_student_unit');
+      if (savedStudentUnit && savedStudentUnit.trim()) return savedStudentUnit;
+      const savedProfile = localStorage.getItem('dbv_tudo_global_user_profile');
+      if (savedProfile) {
+        const parsed = JSON.parse(savedProfile);
+        if (parsed?.unit) return String(parsed.unit).trim();
+        if (parsed?.unidade) return String(parsed.unidade).trim();
+        if (parsed?.clubName) return String(parsed.clubName).trim();
+      }
+    } catch {}
+    return '';
   });
   const [studentId] = useState<string>(() => {
     try {
@@ -960,7 +1021,7 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
     []
   );
 
-  // Canal e Polling de Sincronização entre Dispositivos (PC <-> Celular) do Instrutor Logado
+  // Canal e Polling de Sincronização das Salas do Usuário Logado (PC <-> Celular sem mover a tela do outro aparelho)
   useEffect(() => {
     if (isIsolatedStudentMode || roleMode !== 'HOST' || !instructorKey) return;
 
@@ -976,15 +1037,9 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
       } catch {}
 
       try {
-        const { data: blob } = await supabaseQfpy.storage
-          .from('App DBV Tudo')
-          .download(`provas/instructor_${instructorKey}.json`);
-        if (blob) {
-          const text = await blob.text();
-          const parsed = JSON.parse(text);
-          if (parsed && parsed.instructorKey === instructorKey) {
-            applyExternalInstructorState(parsed);
-          }
+        const parsed = await downloadCloudExamJson<any>(`provas/instructor_${instructorKey}.json`);
+        if (parsed && parsed.instructorKey === instructorKey) {
+          applyExternalInstructorState(parsed);
         }
       } catch {}
     };
@@ -1019,9 +1074,6 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
       .on('broadcast', { event: 'instructor:state_sync' }, ({ payload }) => {
         if (payload && payload.instructorKey === instructorKey) {
           applyExternalInstructorState(payload);
-          if (payload.selectedRoomPin && !closedRoomPinsRef.current.has(String(payload.selectedRoomPin))) {
-            setSelectedRoomPin(String(payload.selectedRoomPin));
-          }
         }
       })
       .subscribe((status) => {
@@ -1229,81 +1281,76 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
         });
     });
 
-    // Sincronização complementar via servidor e nuvem Supabase a cada 2,5s para todas as salas abertas
+    // Sincronização complementar via servidor E nuvem Supabase (sem cache) a cada 2s para todas as salas abertas
     const pollInterval = setInterval(async () => {
       for (const localRoom of hostRoomsRef.current) {
         const pin = localRoom.pin;
         try {
-          let externalRoom: LiveExamRoomState | null = null;
-          try {
-            const res = await fetch(`/api/live-exam?pin=${pin}`);
-            if (res.ok) {
-              const data = await res.json();
-              if (data?.room) externalRoom = data.room;
-            }
-          } catch {}
+          const [apiRoom, cloudRoom] = await Promise.all([
+            fetch(`/api/live-exam?pin=${pin}`)
+              .then((res) => (res.ok ? res.json() : null))
+              .then((data) => (data?.room && String(data.room.pin) === String(pin) ? (data.room as LiveExamRoomState) : null))
+              .catch(() => null),
+            downloadCloudExamJson<LiveExamRoomState>(`provas/room_${pin}.json`).then((parsed) =>
+              parsed && String(parsed.pin) === String(pin) ? parsed : null
+            )
+          ]);
 
-          if (!externalRoom) {
-            try {
-              const { data: blob } = await supabaseQfpy.storage
-                .from('App DBV Tudo')
-                .download(`provas/room_${pin}.json`);
-              if (blob) {
-                const text = await blob.text();
-                const parsed = JSON.parse(text);
-                if (parsed && String(parsed.pin) === String(pin)) {
-                  externalRoom = parsed;
-                }
-              }
-            } catch {}
-          }
-
+          const sources = [apiRoom, cloudRoom].filter(Boolean) as LiveExamRoomState[];
           const latestLocal = hostRoomsRef.current.find((r) => r.pin === pin);
-          if (externalRoom && latestLocal) {
+
+          if (sources.length > 0 && latestLocal) {
             let changed = false;
             const mergedParticipants = { ...latestLocal.participants };
-
-            Object.values(externalRoom.participants || {}).forEach((sp) => {
-              const lp = mergedParticipants[sp.id];
-              if (
-                !lp ||
-                sp.answeredCount > lp.answeredCount ||
-                sp.cheatCount > lp.cheatCount ||
-                (sp.status === 'FINISHED' && lp.status !== 'FINISHED')
-              ) {
-                if (sp.cheatCount > (lp?.cheatCount || 0) && soundEnabledRef.current) {
-                  playCheatAlertSound();
-                }
-                mergedParticipants[sp.id] = sp;
-                changed = true;
-              }
-            });
-
             const existingAlertIds = new Set(latestLocal.alerts.map((a) => a.id));
             const mergedAlerts = [...latestLocal.alerts];
-            (externalRoom.alerts || []).forEach((sa) => {
-              if (!existingAlertIds.has(sa.id)) {
-                mergedAlerts.unshift(sa);
-                changed = true;
+            let nextStatus = latestLocal.status;
+            let nextStartedAt = latestLocal.startedAt;
+            let nextExtraSeconds = latestLocal.extraSecondsAdded || 0;
+
+            sources.forEach((externalRoom) => {
+              Object.values(externalRoom.participants || {}).forEach((sp) => {
+                if (!sp?.id) return;
+                const lp = mergedParticipants[sp.id];
+                if (
+                  !lp ||
+                  sp.answeredCount > lp.answeredCount ||
+                  sp.cheatCount > lp.cheatCount ||
+                  (sp.status === 'FINISHED' && lp.status !== 'FINISHED')
+                ) {
+                  if (sp.cheatCount > (lp?.cheatCount || 0) && soundEnabledRef.current) {
+                    playCheatAlertSound();
+                  }
+                  mergedParticipants[sp.id] = sp;
+                  changed = true;
+                }
+              });
+
+              (externalRoom.alerts || []).forEach((sa) => {
+                if (sa?.id && !existingAlertIds.has(sa.id)) {
+                  existingAlertIds.add(sa.id);
+                  mergedAlerts.unshift(sa);
+                  changed = true;
+                }
+              });
+
+              if (externalRoom.status === 'FINISHED' && nextStatus !== 'FINISHED') {
+                nextStatus = 'FINISHED';
+              } else if (externalRoom.status === 'ACTIVE' && nextStatus === 'WAITING') {
+                nextStatus = 'ACTIVE';
+              }
+              if (!nextStartedAt && externalRoom.startedAt) {
+                nextStartedAt = externalRoom.startedAt;
+              }
+              if ((externalRoom.extraSecondsAdded || 0) > nextExtraSeconds) {
+                nextExtraSeconds = externalRoom.extraSecondsAdded || 0;
               }
             });
-
-            const nextStatus =
-              latestLocal.status === 'FINISHED' || externalRoom.status === 'FINISHED'
-                ? 'FINISHED'
-                : latestLocal.status === 'ACTIVE' || externalRoom.status === 'ACTIVE'
-                ? 'ACTIVE'
-                : 'WAITING';
-            const nextStartedAt = externalRoom.startedAt || latestLocal.startedAt || null;
-            const nextExtraSeconds = Math.max(
-              latestLocal.extraSecondsAdded || 0,
-              externalRoom.extraSecondsAdded || 0
-            );
 
             if (
               nextStatus !== latestLocal.status ||
               nextStartedAt !== latestLocal.startedAt ||
-              nextExtraSeconds !== latestLocal.extraSecondsAdded
+              nextExtraSeconds !== (latestLocal.extraSecondsAdded || 0)
             ) {
               changed = true;
             }
@@ -1331,7 +1378,7 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
           }
         } catch {}
       }
-    }, 2500);
+    }, 2000);
 
     return () => {
       clearInterval(pollInterval);
@@ -1763,14 +1810,17 @@ REGRAS OBRIGATÓRIAS:
 
   // Auxiliar para sincronizar dados do aluno também no arquivo da sala no Supabase Storage
   const syncStudentToCloudRoom = useCallback(
-    async (pin: string, participant: LiveExamParticipant, newAlert?: LiveExamCheatAlert) => {
+    async (
+      pin: string,
+      participant: LiveExamParticipant,
+      newAlert?: LiveExamCheatAlert,
+      fallbackRoom?: LiveExamRoomState | null
+    ) => {
       try {
-        const { data: blob } = await supabaseQfpy.storage
-          .from('App DBV Tudo')
-          .download(`provas/room_${pin}.json`);
-        if (!blob) return;
-        const text = await blob.text();
-        const cloudRoom: LiveExamRoomState = JSON.parse(text);
+        let cloudRoom = await downloadCloudExamJson<LiveExamRoomState>(`provas/room_${pin}.json`);
+        if (!cloudRoom || !cloudRoom.pin) {
+          cloudRoom = fallbackRoom ? { ...fallbackRoom } : null;
+        }
         if (!cloudRoom || !cloudRoom.pin) return;
 
         const prevP = cloudRoom.participants?.[participant.id];
@@ -1812,12 +1862,41 @@ REGRAS OBRIGATÓRIAS:
             contentType: 'application/json',
             cacheControl: '0'
           });
+
+        // Se a sala tiver creatorKey, atualiza também o estado em nuvem do instrutor
+        if (cloudRoom.creatorKey) {
+          try {
+            const instState = await downloadCloudExamJson<any>(
+              `provas/instructor_${cloudRoom.creatorKey}.json`
+            );
+            if (instState && Array.isArray(instState.rooms)) {
+              const updatedRooms = instState.rooms.map((r: any) =>
+                r && String(r.pin) === String(pin) ? cloudRoom : r
+              );
+              await supabaseQfpy.storage
+                .from('App DBV Tudo')
+                .upload(
+                  `provas/instructor_${cloudRoom.creatorKey}.json`,
+                  JSON.stringify({
+                    ...instState,
+                    rooms: updatedRooms,
+                    updatedAt: Date.now()
+                  }),
+                  {
+                    upsert: true,
+                    contentType: 'application/json',
+                    cacheControl: '0'
+                  }
+                );
+            }
+          } catch {}
+        }
       } catch {}
     },
     []
   );
 
-  // Conecta o Aluno à Sala pelo PIN (via Servidor + Supabase Realtime + Supabase Storage)
+  // Conecta o Aluno à Sala pelo PIN (via Servidor + Supabase Realtime Dedicado + Supabase Storage)
   const handleStudentJoinRoom = async () => {
     const cleanPin = studentPinInput.replace(/\D/g, '').trim();
     if (cleanPin.length !== 6) {
@@ -1841,14 +1920,20 @@ REGRAS OBRIGATÓRIAS:
 
     let resolvedRoom: LiveExamRoomState | null = null;
 
-    // 1. Tenta buscar estado imediato no servidor (/api/live-exam), localStorage ou nuvem Supabase
+    // 1. Tenta buscar estado imediato no servidor (/api/live-exam), nuvem Supabase (sem cache) ou localStorage
     try {
-      const res = await fetch(`/api/live-exam?pin=${cleanPin}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.room) {
-          resolvedRoom = data.room;
-        }
+      const [apiRoom, cloudRoom] = await Promise.all([
+        fetch(`/api/live-exam?pin=${cleanPin}`)
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => (data?.room && String(data.room.pin) === cleanPin ? (data.room as LiveExamRoomState) : null))
+          .catch(() => null),
+        downloadCloudExamJson<LiveExamRoomState>(`provas/room_${cleanPin}.json`).then((parsed) =>
+          parsed && String(parsed.pin) === cleanPin ? parsed : null
+        )
+      ]);
+      resolvedRoom = cloudRoom || apiRoom;
+      if (apiRoom && cloudRoom) {
+        resolvedRoom = (cloudRoom.updatedAt || 0) >= (apiRoom.updatedAt || 0) ? cloudRoom : apiRoom;
       }
     } catch {}
 
@@ -1874,27 +1959,62 @@ REGRAS OBRIGATÓRIAS:
       } catch {}
     }
 
-    if (!resolvedRoom) {
-      try {
-        const { data: blob } = await supabaseQfpy.storage
-          .from('App DBV Tudo')
-          .download(`provas/room_${cleanPin}.json`);
-        if (blob) {
-          const text = await blob.text();
-          const parsed = JSON.parse(text);
-          if (parsed && String(parsed.pin) === cleanPin) {
-            resolvedRoom = parsed;
-          }
-        }
-      } catch {}
+    const initialParticipant: LiveExamParticipant = {
+      id: studentId,
+      name: studentName.trim(),
+      unit: studentUnit.trim() || 'Sem Unidade',
+      status: resolvedRoom?.status === 'ACTIVE' ? 'PLAYING' : 'WAITING',
+      joinedAt: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      currentQuestionIdx: 0,
+      answeredCount: 0,
+      correctCount: 0,
+      scorePercent: 0,
+      grade10: 0,
+      cheatCount: 0,
+      isLocked: false,
+      answers: {}
+    };
+
+    // Registra imediatamente no Servidor, no Supabase Storage e nas salas locais (caso seja o mesmo aparelho)
+    fetch('/api/live-exam', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'STUDENT_UPDATE',
+        pin: cleanPin,
+        participant: initialParticipant
+      })
+    }).catch(() => {});
+
+    syncStudentToCloudRoom(cleanPin, initialParticipant, undefined, resolvedRoom);
+
+    const matchingLocalHostRoom = hostRoomsRef.current.find((r) => String(r.pin) === cleanPin);
+    if (matchingLocalHostRoom) {
+      const updatedHostRoom: LiveExamRoomState = {
+        ...matchingLocalHostRoom,
+        participants: {
+          ...matchingLocalHostRoom.participants,
+          [initialParticipant.id]: initialParticipant
+        },
+        updatedAt: Date.now()
+      };
+      persistHostRoom(updatedHostRoom);
+      hostChannelsMapRef.current
+        .get(cleanPin)
+        ?.send({
+          type: 'broadcast',
+          event: 'student:join',
+          payload: { participant: initialParticipant }
+        })
+        .catch(() => {});
     }
 
-    // 2. Conecta no canal Supabase Realtime da sala
+    // 2. Conecta no canal Supabase Realtime da sala usando o cliente dedicado do Aluno (sem colisão com o Host)
     if (studentChannelRef.current) {
-      supabaseQfpy.removeChannel(studentChannelRef.current);
+      supabaseStudentRealtime.removeChannel(studentChannelRef.current);
     }
 
-    const channel = supabaseQfpy.channel(`dbv_live_exam_${cleanPin}`, {
+    const channel = supabaseStudentRealtime.channel(`dbv_live_exam_${cleanPin}`, {
       config: { broadcast: { self: true } }
     });
     studentChannelRef.current = channel;
@@ -1941,22 +2061,6 @@ REGRAS OBRIGATÓRIAS:
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          const initialParticipant: LiveExamParticipant = {
-            id: studentId,
-            name: studentName.trim(),
-            unit: studentUnit.trim() || 'Sem Unidade',
-            status: resolvedRoom?.status === 'ACTIVE' ? 'PLAYING' : 'WAITING',
-            joinedAt: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-            currentQuestionIdx: 0,
-            answeredCount: 0,
-            correctCount: 0,
-            scorePercent: 0,
-            grade10: 0,
-            cheatCount: 0,
-            isLocked: false,
-            answers: {}
-          };
-
           await channel.send({
             type: 'broadcast',
             event: 'student:join',
@@ -1967,23 +2071,18 @@ REGRAS OBRIGATÓRIAS:
             event: 'student:request_sync',
             payload: { pin: cleanPin, studentId }
           });
-
-          fetch('/api/live-exam', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'STUDENT_UPDATE',
-              pin: cleanPin,
-              participant: initialParticipant
-            })
-          }).catch(() => {});
-
-          syncStudentToCloudRoom(cleanPin, initialParticipant);
         }
       });
 
     if (resolvedRoom) {
-      setStudentRoom(resolvedRoom);
+      const roomWithMe: LiveExamRoomState = {
+        ...resolvedRoom,
+        participants: {
+          ...(resolvedRoom.participants || {}),
+          [initialParticipant.id]: initialParticipant
+        }
+      };
+      setStudentRoom(roomWithMe);
       setIsConnectingRoom(false);
       if (resolvedRoom.status === 'ACTIVE') {
         setStudentPhase('PLAYING');
@@ -2007,40 +2106,63 @@ REGRAS OBRIGATÓRIAS:
     }, 4000);
   };
 
-  // Polling complementar do Aluno para sincronizar status da sala / desbloqueio do instrutor (Servidor + Supabase Nuvem)
+  // Polling complementar do Aluno para sincronizar status da sala / desbloqueio do instrutor + Heartbeat de presença
   useEffect(() => {
     if (roleMode !== 'STUDENT' || studentPhase === 'ENTER_PIN' || !studentRoom?.pin) return;
     const pin = studentRoom.pin;
 
     const interval = setInterval(async () => {
       try {
-        let srv: LiveExamRoomState | null = null;
-        try {
-          const res = await fetch(`/api/live-exam?pin=${pin}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data?.room) srv = data.room;
-          }
-        } catch {}
+        const currentParticipant = buildCurrentParticipantPayload({
+          status:
+            studentPhase === 'FINISHED'
+              ? 'FINISHED'
+              : studentLocked
+              ? 'LOCKED_CHEAT'
+              : studentPhase === 'PLAYING'
+              ? 'PLAYING'
+              : 'WAITING'
+        });
 
-        if (!srv) {
-          try {
-            const { data: blob } = await supabaseQfpy.storage
-              .from('App DBV Tudo')
-              .download(`provas/room_${pin}.json`);
-            if (blob) {
-              const text = await blob.text();
-              const parsed = JSON.parse(text);
-              if (parsed && String(parsed.pin) === String(pin)) {
-                srv = parsed;
-              }
-            }
-          } catch {}
+        studentChannelRef.current
+          ?.send({
+            type: 'broadcast',
+            event: studentPhase === 'WAITING_HOST' ? 'student:join' : 'student:update',
+            payload: { participant: currentParticipant }
+          })
+          .catch(() => {});
+
+        fetch('/api/live-exam', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'STUDENT_UPDATE',
+            pin,
+            participant: currentParticipant
+          })
+        }).catch(() => {});
+
+        const [apiRoom, cloudRoom] = await Promise.all([
+          fetch(`/api/live-exam?pin=${pin}`)
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data) => (data?.room && String(data.room.pin) === String(pin) ? (data.room as LiveExamRoomState) : null))
+            .catch(() => null),
+          downloadCloudExamJson<LiveExamRoomState>(`provas/room_${pin}.json`).then((parsed) =>
+            parsed && String(parsed.pin) === String(pin) ? parsed : null
+          )
+        ]);
+
+        let srv: LiveExamRoomState | null = cloudRoom || apiRoom;
+        if (apiRoom && cloudRoom) {
+          srv = (cloudRoom.updatedAt || 0) >= (apiRoom.updatedAt || 0) ? cloudRoom : apiRoom;
         }
 
         if (srv) {
           setStudentRoom(srv);
           const me = srv.participants?.[studentId];
+          if (!me || me.answeredCount < currentParticipant.answeredCount) {
+            syncStudentToCloudRoom(pin, currentParticipant, undefined, srv);
+          }
           if (me) {
             setStudentLocked(me.isLocked);
             if (!me.isLocked) setStudentWarningModal(null);
@@ -2063,10 +2185,10 @@ REGRAS OBRIGATÓRIAS:
           }
         }
       } catch {}
-    }, 2500);
+    }, 2000);
 
     return () => clearInterval(interval);
-  }, [roleMode, studentPhase, studentRoom?.pin, studentId]);
+  }, [roleMode, studentPhase, studentRoom?.pin, studentId, studentLocked, buildCurrentParticipantPayload, syncStudentToCloudRoom]);
 
   // ============================================================================
   // DETECTOR ANTI-COLA EM TEMPO REAL NO CELULAR/PC DO ALUNO
@@ -3256,11 +3378,6 @@ REGRAS OBRIGATÓRIAS:
                 ? 'Abrir Nova Prova'
                 : 'Criar Nova Prova'}
             </h3>
-            {(instructorIdentity.name || instructorIdentity.email) && (
-              <p className="text-[9px] font-bold text-emerald-300/90 truncate mt-0.5">
-                🔄 Sincronizado PC ↔ Celular: {instructorIdentity.name || instructorIdentity.email}
-              </p>
-            )}
           </div>
 
           <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 w-full sm:w-auto shrink-0">
@@ -3326,7 +3443,6 @@ REGRAS OBRIGATÓRIAS:
                     onClick={() => {
                       setSelectedRoomPin(roomTab.pin);
                       setIsCreatingNewRoom(false);
-                      syncInstructorCloudState(hostRoomsRef.current, roomTab.pin);
                     }}
                     className={`group flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-left transition-all shrink-0 cursor-pointer ${
                       isSelectedTab

@@ -119,24 +119,59 @@ function versionPlugin(): Plugin {
                 const { action, pin, room, participant, alert, instructorKey, rooms, selectedRoomPin, closedPins } = payload;
 
                 if (action === 'UPSERT_ROOM' && room?.pin) {
-                  liveExamRooms.set(String(room.pin), room);
-                  const cKey = String(room.creatorKey || instructorKey || '').trim();
+                  const rPin = String(room.pin);
+                  const existingRoom = liveExamRooms.get(rPin);
+                  const mergedParticipants: Record<string, any> = {
+                    ...(existingRoom?.participants || {}),
+                    ...(room.participants || {})
+                  };
+                  if (existingRoom?.participants && room.participants) {
+                    Object.keys(existingRoom.participants).forEach((pid) => {
+                      const ep = existingRoom.participants[pid];
+                      const rp = room.participants[pid];
+                      if (ep && rp) {
+                        mergedParticipants[pid] = {
+                          ...ep,
+                          ...rp,
+                          answeredCount: Math.max(ep.answeredCount || 0, rp.answeredCount || 0),
+                          cheatCount: Math.max(ep.cheatCount || 0, rp.cheatCount || 0)
+                        };
+                      }
+                    });
+                  }
+                  const alertIds = new Set<string>();
+                  const mergedAlerts: any[] = [];
+                  [...(room.alerts || []), ...(existingRoom?.alerts || [])].forEach((a: any) => {
+                    if (a?.id && !alertIds.has(a.id)) {
+                      alertIds.add(a.id);
+                      mergedAlerts.push(a);
+                    }
+                  });
+
+                  const savedRoom = {
+                    ...existingRoom,
+                    ...room,
+                    participants: mergedParticipants,
+                    alerts: mergedAlerts
+                  };
+                  liveExamRooms.set(rPin, savedRoom);
+                  const cKey = String(room.creatorKey || instructorKey || existingRoom?.creatorKey || '').trim();
                   if (cKey) {
                     const prevSession = liveExamInstructorSessions.get(cKey);
-                    const nextClosed = (prevSession?.closedPins || []).filter((p) => p !== String(room.pin));
-                    const nextPins = Array.from(new Set([...(prevSession?.roomPins || []), String(room.pin)]));
+                    const nextClosed = (prevSession?.closedPins || []).filter((p) => p !== rPin);
+                    const nextPins = Array.from(new Set([...(prevSession?.roomPins || []), rPin]));
                     liveExamInstructorSessions.set(cKey, {
                       instructorKey: cKey,
                       instructorEmail: room.creatorEmail || prevSession?.instructorEmail,
                       instructorName: room.creatorName || prevSession?.instructorName,
-                      selectedRoomPin: selectedRoomPin || prevSession?.selectedRoomPin || String(room.pin),
+                      selectedRoomPin: selectedRoomPin || prevSession?.selectedRoomPin || rPin,
                       closedPins: nextClosed,
                       roomPins: nextPins,
                       updatedAt: Date.now()
                     });
                   }
                   res.setHeader('Content-Type', 'application/json');
-                  res.end(JSON.stringify({ ok: true, room }));
+                  res.end(JSON.stringify({ ok: true, room: savedRoom }));
                   return;
                 }
 
