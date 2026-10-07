@@ -12,6 +12,10 @@ const globalStudentHistories: Map<string, any[]> =
   (globalThis as any).__dbvLiveExamStudentHistories || new Map<string, any[]>();
 (globalThis as any).__dbvLiveExamStudentHistories = globalStudentHistories;
 
+const globalUserCloudBundles: Map<string, any> =
+  (globalThis as any).__dbvUserCloudSyncBundles || new Map<string, any>();
+(globalThis as any).__dbvUserCloudSyncBundles = globalUserCloudBundles;
+
 function mergeStudentHistoryEntries(existingList: any[], incomingList: any[]): any[] {
   const byPin = new Map<string, any>();
   [...(existingList || []), ...(incomingList || [])].forEach((item) => {
@@ -198,11 +202,19 @@ export default async function handler(
       const u = new URL(req.url || '', 'http://localhost:3000');
       const pin = (req.query?.pin || u.searchParams.get('pin') || '').trim();
       const instructorKey = (req.query?.instructor || u.searchParams.get('instructor') || '').trim();
+      const cloudSyncUser = (req.query?.cloudSyncUser || u.searchParams.get('cloudSyncUser') || '').trim();
       const studentHistoryKeysRaw = (
         req.query?.studentHistoryKeys ||
         u.searchParams.get('studentHistoryKeys') ||
         ''
       ).trim();
+
+      if (cloudSyncUser) {
+        const bundle = globalUserCloudBundles.get(cloudSyncUser) || globalUserCloudBundles.get('shared_unit_fallback') || null;
+        res.statusCode = 200;
+        res.end(JSON.stringify({ bundle }));
+        return;
+      }
 
       if (studentHistoryKeysRaw) {
         const keys = studentHistoryKeysRaw
@@ -280,6 +292,25 @@ export default async function handler(
           selectedRoomPin,
           closedPins
         } = payload || {};
+
+        if (action === 'SYNC_USER_CLOUD_BUNDLE' && payload?.userKey && payload?.bundle) {
+          const uKey = String(payload.userKey).trim();
+          const prev = globalUserCloudBundles.get(uKey);
+          const mergedEntries = {
+            ...(prev?.entries || {}),
+            ...(payload.bundle.entries || {})
+          };
+          const savedBundle = {
+            ...payload.bundle,
+            entries: mergedEntries,
+            updatedAt: Math.max(Number(prev?.updatedAt || 0), Number(payload.bundle.updatedAt || Date.now()))
+          };
+          globalUserCloudBundles.set(uKey, savedBundle);
+          globalUserCloudBundles.set('shared_unit_fallback', savedBundle);
+          res.statusCode = 200;
+          res.end(JSON.stringify({ ok: true, bundle: savedBundle }));
+          return;
+        }
 
         if (action === 'SYNC_STUDENT_HISTORY' && Array.isArray(payload?.keys) && Array.isArray(payload?.entries)) {
           const keys = payload.keys.map((k: any) => String(k || '').trim()).filter(Boolean);

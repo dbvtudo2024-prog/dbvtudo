@@ -720,6 +720,35 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     }
   });
 
+  useEffect(() => {
+    const handleCloudAppliedInProfile = () => {
+      try {
+        const clubType = userData.tipo === "Desbravador" ? ClubType.PATHFINDER : ClubType.ADVENTURER;
+        const freshFaixa = getLocalFaixaSpecialties(userData.email, clubType);
+        setLikedIds((prev) => (JSON.stringify(prev) === JSON.stringify(freshFaixa) ? prev : freshFaixa));
+
+        const achRaw = localStorage.getItem('dbv_tudo_user_achievements');
+        if (achRaw) {
+          const parsedAch = JSON.parse(achRaw);
+          if (Array.isArray(parsedAch)) {
+            setUserAchievements((prev) => (JSON.stringify(prev) === JSON.stringify(parsedAch) ? prev : parsedAch));
+          }
+        }
+        const bapRaw = localStorage.getItem('dbv_tudo_user_baptized');
+        if (bapRaw !== null) {
+          const parsedBap = JSON.parse(bapRaw);
+          setIsBaptized(Boolean(parsedBap));
+        }
+      } catch {}
+    };
+    window.addEventListener('dbv_cloud_sync_applied', handleCloudAppliedInProfile);
+    window.addEventListener('storage', handleCloudAppliedInProfile);
+    return () => {
+      window.removeEventListener('dbv_cloud_sync_applied', handleCloudAppliedInProfile);
+      window.removeEventListener('storage', handleCloudAppliedInProfile);
+    };
+  }, [userData.email, userData.tipo]);
+
   // Carregar dados do Supabase se houver usuário logado
   useEffect(() => {
     const checkUser = async () => {

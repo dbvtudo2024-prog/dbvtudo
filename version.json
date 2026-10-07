@@ -1,9 +1,9 @@
 {
-  "version": 1759806000000,
-  "versionName": "3.0.96",
-  "buildDate": "2026-10-07T06:00:00.000Z",
-  "timestamp": 1759806000000,
+  "version": 1759877700000,
+  "versionName": "3.0.97",
+  "buildDate": "2026-10-07T22:55:00.000Z",
+  "timestamp": 1759877700000,
   "highlights": [
-    "Novo botão Criar Prova (questões manuais ou geradas por IA a partir de qualquer tema), botão Criar Prova de Especialidade e botões compactos no celular"
+    "Sincronização Automática em Nuvem Multi-Dispositivo (Celular ↔ PC) para Cantinho da Unidade, Membros, Acampamento, Mochila, Bíblia, Faixa e Provas"
   ]
 }

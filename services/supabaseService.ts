@@ -2627,7 +2627,24 @@ export async function updateUserProfile(profile: Partial<UserProfile>) {
     if (profile.cidade !== undefined) cleanProfile.cidade = profile.cidade;
     if (profile.estado !== undefined) cleanProfile.estado = profile.estado;
     if (profile.ADM !== undefined) cleanProfile.ADM = profile.ADM;
-    if (profile.fundo !== undefined) cleanProfile.fundo = profile.fundo;
+    if (profile.fundo !== undefined) {
+      try {
+        const { data: existingRow } = await supabase
+          .from('Usuarios')
+          .select('fundo')
+          .eq('user_id', profile.user_id)
+          .maybeSingle();
+        let prevMeta: Record<string, any> = {};
+        if (existingRow?.fundo) {
+          try { prevMeta = JSON.parse(existingRow.fundo); } catch {}
+        }
+        let nextMeta: Record<string, any> = {};
+        try { nextMeta = JSON.parse(profile.fundo); } catch { nextMeta = { raw: profile.fundo }; }
+        cleanProfile.fundo = JSON.stringify({ ...prevMeta, ...nextMeta });
+      } catch {
+        cleanProfile.fundo = profile.fundo;
+      }
+    }
     if (profile.Especialidades !== undefined) cleanProfile.Especialidades = profile.Especialidades;
     if (profile.Conquistas !== undefined) cleanProfile.Conquistas = profile.Conquistas;
     if (profile.data_nascimento !== undefined) {
@@ -3038,12 +3055,19 @@ export async function deleteConquista(id: number) {
   }
 }
 
-export async function fetchUserAchievements(email: string): Promise<number[]> {
+export async function fetchUserAchievements(emailOrUserId: string): Promise<number[]> {
   try {
+    let targetUserId = emailOrUserId;
+    if (!targetUserId || targetUserId.includes('@')) {
+      const { data: authData } = await supabase.auth.getUser();
+      targetUserId = authData?.user?.id || '';
+    }
+    if (!targetUserId) return [];
+
     const { data, error } = await supabase
       .from('Usuarios')
       .select('Conquistas')
-      .eq('email', email)
+      .eq('user_id', targetUserId)
       .maybeSingle();
     
     if (error || !data || !data.Conquistas) return [];
@@ -3062,12 +3086,21 @@ export async function fetchUserAchievements(email: string): Promise<number[]> {
   }
 }
 
-export async function updateUserAchievements(email: string, achievementIds: number[]) {
+export async function updateUserAchievements(emailOrUserId: string, achievementIds: number[]) {
   try {
+    let targetUserId = emailOrUserId;
+    if (!targetUserId || targetUserId.includes('@')) {
+      const { data: authData } = await supabase.auth.getUser();
+      targetUserId = authData?.user?.id || '';
+    }
+    if (!targetUserId) return { error: 'User ID not found' };
+
     const { error } = await supabase
       .from('Usuarios')
-      .update({ Conquistas: achievementIds.join(',') })
-      .eq('email', email);
+      .upsert(
+        { user_id: targetUserId, Conquistas: achievementIds.join(',') },
+        { onConflict: 'user_id' }
+      );
     return { error };
   } catch (err: any) {
     return { error: err };

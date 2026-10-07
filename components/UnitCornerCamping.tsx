@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   Tent,
   Backpack,
@@ -28,6 +28,7 @@ import {
   X
 } from 'lucide-react';
 import { ClubType } from '../types';
+import { syncUserCloudDataNow } from '../services/userCloudSync';
 
 interface UnitCornerCampingProps {
   club: ClubType;
@@ -217,34 +218,32 @@ const CATEGORY_META: Record<
 const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club }) => {
   const isPathfinder = club === ClubType.PATHFINDER;
   const storagePrefix = `dbv_unit_corner_${isPathfinder ? 'DBV' : 'AVT'}`;
+  const loadedPrefixRef = useRef<string>(storagePrefix);
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('CANTINHO');
   const [copiedFeedback, setCopiedFeedback] = useState<string | null>(null);
 
-  // ============================================================================
-  // DADOS GERAIS DA UNIDADE E MEMBROS
-  // ============================================================================
-  const [unitName, setUnitName] = useState<string>(() => {
+  const readUnitName = (prefix: string): string => {
     try {
-      const saved = localStorage.getItem(`${storagePrefix}_unit_name`);
+      const saved = localStorage.getItem(`${prefix}_unit_name`);
       if (saved && saved !== 'Unidade Águias da Colina' && saved !== 'Unidade Estrelas de Jesus') {
         return saved;
       }
     } catch {}
     return '';
-  });
+  };
 
-  const [counselorName, setCounselorName] = useState<string>(() => {
+  const readCounselorName = (prefix: string): string => {
     try {
-      return localStorage.getItem(`${storagePrefix}_counselor_name`) || '';
+      return localStorage.getItem(`${prefix}_counselor_name`) || '';
     } catch {
       return '';
     }
-  });
+  };
 
-  const [members, setMembers] = useState<UnitMember[]>(() => {
+  const readMembers = (prefix: string): UnitMember[] => {
     try {
-      const saved = localStorage.getItem(`${storagePrefix}_members`);
+      const saved = localStorage.getItem(`${prefix}_members`);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
@@ -253,54 +252,30 @@ const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club }) => {
       }
     } catch {}
     return DEFAULT_MEMBERS;
-  });
+  };
 
-  const [newMemberName, setNewMemberName] = useState<string>('');
-  const [newMemberRole, setNewMemberRole] = useState<UnitMember['role']>('Membro');
-
-  useEffect(() => {
+  const readBackpackItems = (prefix: string): BackpackItem[] => {
     try {
-      localStorage.setItem(`${storagePrefix}_unit_name`, unitName);
-      localStorage.setItem(`${storagePrefix}_counselor_name`, counselorName);
-      localStorage.setItem(`${storagePrefix}_members`, JSON.stringify(members));
-    } catch {}
-  }, [unitName, counselorName, members, storagePrefix]);
-
-  // ============================================================================
-  // 1. ESTADO DO CHECKLIST DE MOCHILA
-  // ============================================================================
-  const [backpackItems, setBackpackItems] = useState<BackpackItem[]>(() => {
-    try {
-      const saved = localStorage.getItem(`${storagePrefix}_backpack`);
-      if (saved) return JSON.parse(saved);
+      const saved = localStorage.getItem(`${prefix}_backpack`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
     } catch {}
     return DEFAULT_BACKPACK_ITEMS;
-  });
+  };
 
-  const [selectedBackpackCat, setSelectedBackpackCat] = useState<'TODAS' | BackpackItem['category']>('TODAS');
-  const [newCustomItemName, setNewCustomItemName] = useState<string>('');
-  const [newCustomItemCat, setNewCustomItemCat] = useState<BackpackItem['category']>('CAMPO_COZINHA');
-
-  useEffect(() => {
+  const readCampEventName = (prefix: string): string => {
     try {
-      localStorage.setItem(`${storagePrefix}_backpack`, JSON.stringify(backpackItems));
-    } catch {}
-  }, [backpackItems, storagePrefix]);
-
-  // ============================================================================
-  // 2. ESTADO DO PLANEJADOR DE ACAMPAMENTO (ESCALA + CARDÁPIO)
-  // ============================================================================
-  const [campEventName, setCampEventName] = useState<string>(() => {
-    try {
-      return localStorage.getItem(`${storagePrefix}_camp_name`) || 'Acampamento de Instrução da Unidade';
+      return localStorage.getItem(`${prefix}_camp_name`) || 'Acampamento de Instrução da Unidade';
     } catch {
       return 'Acampamento de Instrução da Unidade';
     }
-  });
+  };
 
-  const [mealSlots, setMealSlots] = useState<MealScheduleSlot[]>(() => {
+  const readMealSlots = (prefix: string): MealScheduleSlot[] => {
     try {
-      const saved = localStorage.getItem(`${storagePrefix}_meals`);
+      const saved = localStorage.getItem(`${prefix}_meals`);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -318,28 +293,11 @@ const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club }) => {
       }
     } catch {}
     return DEFAULT_MEAL_SLOTS;
-  });
+  };
 
-  const [selectedCampDayFilter, setSelectedCampDayFilter] = useState<string>('TODOS');
-  const [newCampDayName, setNewCampDayName] = useState<string>('');
-  const [newMealTargetDay, setNewMealTargetDay] = useState<string>('');
-  const [newMealTitle, setNewMealTitle] = useState<string>('');
-  const [editingDayOriginal, setEditingDayOriginal] = useState<string | null>(null);
-  const [editingDayText, setEditingDayText] = useState<string>('');
-
-  useEffect(() => {
+  const readMeetings = (prefix: string): SundayMeetingSheet[] => {
     try {
-      localStorage.setItem(`${storagePrefix}_camp_name`, campEventName);
-      localStorage.setItem(`${storagePrefix}_meals`, JSON.stringify(mealSlots));
-    } catch {}
-  }, [campEventName, mealSlots, storagePrefix]);
-
-  // ============================================================================
-  // 3. ESTADO DA CADERNETA DE PONTUAÇÃO DO CANTINHO DA UNIDADE
-  // ============================================================================
-  const [meetings, setMeetings] = useState<SundayMeetingSheet[]>(() => {
-    try {
-      const saved = localStorage.getItem(`${storagePrefix}_meetings`);
+      const saved = localStorage.getItem(`${prefix}_meetings`);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -354,7 +312,44 @@ const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club }) => {
         records: {}
       }
     ];
-  });
+  };
+
+  // ============================================================================
+  // DADOS GERAIS DA UNIDADE E MEMBROS
+  // ============================================================================
+  const [unitName, setUnitName] = useState<string>(() => readUnitName(storagePrefix));
+  const [counselorName, setCounselorName] = useState<string>(() => readCounselorName(storagePrefix));
+  const [members, setMembers] = useState<UnitMember[]>(() => readMembers(storagePrefix));
+
+  const [newMemberName, setNewMemberName] = useState<string>('');
+  const [newMemberRole, setNewMemberRole] = useState<UnitMember['role']>('Membro');
+
+  // ============================================================================
+  // 1. ESTADO DO CHECKLIST DE MOCHILA
+  // ============================================================================
+  const [backpackItems, setBackpackItems] = useState<BackpackItem[]>(() => readBackpackItems(storagePrefix));
+
+  const [selectedBackpackCat, setSelectedBackpackCat] = useState<'TODAS' | BackpackItem['category']>('TODAS');
+  const [newCustomItemName, setNewCustomItemName] = useState<string>('');
+  const [newCustomItemCat, setNewCustomItemCat] = useState<BackpackItem['category']>('CAMPO_COZINHA');
+
+  // ============================================================================
+  // 2. ESTADO DO PLANEJADOR DE ACAMPAMENTO (ESCALA + CARDÁPIO)
+  // ============================================================================
+  const [campEventName, setCampEventName] = useState<string>(() => readCampEventName(storagePrefix));
+  const [mealSlots, setMealSlots] = useState<MealScheduleSlot[]>(() => readMealSlots(storagePrefix));
+
+  const [selectedCampDayFilter, setSelectedCampDayFilter] = useState<string>('TODOS');
+  const [newCampDayName, setNewCampDayName] = useState<string>('');
+  const [newMealTargetDay, setNewMealTargetDay] = useState<string>('');
+  const [newMealTitle, setNewMealTitle] = useState<string>('');
+  const [editingDayOriginal, setEditingDayOriginal] = useState<string | null>(null);
+  const [editingDayText, setEditingDayText] = useState<string>('');
+
+  // ============================================================================
+  // 3. ESTADO DA CADERNETA DE PONTUAÇÃO DO CANTINHO DA UNIDADE
+  // ============================================================================
+  const [meetings, setMeetings] = useState<SundayMeetingSheet[]>(() => readMeetings(storagePrefix));
 
   const [selectedMeetingId, setSelectedMeetingId] = useState<string>(() => {
     return meetings[0]?.id || 'meet_1';
@@ -362,7 +357,79 @@ const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club }) => {
 
   const [newMeetingDateInput, setNewMeetingDateInput] = useState<string>('');
 
+  const reloadAllFromStorage = useCallback((prefix: string) => {
+    const nextUnitName = readUnitName(prefix);
+    const nextCounselor = readCounselorName(prefix);
+    const nextMembers = readMembers(prefix);
+    const nextBackpack = readBackpackItems(prefix);
+    const nextCampName = readCampEventName(prefix);
+    const nextMeals = readMealSlots(prefix);
+    const nextMeetings = readMeetings(prefix);
+
+    setUnitName((prev) => (prev === nextUnitName ? prev : nextUnitName));
+    setCounselorName((prev) => (prev === nextCounselor ? prev : nextCounselor));
+    setMembers((prev) => (JSON.stringify(prev) === JSON.stringify(nextMembers) ? prev : nextMembers));
+    setBackpackItems((prev) => (JSON.stringify(prev) === JSON.stringify(nextBackpack) ? prev : nextBackpack));
+    setCampEventName((prev) => (prev === nextCampName ? prev : nextCampName));
+    setMealSlots((prev) => (JSON.stringify(prev) === JSON.stringify(nextMeals) ? prev : nextMeals));
+    setMeetings((prev) => {
+      if (JSON.stringify(prev) === JSON.stringify(nextMeetings)) return prev;
+      setSelectedMeetingId((curId) =>
+        nextMeetings.some((m) => m.id === curId) ? curId : nextMeetings[0]?.id || 'meet_1'
+      );
+      return nextMeetings;
+    });
+  }, []);
+
+  // Recarrega os dados ao trocar entre Desbravadores e Aventureiros
   useEffect(() => {
+    if (loadedPrefixRef.current !== storagePrefix) {
+      loadedPrefixRef.current = storagePrefix;
+      reloadAllFromStorage(storagePrefix);
+    }
+  }, [storagePrefix, reloadAllFromStorage]);
+
+  // Sincronização em tempo real entre Celular e PC
+  useEffect(() => {
+    syncUserCloudDataNow().catch(() => {});
+
+    const handleCloudApplied = () => {
+      reloadAllFromStorage(storagePrefix);
+    };
+    window.addEventListener('dbv_cloud_sync_applied', handleCloudApplied);
+    window.addEventListener('storage', handleCloudApplied);
+    return () => {
+      window.removeEventListener('dbv_cloud_sync_applied', handleCloudApplied);
+      window.removeEventListener('storage', handleCloudApplied);
+    };
+  }, [storagePrefix, reloadAllFromStorage]);
+
+  useEffect(() => {
+    if (loadedPrefixRef.current !== storagePrefix) return;
+    try {
+      localStorage.setItem(`${storagePrefix}_unit_name`, unitName);
+      localStorage.setItem(`${storagePrefix}_counselor_name`, counselorName);
+      localStorage.setItem(`${storagePrefix}_members`, JSON.stringify(members));
+    } catch {}
+  }, [unitName, counselorName, members, storagePrefix]);
+
+  useEffect(() => {
+    if (loadedPrefixRef.current !== storagePrefix) return;
+    try {
+      localStorage.setItem(`${storagePrefix}_backpack`, JSON.stringify(backpackItems));
+    } catch {}
+  }, [backpackItems, storagePrefix]);
+
+  useEffect(() => {
+    if (loadedPrefixRef.current !== storagePrefix) return;
+    try {
+      localStorage.setItem(`${storagePrefix}_camp_name`, campEventName);
+      localStorage.setItem(`${storagePrefix}_meals`, JSON.stringify(mealSlots));
+    } catch {}
+  }, [campEventName, mealSlots, storagePrefix]);
+
+  useEffect(() => {
+    if (loadedPrefixRef.current !== storagePrefix) return;
     try {
       localStorage.setItem(`${storagePrefix}_meetings`, JSON.stringify(meetings));
     } catch {}

@@ -728,6 +728,25 @@ const ClubQuiz: React.FC<ClubQuizProps> = ({ club, specialties, getImageUrl = (u
     return defaultScores;
   });
 
+  useEffect(() => {
+    const reloadScores = () => {
+      try {
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+          const next = { ...defaultScores, ...JSON.parse(saved) };
+          setHighScores((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+        }
+      } catch {}
+    };
+    reloadScores();
+    window.addEventListener('dbv_cloud_sync_applied', reloadScores);
+    window.addEventListener('storage', reloadScores);
+    return () => {
+      window.removeEventListener('dbv_cloud_sync_applied', reloadScores);
+      window.removeEventListener('storage', reloadScores);
+    };
+  }, [storageKey]);
+
   const timerRef = useRef<any>(null);
   const autoNextTimerRef = useRef<any>(null);
   const handleNextQuestionRef = useRef<() => void>(() => {});

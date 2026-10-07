@@ -4,8 +4,9 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '3.0.96';
+const appVersion = '3.0.97';
 const liveExamRooms = new Map<string, any>();
+const userCloudSyncBundles = new Map<string, any>();
 const liveExamInstructorSessions = new Map<
   string,
   {
@@ -66,7 +67,7 @@ function versionPlugin(): Plugin {
           buildDate: new Date(buildTime).toISOString(),
           timestamp: buildTime,
           highlights: [
-            "Prova Ao Vivo liberada apenas de Conselheiro para cima, opção de Ler QR Code pelo aplicativo e envio individual do resultado para o aparelho de cada aluno"
+            "Sincronização Automática em Nuvem Multi-Dispositivo (Celular ↔ PC) para Cantinho da Unidade, Membros, Acampamento, Mochila, Bíblia, Faixa e Provas"
           ]
         }, null, 2)
       });
@@ -82,7 +83,7 @@ function versionPlugin(): Plugin {
             buildDate: new Date(buildTime).toISOString(),
             timestamp: buildTime,
             highlights: [
-              "Prova Ao Vivo liberada apenas de Conselheiro para cima, opção de Ler QR Code pelo aplicativo e envio individual do resultado para o aparelho de cada aluno"
+              "Sincronização Automática em Nuvem Multi-Dispositivo (Celular ↔ PC) para Cantinho da Unidade, Membros, Acampamento, Mochila, Bíblia, Faixa e Provas"
             ]
           }));
           return;
@@ -95,7 +96,19 @@ function versionPlugin(): Plugin {
               const u = new URL(req.url, 'http://localhost:3000');
               const pin = (u.searchParams.get('pin') || '').trim();
               const instructorKey = (u.searchParams.get('instructor') || '').trim();
+              const cloudSyncUser = (u.searchParams.get('cloudSyncUser') || '').trim();
               const studentHistoryKeysRaw = (u.searchParams.get('studentHistoryKeys') || '').trim();
+
+              if (cloudSyncUser) {
+                const bundle =
+                  userCloudSyncBundles.get(cloudSyncUser) ||
+                  userCloudSyncBundles.get('shared_unit_fallback') ||
+                  null;
+                res.setHeader('Content-Type', 'application/json');
+                res.setHeader('Cache-Control', 'no-store');
+                res.end(JSON.stringify({ bundle }));
+                return;
+              }
 
               if (studentHistoryKeysRaw) {
                 const keys = studentHistoryKeysRaw
@@ -320,6 +333,25 @@ function versionPlugin(): Plugin {
                     updatedAt: Math.max(Number(existingRoom.updatedAt || 0), Number(incomingRoom.updatedAt || 0), Date.now())
                   };
                 };
+
+                if (action === 'SYNC_USER_CLOUD_BUNDLE' && payload?.userKey && payload?.bundle) {
+                  const uKey = String(payload.userKey).trim();
+                  const prev = userCloudSyncBundles.get(uKey);
+                  const mergedEntries = {
+                    ...(prev?.entries || {}),
+                    ...(payload.bundle.entries || {})
+                  };
+                  const savedBundle = {
+                    ...payload.bundle,
+                    entries: mergedEntries,
+                    updatedAt: Math.max(Number(prev?.updatedAt || 0), Number(payload.bundle.updatedAt || Date.now()))
+                  };
+                  userCloudSyncBundles.set(uKey, savedBundle);
+                  userCloudSyncBundles.set('shared_unit_fallback', savedBundle);
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify({ ok: true, bundle: savedBundle }));
+                  return;
+                }
 
                 if (action === 'SYNC_STUDENT_HISTORY' && Array.isArray(payload?.keys) && Array.isArray(payload?.entries)) {
                   const keys = payload.keys.map((k: any) => String(k || '').trim()).filter(Boolean);

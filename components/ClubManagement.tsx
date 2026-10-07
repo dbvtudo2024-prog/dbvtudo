@@ -2395,9 +2395,48 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
   useEffect(() => {
     loadProfile();
+    const handleCloudApplied = () => {
+      loadProfile();
+      try {
+        const mv = localStorage.getItem('markedVerses');
+        if (mv) {
+          const parsedMv = JSON.parse(mv);
+          if (Array.isArray(parsedMv)) {
+            setMarkedVerses((prev) => (JSON.stringify(prev) === JSON.stringify(parsedMv) ? prev : parsedMv));
+          }
+        }
+        const bn = localStorage.getItem('bibleNotes');
+        if (bn) {
+          const parsedBn = JSON.parse(bn);
+          if (Array.isArray(parsedBn)) {
+            setBibleNotes((prev) => (JSON.stringify(prev) === JSON.stringify(parsedBn) ? prev : parsedBn));
+          }
+        }
+        const bs = localStorage.getItem('dbv_tudo_bible_settings');
+        if (bs) {
+          const parsedBs = JSON.parse(bs);
+          if (parsedBs && typeof parsedBs === 'object') {
+            setBibleSettings((prev: any) => (JSON.stringify(prev) === JSON.stringify(parsedBs) ? prev : { ...prev, ...parsedBs }));
+          }
+        }
+        const lr = localStorage.getItem('dbv_tudo_bible_last_read');
+        if (lr) {
+          const parsedLr = JSON.parse(lr);
+          if (parsedLr && typeof parsedLr === 'object') {
+            setLastRead((prev) => (JSON.stringify(prev) === JSON.stringify(parsedLr) ? prev : parsedLr));
+          }
+        }
+        const localFavs = getLocalCatalogFavorites(userEmail, club);
+        setCompletedSpecialties((prev) => (JSON.stringify(prev) === JSON.stringify(localFavs) ? prev : localFavs));
+      } catch {}
+    };
     window.addEventListener('storage', loadProfile);
-    return () => window.removeEventListener('storage', loadProfile);
-  }, [loadProfile]);
+    window.addEventListener('dbv_cloud_sync_applied', handleCloudApplied);
+    return () => {
+      window.removeEventListener('storage', loadProfile);
+      window.removeEventListener('dbv_cloud_sync_applied', handleCloudApplied);
+    };
+  }, [loadProfile, userEmail, club]);
 
   useEffect(() => {
     localStorage.setItem('markedVerses', JSON.stringify(markedVerses));

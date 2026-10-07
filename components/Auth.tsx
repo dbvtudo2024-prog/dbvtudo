@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Mail, Lock, User, Shield, MapPin, Briefcase, Phone, ChevronLeft, Eye, EyeOff, UserCircle } from 'lucide-react';
 import { ClubType, UserProfile } from '../types';
 import { supabase, supabaseQfpy, setActiveSupabaseProject, authenticateUserMultiProject, resetPasswordMultiProject, updateUserProfile, fetchFuncoes, DEFAULT_CARGOS, getCachedFuncoes, saveLocalFaixaSpecialties } from '../services/supabaseService';
+import { syncUserCloudDataNow } from '../services/userCloudSync';
 
 interface AuthProps {
   onLoginSuccess: (isGuest?: boolean) => void;
@@ -419,6 +420,10 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess, view, onViewChange }) => {
           localStorage.setItem(`dbv_profile_backup_${cleanEmail}`, JSON.stringify(fallbackProfileObj));
         } catch {}
       }
+
+      try {
+        await syncUserCloudDataNow();
+      } catch {}
 
       onLoginSuccess(false);
     } catch (err: any) {

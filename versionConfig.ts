@@ -6,14 +6,25 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.96';
-export const APP_BUILD_DATE = '6 de Outubro de 2026';
+export const APP_VERSION = '3.0.97';
+export const APP_BUILD_DATE = '7 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '3.0.97',
+    date: '07/10/2026',
+    tag: 'NOVO',
+    title: 'Sincronização Automática em Nuvem Multi-Dispositivo (Celular ↔ PC) em Todo o App',
+    changes: [
+      'Sincronização Instantânea do Cantinho da Unidade (Celular ↔ PC): Agora os membros da unidade cadastrados no celular, o nome da unidade, conselheiro(a), chamadas de domingo e pontuações aparecem automaticamente quando você abre o aplicativo no PC (e vice-versa).',
+      'Acampamento & Checklist de Mochila na Nuvem: Escalas de acampamento, cardápio da unidade e itens marcados na mochila são sincronizados em tempo real entre todos os seus aparelhos.',
+      'Bíblia Sagrada, Minha Faixa, Favoritas e Quiz Sincronizados: Versículos marcados, anotações bíblicas, último capítulo lido, especialidades da faixa, conquistas, recordes do Quiz e rascunhos de provas acompanham sua conta tanto no celular quanto no computador.'
+    ]
+  },
+  {
     version: '3.0.96',
     date: '06/10/2026',
-    tag: 'NOVO',
+    tag: 'ATUAL',
     title: 'Criar Prova Personalizada (Manual ou Tema IA), Criar Prova de Especialidade & Botões Compactos no Celular',
     changes: [
       'Adicionado tanto no Celular quanto no PC o botão "Criar Prova (Manual ou IA)", permitindo criar salas de prova ao vivo adicionando questões manualmente ou digitando qualquer tema para a IA gerar as questões.',

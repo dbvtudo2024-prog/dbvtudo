@@ -12,6 +12,7 @@ import { APP_VERSION, APP_BUILD_DATE, VERSION_HISTORY } from './versionConfig';
 
 import { PROFILE_KEY } from './constants';
 import { supabase, checkSupabaseHealth, getSupabaseStatus } from './services/supabaseService';
+import { initUserCloudSync, syncUserCloudDataNow } from './services/userCloudSync';
 import { AlertTriangle, ExternalLink } from 'lucide-react';
 
 const styles = `
@@ -585,6 +586,29 @@ const App: React.FC = () => {
     }
   };
 
+  // Inicializa sincronização em nuvem multi-dispositivo (Celular <-> PC)
+  useEffect(() => {
+    initUserCloudSync();
+    syncUserCloudDataNow().catch(() => {});
+
+    const handleCloudAppliedApp = () => {
+      try {
+        const savedTheme = localStorage.getItem('dbv_tudo_theme');
+        if (savedTheme === 'dark' || savedTheme === 'light') {
+          setDarkMode(savedTheme === 'dark');
+        }
+        const savedAccent = localStorage.getItem('dbv_tudo_accent_color') as AccentColorId | null;
+        if (savedAccent && ACCENT_COLOR_OPTIONS.some((o) => o.id === savedAccent)) {
+          setAccentColor(savedAccent);
+        }
+      } catch {}
+    };
+    window.addEventListener('dbv_cloud_sync_applied', handleCloudAppliedApp);
+    return () => {
+      window.removeEventListener('dbv_cloud_sync_applied', handleCloudAppliedApp);
+    };
+  }, []);
+
   // Verificar se há sessão ativa no Supabase e perfil salvo
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -592,6 +616,7 @@ const App: React.FC = () => {
       if (session?.user && savedProfile && !isGuest) {
         setCurrentView(prev => (prev === 'LOGIN' || prev === 'SIGNUP') ? 'HOME' : prev);
       }
+      syncUserCloudDataNow().catch(() => {});
     }).catch(() => {});
   }, [isGuest]);
 
