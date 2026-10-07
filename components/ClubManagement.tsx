@@ -10825,7 +10825,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     ].filter(b => b.show);
 
     return (
-      <div className="space-y-6 md:space-y-8 lg:space-y-10 animate-slide-up pt-2 md:pt-4 lg:pt-6 pb-24 landscape:pb-16">
+      <div className="space-y-5 md:space-y-4 lg:space-y-5 animate-slide-up pt-2 md:pt-1 pb-24 md:pb-6 landscape:pb-16">
         {/* Visualização para Mobile: Botões na horizontal compactos (sem a palavra Acessar) */}
         <div className="md:hidden space-y-2.5 px-1">
           {/* Cartão Mobile Horizontal: Bíblia Sagrada */}
@@ -10900,29 +10900,29 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         </div>
 
         {/* Visualização para PC / Desktop: Lado a lado horizontalmente com retângulos estilizados */}
-        <div className="hidden md:block w-full max-w-5xl lg:max-w-6xl mx-auto px-4 md:pt-2 lg:pt-4">
-          <div className="grid grid-cols-3 gap-3 sm:gap-4 md:gap-4.5 lg:gap-6 xl:gap-7">
+        <div className="hidden md:block w-full max-w-5xl lg:max-w-6xl mx-auto px-4">
+          <div className="grid grid-cols-3 gap-3 sm:gap-4 md:gap-4 lg:gap-5">
             {/* Retângulo Grande: Bíblia Sagrada */}
             <button 
               onClick={() => setActiveSubView('BIBLE')}
-              className="w-full aspect-[16/10] min-h-[145px] lg:min-h-[175px] xl:min-h-[195px] bg-gradient-to-br from-[#1e40af] via-[#1d4ed8] to-[#3b82f6] rounded-[24px] lg:rounded-[30px] p-4 lg:p-6 shadow-lg hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98] transition-all group flex flex-col justify-between text-white text-left relative overflow-hidden border border-white/20"
+              className="w-full md:h-[clamp(116px,16.5vh,158px)] bg-gradient-to-br from-[#1e40af] via-[#1d4ed8] to-[#3b82f6] rounded-[24px] lg:rounded-[28px] p-4 lg:p-5 shadow-lg hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98] transition-all group flex flex-col justify-between text-white text-left relative overflow-hidden border border-white/20"
             >
               <div className="absolute -bottom-4 -right-4 text-white/15 pointer-events-none group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">
-                <Book className="w-36 h-36 lg:w-44 lg:h-44 stroke-[1.4]" />
+                <Book className="w-32 h-32 lg:w-36 lg:h-36 stroke-[1.4]" />
               </div>
               <div className="flex items-center justify-between w-full relative z-10">
-                <div className="w-11 h-11 lg:w-13 lg:h-13 bg-white/20 backdrop-blur-xs rounded-2xl border border-white/25 flex items-center justify-center text-white shadow-inner group-hover:scale-105 transition-transform shrink-0">
-                  <Book className="w-5 h-5 lg:w-6 lg:h-6" strokeWidth={2.4} />
+                <div className="w-10 h-10 lg:w-11 lg:h-11 bg-white/20 backdrop-blur-xs rounded-2xl border border-white/25 flex items-center justify-center text-white shadow-inner group-hover:scale-105 transition-transform shrink-0">
+                  <Book className="w-5 h-5 lg:w-5.5 lg:h-5.5" strokeWidth={2.4} />
                 </div>
-                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                <div className="w-7 h-7 lg:w-8 lg:h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
                   <ChevronRight className="w-4 h-4" strokeWidth={2.8} />
                 </div>
               </div>
-              <div className="relative z-10 mt-auto pt-2">
-                <h3 className="font-black text-base lg:text-xl xl:text-2xl uppercase tracking-tight leading-tight">
+              <div className="relative z-10 mt-auto pt-1.5">
+                <h3 className="font-black text-base lg:text-xl uppercase tracking-tight leading-tight">
                   Bíblia Sagrada
                 </h3>
-                <p className="text-[9px] lg:text-[11px] font-bold text-white/80 uppercase tracking-wider mt-0.5">
+                <p className="text-[9px] lg:text-[10.5px] font-bold text-white/80 uppercase tracking-wider mt-0.5">
                   Almeida Revista e Corrigida
                 </p>
               </div>
@@ -10931,28 +10931,28 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             {/* Retângulo Grande: Classes */}
             <button 
               onClick={() => setActiveSubView('CLASSES')}
-              className={`w-full aspect-[16/10] min-h-[145px] lg:min-h-[175px] xl:min-h-[195px] ${
+              className={`w-full md:h-[clamp(116px,16.5vh,158px)] ${
                 isPathfinder 
                   ? 'bg-gradient-to-br from-[#dc2626] via-[#b91c1c] to-[#ef4444]' 
                   : 'bg-gradient-to-br from-[#800000] via-[#660000] to-[#991b1b]'
-              } rounded-[24px] lg:rounded-[30px] p-4 lg:p-6 shadow-lg hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98] transition-all group flex flex-col justify-between text-white text-left relative overflow-hidden border border-white/20`}
+              } rounded-[24px] lg:rounded-[28px] p-4 lg:p-5 shadow-lg hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98] transition-all group flex flex-col justify-between text-white text-left relative overflow-hidden border border-white/20`}
             >
               <div className="absolute -bottom-4 -right-4 text-white/15 pointer-events-none group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">
-                <Layers className="w-36 h-36 lg:w-44 lg:h-44 stroke-[1.4]" />
+                <Layers className="w-32 h-32 lg:w-36 lg:h-36 stroke-[1.4]" />
               </div>
               <div className="flex items-center justify-between w-full relative z-10">
-                <div className="w-11 h-11 lg:w-13 lg:h-13 bg-white/20 backdrop-blur-xs rounded-2xl border border-white/25 flex items-center justify-center text-white shadow-inner group-hover:scale-105 transition-transform shrink-0">
-                  <Layers className="w-5 h-5 lg:w-6 lg:h-6" strokeWidth={2.4} />
+                <div className="w-10 h-10 lg:w-11 lg:h-11 bg-white/20 backdrop-blur-xs rounded-2xl border border-white/25 flex items-center justify-center text-white shadow-inner group-hover:scale-105 transition-transform shrink-0">
+                  <Layers className="w-5 h-5 lg:w-5.5 lg:h-5.5" strokeWidth={2.4} />
                 </div>
-                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                <div className="w-7 h-7 lg:w-8 lg:h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
                   <ChevronRight className="w-4 h-4" strokeWidth={2.8} />
                 </div>
               </div>
-              <div className="relative z-10 mt-auto pt-2">
-                <h3 className="font-black text-base lg:text-xl xl:text-2xl uppercase tracking-tight leading-tight">
+              <div className="relative z-10 mt-auto pt-1.5">
+                <h3 className="font-black text-base lg:text-xl uppercase tracking-tight leading-tight">
                   Classes
                 </h3>
-                <p className="text-[9px] lg:text-[11px] font-bold text-white/80 uppercase tracking-wider mt-0.5">
+                <p className="text-[9px] lg:text-[10.5px] font-bold text-white/80 uppercase tracking-wider mt-0.5">
                   Requisitos e Progresso
                 </p>
               </div>
@@ -10961,24 +10961,24 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             {/* Retângulo Grande: Especialidades */}
             <button 
               onClick={() => setActiveSubView('SPECIALTIES')}
-              className="w-full aspect-[16/10] min-h-[145px] lg:min-h-[175px] xl:min-h-[195px] bg-gradient-to-br from-[#d97706] via-[#b45309] to-[#f59e0b] rounded-[24px] lg:rounded-[30px] p-4 lg:p-6 shadow-lg hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98] transition-all group flex flex-col justify-between text-white text-left relative overflow-hidden border border-white/20"
+              className="w-full md:h-[clamp(116px,16.5vh,158px)] bg-gradient-to-br from-[#d97706] via-[#b45309] to-[#f59e0b] rounded-[24px] lg:rounded-[28px] p-4 lg:p-5 shadow-lg hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98] transition-all group flex flex-col justify-between text-white text-left relative overflow-hidden border border-white/20"
             >
               <div className="absolute -bottom-4 -right-4 text-white/15 pointer-events-none group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">
-                <Award className="w-36 h-36 lg:w-44 lg:h-44 stroke-[1.4]" />
+                <Award className="w-32 h-32 lg:w-36 lg:h-36 stroke-[1.4]" />
               </div>
               <div className="flex items-center justify-between w-full relative z-10">
-                <div className="w-11 h-11 lg:w-13 lg:h-13 bg-white/20 backdrop-blur-xs rounded-2xl border border-white/25 flex items-center justify-center text-white shadow-inner group-hover:scale-105 transition-transform shrink-0">
-                  <Award className="w-5 h-5 lg:w-6 lg:h-6" strokeWidth={2.4} />
+                <div className="w-10 h-10 lg:w-11 lg:h-11 bg-white/20 backdrop-blur-xs rounded-2xl border border-white/25 flex items-center justify-center text-white shadow-inner group-hover:scale-105 transition-transform shrink-0">
+                  <Award className="w-5 h-5 lg:w-5.5 lg:h-5.5" strokeWidth={2.4} />
                 </div>
-                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                <div className="w-7 h-7 lg:w-8 lg:h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
                   <ChevronRight className="w-4 h-4" strokeWidth={2.8} />
                 </div>
               </div>
-              <div className="relative z-10 mt-auto pt-2">
-                <h3 className="font-black text-base lg:text-xl xl:text-2xl uppercase tracking-tight leading-tight">
+              <div className="relative z-10 mt-auto pt-1.5">
+                <h3 className="font-black text-base lg:text-xl uppercase tracking-tight leading-tight">
                   Especialidades
                 </h3>
-                <p className="text-[9px] lg:text-[11px] font-bold text-white/80 uppercase tracking-wider mt-0.5">
+                <p className="text-[9px] lg:text-[10.5px] font-bold text-white/80 uppercase tracking-wider mt-0.5">
                   Manual, Áreas e Requisitos
                 </p>
               </div>
@@ -10990,13 +10990,13 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             SEÇÃO DE ACESSO RÁPIDO (EXATAMENTE COMO NA IMAGEM DE REFERÊNCIA)
            ======================================================== */}
         <div className="w-full max-w-5xl lg:max-w-6xl mx-auto px-4">
-          <div className="flex items-center space-x-2 px-1 mb-3.5 sm:mb-4">
+          <div className="flex items-center space-x-2 px-1 mb-2.5 sm:mb-3 md:mb-2.5">
             <span className="text-[11px] sm:text-xs font-black tracking-[0.2em] text-slate-400 dark:text-slate-400 uppercase">
               ACESSO RÁPIDO
             </span>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-3.5 md:gap-4">
             {quickAccessButtons.map((item, i) => {
               const IconComp = item.icon;
               return (
@@ -11008,21 +11008,21 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     }
                     setActiveSubView(item.view as any);
                   }} 
-                  className={`w-full relative overflow-hidden bg-gradient-to-br ${item.gradient} rounded-[24px] sm:rounded-[28px] md:rounded-[30px] p-4 sm:p-5 flex flex-col justify-between text-left text-white shadow-md hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98] transition-all group min-h-[112px] sm:min-h-[128px] md:min-h-[138px] border border-white/20`}
+                  className={`w-full relative overflow-hidden bg-gradient-to-br ${item.gradient} rounded-[24px] sm:rounded-[26px] md:rounded-[26px] p-3.5 sm:p-4 flex flex-col justify-between text-left text-white shadow-md hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98] transition-all group min-h-[108px] sm:min-h-[118px] md:min-h-0 md:h-[clamp(96px,13.5vh,124px)] border border-white/20`}
                 >
                   {/* Marca d'água grande vazada no fundo direito */}
                   <div className="absolute -bottom-3 -right-3 sm:-bottom-4 sm:-right-4 text-white/15 dark:text-white/10 pointer-events-none group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">
-                    <IconComp className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 stroke-[1.4]" />
+                    <IconComp className="w-22 h-22 sm:w-26 sm:h-26 md:w-28 md:h-28 stroke-[1.4]" />
                   </div>
 
                   {/* Caixinha quadrada translúcida no topo esquerdo */}
-                  <div className="relative z-10 w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition-transform">
-                    <IconComp className="w-5 h-5 sm:w-5.5 sm:h-5.5" strokeWidth={2.4} />
+                  <div className="relative z-10 w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition-transform">
+                    <IconComp className="w-4.5 h-4.5 sm:w-5 sm:h-5" strokeWidth={2.4} />
                   </div>
 
                   {/* Título e Subtítulo no canto inferior esquerdo */}
-                  <div className="relative z-10 mt-auto pt-2">
-                    <h4 className="text-sm sm:text-base md:text-lg font-black text-white uppercase tracking-tight leading-tight drop-shadow-xs">
+                  <div className="relative z-10 mt-auto pt-1.5">
+                    <h4 className="text-sm sm:text-base md:text-[17px] font-black text-white uppercase tracking-tight leading-tight drop-shadow-xs">
                       {item.label}
                     </h4>
                     <p className="text-[9px] sm:text-[10px] font-bold text-white/80 uppercase tracking-wider mt-0.5">
@@ -11544,7 +11544,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       {/* ÁREA DE CONTEÚDO PRINCIPAL (À DIREITA DO MENU NO PC) */}
       <div className="flex flex-col flex-1 h-full min-w-0 overflow-hidden relative">
         {activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && (
-          <div className="px-3.5 sm:px-6 md:px-10 lg:px-12 pt-2 sm:pt-4 md:pt-8 lg:pt-9 pb-2 sm:pb-3 md:pb-5 landscape:py-1.5 landscape:px-4 flex items-center justify-between z-10 bg-transparent transition-colors duration-500">
+          <div className={`px-3.5 sm:px-6 md:px-10 lg:px-12 ${activeSubView === 'MAIN' ? 'pt-2 sm:pt-3 md:pt-3.5 lg:pt-4 pb-1.5 sm:pb-2 md:pb-2' : 'pt-2 sm:pt-4 md:pt-6 lg:pt-7 pb-2 sm:pb-3 md:pb-4'} landscape:py-1.5 landscape:px-4 flex items-center justify-between z-10 bg-transparent transition-colors duration-500`}>
             <div className="w-11 h-11 md:w-12 md:h-12 landscape:w-9 landscape:h-9 flex items-center justify-center flex-shrink-0">
               {activeSubView === 'MAIN' ? (
                 /* No PC, o logo já está em destaque na barra lateral esquerda */
@@ -11805,7 +11805,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             ? 'overflow-hidden px-2.5 sm:px-5 md:px-8 lg:px-10 py-1 md:py-2 flex flex-col h-full min-h-0'
             : activeSubView === 'DESBRAVA_PLUS_PDF' || activeSubView === 'PDF_VIEWER' 
             ? 'overflow-y-auto scrollbar-hide p-0 md:px-6 md:pb-6 lg:px-10 lg:pb-8 flex flex-col h-full min-h-0' 
-            : 'overflow-y-auto scrollbar-hide px-3.5 sm:px-5 md:px-8 lg:px-10 py-1.5 md:py-4'
+            : 'overflow-y-auto scrollbar-hide px-3.5 sm:px-5 md:px-8 lg:px-10 py-1.5 md:py-2'
         }`}
       >
         {activeSubView === 'MAIN' && renderDashboard()}
