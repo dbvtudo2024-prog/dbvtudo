@@ -2743,7 +2743,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         .then(setClasses)
         .catch(err => console.warn("Erro ao carregar classes:", err))
         .finally(() => setIsLoading(false));
-    } else if (activeSubView === 'SPECIALTIES' || activeSubView === 'SPECIALTIES_LIST' || activeSubView === 'SPECIALTY_DETAILS') {
+    } else if (activeSubView === 'SPECIALTIES' || activeSubView === 'SPECIALTIES_LIST' || activeSubView === 'SPECIALTY_DETAILS' || activeSubView === 'LIVE_EXAM' || activeSubView === 'QUIZ') {
       if (activeSubView === 'SPECIALTIES') {
         setIsLoading(true);
         fetchCategories(club)
@@ -10719,6 +10719,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                   if ((item as any).manualTab) {
                     setFieldManualTab((item as any).manualTab);
                   }
+                  if (item.view === 'LIVE_EXAM') {
+                    setSelectedSpecialty(null);
+                  }
                   setActiveSubView(item.view as any);
                 }}
                 className={`w-full relative overflow-hidden bg-gradient-to-br ${item.gradient} rounded-[22px] sm:rounded-[24px] px-4 py-3.5 sm:p-4 flex items-center justify-between gap-3.5 text-left text-white shadow-md hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98] transition-all group border border-white/20 cursor-pointer`}
@@ -11869,10 +11872,13 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           <ClubQuiz
             key={club}
             club={club}
-            specialties={specialties}
+            specialties={allSpecialtiesList}
             getImageUrl={getImageUrl}
             onBack={() => setActiveSubView('FIELD_TRAINING')}
-            onOpenLiveExam={() => setActiveSubView('LIVE_EXAM')}
+            onOpenLiveExam={() => {
+              setSelectedSpecialty(null);
+              setActiveSubView('LIVE_EXAM');
+            }}
             onRegisterBackHandler={(fn) => {
               quizBackHandlerRef.current = fn;
             }}
@@ -11882,7 +11888,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           <LiveSpecialtyExam
             key={club}
             club={club}
-            specialties={specialties}
+            specialties={allSpecialtiesList}
             preselectedSpecialty={selectedSpecialty}
             sidebarOverlayTarget={sidebarRef.current}
             isSidebarOpen={isSidebarOpen}

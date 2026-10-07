@@ -569,7 +569,11 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   // ============================================================================
   // ESTADOS DO INSTRUTOR (HOST)
   // ============================================================================
-  const [catalog, setCatalog] = useState<Especialidade[]>(specialties);
+  const [catalog, setCatalog] = useState<Especialidade[]>(() => {
+    const valid = (specialties || []).filter((s) => !s.nome?.toLowerCase().includes('mestrado'));
+    const areas = new Set(valid.map((s) => s.area).filter(Boolean));
+    return areas.size > 1 ? valid : [];
+  });
   const [isLoadingCatalog, setIsLoadingCatalog] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedAreaFilter, setSelectedAreaFilter] = useState<string>('TODAS');
@@ -932,19 +936,25 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   soundEnabledRef.current = soundAlertsEnabled;
   const lastCheatTimestampRef = useRef<number>(0);
 
-  // Carrega catálogo de especialidades apenas quando necessário no modo Instrutor
+  // Carrega catálogo completo de todas as especialidades no modo Instrutor
   useEffect(() => {
-    if (specialties && specialties.length > 0) {
-      setCatalog(specialties.filter((s) => !s.nome?.toLowerCase().includes('mestrado')));
-      return;
+    const validPassed = (specialties || []).filter((s) => !s.nome?.toLowerCase().includes('mestrado'));
+    const passedAreas = new Set(validPassed.map((s) => s.area).filter(Boolean));
+    if (validPassed.length > 0 && passedAreas.size > 1) {
+      setCatalog(validPassed);
     }
     if (roleMode !== 'HOST') return;
     let mounted = true;
-    setIsLoadingCatalog(true);
+    if (validPassed.length === 0 || passedAreas.size <= 1) {
+      setIsLoadingCatalog(true);
+    }
     fetchEspecialidades(club, undefined, { excludeQuestions: false })
       .then((list) => {
         if (!mounted) return;
-        setCatalog((list || []).filter((s) => !s.nome?.toLowerCase().includes('mestrado')));
+        const fullValid = (list || []).filter((s) => !s.nome?.toLowerCase().includes('mestrado'));
+        if (fullValid.length > 0) {
+          setCatalog(fullValid);
+        }
       })
       .catch(() => {})
       .finally(() => {
