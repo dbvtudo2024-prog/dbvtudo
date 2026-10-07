@@ -118,6 +118,21 @@ function versionPlugin(): Plugin {
                 const payload = JSON.parse(body || '{}');
                 const { action, pin, room, participant, alert, studentId, instructorKey, rooms, selectedRoomPin, closedPins } = payload;
 
+                const dedupeAlertsSrv = (alertsList: any[]): any[] => {
+                  const seenKeys = new Set<string>();
+                  const result: any[] = [];
+                  alertsList.forEach((a: any) => {
+                    if (!a?.id) return;
+                    const vKey = a.studentId && a.violationNumber ? `${a.studentId}_v${a.violationNumber}` : a.id;
+                    if (!seenKeys.has(a.id) && !seenKeys.has(vKey)) {
+                      seenKeys.add(a.id);
+                      seenKeys.add(vKey);
+                      result.push(a);
+                    }
+                  });
+                  return result;
+                };
+
                 const mergeParticipantSrv = (existingP: any, incomingP: any, fromStudentUpdate = false): any => {
                   if (!existingP) return incomingP;
                   if (!incomingP) return existingP;
@@ -125,6 +140,11 @@ function versionPlugin(): Plugin {
                   const eCheat = Number(existingP.cheatCount || 0);
                   const iCheat = Number(incomingP.cheatCount || 0);
                   const maxCheat = Math.max(eCheat, iCheat);
+
+                  const eUnlocked = Number(existingP.unlockedCheatCount || 0);
+                  const iUnlocked = Number(incomingP.unlockedCheatCount || 0);
+                  const maxUnlocked = Math.max(eUnlocked, iUnlocked);
+
                   const maxAnswered = Math.max(Number(existingP.answeredCount || 0), Number(incomingP.answeredCount || 0));
 
                   const answers =
@@ -137,6 +157,14 @@ function versionPlugin(): Plugin {
                   if (existingP.status === 'DISQUALIFIED' || incomingP.status === 'DISQUALIFIED') {
                     isLocked = true;
                     status = 'DISQUALIFIED';
+                  } else if (maxUnlocked >= maxCheat && maxUnlocked > 0) {
+                    isLocked = false;
+                    status =
+                      incomingP.status === 'FINISHED' || existingP.status === 'FINISHED'
+                        ? 'FINISHED'
+                        : incomingP.status === 'LOCKED_CHEAT' || existingP.status === 'LOCKED_CHEAT'
+                        ? 'PLAYING'
+                        : incomingP.status || existingP.status || 'PLAYING';
                   } else if (fromStudentUpdate) {
                     isLocked = Boolean(existingP.isLocked || incomingP.isLocked);
                     status =
@@ -179,6 +207,7 @@ function versionPlugin(): Plugin {
                         ? incomingP.grade10 ?? existingP.grade10 ?? 0
                         : existingP.grade10 ?? incomingP.grade10 ?? 0,
                     cheatCount: maxCheat,
+                    unlockedCheatCount: maxUnlocked,
                     lastCheatReason:
                       iCheat >= eCheat
                         ? incomingP.lastCheatReason || existingP.lastCheatReason
@@ -214,14 +243,7 @@ function versionPlugin(): Plugin {
                     );
                   });
 
-                  const alertIds = new Set<string>();
-                  const mergedAlerts: any[] = [];
-                  [...(incomingRoom.alerts || []), ...(existingRoom.alerts || [])].forEach((a: any) => {
-                    if (a?.id && !alertIds.has(a.id)) {
-                      alertIds.add(a.id);
-                      mergedAlerts.push(a);
-                    }
-                  });
+                  const mergedAlerts = dedupeAlertsSrv([...(incomingRoom.alerts || []), ...(existingRoom.alerts || [])]);
 
                   const status =
                     existingRoom.status === 'FINISHED' || incomingRoom.status === 'FINISHED'
@@ -274,13 +296,21 @@ function versionPlugin(): Plugin {
                 if (action === 'UNLOCK_STUDENT' && pin && studentId) {
                   const existing = liveExamRooms.get(String(pin));
                   if (existing && existing.participants?.[studentId]) {
+                    const prevP = existing.participants[studentId];
+                    const nextUnlocked = Math.max(
+                      Number(prevP.cheatCount || 0),
+                      Number(prevP.unlockedCheatCount || 0),
+                      Number(payload.unlockedAtViolation || 0),
+                      1
+                    );
                     existing.participants = {
                       ...existing.participants,
                       [studentId]: {
-                        ...existing.participants[studentId],
+                        ...prevP,
+                        unlockedCheatCount: nextUnlocked,
                         isLocked: false,
                         status:
-                          existing.participants[studentId].status === 'FINISHED'
+                          prevP.status === 'FINISHED'
                             ? 'FINISHED'
                             : existing.status === 'ACTIVE'
                             ? 'PLAYING'
@@ -369,10 +399,7 @@ function versionPlugin(): Plugin {
                       [participant.id]: mergedP
                     };
                     if (alert && alert.id) {
-                      const currentAlerts = Array.isArray(existing.alerts) ? existing.alerts : [];
-                      if (!currentAlerts.some((a: any) => a.id === alert.id)) {
-                        existing.alerts = [alert, ...currentAlerts];
-                      }
+                      existing.alerts = dedupeAlertsSrv([alert, ...(existing.alerts || [])]);
                     }
                     existing.updatedAt = Date.now();
                     liveExamRooms.set(String(pin), existing);
@@ -385,12 +412,20 @@ function versionPlugin(): Plugin {
                 if (action === 'CHEAT_ALERT' && pin && alert && participant?.id) {
                   const existing = liveExamRooms.get(String(pin));
                   if (existing) {
-                    const shouldLock = Boolean(existing.lockOnCheat);
                     const prevP = existing.participants?.[participant.id];
+                    const maxCheat = Math.max(Number(prevP?.cheatCount || 0), Number(participant.cheatCount || 0));
+                    const maxUnlocked = Math.max(
+                      Number(prevP?.unlockedCheatCount || 0),
+                      Number(participant.unlockedCheatCount || 0)
+                    );
+                    const alreadyUnlocked = maxUnlocked >= maxCheat && maxUnlocked > 0;
+                    const shouldLock = Boolean(existing.lockOnCheat) && !alreadyUnlocked;
                     const mergedP = mergeParticipantSrv(
                       prevP,
                       {
                         ...participant,
+                        cheatCount: maxCheat,
+                        unlockedCheatCount: maxUnlocked,
                         isLocked: shouldLock,
                         status: shouldLock ? 'LOCKED_CHEAT' : participant.status
                       },
@@ -401,13 +436,10 @@ function versionPlugin(): Plugin {
                       [participant.id]: {
                         ...mergedP,
                         isLocked: shouldLock,
-                        status: shouldLock ? 'LOCKED_CHEAT' : mergedP.status
+                        status: shouldLock ? 'LOCKED_CHEAT' : mergedP.status === 'LOCKED_CHEAT' ? 'PLAYING' : mergedP.status
                       }
                     };
-                    const currentAlerts = Array.isArray(existing.alerts) ? existing.alerts : [];
-                    if (!currentAlerts.some((a: any) => a.id === alert.id)) {
-                      existing.alerts = [alert, ...currentAlerts];
-                    }
+                    existing.alerts = dedupeAlertsSrv([alert, ...(existing.alerts || [])]);
                     existing.updatedAt = Date.now();
                     liveExamRooms.set(String(pin), existing);
                   }

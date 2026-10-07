@@ -126,6 +126,7 @@ export interface LiveExamParticipant {
   scorePercent: number;
   grade10: number;
   cheatCount: number;
+  unlockedCheatCount?: number;
   lastCheatReason?: string;
   lastCheatTime?: string;
   isLocked: boolean;
@@ -678,9 +679,12 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   const studentPhaseRef = useRef(studentPhase);
   studentPhaseRef.current = studentPhase;
   const studentCheatCountRef = useRef<number>(studentCheatCount);
+  const studentUnlockedCheatCountRef = useRef<number>(0);
   const studentLockedRef = useRef<boolean>(studentLocked);
   const studentLastCheatReasonRef = useRef<string>(studentLastCheatReason);
   const studentPendingAlertsRef = useRef<LiveExamCheatAlert[]>([]);
+  const isStudentAwayRef = useRef<boolean>(false);
+  const studentGraceUntilRef = useRef<number>(0);
 
   // Ao escanear o QR Code (isIsolatedStudentMode):
   // - Se a pessoa possuir o App instalado, exibe a opção de abrir no App ou no Navegador.
@@ -1102,13 +1106,23 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
               const eCheat = Number(ep.cheatCount || 0);
               const lCheat = Number(lp.cheatCount || 0);
               const maxCheat = Math.max(eCheat, lCheat);
+              const eUnlocked = Number(ep.unlockedCheatCount || 0);
+              const lUnlocked = Number(lp.unlockedCheatCount || 0);
+              const maxUnlocked = Math.max(eUnlocked, lUnlocked);
               const maxAns = Math.max(Number(ep.answeredCount || 0), Number(lp.answeredCount || 0));
 
               if (eCheat > lCheat && soundEnabledRef.current) {
                 playCheatAlertSound();
               }
 
-              const keepLocalLock = lCheat > eCheat ? lp.isLocked : ep.isLocked;
+              const keepLocalLock =
+                lp.status === 'DISQUALIFIED' || ep.status === 'DISQUALIFIED'
+                  ? true
+                  : maxUnlocked >= maxCheat && maxUnlocked > 0
+                  ? false
+                  : lCheat > eCheat
+                  ? lp.isLocked
+                  : ep.isLocked;
               const nextPStatus: LiveExamParticipant['status'] =
                 lp.status === 'DISQUALIFIED' || ep.status === 'DISQUALIFIED'
                   ? 'DISQUALIFIED'
@@ -1125,6 +1139,7 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
                 ...(isExtNewer ? ep : lp),
                 answeredCount: maxAns,
                 cheatCount: maxCheat,
+                unlockedCheatCount: maxUnlocked,
                 lastCheatReason:
                   eCheat >= lCheat
                     ? ep.lastCheatReason || lp.lastCheatReason
@@ -1142,11 +1157,15 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
               };
             });
 
-            const alertIds = new Set((locRoom.alerts || []).map((a) => a.id));
-            const mergedAlerts = [...(locRoom.alerts || [])];
-            (extRoom.alerts || []).forEach((ea) => {
-              if (!alertIds.has(ea.id)) {
-                mergedAlerts.unshift(ea);
+            const alertKeys = new Set<string>();
+            const mergedAlerts: LiveExamCheatAlert[] = [];
+            [...(locRoom.alerts || []), ...(extRoom.alerts || [])].forEach((a) => {
+              if (!a?.id) return;
+              const vKey = a.studentId && a.violationNumber ? `${a.studentId}_v${a.violationNumber}` : a.id;
+              if (!alertKeys.has(a.id) && !alertKeys.has(vKey)) {
+                alertKeys.add(a.id);
+                alertKeys.add(vKey);
+                mergedAlerts.push(a);
               }
             });
 
@@ -1415,6 +1434,9 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
           const prevCheat = Number(prevP?.cheatCount || 0);
           const incomingCheat = Number(p.cheatCount || 0);
           const maxCheat = Math.max(prevCheat, incomingCheat);
+          const prevUnlocked = Number(prevP?.unlockedCheatCount || 0);
+          const incomingUnlocked = Number(p.unlockedCheatCount || 0);
+          const maxUnlocked = Math.max(prevUnlocked, incomingUnlocked);
 
           if (incomingCheat > prevCheat && soundEnabledRef.current) {
             playCheatAlertSound();
@@ -1423,6 +1445,8 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
           const isLocked =
             prevP?.status === 'DISQUALIFIED'
               ? true
+              : maxUnlocked >= maxCheat && maxUnlocked > 0
+              ? false
               : incomingCheat > prevCheat && current.lockOnCheat
               ? true
               : prevCheat > incomingCheat
@@ -1436,6 +1460,8 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
               ? 'FINISHED'
               : isLocked
               ? 'LOCKED_CHEAT'
+              : p.status === 'LOCKED_CHEAT'
+              ? 'PLAYING'
               : p.status;
 
           const nextAlerts = [...(current.alerts || [])];
@@ -1471,6 +1497,7 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
                 ...prevP,
                 ...p,
                 cheatCount: maxCheat,
+                unlockedCheatCount: maxUnlocked,
                 lastCheatReason:
                   incomingCheat >= prevCheat
                     ? p.lastCheatReason || prevP?.lastCheatReason
@@ -1494,20 +1521,37 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
           if (!payload?.alert || !payload?.participant || !current) return;
           const alertItem: LiveExamCheatAlert = payload.alert;
           const p: LiveExamParticipant = payload.participant;
+          const prevP = current.participants[p.id];
+          const maxCheat = Math.max(Number(prevP?.cheatCount || 0), Number(p.cheatCount || 0));
+          const maxUnlocked = Math.max(
+            Number(prevP?.unlockedCheatCount || 0),
+            Number(p.unlockedCheatCount || 0)
+          );
+          const alreadyUnlocked = maxUnlocked >= maxCheat && maxUnlocked > 0;
+          const alreadyHasAlert = current.alerts.some(
+            (a) =>
+              a.id === alertItem.id ||
+              (a.studentId === alertItem.studentId && a.violationNumber === alertItem.violationNumber)
+          );
 
-          if (soundEnabledRef.current) {
+          if (!alreadyHasAlert && soundEnabledRef.current) {
             playCheatAlertSound();
           }
 
-          const shouldLock = current.lockOnCheat;
+          const shouldLock = current.lockOnCheat && !alreadyUnlocked;
           const updatedParticipant: LiveExamParticipant = {
-            ...(current.participants[p.id] || p),
+            ...(prevP || p),
             ...p,
+            cheatCount: maxCheat,
+            unlockedCheatCount: maxUnlocked,
             isLocked: shouldLock,
-            status: shouldLock ? 'LOCKED_CHEAT' : p.status
+            status: shouldLock
+              ? 'LOCKED_CHEAT'
+              : p.status === 'LOCKED_CHEAT'
+              ? 'PLAYING'
+              : p.status
           };
 
-          const alreadyHasAlert = current.alerts.some((a) => a.id === alertItem.id);
           const updated: LiveExamRoomState = {
             ...current,
             participants: {
@@ -1562,11 +1606,16 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
                 const lp = mergedParticipants[sp.id];
                 const spCheat = Number(sp.cheatCount || 0);
                 const lpCheat = Number(lp?.cheatCount || 0);
+                const spUnlocked = Number(sp.unlockedCheatCount || 0);
+                const lpUnlocked = Number(lp?.unlockedCheatCount || 0);
+                const maxCheat = Math.max(spCheat, lpCheat);
+                const maxUnlocked = Math.max(spUnlocked, lpUnlocked);
                 if (
                   !lp ||
                   sp.answeredCount > lp.answeredCount ||
                   spCheat > lpCheat ||
-                  (sp.isLocked && !lp.isLocked && spCheat >= lpCheat) ||
+                  spUnlocked > lpUnlocked ||
+                  (sp.isLocked && !lp.isLocked && spCheat > maxUnlocked) ||
                   (sp.status === 'FINISHED' && lp.status !== 'FINISHED')
                 ) {
                   if (spCheat > lpCheat) {
@@ -1605,20 +1654,48 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
                       }
                     }
                   }
+                  const nextLocked =
+                    lp?.status === 'DISQUALIFIED' || sp.status === 'DISQUALIFIED'
+                      ? true
+                      : maxUnlocked >= maxCheat && maxUnlocked > 0
+                      ? false
+                      : spCheat >= lpCheat
+                      ? Boolean(sp.isLocked)
+                      : Boolean(lp?.isLocked);
                   mergedParticipants[sp.id] = {
                     ...lp,
                     ...sp,
                     answeredCount: Math.max(Number(lp?.answeredCount || 0), Number(sp.answeredCount || 0)),
-                    cheatCount: Math.max(lpCheat, spCheat),
-                    isLocked: spCheat >= lpCheat ? sp.isLocked : Boolean(lp?.isLocked)
+                    cheatCount: maxCheat,
+                    unlockedCheatCount: maxUnlocked,
+                    isLocked: nextLocked,
+                    status:
+                      lp?.status === 'DISQUALIFIED' || sp.status === 'DISQUALIFIED'
+                        ? 'DISQUALIFIED'
+                        : lp?.status === 'FINISHED' || sp.status === 'FINISHED'
+                        ? 'FINISHED'
+                        : nextLocked
+                        ? 'LOCKED_CHEAT'
+                        : sp.status === 'LOCKED_CHEAT'
+                        ? 'PLAYING'
+                        : sp.status
                   };
                   changed = true;
                 }
               });
 
               (externalRoom.alerts || []).forEach((sa) => {
-                if (sa?.id && !existingAlertIds.has(sa.id)) {
+                const vKey = sa?.studentId && sa?.violationNumber ? `alert_${sa.studentId}_v${sa.violationNumber}` : sa?.id;
+                const alreadyExists =
+                  !sa?.id ||
+                  existingAlertIds.has(sa.id) ||
+                  (vKey && existingAlertIds.has(vKey)) ||
+                  mergedAlerts.some(
+                    (a) => a.id === sa.id || (a.studentId === sa.studentId && a.violationNumber === sa.violationNumber)
+                  );
+                if (!alreadyExists) {
                   existingAlertIds.add(sa.id);
+                  if (vKey) existingAlertIds.add(vKey);
                   mergedAlerts.unshift(sa);
                   changed = true;
                   if (soundEnabledRef.current) {
@@ -2033,14 +2110,31 @@ REGRAS OBRIGATÓRIAS:
     const target = activeRoom.participants[targetStudentId];
     if (!target) return;
 
+    const maxViolationInAlerts = (activeRoom.alerts || [])
+      .filter((a) => a.studentId === targetStudentId)
+      .reduce((max, a) => Math.max(max, Number(a.violationNumber || 0)), 0);
+    const unlockedCount = Math.max(
+      Number(target.cheatCount || 0),
+      Number(target.unlockedCheatCount || 0),
+      maxViolationInAlerts,
+      1
+    );
+
     const updated: LiveExamRoomState = {
       ...activeRoom,
       participants: {
         ...activeRoom.participants,
         [targetStudentId]: {
           ...target,
+          cheatCount: Math.max(Number(target.cheatCount || 0), unlockedCount),
+          unlockedCheatCount: unlockedCount,
           isLocked: false,
-          status: activeRoom.status === 'ACTIVE' ? 'PLAYING' : 'WAITING'
+          status:
+            target.status === 'FINISHED'
+              ? 'FINISHED'
+              : activeRoom.status === 'ACTIVE'
+              ? 'PLAYING'
+              : 'WAITING'
         }
       },
       updatedAt: Date.now()
@@ -2052,14 +2146,15 @@ REGRAS OBRIGATÓRIAS:
       body: JSON.stringify({
         action: 'UNLOCK_STUDENT',
         pin: activeRoom.pin,
-        studentId: targetStudentId
+        studentId: targetStudentId,
+        unlockedAtViolation: unlockedCount
       })
     }).catch(() => {});
     const ch = hostChannelsMapRef.current.get(activeRoom.pin) || hostChannelRef.current;
     ch?.send({
       type: 'broadcast',
       event: 'host:unlock_student',
-      payload: { studentId: targetStudentId, unlockedAtViolation: target.cheatCount || 0 }
+      payload: { studentId: targetStudentId, unlockedAtViolation: unlockedCount }
     }).catch(() => {});
     ch?.send({
       type: 'broadcast',
@@ -2073,12 +2168,18 @@ REGRAS OBRIGATÓRIAS:
     const target = activeRoom.participants[targetStudentId];
     if (!target) return;
 
+    const nextCheatCount = Math.max(
+      Number(target.cheatCount || 0),
+      Number(target.unlockedCheatCount || 0) + 1
+    );
+
     const updated: LiveExamRoomState = {
       ...activeRoom,
       participants: {
         ...activeRoom.participants,
         [targetStudentId]: {
           ...target,
+          cheatCount: nextCheatCount,
           isLocked: true,
           status: disqualify ? 'DISQUALIFIED' : 'LOCKED_CHEAT'
         }
@@ -2144,7 +2245,11 @@ REGRAS OBRIGATÓRIAS:
       const grade10 = Number(((correct / totalQ) * 10).toFixed(1));
 
       const effectiveCheatCount = Math.max(studentCheatCount, studentCheatCountRef.current);
-      const effectiveLocked = Boolean(studentLocked || studentLockedRef.current);
+      const effectiveUnlockedCount = studentUnlockedCheatCountRef.current;
+      const effectiveLocked =
+        effectiveUnlockedCount >= effectiveCheatCount && effectiveUnlockedCount > 0
+          ? false
+          : Boolean(studentLocked || studentLockedRef.current);
       const effectiveCheatReason = studentLastCheatReason || studentLastCheatReasonRef.current;
 
       return {
@@ -2165,6 +2270,7 @@ REGRAS OBRIGATÓRIAS:
         scorePercent,
         grade10,
         cheatCount: effectiveCheatCount,
+        unlockedCheatCount: effectiveUnlockedCount,
         lastCheatReason: effectiveCheatReason,
         isLocked: effectiveLocked,
         answers: ans,
@@ -2201,9 +2307,17 @@ REGRAS OBRIGATÓRIAS:
         if (!cloudRoom || !cloudRoom.pin) return;
 
         const prevP = cloudRoom.participants?.[participant.id];
+        const maxCheat = Math.max(Number(prevP?.cheatCount || 0), Number(participant.cheatCount || 0));
+        const maxUnlocked = Math.max(
+          Number(prevP?.unlockedCheatCount || 0),
+          Number(participant.unlockedCheatCount || 0)
+        );
+        const alreadyUnlocked = maxUnlocked >= maxCheat && maxUnlocked > 0;
         const isLocked =
           prevP?.status === 'DISQUALIFIED'
             ? true
+            : alreadyUnlocked
+            ? false
             : newAlert && cloudRoom.lockOnCheat
             ? true
             : participant.isLocked;
@@ -2212,6 +2326,8 @@ REGRAS OBRIGATÓRIAS:
             ? 'DISQUALIFIED'
             : isLocked
             ? 'LOCKED_CHEAT'
+            : participant.status === 'LOCKED_CHEAT'
+            ? 'PLAYING'
             : participant.status;
 
         cloudRoom.participants = {
@@ -2219,6 +2335,8 @@ REGRAS OBRIGATÓRIAS:
           [participant.id]: {
             ...prevP,
             ...participant,
+            cheatCount: maxCheat,
+            unlockedCheatCount: maxUnlocked,
             isLocked,
             status: nextStatus
           }
@@ -2226,7 +2344,13 @@ REGRAS OBRIGATÓRIAS:
 
         if (newAlert) {
           const alertsList = Array.isArray(cloudRoom.alerts) ? cloudRoom.alerts : [];
-          if (!alertsList.some((a) => a.id === newAlert.id)) {
+          if (
+            !alertsList.some(
+              (a) =>
+                a.id === newAlert.id ||
+                (a.studentId === newAlert.studentId && a.violationNumber === newAlert.violationNumber)
+            )
+          ) {
             cloudRoom.alerts = [newAlert, ...alertsList];
           }
         }
@@ -2413,14 +2537,43 @@ REGRAS OBRIGATÓRIAS:
             (p) => p.name?.trim().toLowerCase() === studentName.trim().toLowerCase()
           );
         if (myRecord) {
-          // Só aceita desbloqueio vindo do Host se o Host já tiver registrado a violação atual do aluno
-          if ((myRecord.cheatCount || 0) >= studentCheatCountRef.current) {
-            studentLockedRef.current = Boolean(myRecord.isLocked);
-            setStudentLocked(Boolean(myRecord.isLocked));
-            if (!myRecord.isLocked) {
-              setStudentWarningModal(null);
-            }
+          const recCheat = Number(myRecord.cheatCount || 0);
+          const recUnlocked = Number(myRecord.unlockedCheatCount || 0);
+          if (recUnlocked > studentUnlockedCheatCountRef.current) {
+            studentUnlockedCheatCountRef.current = recUnlocked;
           }
+          if (recCheat > studentCheatCountRef.current) {
+            studentCheatCountRef.current = recCheat;
+            setStudentCheatCount(recCheat);
+          }
+
+          const isUnlockedByInstructor =
+            (recUnlocked >= Math.max(recCheat, studentCheatCountRef.current) && recUnlocked > 0) ||
+            (!myRecord.isLocked && recCheat >= studentCheatCountRef.current && recCheat > 0);
+
+          if (myRecord.status === 'DISQUALIFIED') {
+            studentLockedRef.current = true;
+            setStudentLocked(true);
+          } else if (isUnlockedByInstructor) {
+            if (studentLockedRef.current) {
+              studentGraceUntilRef.current = Date.now() + 3500;
+              isStudentAwayRef.current = false;
+            }
+            studentUnlockedCheatCountRef.current = Math.max(
+              studentUnlockedCheatCountRef.current,
+              recUnlocked,
+              recCheat,
+              studentCheatCountRef.current
+            );
+            studentPendingAlertsRef.current = [];
+            studentLockedRef.current = false;
+            setStudentLocked(false);
+            setStudentWarningModal(null);
+          } else if (myRecord.isLocked && recCheat > studentUnlockedCheatCountRef.current) {
+            studentLockedRef.current = true;
+            setStudentLocked(true);
+          }
+
           if (myRecord.answers && Object.keys(myRecord.answers).length > 0) {
             setStudentAnswers((prev) =>
               Object.keys(prev).length >= Object.keys(myRecord.answers).length ? prev : myRecord.answers
@@ -2476,6 +2629,14 @@ REGRAS OBRIGATÓRIAS:
       })
       .on('broadcast', { event: 'host:unlock_student' }, ({ payload }) => {
         if (payload?.studentId === studentId) {
+          studentUnlockedCheatCountRef.current = Math.max(
+            studentUnlockedCheatCountRef.current,
+            Number(payload?.unlockedCheatCount || 0),
+            studentCheatCountRef.current
+          );
+          studentGraceUntilRef.current = Date.now() + 3500;
+          isStudentAwayRef.current = false;
+          studentPendingAlertsRef.current = [];
           studentLockedRef.current = false;
           setStudentLocked(false);
           setStudentWarningModal(null);
@@ -2535,44 +2696,9 @@ REGRAS OBRIGATÓRIAS:
 
     const interval = setInterval(async () => {
       try {
-        const currentParticipant = buildCurrentParticipantPayload({
-          status:
-            studentPhase === 'FINISHED'
-              ? 'FINISHED'
-              : studentLocked
-              ? 'LOCKED_CHEAT'
-              : studentPhase === 'PLAYING'
-              ? 'PLAYING'
-              : 'WAITING'
-        });
-
-        const alreadyFinishedOnServer =
-          studentPhase === 'FINISHED' &&
-          studentRoom?.participants?.[studentId]?.status === 'FINISHED' &&
-          (studentRoom?.participants?.[studentId]?.answeredCount || 0) >= currentParticipant.answeredCount;
-
-        if (!alreadyFinishedOnServer) {
-          studentChannelRef.current
-            ?.send({
-              type: 'broadcast',
-              event: studentPhase === 'WAITING_HOST' ? 'student:join' : 'student:update',
-              payload: { participant: currentParticipant }
-            })
-            .catch(() => {});
-
-          fetch('/api/live-exam', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'STUDENT_UPDATE',
-              pin,
-              participant: currentParticipant
-            })
-          }).catch(() => {});
-        }
-
+        // 1. Primeiro busca o estado mais recente no servidor e nuvem (para detectar liberação do instrutor antes de enviar STUDENT_UPDATE)
         const [apiRoom, cloudRoom] = await Promise.all([
-          fetch(`/api/live-exam?pin=${pin}`)
+          fetch(`/api/live-exam?pin=${pin}&t=${Date.now()}`, { cache: 'no-store' })
             .then((res) => (res.ok ? res.json() : null))
             .then((data) => (data?.room && String(data.room.pin) === String(pin) ? (data.room as LiveExamRoomState) : null))
             .catch(() => null),
@@ -2603,16 +2729,55 @@ REGRAS OBRIGATÓRIAS:
             apiRoom?.extraSecondsAdded || 0,
             baseSrv.extraSecondsAdded || 0
           );
+
+          // Mescla o participante entre apiRoom e cloudRoom priorizando unlockedCheatCount monotônico
+          // para que o arquivo da nuvem com atraso nunca re-bloqueie o aluno após o instrutor clicar em Liberar
+          const apiMe = apiRoom?.participants?.[studentId];
+          const cloudMe = cloudRoom?.participants?.[studentId];
+          const mergedParticipants: Record<string, LiveExamParticipant> = {
+            ...(cloudRoom?.participants || {}),
+            ...(apiRoom?.participants || {})
+          };
+
+          if (apiMe || cloudMe) {
+            const maxCheat = Math.max(Number(apiMe?.cheatCount || 0), Number(cloudMe?.cheatCount || 0));
+            const maxUnlocked = Math.max(
+              Number(apiMe?.unlockedCheatCount || 0),
+              Number(cloudMe?.unlockedCheatCount || 0),
+              studentUnlockedCheatCountRef.current
+            );
+            const isDisq = apiMe?.status === 'DISQUALIFIED' || cloudMe?.status === 'DISQUALIFIED';
+            const unlockedByInstructor =
+              (maxUnlocked >= maxCheat && maxUnlocked > 0) ||
+              (apiMe && !apiMe.isLocked && Number(apiMe.cheatCount || 0) >= maxCheat && maxCheat > 0);
+            const mergedLocked = isDisq
+              ? true
+              : unlockedByInstructor
+              ? false
+              : Boolean(apiMe?.isLocked ?? cloudMe?.isLocked);
+            const baseMe = (apiMe || cloudMe)!;
+            mergedParticipants[studentId] = {
+              ...(cloudMe || {}),
+              ...(apiMe || {}),
+              cheatCount: maxCheat,
+              unlockedCheatCount: unlockedByInstructor ? Math.max(maxUnlocked, maxCheat) : maxUnlocked,
+              isLocked: mergedLocked,
+              status: isDisq
+                ? 'DISQUALIFIED'
+                : mergedLocked
+                ? 'LOCKED_CHEAT'
+                : baseMe.status === 'LOCKED_CHEAT'
+                ? 'PLAYING'
+                : baseMe.status
+            };
+          }
+
           const srv: LiveExamRoomState = {
             ...baseSrv,
             status: mergedStatus,
             resultsReleased: mergedResultsReleased,
             extraSecondsAdded: mergedExtraSeconds,
-            participants: {
-              ...(apiRoom?.participants || {}),
-              ...(cloudRoom?.participants || {}),
-              ...(baseSrv.participants || {})
-            }
+            participants: mergedParticipants
           };
 
           setStudentRoom((prev) => ({
@@ -2625,16 +2790,78 @@ REGRAS OBRIGATÓRIAS:
             Object.values(srv.participants || {}).find(
               (p) => p.name?.trim().toLowerCase() === studentName.trim().toLowerCase()
             );
+
+          if (me) {
+            const srvCheat = Number(me.cheatCount || 0);
+            const srvUnlocked = Number(me.unlockedCheatCount || 0);
+            if (srvUnlocked > studentUnlockedCheatCountRef.current) {
+              studentUnlockedCheatCountRef.current = srvUnlocked;
+            }
+            if (srvCheat > studentCheatCountRef.current) {
+              studentCheatCountRef.current = srvCheat;
+              setStudentCheatCount(srvCheat);
+            }
+
+            const isNowUnlocked =
+              (srvUnlocked >= Math.max(srvCheat, studentCheatCountRef.current) && srvUnlocked > 0) ||
+              (!me.isLocked && srvCheat >= studentCheatCountRef.current && srvCheat > 0);
+
+            if (me.status === 'DISQUALIFIED') {
+              studentLockedRef.current = true;
+              setStudentLocked(true);
+            } else if (isNowUnlocked) {
+              if (studentLockedRef.current) {
+                studentGraceUntilRef.current = Date.now() + 3500;
+                isStudentAwayRef.current = false;
+              }
+              studentUnlockedCheatCountRef.current = Math.max(
+                studentUnlockedCheatCountRef.current,
+                srvUnlocked,
+                srvCheat,
+                studentCheatCountRef.current
+              );
+              studentPendingAlertsRef.current = [];
+              studentLockedRef.current = false;
+              setStudentLocked(false);
+              setStudentWarningModal(null);
+            } else if (me.isLocked && srvCheat > studentUnlockedCheatCountRef.current) {
+              studentLockedRef.current = true;
+              setStudentLocked(true);
+            }
+          }
+
+          // Confirma remoção de alertas pendentes que já constam no servidor
+          if (studentPendingAlertsRef.current.length > 0 && Array.isArray(srv.alerts)) {
+            studentPendingAlertsRef.current = studentPendingAlertsRef.current.filter(
+              (pa) =>
+                !srv.alerts.some(
+                  (sa) =>
+                    sa.id === pa.id ||
+                    (sa.studentId === pa.studentId && sa.violationNumber === pa.violationNumber)
+                )
+            );
+          }
+
           const latestPendingAlert =
             studentPendingAlertsRef.current[studentPendingAlertsRef.current.length - 1];
           const serverMissingCheat =
-            studentCheatCountRef.current > (me?.cheatCount || 0) ||
-            (latestPendingAlert &&
-              !(srv.alerts || []).some((a) => a.id === latestPendingAlert.id));
+            studentCheatCountRef.current > Number(me?.cheatCount || 0) && Boolean(latestPendingAlert);
+
+          const currentParticipant = buildCurrentParticipantPayload({
+            status:
+              studentPhase === 'FINISHED'
+                ? 'FINISHED'
+                : studentLockedRef.current
+                ? 'LOCKED_CHEAT'
+                : studentPhase === 'PLAYING'
+                ? 'PLAYING'
+                : 'WAITING'
+          });
 
           if (serverMissingCheat && latestPendingAlert) {
             const cheatParticipantPayload = buildCurrentParticipantPayload({
               cheatCount: studentCheatCountRef.current,
+              unlockedCheatCount: studentUnlockedCheatCountRef.current,
               lastCheatReason: studentLastCheatReasonRef.current || latestPendingAlert.reason,
               lastCheatTime: latestPendingAlert.timestamp,
               isLocked: studentLockedRef.current,
@@ -2659,25 +2886,44 @@ REGRAS OBRIGATÓRIAS:
               })
             }).catch(() => {});
             syncStudentToCloudRoom(pin, cheatParticipantPayload, latestPendingAlert, srv);
-          } else if (!me || me.answeredCount < currentParticipant.answeredCount) {
-            syncStudentToCloudRoom(pin, currentParticipant, undefined, srv);
-          } else if (me.answers && Object.keys(me.answers).length > 0) {
-            setStudentAnswers((prev) =>
-              Object.keys(prev).length >= Object.keys(me.answers).length ? prev : me.answers
-            );
-          }
+          } else {
+            const alreadyFinishedOnServer =
+              studentPhase === 'FINISHED' &&
+              me?.status === 'FINISHED' &&
+              (me?.answeredCount || 0) >= currentParticipant.answeredCount;
 
-          if (me) {
-            if (me.status === 'DISQUALIFIED') {
-              studentLockedRef.current = true;
-              setStudentLocked(true);
-            } else if ((me.cheatCount || 0) >= studentCheatCountRef.current) {
-              studentLockedRef.current = Boolean(me.isLocked);
-              setStudentLocked(Boolean(me.isLocked));
-              if (!me.isLocked) setStudentWarningModal(null);
+            if (!alreadyFinishedOnServer) {
+              studentChannelRef.current
+                ?.send({
+                  type: 'broadcast',
+                  event: studentPhase === 'WAITING_HOST' ? 'student:join' : 'student:update',
+                  payload: { participant: currentParticipant }
+                })
+                .catch(() => {});
+
+              fetch('/api/live-exam', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  action: 'STUDENT_UPDATE',
+                  pin,
+                  participant: currentParticipant
+                })
+              }).catch(() => {});
+            }
+
+            if (!me || me.answeredCount < currentParticipant.answeredCount) {
+              syncStudentToCloudRoom(pin, currentParticipant, undefined, srv);
+            } else if (me.answers && Object.keys(me.answers).length > 0) {
+              setStudentAnswers((prev) =>
+                Object.keys(prev).length >= Object.keys(me.answers).length ? prev : me.answers
+              );
             }
           }
+
           if (srv.status === 'ACTIVE' && !srv.resultsReleased && studentPhase === 'WAITING_HOST') {
+            studentGraceUntilRef.current = Date.now() + 2500;
+            isStudentAwayRef.current = false;
             setStudentPhase('PLAYING');
             setStudentStartTime((prev) => prev || Date.now());
           } else if ((srv.status === 'FINISHED' || srv.resultsReleased) && studentPhase !== 'FINISHED') {
@@ -2708,8 +2954,15 @@ REGRAS OBRIGATÓRIAS:
     const latestAlert = studentPendingAlertsRef.current[studentPendingAlertsRef.current.length - 1];
     if (!latestAlert) return;
 
+    // Se essa violação já foi liberada pelo instrutor, limpa a fila e não reenvia bloqueio
+    if (studentUnlockedCheatCountRef.current >= latestAlert.violationNumber) {
+      studentPendingAlertsRef.current = [];
+      return;
+    }
+
     const updatedParticipant = buildCurrentParticipantPayload({
       cheatCount: studentCheatCountRef.current,
+      unlockedCheatCount: studentUnlockedCheatCountRef.current,
       lastCheatReason: studentLastCheatReasonRef.current || latestAlert.reason,
       lastCheatTime: latestAlert.timestamp,
       isLocked: studentLockedRef.current,
@@ -2738,7 +2991,15 @@ REGRAS OBRIGATÓRIAS:
         alert: latestAlert,
         participant: updatedParticipant
       })
-    }).catch(() => {});
+    })
+      .then((res) => {
+        if (res.ok) {
+          studentPendingAlertsRef.current = studentPendingAlertsRef.current.filter(
+            (a) => a.id !== latestAlert.id
+          );
+        }
+      })
+      .catch(() => {});
 
     syncStudentToCloudRoom(activeStudentRoom.pin, updatedParticipant, latestAlert, activeStudentRoom);
   }, [buildCurrentParticipantPayload, syncStudentToCloudRoom]);
@@ -2747,9 +3008,10 @@ REGRAS OBRIGATÓRIAS:
     (reason: string) => {
       const currentRoom = studentRoomRef.current;
       const currentPhase = studentPhaseRef.current;
+      // Só monitora saída quando a prova já começou (PLAYING)
       if (
         roleMode !== 'STUDENT' ||
-        (currentPhase !== 'PLAYING' && currentPhase !== 'WAITING_HOST') ||
+        currentPhase !== 'PLAYING' ||
         !currentRoom ||
         currentRoom.status === 'FINISHED' ||
         isQrScannerOpen
@@ -2757,9 +3019,18 @@ REGRAS OBRIGATÓRIAS:
         return;
       }
 
+      // Se a tela do aluno JÁ está bloqueada aguardando o instrutor liberar, não dispara novos alertas em cascata
+      if (studentLockedRef.current) return;
+
       const now = Date.now();
-      // Evita disparo duplicado no mesmo segundo quando blur + visibilitychange + pagehide ocorrem juntos
-      if (now - lastCheatTimestampRef.current < 1200) return;
+      // Janela de graça após iniciar a prova ou após ser liberado pelo instrutor
+      if (now < studentGraceUntilRef.current) return;
+
+      // Garante que UMA única saída de tela gere apenas UM alerta (só reseta quando o aluno voltar à tela ativa e desbloqueada)
+      if (isStudentAwayRef.current) return;
+      if (now - lastCheatTimestampRef.current < 2500) return;
+
+      isStudentAwayRef.current = true;
       lastCheatTimestampRef.current = now;
 
       const nextCount = studentCheatCountRef.current + 1;
@@ -2783,8 +3054,9 @@ REGRAS OBRIGATÓRIAS:
         setStudentWarningModal(reason);
       }
 
+      // ID determinístico por aluno + número da violação para impedir duplicação no painel do instrutor
       const alertEvent: LiveExamCheatAlert = {
-        id: `alert_${studentId}_${now}`,
+        id: `alert_${studentId}_v${nextCount}`,
         studentId,
         studentName: studentName.trim() || 'Aluno',
         studentUnit: studentUnit.trim() || 'Sem Unidade',
@@ -2793,18 +3065,17 @@ REGRAS OBRIGATÓRIAS:
         violationNumber: nextCount
       };
 
-      studentPendingAlertsRef.current = [...studentPendingAlertsRef.current, alertEvent];
+      if (!studentPendingAlertsRef.current.some((a) => a.id === alertEvent.id)) {
+        studentPendingAlertsRef.current = [...studentPendingAlertsRef.current, alertEvent];
+      }
 
       const updatedParticipant = buildCurrentParticipantPayload({
         cheatCount: nextCount,
+        unlockedCheatCount: studentUnlockedCheatCountRef.current,
         lastCheatReason: reason,
         lastCheatTime: timeStr,
         isLocked: shouldLock,
-        status: shouldLock
-          ? 'LOCKED_CHEAT'
-          : currentPhase === 'WAITING_HOST'
-          ? 'WAITING'
-          : 'PLAYING'
+        status: shouldLock ? 'LOCKED_CHEAT' : 'PLAYING'
       });
 
       const bodyStr = JSON.stringify({
@@ -2836,34 +3107,17 @@ REGRAS OBRIGATÓRIAS:
         keepalive: true,
         headers: { 'Content-Type': 'application/json' },
         body: bodyStr
-      }).catch(() => {});
+      })
+        .then((res) => {
+          if (res.ok) {
+            studentPendingAlertsRef.current = studentPendingAlertsRef.current.filter(
+              (a) => a.id !== alertEvent.id
+            );
+          }
+        })
+        .catch(() => {});
 
-      // 3. Upload direto de 1 passo para o Supabase Storage (sem esperar GET antes de congelar a aba no celular)
-      try {
-        const fastCloudRoom: LiveExamRoomState = {
-          ...currentRoom,
-          participants: {
-            ...(currentRoom.participants || {}),
-            [updatedParticipant.id]: updatedParticipant
-          },
-          alerts: [
-            alertEvent,
-            ...(currentRoom.alerts || []).filter((a) => a.id !== alertEvent.id)
-          ],
-          updatedAt: now
-        };
-        studentRoomRef.current = fastCloudRoom;
-        supabaseQfpy.storage
-          .from('App DBV Tudo')
-          .upload(`provas/room_${currentRoom.pin}.json`, JSON.stringify(fastCloudRoom), {
-            upsert: true,
-            contentType: 'application/json',
-            cacheControl: '0'
-          })
-          .catch(() => {});
-      } catch {}
-
-      // 4. Sincronização complementar completa com merge
+      // 3. Sincronização na nuvem respeitando merge
       syncStudentToCloudRoom(currentRoom.pin, updatedParticipant, alertEvent, currentRoom);
     },
     [
@@ -2878,11 +3132,7 @@ REGRAS OBRIGATÓRIAS:
   );
 
   useEffect(() => {
-    if (
-      roleMode !== 'STUDENT' ||
-      (studentPhase !== 'PLAYING' && studentPhase !== 'WAITING_HOST') ||
-      !studentRoom
-    ) {
+    if (roleMode !== 'STUDENT' || studentPhase !== 'PLAYING' || !studentRoom) {
       return;
     }
 
@@ -2890,7 +3140,10 @@ REGRAS OBRIGATÓRIAS:
       if (document.hidden || document.visibilityState === 'hidden') {
         triggerStudentCheatViolation('Mudou de janela ou minimizou o aplicativo no celular');
       } else {
-        // Quando o aluno volta para a tela no celular, garante o reenvio imediato caso o SO tenha pausado a rede
+        // Quando o aluno volta para a tela e não está bloqueado, libera o detector para uma eventual próxima saída futura
+        if (!studentLockedRef.current) {
+          isStudentAwayRef.current = false;
+        }
         flushPendingStudentCheatAlerts();
       }
     };
@@ -2900,17 +3153,24 @@ REGRAS OBRIGATÓRIAS:
     };
 
     const handleWindowBlur = () => {
-      triggerStudentCheatViolation('Mudou de janela, abriu outro app ou barra do sistema');
+      // Aguarda 180ms para verificar se realmente perdeu foco/visibilidade (evita falsos disparos de clique ou teclado no celular)
+      setTimeout(() => {
+        if (
+          studentPhaseRef.current === 'PLAYING' &&
+          !studentLockedRef.current &&
+          !isStudentAwayRef.current &&
+          (document.hidden || document.visibilityState === 'hidden' || !document.hasFocus())
+        ) {
+          triggerStudentCheatViolation('Mudou de janela, abriu outro app ou barra do sistema');
+        }
+      }, 180);
     };
 
     const handleWindowFocus = () => {
-      flushPendingStudentCheatAlerts();
-    };
-
-    const handleFullscreenChange = () => {
-      if (!document.fullscreenElement && studentPhaseRef.current === 'PLAYING') {
-        triggerStudentCheatViolation('Saiu do modo Tela Cheia obrigatório durante a prova');
+      if (!studentLockedRef.current && !document.hidden && document.visibilityState === 'visible') {
+        isStudentAwayRef.current = false;
       }
+      flushPendingStudentCheatAlerts();
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -2918,7 +3178,6 @@ REGRAS OBRIGATÓRIAS:
     window.addEventListener('blur', handleWindowBlur);
     window.addEventListener('focus', handleWindowFocus);
     window.addEventListener('pageshow', handleWindowFocus);
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -2926,7 +3185,6 @@ REGRAS OBRIGATÓRIAS:
       window.removeEventListener('blur', handleWindowBlur);
       window.removeEventListener('focus', handleWindowFocus);
       window.removeEventListener('pageshow', handleWindowFocus);
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
   }, [roleMode, studentPhase, studentRoom, triggerStudentCheatViolation, flushPendingStudentCheatAlerts]);
 
@@ -3884,54 +4142,50 @@ REGRAS OBRIGATÓRIAS:
         onContextMenu={studentPhase === 'PLAYING' ? (e) => e.preventDefault() : undefined}
       >
         {renderQrScannerModal()}
-        {/* Topbar Exclusiva da Área Isolada de Prova (Com recuo superior de segurança para câmeras centrais / notch no celular) */}
-        <div className="shrink-0 bg-slate-900/95 border-b border-slate-800 px-4 pt-[max(calc(env(safe-area-inset-top,0px)+14px),2.5rem)] sm:pt-3 pb-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-400 shrink-0">
-              <ShieldCheck size={18} />
+        {/* Topbar da Área de Prova (Com recuo superior apenas quando em modo isolado tela cheia) */}
+        <div
+          className={`shrink-0 bg-slate-900/95 border-b border-slate-800 px-3.5 sm:px-5 ${
+            isIsolatedStudentMode
+              ? 'pt-[max(calc(env(safe-area-inset-top,0px)+12px),2.25rem)] sm:pt-3 pb-2.5'
+              : 'py-2.5 sm:py-3'
+          } flex items-center justify-between gap-2.5`}
+        >
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-400 shrink-0">
+              <ShieldCheck size={17} />
             </div>
-            <div className="min-w-0">
-              <span className="text-[9px] font-black uppercase tracking-widest text-amber-400 block">
-                {hasHostPermission
-                  ? 'Ambiente Isolado de Prova • Anti-Cola Ativo'
-                  : 'Modo Aluno • Criar Sala: Exclusivo Conselheiro+'}
+            <div className="min-w-0 flex-1">
+              <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-amber-400 block truncate">
+                {studentRoom
+                  ? `Sala #${studentRoom.pin} • Anti-Cola Ativo`
+                  : 'Prova Ao Vivo • Anti-Cola Ativo'}
               </span>
               <h2 className="text-xs sm:text-sm font-black uppercase tracking-tight text-white truncate">
-                {studentRoom ? `Especialidade: ${studentRoom.specialtyName}` : 'Acesso à Prova Oficial por QR Code / PIN'}
+                {studentRoom ? studentRoom.specialtyName : 'Acesso à Prova Oficial'}
               </h2>
             </div>
           </div>
 
           {studentPhase === 'PLAYING' ? (
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               {studentCheatCount > 0 && (
-                <span className="px-2.5 py-1 rounded-xl bg-red-600/25 border border-red-500/50 text-red-300 text-[10px] font-black uppercase">
-                  ⚠️ {studentCheatCount} {studentCheatCount === 1 ? 'Alerta' : 'Alertas'}
+                <span className="px-2 py-1 rounded-xl bg-red-600/25 border border-red-500/50 text-red-300 text-[10px] font-black uppercase whitespace-nowrap">
+                  ⚠️ {studentCheatCount}
                 </span>
               )}
               <div
-                className={`px-3 py-1.5 rounded-xl font-black text-xs sm:text-sm tabular-nums flex items-center gap-1.5 border ${
+                className={`px-2.5 sm:px-3 py-1.5 rounded-xl font-black text-xs sm:text-sm tabular-nums flex items-center gap-1.5 border whitespace-nowrap ${
                   studentRemainingSeconds <= 60
                     ? 'bg-red-600 text-white border-red-500 animate-pulse'
                     : 'bg-slate-800 text-amber-300 border-slate-700'
                 }`}
               >
-                <Timer size={15} />
+                <Timer size={14} />
                 <span>{formatTimeMMSS(studentRemainingSeconds)}</span>
               </div>
             </div>
           ) : (
             <div className="flex items-center gap-1.5 shrink-0">
-              {studentPhase === 'ENTER_PIN' && isMobileDevice && (
-                <button
-                  type="button"
-                  onClick={() => setIsQrScannerOpen(true)}
-                  className="md:hidden px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer shadow-xs"
-                >
-                  <Camera size={13} />
-                  <span>Ler QR Code</span>
-                </button>
-              )}
               <button
                 type="button"
                 onClick={() => {
@@ -3945,7 +4199,7 @@ REGRAS OBRIGATÓRIAS:
                     onBack();
                   }
                 }}
-                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700/80 text-slate-200 text-[10px] sm:text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap"
               >
                 <LogOut size={13} />
                 <span>
@@ -3953,9 +4207,9 @@ REGRAS OBRIGATÓRIAS:
                     ? 'Voltar'
                     : hasHostPermission
                     ? activeRoom
-                      ? 'Voltar ao Painel'
-                      : 'Modo Instrutor'
-                    : 'Sair da Prova'}
+                      ? 'Painel'
+                      : 'Instrutor'
+                    : 'Sair'}
                 </span>
               </button>
             </div>
@@ -5260,30 +5514,50 @@ REGRAS OBRIGATÓRIAS:
                     </div>
                   ) : (
                     <div className="max-h-28 overflow-y-auto space-y-1.5 pr-1 scrollbar-hide">
-                      {activeRoom.alerts.map((al) => {
-                        const stu = activeRoom.participants[al.studentId];
-                        return (
-                          <div
-                            key={al.id}
-                            className="px-3 py-2 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-300 dark:border-red-800 flex items-center justify-between gap-2"
-                          >
-                            <div className="min-w-0">
-                              <p className="text-[11px] font-black text-red-800 dark:text-red-200 truncate">
-                                🚨 {al.studentName} ({al.studentUnit}) — {al.violationNumber}ª saída às {al.timestamp}
-                              </p>
+                      {(() => {
+                        const seenKeys = new Set<string>();
+                        const uniqueAlerts = activeRoom.alerts.filter((al) => {
+                          const key = `${al.studentId || ''}_v${al.violationNumber || 0}`;
+                          if (seenKeys.has(key)) return false;
+                          seenKeys.add(key);
+                          return true;
+                        });
+                        return uniqueAlerts.map((al) => {
+                          const stu = activeRoom.participants[al.studentId];
+                          const isLockedForThisAlert =
+                            Boolean(stu?.isLocked) &&
+                            stu?.status !== 'DISQUALIFIED' &&
+                            Number(al.violationNumber || 0) >= Number(stu?.cheatCount || 0);
+                          const wasAlreadyUnlocked =
+                            Number(stu?.unlockedCheatCount || 0) >= Number(al.violationNumber || 0);
+
+                          return (
+                            <div
+                              key={al.id}
+                              className="px-3 py-2 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-300 dark:border-red-800 flex items-center justify-between gap-2"
+                            >
+                              <div className="min-w-0">
+                                <p className="text-[11px] font-black text-red-800 dark:text-red-200 truncate">
+                                  🚨 {al.studentName} ({al.studentUnit}) — {al.violationNumber}ª saída às {al.timestamp}
+                                </p>
+                              </div>
+                              {isLockedForThisAlert ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleUnlockStudent(al.studentId)}
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[9px] font-black uppercase shrink-0 cursor-pointer"
+                                >
+                                  Liberar
+                                </button>
+                              ) : wasAlreadyUnlocked ? (
+                                <span className="px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[9px] font-black uppercase shrink-0">
+                                  Liberado
+                                </span>
+                              ) : null}
                             </div>
-                            {stu?.isLocked && (
-                              <button
-                                type="button"
-                                onClick={() => handleUnlockStudent(al.studentId)}
-                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[9px] font-black uppercase shrink-0 cursor-pointer"
-                              >
-                                Liberar
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
+                          );
+                        });
+                      })()}
                     </div>
                   )}
 
