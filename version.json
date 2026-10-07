@@ -1,9 +1,9 @@
 {
-  "version": 1759793000000,
-  "versionName": "3.0.89",
-  "buildDate": "2026-10-06T23:55:00.000Z",
-  "timestamp": 1759793000000,
+  "version": 1759801000000,
+  "versionName": "3.0.92",
+  "buildDate": "2026-10-07T01:25:00.000Z",
+  "timestamp": 1759801000000,
   "highlights": [
-    "Sincronização automática em tempo real entre PC e Celular para o instrutor logado que criou a Prova Ao Vivo"
+    "Tela inicial da Prova Ao Vivo no app com botões Criar Prova e Escanear QR Code (apenas celular), ocultação de Ver Resultado antes de iniciar a prova e reforço do sistema anti-cola no celular"
   ]
 }

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 import QRCode from 'qrcode';
+import jsQR from 'jsqr';
 import { ClubType, Especialidade } from '../types';
 import {
   supabaseQfpy,
@@ -91,7 +92,8 @@ import {
   Minimize2,
   Smartphone,
   Globe,
-  PanelLeftClose
+  PanelLeftClose,
+  Camera
 } from 'lucide-react';
 
 export interface LiveExamQuestion {
@@ -144,6 +146,7 @@ export interface LiveExamRoomState {
   passingScorePercent: number;
   lockOnCheat: boolean;
   status: 'WAITING' | 'ACTIVE' | 'FINISHED';
+  resultsReleased?: boolean;
   startedAt: number | null;
   extraSecondsAdded: number;
   questions: LiveExamQuestion[];
@@ -169,7 +172,53 @@ interface LiveSpecialtyExamProps {
   onActiveRoomChange?: (hasActiveRoom: boolean) => void;
   currentUserEmail?: string;
   currentUserName?: string;
+  currentUserRole?: string;
+  canHostLiveExam?: boolean;
+  autoOpenQrScanner?: boolean;
   onBack?: () => void;
+}
+
+export function isRoleFromCounselorUpwards(roleStr?: string | null): boolean {
+  const rawRole = (roleStr || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+  if (!rawRole) return false;
+  if (rawRole.includes('secretario de unidade')) return false;
+  const allowedKeywords = [
+    'conselheiro',
+    'instrutor',
+    'capelao',
+    'secretario',
+    'tesoureiro',
+    'diretor',
+    'distrital',
+    'regional',
+    'coordenador',
+    'departamental',
+    'pastor',
+    'anciao',
+    'administrador'
+  ];
+  return allowedKeywords.some((kw) => rawRole.includes(kw));
+}
+
+function extractExamPinFromQrText(rawText: string): string | null {
+  if (!rawText) return null;
+  const trimmed = rawText.trim();
+  try {
+    const url = new URL(trimmed);
+    const provaParam = url.searchParams.get('prova') || url.searchParams.get('pin');
+    if (provaParam && /^\d{6}$/.test(provaParam.trim())) {
+      return provaParam.trim();
+    }
+  } catch {}
+  const paramMatch = trimmed.match(/[?&](?:prova|pin)=(\d{6})\b/i);
+  if (paramMatch && paramMatch[1]) return paramMatch[1];
+  const sixDigits = trimmed.match(/\b(\d{6})\b/);
+  if (sixDigits && sixDigits[1]) return sixDigits[1];
+  return null;
 }
 
 const getImageUrl = (url: string | undefined | null) => {
@@ -306,12 +355,82 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   onActiveRoomChange,
   currentUserEmail = '',
   currentUserName = '',
+  currentUserRole = '',
+  canHostLiveExam,
+  autoOpenQrScanner = false,
   onBack
 }) => {
   const isPathfinder = club === ClubType.PATHFINDER;
-  const [roleMode, setRoleMode] = useState<'HOST' | 'STUDENT'>(
-    isIsolatedStudentMode || initialPin ? 'STUDENT' : initialMode
+
+  // Verifica se o usuário tem cargo de Conselheiro para cima (únicos liberados para criar/gerenciar salas de prova)
+  const [resolvedRole, setResolvedRole] = useState<string>(() => {
+    if (currentUserRole && currentUserRole.trim()) return currentUserRole.trim();
+    try {
+      const savedProfile = localStorage.getItem('dbv_tudo_global_user_profile');
+      if (savedProfile) {
+        const parsed = JSON.parse(savedProfile);
+        const roleVal = parsed?.role || parsed?.funçao || parsed?.cargo || '';
+        if (roleVal) return String(roleVal).trim();
+      }
+    } catch {}
+    return '';
+  });
+
+  useEffect(() => {
+    if (currentUserRole && currentUserRole.trim()) {
+      setResolvedRole(currentUserRole.trim());
+    }
+  }, [currentUserRole]);
+
+  const hasHostPermission = useMemo<boolean>(() => {
+    if (isIsolatedStudentMode) return false;
+    try {
+      if (localStorage.getItem('dbv_is_guest') === 'true') return false;
+    } catch {}
+    if (typeof canHostLiveExam === 'boolean') {
+      return canHostLiveExam || isRoleFromCounselorUpwards(resolvedRole);
+    }
+    return isRoleFromCounselorUpwards(resolvedRole);
+  }, [isIsolatedStudentMode, canHostLiveExam, resolvedRole]);
+
+  const [roleMode, setRoleMode] = useState<'HOST' | 'STUDENT'>(() => {
+    if (isIsolatedStudentMode || initialPin) return 'STUDENT';
+    if (typeof canHostLiveExam === 'boolean' && !canHostLiveExam && !isRoleFromCounselorUpwards(resolvedRole)) {
+      return 'STUDENT';
+    }
+    return initialMode;
+  });
+
+  // Detecta se está em um aparelho celular (leitor de QR Code e tela inicial de escolha exclusivos para celular)
+  const [isMobileDevice, setIsMobileDevice] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const ua = navigator.userAgent || '';
+    const isMobileUa = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(ua);
+    return isMobileUa || window.innerWidth < 768;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const checkMobile = () => {
+      const ua = navigator.userAgent || '';
+      const isMobileUa = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(ua);
+      setIsMobileDevice(isMobileUa || window.innerWidth < 768);
+    };
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Tela Inicial ao entrar pelo App no Celular: "Criar Prova" (vai pra área de criação) e "Escanear QR Code" (vai pra área da prova)
+  const [entryScreenConfirmed, setEntryScreenConfirmed] = useState<boolean>(() =>
+    Boolean(isIsolatedStudentMode || initialPin || autoOpenQrScanner)
   );
+  const [entryPermissionNotice, setEntryPermissionNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!hasHostPermission && roleMode === 'HOST') {
+      setRoleMode('STUDENT');
+    }
+  }, [hasHostPermission, roleMode]);
 
   // ============================================================================
   // DETECÇÃO DO INSTRUTOR LOGADO (PARA SINCRONIZAR PROVAS ENTRE PC E CELULAR)
@@ -450,12 +569,16 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   }, [hostRooms, selectedRoomPin, isCreatingNewRoom]);
 
   useEffect(() => {
-    const hasActive = !isIsolatedStudentMode && roleMode === 'HOST' && Boolean(activeRoom);
+    const hasActive =
+      !isIsolatedStudentMode &&
+      (entryScreenConfirmed || !isMobileDevice) &&
+      roleMode === 'HOST' &&
+      Boolean(activeRoom);
     onActiveRoomChange?.(hasActive);
     return () => {
       onActiveRoomChange?.(false);
     };
-  }, [isIsolatedStudentMode, roleMode, activeRoom, onActiveRoomChange]);
+  }, [isIsolatedStudentMode, entryScreenConfirmed, isMobileDevice, roleMode, activeRoom, onActiveRoomChange]);
 
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [isQrFullscreenModalOpen, setIsQrFullscreenModalOpen] = useState<boolean>(false);
@@ -501,15 +624,37 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   });
   const [studentId] = useState<string>(() => {
     try {
-      const existing = sessionStorage.getItem('dbv_exam_student_id');
-      if (existing) return existing;
+      const existing =
+        sessionStorage.getItem('dbv_exam_student_id') || localStorage.getItem('dbv_exam_student_id');
+      if (existing) {
+        sessionStorage.setItem('dbv_exam_student_id', existing);
+        localStorage.setItem('dbv_exam_student_id', existing);
+        return existing;
+      }
       const created = `stu_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
       sessionStorage.setItem('dbv_exam_student_id', created);
+      localStorage.setItem('dbv_exam_student_id', created);
       return created;
     } catch {
       return `stu_${Date.now()}`;
     }
   });
+
+  useEffect(() => {
+    if (!studentName.trim() && (currentUserName || instructorIdentity.name)) {
+      setStudentName((currentUserName || instructorIdentity.name).trim());
+    }
+  }, [currentUserName, instructorIdentity.name, studentName]);
+
+  // Estados do Leitor de QR Code integrado no App
+  const [isQrScannerOpen, setIsQrScannerOpen] = useState<boolean>(Boolean(autoOpenQrScanner));
+  const [qrScannerError, setQrScannerError] = useState<string | null>(null);
+  const [qrScannerFacingMode, setQrScannerFacingMode] = useState<'environment' | 'user'>('environment');
+  const [qrScannedSuccessMsg, setQrScannedSuccessMsg] = useState<string | null>(null);
+  const [releaseFeedbackMsg, setReleaseFeedbackMsg] = useState<string | null>(null);
+  const scannerVideoRef = useRef<HTMLVideoElement | null>(null);
+  const scannerCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const scannerStreamRef = useRef<MediaStream | null>(null);
 
   const [studentRoom, setStudentRoom] = useState<LiveExamRoomState | null>(null);
   const [studentPhase, setStudentPhase] = useState<'ENTER_PIN' | 'WAITING_HOST' | 'PLAYING' | 'FINISHED'>('ENTER_PIN');
@@ -526,6 +671,16 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   const [studentFinalTimeSpentSec, setStudentFinalTimeSpentSec] = useState<number>(0);
   const [showOpenModeChoiceModal, setShowOpenModeChoiceModal] = useState<boolean>(false);
   const [isRunningInStandaloneApp, setIsRunningInStandaloneApp] = useState<boolean>(false);
+
+  // Refs síncronos para garantir envio imediato de alertas Anti-Cola mesmo ao minimizar/trocar de app no celular
+  const studentRoomRef = useRef<LiveExamRoomState | null>(studentRoom);
+  studentRoomRef.current = studentRoom;
+  const studentPhaseRef = useRef(studentPhase);
+  studentPhaseRef.current = studentPhase;
+  const studentCheatCountRef = useRef<number>(studentCheatCount);
+  const studentLockedRef = useRef<boolean>(studentLocked);
+  const studentLastCheatReasonRef = useRef<string>(studentLastCheatReason);
+  const studentPendingAlertsRef = useRef<LiveExamCheatAlert[]>([]);
 
   // Ao escanear o QR Code (isIsolatedStudentMode):
   // - Se a pessoa possuir o App instalado, exibe a opção de abrir no App ou no Navegador.
@@ -940,15 +1095,51 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
 
             Object.values(extRoom.participants || {}).forEach((ep) => {
               const lp = mergedParticipants[ep.id];
-              if (
-                !lp ||
-                ep.answeredCount > lp.answeredCount ||
-                ep.cheatCount > lp.cheatCount ||
-                (ep.status === 'FINISHED' && lp.status !== 'FINISHED') ||
-                isExtNewer
-              ) {
+              if (!lp) {
                 mergedParticipants[ep.id] = ep;
+                return;
               }
+              const eCheat = Number(ep.cheatCount || 0);
+              const lCheat = Number(lp.cheatCount || 0);
+              const maxCheat = Math.max(eCheat, lCheat);
+              const maxAns = Math.max(Number(ep.answeredCount || 0), Number(lp.answeredCount || 0));
+
+              if (eCheat > lCheat && soundEnabledRef.current) {
+                playCheatAlertSound();
+              }
+
+              const keepLocalLock = lCheat > eCheat ? lp.isLocked : ep.isLocked;
+              const nextPStatus: LiveExamParticipant['status'] =
+                lp.status === 'DISQUALIFIED' || ep.status === 'DISQUALIFIED'
+                  ? 'DISQUALIFIED'
+                  : lp.status === 'FINISHED' || ep.status === 'FINISHED'
+                  ? 'FINISHED'
+                  : keepLocalLock
+                  ? 'LOCKED_CHEAT'
+                  : (isExtNewer ? ep.status : lp.status) === 'LOCKED_CHEAT'
+                  ? 'PLAYING'
+                  : (isExtNewer ? ep.status : lp.status) || 'PLAYING';
+
+              mergedParticipants[ep.id] = {
+                ...(isExtNewer ? lp : ep),
+                ...(isExtNewer ? ep : lp),
+                answeredCount: maxAns,
+                cheatCount: maxCheat,
+                lastCheatReason:
+                  eCheat >= lCheat
+                    ? ep.lastCheatReason || lp.lastCheatReason
+                    : lp.lastCheatReason || ep.lastCheatReason,
+                lastCheatTime:
+                  eCheat >= lCheat
+                    ? ep.lastCheatTime || lp.lastCheatTime
+                    : lp.lastCheatTime || ep.lastCheatTime,
+                isLocked: keepLocalLock,
+                status: nextPStatus,
+                answers:
+                  Object.keys(ep.answers || {}).length >= Object.keys(lp.answers || {}).length
+                    ? ep.answers || lp.answers || {}
+                    : lp.answers || {}
+              };
             });
 
             const alertIds = new Set((locRoom.alerts || []).map((a) => a.id));
@@ -970,11 +1161,15 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
               locRoom.extraSecondsAdded || 0,
               extRoom.extraSecondsAdded || 0
             );
+            const nextResultsReleased = isExtNewer
+              ? Boolean(extRoom.resultsReleased ?? locRoom.resultsReleased)
+              : Boolean(locRoom.resultsReleased ?? extRoom.resultsReleased);
 
             if (
               nextStatus !== locRoom.status ||
               nextStartedAt !== locRoom.startedAt ||
               nextExtraSeconds !== locRoom.extraSecondsAdded ||
+              nextResultsReleased !== Boolean(locRoom.resultsReleased) ||
               Object.keys(mergedParticipants).length !== Object.keys(locRoom.participants || {}).length ||
               mergedAlerts.length !== (locRoom.alerts || []).length ||
               (extRoom.updatedAt || 0) > (locRoom.updatedAt || 0)
@@ -982,6 +1177,7 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
               byPin.set(pin, {
                 ...(isExtNewer ? extRoom : locRoom),
                 status: nextStatus,
+                resultsReleased: nextResultsReleased,
                 startedAt: nextStartedAt,
                 extraSecondsAdded: nextExtraSeconds,
                 participants: mergedParticipants,
@@ -1216,15 +1412,56 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
           if (!payload?.participant || !current) return;
           const p: LiveExamParticipant = payload.participant;
           const prevP = current.participants[p.id];
-          const isLocked = prevP?.status === 'DISQUALIFIED' ? true : p.isLocked;
+          const prevCheat = Number(prevP?.cheatCount || 0);
+          const incomingCheat = Number(p.cheatCount || 0);
+          const maxCheat = Math.max(prevCheat, incomingCheat);
+
+          if (incomingCheat > prevCheat && soundEnabledRef.current) {
+            playCheatAlertSound();
+          }
+
+          const isLocked =
+            prevP?.status === 'DISQUALIFIED'
+              ? true
+              : incomingCheat > prevCheat && current.lockOnCheat
+              ? true
+              : prevCheat > incomingCheat
+              ? Boolean(prevP?.isLocked)
+              : Boolean(p.isLocked || prevP?.isLocked);
+
           const status =
             prevP?.status === 'DISQUALIFIED'
               ? 'DISQUALIFIED'
-              : p.status === 'FINISHED'
+              : p.status === 'FINISHED' || prevP?.status === 'FINISHED'
               ? 'FINISHED'
               : isLocked
               ? 'LOCKED_CHEAT'
               : p.status;
+
+          const nextAlerts = [...(current.alerts || [])];
+          if (
+            incomingCheat > prevCheat &&
+            !nextAlerts.some((a) => a.studentId === p.id && a.violationNumber === incomingCheat)
+          ) {
+            nextAlerts.unshift({
+              id: `alert_${p.id}_v${incomingCheat}`,
+              studentId: p.id,
+              studentName: p.name || prevP?.name || 'Aluno',
+              studentUnit: p.unit || prevP?.unit || 'Geral',
+              reason:
+                p.lastCheatReason ||
+                prevP?.lastCheatReason ||
+                'Mudou de janela ou minimizou o aplicativo no celular',
+              timestamp:
+                p.lastCheatTime ||
+                new Date().toLocaleTimeString('pt-BR', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit'
+                }),
+              violationNumber: incomingCheat
+            });
+          }
 
           const updated: LiveExamRoomState = {
             ...current,
@@ -1233,10 +1470,20 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
               [p.id]: {
                 ...prevP,
                 ...p,
+                cheatCount: maxCheat,
+                lastCheatReason:
+                  incomingCheat >= prevCheat
+                    ? p.lastCheatReason || prevP?.lastCheatReason
+                    : prevP?.lastCheatReason || p.lastCheatReason,
+                lastCheatTime:
+                  incomingCheat >= prevCheat
+                    ? p.lastCheatTime || prevP?.lastCheatTime
+                    : prevP?.lastCheatTime || p.lastCheatTime,
                 isLocked,
                 status
               }
             },
+            alerts: nextAlerts,
             updatedAt: Date.now()
           };
           persistHostRoom(updated);
@@ -1307,21 +1554,64 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
             let nextStatus = latestLocal.status;
             let nextStartedAt = latestLocal.startedAt;
             let nextExtraSeconds = latestLocal.extraSecondsAdded || 0;
+            let nextResultsReleased = Boolean(latestLocal.resultsReleased);
 
             sources.forEach((externalRoom) => {
               Object.values(externalRoom.participants || {}).forEach((sp) => {
                 if (!sp?.id) return;
                 const lp = mergedParticipants[sp.id];
+                const spCheat = Number(sp.cheatCount || 0);
+                const lpCheat = Number(lp?.cheatCount || 0);
                 if (
                   !lp ||
                   sp.answeredCount > lp.answeredCount ||
-                  sp.cheatCount > lp.cheatCount ||
+                  spCheat > lpCheat ||
+                  (sp.isLocked && !lp.isLocked && spCheat >= lpCheat) ||
                   (sp.status === 'FINISHED' && lp.status !== 'FINISHED')
                 ) {
-                  if (sp.cheatCount > (lp?.cheatCount || 0) && soundEnabledRef.current) {
-                    playCheatAlertSound();
+                  if (spCheat > lpCheat) {
+                    if (soundEnabledRef.current) {
+                      playCheatAlertSound();
+                    }
+                    // Garante que haja um alerta visível no painel mesmo se apenas o participante tiver atualizado
+                    const hasMatchingAlert =
+                      (externalRoom.alerts || []).some(
+                        (a) => a.studentId === sp.id && a.violationNumber === spCheat
+                      ) ||
+                      mergedAlerts.some(
+                        (a) => a.studentId === sp.id && a.violationNumber === spCheat
+                      );
+                    if (!hasMatchingAlert) {
+                      const synthId = `alert_${sp.id}_v${spCheat}`;
+                      if (!existingAlertIds.has(synthId)) {
+                        existingAlertIds.add(synthId);
+                        mergedAlerts.unshift({
+                          id: synthId,
+                          studentId: sp.id,
+                          studentName: sp.name || 'Aluno',
+                          studentUnit: sp.unit || 'Geral',
+                          reason:
+                            sp.lastCheatReason ||
+                            'Minimizou o aplicativo ou mudou de janela no celular',
+                          timestamp:
+                            sp.lastCheatTime ||
+                            new Date().toLocaleTimeString('pt-BR', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit'
+                            }),
+                          violationNumber: spCheat
+                        });
+                      }
+                    }
                   }
-                  mergedParticipants[sp.id] = sp;
+                  mergedParticipants[sp.id] = {
+                    ...lp,
+                    ...sp,
+                    answeredCount: Math.max(Number(lp?.answeredCount || 0), Number(sp.answeredCount || 0)),
+                    cheatCount: Math.max(lpCheat, spCheat),
+                    isLocked: spCheat >= lpCheat ? sp.isLocked : Boolean(lp?.isLocked)
+                  };
                   changed = true;
                 }
               });
@@ -1331,6 +1621,9 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
                   existingAlertIds.add(sa.id);
                   mergedAlerts.unshift(sa);
                   changed = true;
+                  if (soundEnabledRef.current) {
+                    playCheatAlertSound();
+                  }
                 }
               });
 
@@ -1338,6 +1631,9 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
                 nextStatus = 'FINISHED';
               } else if (externalRoom.status === 'ACTIVE' && nextStatus === 'WAITING') {
                 nextStatus = 'ACTIVE';
+              }
+              if (externalRoom.resultsReleased) {
+                nextResultsReleased = true;
               }
               if (!nextStartedAt && externalRoom.startedAt) {
                 nextStartedAt = externalRoom.startedAt;
@@ -1350,7 +1646,8 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
             if (
               nextStatus !== latestLocal.status ||
               nextStartedAt !== latestLocal.startedAt ||
-              nextExtraSeconds !== (latestLocal.extraSecondsAdded || 0)
+              nextExtraSeconds !== (latestLocal.extraSecondsAdded || 0) ||
+              nextResultsReleased !== Boolean(latestLocal.resultsReleased)
             ) {
               changed = true;
             }
@@ -1359,6 +1656,7 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
               const nextRoom: LiveExamRoomState = {
                 ...latestLocal,
                 status: nextStatus,
+                resultsReleased: nextResultsReleased,
                 startedAt: nextStartedAt,
                 extraSecondsAdded: nextExtraSeconds,
                 participants: mergedParticipants,
@@ -1658,13 +1956,76 @@ REGRAS OBRIGATÓRIAS:
       updatedAt: Date.now()
     };
     persistHostRoom(updated);
-    hostChannelRef.current
+    (hostChannelsMapRef.current.get(activeRoom.pin) || hostChannelRef.current)
       ?.send({
         type: 'broadcast',
         event: 'host:room_sync',
         payload: { room: updated }
       })
       .catch(() => {});
+  };
+
+  const handleReleaseResultsForAll = () => {
+    if (!activeRoom) return;
+    const totalQ = activeRoom.questions.length || 1;
+    const finalizedParticipants: Record<string, LiveExamParticipant> = {};
+    Object.values(activeRoom.participants || {}).forEach((p) => {
+      const ans = p.answers || {};
+      let correct = 0;
+      Object.entries(ans).forEach(([qIdxStr, chosenOpt]) => {
+        const qItem = activeRoom.questions[Number(qIdxStr)];
+        if (qItem && qItem.correctIndex === Number(chosenOpt)) {
+          correct += 1;
+        }
+      });
+      const answeredCount = Object.keys(ans).length;
+      const scorePercent = Math.round((correct / totalQ) * 100);
+      const grade10 = Number(((correct / totalQ) * 10).toFixed(1));
+      finalizedParticipants[p.id] = {
+        ...p,
+        answeredCount,
+        correctCount: correct,
+        scorePercent,
+        grade10,
+        status: p.status === 'DISQUALIFIED' ? 'DISQUALIFIED' : 'FINISHED',
+        finishedAt:
+          p.finishedAt ||
+          new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      };
+    });
+
+    const updated: LiveExamRoomState = {
+      ...activeRoom,
+      status: 'FINISHED',
+      resultsReleased: true,
+      participants: finalizedParticipants,
+      updatedAt: Date.now()
+    };
+    persistHostRoom(updated);
+    const ch = hostChannelsMapRef.current.get(activeRoom.pin) || hostChannelRef.current;
+    ch?.send({
+      type: 'broadcast',
+      event: 'host:room_sync',
+      payload: { room: updated }
+    }).catch(() => {});
+    ch?.send({
+      type: 'broadcast',
+      event: 'host:release_results',
+      payload: {
+        pin: activeRoom.pin,
+        resultsReleased: true,
+        room: updated,
+        participants: finalizedParticipants
+      }
+    }).catch(() => {});
+
+    const totalDevices = Object.keys(finalizedParticipants).length;
+    setReleaseFeedbackMsg(
+      totalDevices > 0
+        ? `✅ Resultado individual enviado para o aparelho de cada um dos ${totalDevices} aluno(s)!`
+        : '✅ Resultado da sala liberado! Assim que um aluno concluir, verá a nota no aparelho dele.'
+    );
+    setTimeout(() => setReleaseFeedbackMsg(null), 5000);
   };
 
   const handleUnlockStudent = (targetStudentId: string) => {
@@ -1685,20 +2046,26 @@ REGRAS OBRIGATÓRIAS:
       updatedAt: Date.now()
     };
     persistHostRoom(updated);
-    hostChannelRef.current
-      ?.send({
-        type: 'broadcast',
-        event: 'host:unlock_student',
-        payload: { studentId: targetStudentId }
+    fetch('/api/live-exam', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'UNLOCK_STUDENT',
+        pin: activeRoom.pin,
+        studentId: targetStudentId
       })
-      .catch(() => {});
-    hostChannelRef.current
-      ?.send({
-        type: 'broadcast',
-        event: 'host:room_sync',
-        payload: { room: updated }
-      })
-      .catch(() => {});
+    }).catch(() => {});
+    const ch = hostChannelsMapRef.current.get(activeRoom.pin) || hostChannelRef.current;
+    ch?.send({
+      type: 'broadcast',
+      event: 'host:unlock_student',
+      payload: { studentId: targetStudentId, unlockedAtViolation: target.cheatCount || 0 }
+    }).catch(() => {});
+    ch?.send({
+      type: 'broadcast',
+      event: 'host:room_sync',
+      payload: { room: updated }
+    }).catch(() => {});
   };
 
   const handleLockOrDisqualifyStudent = (targetStudentId: string, disqualify = false) => {
@@ -1776,20 +2143,30 @@ REGRAS OBRIGATÓRIAS:
       const scorePercent = Math.round((correct / totalQ) * 100);
       const grade10 = Number(((correct / totalQ) * 10).toFixed(1));
 
+      const effectiveCheatCount = Math.max(studentCheatCount, studentCheatCountRef.current);
+      const effectiveLocked = Boolean(studentLocked || studentLockedRef.current);
+      const effectiveCheatReason = studentLastCheatReason || studentLastCheatReasonRef.current;
+
       return {
         id: studentId,
         name: studentName.trim() || 'Desbravador',
         unit: studentUnit.trim() || 'Geral',
-        status: studentLocked ? 'LOCKED_CHEAT' : studentPhase === 'FINISHED' ? 'FINISHED' : 'PLAYING',
+        status: effectiveLocked
+          ? 'LOCKED_CHEAT'
+          : studentPhase === 'FINISHED'
+          ? 'FINISHED'
+          : studentPhase === 'WAITING_HOST'
+          ? 'WAITING'
+          : 'PLAYING',
         joinedAt: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
         currentQuestionIdx: studentCurrentQ,
         answeredCount,
         correctCount: correct,
         scorePercent,
         grade10,
-        cheatCount: studentCheatCount,
-        lastCheatReason: studentLastCheatReason,
-        isLocked: studentLocked,
+        cheatCount: effectiveCheatCount,
+        lastCheatReason: effectiveCheatReason,
+        isLocked: effectiveLocked,
         answers: ans,
         ...overrides
       };
@@ -1897,10 +2274,11 @@ REGRAS OBRIGATÓRIAS:
   );
 
   // Conecta o Aluno à Sala pelo PIN (via Servidor + Supabase Realtime Dedicado + Supabase Storage)
-  const handleStudentJoinRoom = async () => {
-    const cleanPin = studentPinInput.replace(/\D/g, '').trim();
+  const handleStudentJoinRoom = async (overridePin?: string | React.MouseEvent) => {
+    const rawPin = typeof overridePin === 'string' ? overridePin : studentPinInput;
+    const cleanPin = rawPin.replace(/\D/g, '').trim();
     if (cleanPin.length !== 6) {
-      setStudentError('Digite o código PIN de 6 dígitos da prova.');
+      setStudentError('Digite o código PIN de 6 dígitos da prova ou leia o QR Code.');
       return;
     }
     if (!studentName.trim()) {
@@ -2029,21 +2407,34 @@ REGRAS OBRIGATÓRIAS:
         setStudentRoom(incomingRoom);
         setIsConnectingRoom(false);
 
-        const myRecord = incomingRoom.participants?.[studentId];
+        const myRecord =
+          incomingRoom.participants?.[studentId] ||
+          Object.values(incomingRoom.participants || {}).find(
+            (p) => p.name?.trim().toLowerCase() === studentName.trim().toLowerCase()
+          );
         if (myRecord) {
-          setStudentLocked(myRecord.isLocked);
-          if (!myRecord.isLocked) {
-            setStudentWarningModal(null);
+          // Só aceita desbloqueio vindo do Host se o Host já tiver registrado a violação atual do aluno
+          if ((myRecord.cheatCount || 0) >= studentCheatCountRef.current) {
+            studentLockedRef.current = Boolean(myRecord.isLocked);
+            setStudentLocked(Boolean(myRecord.isLocked));
+            if (!myRecord.isLocked) {
+              setStudentWarningModal(null);
+            }
+          }
+          if (myRecord.answers && Object.keys(myRecord.answers).length > 0) {
+            setStudentAnswers((prev) =>
+              Object.keys(prev).length >= Object.keys(myRecord.answers).length ? prev : myRecord.answers
+            );
           }
         }
 
-        if (incomingRoom.status === 'ACTIVE') {
+        if (incomingRoom.status === 'ACTIVE' && !incomingRoom.resultsReleased) {
           setStudentPhase((prev) => (prev === 'FINISHED' ? 'FINISHED' : 'PLAYING'));
           setStudentStartTime((prev) => prev || Date.now());
-        } else if (incomingRoom.status === 'FINISHED') {
+        } else if (incomingRoom.status === 'FINISHED' || incomingRoom.resultsReleased) {
           setStudentFinalTimeSpentSec((prev) => {
             if (prev > 0) return prev;
-            const recSpent = incomingRoom.participants?.[studentId]?.timeSpentSeconds;
+            const recSpent = myRecord?.timeSpentSeconds;
             if (recSpent && recSpent > 0) return recSpent;
             const base = studentStartTime || incomingRoom.startedAt || Date.now();
             return Math.max(1, Math.floor((Date.now() - base) / 1000));
@@ -2053,8 +2444,39 @@ REGRAS OBRIGATÓRIAS:
           setStudentPhase((prev) => (prev === 'FINISHED' ? 'FINISHED' : 'WAITING_HOST'));
         }
       })
+      .on('broadcast', { event: 'host:release_results' }, ({ payload }) => {
+        if (!payload?.room) return;
+        const incomingRoom: LiveExamRoomState = {
+          ...payload.room,
+          resultsReleased: true
+        };
+        didResolveFromHost = true;
+        setStudentRoom(incomingRoom);
+        setIsConnectingRoom(false);
+
+        const myRecord =
+          incomingRoom.participants?.[studentId] ||
+          Object.values(incomingRoom.participants || {}).find(
+            (p) => p.name?.trim().toLowerCase() === studentName.trim().toLowerCase()
+          );
+        if (myRecord?.answers && Object.keys(myRecord.answers).length > 0) {
+          setStudentAnswers((prev) =>
+            Object.keys(prev).length >= Object.keys(myRecord.answers).length ? prev : myRecord.answers
+          );
+        }
+        if (myRecord?.timeSpentSeconds && myRecord.timeSpentSeconds > 0) {
+          setStudentFinalTimeSpentSec((prev) => prev || myRecord.timeSpentSeconds || 1);
+        }
+        setStudentPhase('FINISHED');
+        try {
+          if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            navigator.vibrate([80, 50, 140]);
+          }
+        } catch {}
+      })
       .on('broadcast', { event: 'host:unlock_student' }, ({ payload }) => {
         if (payload?.studentId === studentId) {
+          studentLockedRef.current = false;
           setStudentLocked(false);
           setStudentWarningModal(null);
         }
@@ -2124,23 +2546,30 @@ REGRAS OBRIGATÓRIAS:
               : 'WAITING'
         });
 
-        studentChannelRef.current
-          ?.send({
-            type: 'broadcast',
-            event: studentPhase === 'WAITING_HOST' ? 'student:join' : 'student:update',
-            payload: { participant: currentParticipant }
-          })
-          .catch(() => {});
+        const alreadyFinishedOnServer =
+          studentPhase === 'FINISHED' &&
+          studentRoom?.participants?.[studentId]?.status === 'FINISHED' &&
+          (studentRoom?.participants?.[studentId]?.answeredCount || 0) >= currentParticipant.answeredCount;
 
-        fetch('/api/live-exam', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'STUDENT_UPDATE',
-            pin,
-            participant: currentParticipant
-          })
-        }).catch(() => {});
+        if (!alreadyFinishedOnServer) {
+          studentChannelRef.current
+            ?.send({
+              type: 'broadcast',
+              event: studentPhase === 'WAITING_HOST' ? 'student:join' : 'student:update',
+              payload: { participant: currentParticipant }
+            })
+            .catch(() => {});
+
+          fetch('/api/live-exam', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'STUDENT_UPDATE',
+              pin,
+              participant: currentParticipant
+            })
+          }).catch(() => {});
+        }
 
         const [apiRoom, cloudRoom] = await Promise.all([
           fetch(`/api/live-exam?pin=${pin}`)
@@ -2152,31 +2581,109 @@ REGRAS OBRIGATÓRIAS:
           )
         ]);
 
-        let srv: LiveExamRoomState | null = cloudRoom || apiRoom;
-        if (apiRoom && cloudRoom) {
-          srv = (cloudRoom.updatedAt || 0) >= (apiRoom.updatedAt || 0) ? cloudRoom : apiRoom;
-        }
+        const baseSrv =
+          apiRoom && cloudRoom
+            ? (cloudRoom.updatedAt || 0) >= (apiRoom.updatedAt || 0)
+              ? cloudRoom
+              : apiRoom
+            : cloudRoom || apiRoom;
 
-        if (srv) {
-          setStudentRoom(srv);
-          const me = srv.participants?.[studentId];
-          if (!me || me.answeredCount < currentParticipant.answeredCount) {
+        if (baseSrv) {
+          const mergedStatus: LiveExamRoomState['status'] =
+            cloudRoom?.status === 'FINISHED' || apiRoom?.status === 'FINISHED' || baseSrv.status === 'FINISHED'
+              ? 'FINISHED'
+              : cloudRoom?.status === 'ACTIVE' || apiRoom?.status === 'ACTIVE' || baseSrv.status === 'ACTIVE'
+              ? 'ACTIVE'
+              : 'WAITING';
+          const mergedResultsReleased = Boolean(
+            cloudRoom?.resultsReleased || apiRoom?.resultsReleased || baseSrv.resultsReleased
+          );
+          const mergedExtraSeconds = Math.max(
+            cloudRoom?.extraSecondsAdded || 0,
+            apiRoom?.extraSecondsAdded || 0,
+            baseSrv.extraSecondsAdded || 0
+          );
+          const srv: LiveExamRoomState = {
+            ...baseSrv,
+            status: mergedStatus,
+            resultsReleased: mergedResultsReleased,
+            extraSecondsAdded: mergedExtraSeconds,
+            participants: {
+              ...(apiRoom?.participants || {}),
+              ...(cloudRoom?.participants || {}),
+              ...(baseSrv.participants || {})
+            }
+          };
+
+          setStudentRoom((prev) => ({
+            ...srv,
+            resultsReleased: Boolean(srv.resultsReleased || prev?.resultsReleased)
+          }));
+
+          const me =
+            srv.participants?.[studentId] ||
+            Object.values(srv.participants || {}).find(
+              (p) => p.name?.trim().toLowerCase() === studentName.trim().toLowerCase()
+            );
+          const latestPendingAlert =
+            studentPendingAlertsRef.current[studentPendingAlertsRef.current.length - 1];
+          const serverMissingCheat =
+            studentCheatCountRef.current > (me?.cheatCount || 0) ||
+            (latestPendingAlert &&
+              !(srv.alerts || []).some((a) => a.id === latestPendingAlert.id));
+
+          if (serverMissingCheat && latestPendingAlert) {
+            const cheatParticipantPayload = buildCurrentParticipantPayload({
+              cheatCount: studentCheatCountRef.current,
+              lastCheatReason: studentLastCheatReasonRef.current || latestPendingAlert.reason,
+              lastCheatTime: latestPendingAlert.timestamp,
+              isLocked: studentLockedRef.current,
+              status: studentLockedRef.current ? 'LOCKED_CHEAT' : currentParticipant.status
+            });
+            studentChannelRef.current
+              ?.send({
+                type: 'broadcast',
+                event: 'student:cheat_alert',
+                payload: { alert: latestPendingAlert, participant: cheatParticipantPayload }
+              })
+              .catch(() => {});
+            fetch('/api/live-exam', {
+              method: 'POST',
+              keepalive: true,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'CHEAT_ALERT',
+                pin,
+                alert: latestPendingAlert,
+                participant: cheatParticipantPayload
+              })
+            }).catch(() => {});
+            syncStudentToCloudRoom(pin, cheatParticipantPayload, latestPendingAlert, srv);
+          } else if (!me || me.answeredCount < currentParticipant.answeredCount) {
             syncStudentToCloudRoom(pin, currentParticipant, undefined, srv);
+          } else if (me.answers && Object.keys(me.answers).length > 0) {
+            setStudentAnswers((prev) =>
+              Object.keys(prev).length >= Object.keys(me.answers).length ? prev : me.answers
+            );
           }
+
           if (me) {
-            setStudentLocked(me.isLocked);
-            if (!me.isLocked) setStudentWarningModal(null);
             if (me.status === 'DISQUALIFIED') {
+              studentLockedRef.current = true;
               setStudentLocked(true);
+            } else if ((me.cheatCount || 0) >= studentCheatCountRef.current) {
+              studentLockedRef.current = Boolean(me.isLocked);
+              setStudentLocked(Boolean(me.isLocked));
+              if (!me.isLocked) setStudentWarningModal(null);
             }
           }
-          if (srv.status === 'ACTIVE' && studentPhase === 'WAITING_HOST') {
+          if (srv.status === 'ACTIVE' && !srv.resultsReleased && studentPhase === 'WAITING_HOST') {
             setStudentPhase('PLAYING');
             setStudentStartTime((prev) => prev || Date.now());
-          } else if (srv.status === 'FINISHED' && studentPhase !== 'FINISHED') {
+          } else if ((srv.status === 'FINISHED' || srv.resultsReleased) && studentPhase !== 'FINISHED') {
             setStudentFinalTimeSpentSec((prev) => {
               if (prev > 0) return prev;
-              const recSpent = srv?.participants?.[studentId]?.timeSpentSeconds;
+              const recSpent = me?.timeSpentSeconds;
               if (recSpent && recSpent > 0) return recSpent;
               const base = studentStartTime || srv.startedAt || Date.now();
               return Math.max(1, Math.floor((Date.now() - base) / 1000));
@@ -2192,25 +2699,82 @@ REGRAS OBRIGATÓRIAS:
 
   // ============================================================================
   // DETECTOR ANTI-COLA EM TEMPO REAL NO CELULAR/PC DO ALUNO
-  // (Minimizar tela, trocar de aba, perder foco da janela ou sair da tela cheia)
+  // (Minimizar tela, trocar de aba, mudar de janela no celular ou sair da tela cheia)
   // ============================================================================
+  const flushPendingStudentCheatAlerts = useCallback(() => {
+    const activeStudentRoom = studentRoomRef.current;
+    if (!activeStudentRoom?.pin || studentPendingAlertsRef.current.length === 0) return;
+
+    const latestAlert = studentPendingAlertsRef.current[studentPendingAlertsRef.current.length - 1];
+    if (!latestAlert) return;
+
+    const updatedParticipant = buildCurrentParticipantPayload({
+      cheatCount: studentCheatCountRef.current,
+      lastCheatReason: studentLastCheatReasonRef.current || latestAlert.reason,
+      lastCheatTime: latestAlert.timestamp,
+      isLocked: studentLockedRef.current,
+      status: studentLockedRef.current
+        ? 'LOCKED_CHEAT'
+        : studentPhaseRef.current === 'WAITING_HOST'
+        ? 'WAITING'
+        : 'PLAYING'
+    });
+
+    studentChannelRef.current
+      ?.send({
+        type: 'broadcast',
+        event: 'student:cheat_alert',
+        payload: { alert: latestAlert, participant: updatedParticipant }
+      })
+      .catch(() => {});
+
+    fetch('/api/live-exam', {
+      method: 'POST',
+      keepalive: true,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'CHEAT_ALERT',
+        pin: activeStudentRoom.pin,
+        alert: latestAlert,
+        participant: updatedParticipant
+      })
+    }).catch(() => {});
+
+    syncStudentToCloudRoom(activeStudentRoom.pin, updatedParticipant, latestAlert, activeStudentRoom);
+  }, [buildCurrentParticipantPayload, syncStudentToCloudRoom]);
+
   const triggerStudentCheatViolation = useCallback(
     (reason: string) => {
-      if (roleMode !== 'STUDENT' || studentPhase !== 'PLAYING' || !studentRoom) return;
+      const currentRoom = studentRoomRef.current;
+      const currentPhase = studentPhaseRef.current;
+      if (
+        roleMode !== 'STUDENT' ||
+        (currentPhase !== 'PLAYING' && currentPhase !== 'WAITING_HOST') ||
+        !currentRoom ||
+        currentRoom.status === 'FINISHED' ||
+        isQrScannerOpen
+      ) {
+        return;
+      }
 
       const now = Date.now();
-      // Evita disparo duplicado no mesmo segundo quando blur + visibilitychange ocorrem juntos
+      // Evita disparo duplicado no mesmo segundo quando blur + visibilitychange + pagehide ocorrem juntos
       if (now - lastCheatTimestampRef.current < 1200) return;
       lastCheatTimestampRef.current = now;
 
-      const nextCount = studentCheatCount + 1;
+      const nextCount = studentCheatCountRef.current + 1;
+      studentCheatCountRef.current = nextCount;
+
       const timeStr = new Date().toLocaleTimeString('pt-BR', {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit'
       });
 
-      const shouldLock = studentRoom.lockOnCheat;
+      const shouldLock = Boolean(currentRoom.lockOnCheat);
+      studentLockedRef.current = shouldLock;
+      studentLastCheatReasonRef.current = reason;
+
       setStudentCheatCount(nextCount);
       setStudentLastCheatReason(reason);
       if (shouldLock) {
@@ -2229,14 +2793,28 @@ REGRAS OBRIGATÓRIAS:
         violationNumber: nextCount
       };
 
+      studentPendingAlertsRef.current = [...studentPendingAlertsRef.current, alertEvent];
+
       const updatedParticipant = buildCurrentParticipantPayload({
         cheatCount: nextCount,
         lastCheatReason: reason,
         lastCheatTime: timeStr,
         isLocked: shouldLock,
-        status: shouldLock ? 'LOCKED_CHEAT' : 'PLAYING'
+        status: shouldLock
+          ? 'LOCKED_CHEAT'
+          : currentPhase === 'WAITING_HOST'
+          ? 'WAITING'
+          : 'PLAYING'
       });
 
+      const bodyStr = JSON.stringify({
+        action: 'CHEAT_ALERT',
+        pin: currentRoom.pin,
+        alert: alertEvent,
+        participant: updatedParticipant
+      });
+
+      // 1. Envia via WebSocket Realtime imediatamente
       studentChannelRef.current
         ?.send({
           type: 'broadcast',
@@ -2245,24 +2823,52 @@ REGRAS OBRIGATÓRIAS:
         })
         .catch(() => {});
 
+      // 2. Envia via sendBeacon + fetch keepalive para o navegador mobile não cancelar ao trocar de janela
+      try {
+        if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+          const blob = new Blob([bodyStr], { type: 'application/json' });
+          navigator.sendBeacon('/api/live-exam', blob);
+        }
+      } catch {}
+
       fetch('/api/live-exam', {
         method: 'POST',
+        keepalive: true,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'CHEAT_ALERT',
-          pin: studentRoom.pin,
-          alert: alertEvent,
-          participant: updatedParticipant
-        })
+        body: bodyStr
       }).catch(() => {});
 
-      syncStudentToCloudRoom(studentRoom.pin, updatedParticipant, alertEvent);
+      // 3. Upload direto de 1 passo para o Supabase Storage (sem esperar GET antes de congelar a aba no celular)
+      try {
+        const fastCloudRoom: LiveExamRoomState = {
+          ...currentRoom,
+          participants: {
+            ...(currentRoom.participants || {}),
+            [updatedParticipant.id]: updatedParticipant
+          },
+          alerts: [
+            alertEvent,
+            ...(currentRoom.alerts || []).filter((a) => a.id !== alertEvent.id)
+          ],
+          updatedAt: now
+        };
+        studentRoomRef.current = fastCloudRoom;
+        supabaseQfpy.storage
+          .from('App DBV Tudo')
+          .upload(`provas/room_${currentRoom.pin}.json`, JSON.stringify(fastCloudRoom), {
+            upsert: true,
+            contentType: 'application/json',
+            cacheControl: '0'
+          })
+          .catch(() => {});
+      } catch {}
+
+      // 4. Sincronização complementar completa com merge
+      syncStudentToCloudRoom(currentRoom.pin, updatedParticipant, alertEvent, currentRoom);
     },
     [
       roleMode,
-      studentPhase,
-      studentRoom,
-      studentCheatCount,
+      isQrScannerOpen,
       studentId,
       studentName,
       studentUnit,
@@ -2272,34 +2878,57 @@ REGRAS OBRIGATÓRIAS:
   );
 
   useEffect(() => {
-    if (roleMode !== 'STUDENT' || studentPhase !== 'PLAYING') return;
+    if (
+      roleMode !== 'STUDENT' ||
+      (studentPhase !== 'PLAYING' && studentPhase !== 'WAITING_HOST') ||
+      !studentRoom
+    ) {
+      return;
+    }
 
     const handleVisibilityChange = () => {
-      if (document.hidden) {
-        triggerStudentCheatViolation('Minimizou o aplicativo ou trocou de aba do navegador');
+      if (document.hidden || document.visibilityState === 'hidden') {
+        triggerStudentCheatViolation('Mudou de janela ou minimizou o aplicativo no celular');
+      } else {
+        // Quando o aluno volta para a tela no celular, garante o reenvio imediato caso o SO tenha pausado a rede
+        flushPendingStudentCheatAlerts();
       }
     };
 
+    const handlePageHide = () => {
+      triggerStudentCheatViolation('Saiu da tela da prova ou alternou de aplicativo');
+    };
+
     const handleWindowBlur = () => {
-      triggerStudentCheatViolation('Saiu da janela da prova (abriu outro app, notificação ou tela dividida)');
+      triggerStudentCheatViolation('Mudou de janela, abriu outro app ou barra do sistema');
+    };
+
+    const handleWindowFocus = () => {
+      flushPendingStudentCheatAlerts();
     };
 
     const handleFullscreenChange = () => {
-      if (!document.fullscreenElement) {
+      if (!document.fullscreenElement && studentPhaseRef.current === 'PLAYING') {
         triggerStudentCheatViolation('Saiu do modo Tela Cheia obrigatório durante a prova');
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handlePageHide);
     window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener('pageshow', handleWindowFocus);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
       window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('pageshow', handleWindowFocus);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
-  }, [roleMode, studentPhase, triggerStudentCheatViolation]);
+  }, [roleMode, studentPhase, studentRoom, triggerStudentCheatViolation, flushPendingStudentCheatAlerts]);
 
   // Cronômetro regressivo do Aluno durante a Prova
   const handleStudentSubmitExam = useCallback(() => {
@@ -2823,10 +3452,416 @@ REGRAS OBRIGATÓRIAS:
   }, [activeRoom, qrCodeDataUrl, hostRemainingSeconds]);
 
   // ============================================================================
+  // LEITOR DE QR CODE COM A CÂMERA DENTRO DO APP
+  // ============================================================================
+  const stopQrScannerStream = useCallback(() => {
+    try {
+      if (scannerStreamRef.current) {
+        scannerStreamRef.current.getTracks().forEach((track) => track.stop());
+        scannerStreamRef.current = null;
+      }
+      if (scannerVideoRef.current) {
+        scannerVideoRef.current.srcObject = null;
+      }
+    } catch {}
+  }, []);
+
+  const handleQrCodeDecoded = useCallback(
+    (rawText: string) => {
+      const pinFound = extractExamPinFromQrText(rawText);
+      if (!pinFound) {
+        setQrScannerError('QR Code lido, mas não contém um PIN de 6 dígitos válido de Prova Ao Vivo.');
+        return;
+      }
+      try {
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate(100);
+        }
+      } catch {}
+      stopQrScannerStream();
+      setIsQrScannerOpen(false);
+      setQrScannerError(null);
+      setEntryScreenConfirmed(true);
+      setRoleMode('STUDENT');
+      setStudentPhase('ENTER_PIN');
+      setStudentPinInput(pinFound);
+      setStudentError(null);
+      setQrScannedSuccessMsg(`✅ QR Code lido! Sala #${pinFound} identificada.`);
+      if (studentName.trim().length >= 2) {
+        setTimeout(() => {
+          handleStudentJoinRoom(pinFound);
+        }, 120);
+      }
+    },
+    [stopQrScannerStream, studentName]
+  );
+
+  useEffect(() => {
+    if (!isQrScannerOpen) {
+      stopQrScannerStream();
+      return;
+    }
+
+    let cancelled = false;
+    let scanTimer: any = null;
+    setQrScannerError(null);
+
+    const startCamera = async () => {
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setQrScannerError(
+            'A câmera ao vivo não está disponível neste navegador. Use o botão abaixo para tirar foto do QR Code.'
+          );
+          return;
+        }
+        stopQrScannerStream();
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: qrScannerFacingMode },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: false
+        });
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        scannerStreamRef.current = stream;
+        if (scannerVideoRef.current) {
+          scannerVideoRef.current.srcObject = stream;
+          await scannerVideoRef.current.play().catch(() => {});
+        }
+
+        let nativeDetector: any = null;
+        try {
+          if ('BarcodeDetector' in window) {
+            nativeDetector = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
+          }
+        } catch {}
+
+        scanTimer = setInterval(async () => {
+          if (cancelled || !scannerVideoRef.current) return;
+          const video = scannerVideoRef.current;
+          if (video.readyState < 2 || video.videoWidth <= 0 || video.videoHeight <= 0) return;
+
+          if (nativeDetector) {
+            try {
+              const codes = await nativeDetector.detect(video);
+              if (Array.isArray(codes) && codes.length > 0 && codes[0]?.rawValue) {
+                handleQrCodeDecoded(String(codes[0].rawValue));
+                return;
+              }
+            } catch {}
+          }
+
+          const canvas = scannerCanvasRef.current;
+          if (!canvas) return;
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          if (!ctx) return;
+
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: 'attemptBoth'
+          });
+          if (code && code.data) {
+            handleQrCodeDecoded(code.data);
+          }
+        }, 160);
+      } catch {
+        if (!cancelled) {
+          setQrScannerError(
+            'Não foi possível acessar a câmera automaticamente. Permita o uso da câmera ou use o botão abaixo para ler por foto.'
+          );
+        }
+      }
+    };
+
+    startCamera();
+
+    return () => {
+      cancelled = true;
+      if (scanTimer) clearInterval(scanTimer);
+      stopQrScannerStream();
+    };
+  }, [isQrScannerOpen, qrScannerFacingMode, stopQrScannerStream, handleQrCodeDecoded]);
+
+  const handleScanQrFromImageFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setQrScannerError(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = scannerCanvasRef.current || document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        const maxDim = 1200;
+        let w = img.width;
+        let h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          } else {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        ctx.drawImage(img, 0, 0, w, h);
+        const imageData = ctx.getImageData(0, 0, w, h);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: 'attemptBoth'
+        });
+        if (code && code.data) {
+          handleQrCodeDecoded(code.data);
+        } else {
+          setQrScannerError('Não foi possível identificar um QR Code nesta imagem. Tente aproximar mais do QR Code.');
+        }
+      };
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const renderQrScannerModal = () => {
+    if (!isQrScannerOpen || typeof document === 'undefined') return null;
+    return createPortal(
+      <div
+        className="fixed inset-0 z-[100005] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"
+        onClick={() => setIsQrScannerOpen(false)}
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="w-full max-w-md bg-slate-900 border border-indigo-500/40 rounded-[28px] p-4 sm:p-5 text-white shadow-2xl space-y-3.5"
+        >
+          <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-800">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-indigo-600/25 border border-indigo-500/40 text-indigo-400 flex items-center justify-center shrink-0">
+                <Camera size={18} />
+              </div>
+              <div>
+                <h4 className="text-sm font-black uppercase tracking-tight text-white">
+                  Ler QR Code da Prova
+                </h4>
+                <p className="text-[11px] text-slate-400 font-medium">
+                  Aponte a câmera para o QR Code da sala
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsQrScannerOpen(false)}
+              className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          <div className="relative w-full aspect-square max-h-[300px] mx-auto rounded-2xl overflow-hidden bg-slate-950 border-2 border-indigo-500/40 flex items-center justify-center">
+            <video
+              ref={scannerVideoRef}
+              playsInline
+              muted
+              autoPlay
+              className="w-full h-full object-cover"
+            />
+            <canvas ref={scannerCanvasRef} className="hidden" />
+            {/* Moldura de Foco do QR Code */}
+            <div className="absolute inset-8 border-2 border-amber-400/80 rounded-2xl pointer-events-none shadow-[0_0_0_9999px_rgba(2,6,23,0.45)] flex items-center justify-center">
+              <div className="w-full h-0.5 bg-amber-400/90 shadow-[0_0_12px_#fbbf24] animate-pulse" />
+            </div>
+          </div>
+
+          {qrScannerError && (
+            <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-[11px] font-bold text-center">
+              {qrScannerError}
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                setQrScannerFacingMode((prev) => (prev === 'environment' ? 'user' : 'environment'))
+              }
+              className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-[10px] sm:text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <RefreshCw size={13} />
+              <span>Trocar Câmera</span>
+            </button>
+
+            <label className="py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer text-center">
+              <QrCode size={13} />
+              <span>Ler por Foto</span>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleScanQrFromImageFile}
+                className="hidden"
+              />
+            </label>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  };
+
+  // ============================================================================
+  // TELA INICIAL AO ENTRAR NA ÁREA DE PROVA AO VIVO PELO APLICATIVO (NO CELULAR):
+  // Botões: 1. "Criar Prova" (vai pra área de criação) | 2. "Escanear QR Code" (vai pra área da prova — apenas para celular)
+  // ============================================================================
+  if (!isIsolatedStudentMode && !initialPin && !entryScreenConfirmed && isMobileDevice) {
+    return (
+      <div className="w-full max-w-2xl mx-auto py-4 sm:py-8 px-2 animate-fade-in">
+        {renderQrScannerModal()}
+        <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 border border-white/10 rounded-[28px] p-5 sm:p-7 text-white shadow-2xl space-y-5">
+          <div className="text-center space-y-2">
+            <div className="w-16 h-16 rounded-2xl bg-indigo-600/25 border border-indigo-400/40 text-indigo-300 flex items-center justify-center mx-auto shadow-lg">
+              <QrCode size={32} />
+            </div>
+            <span className="inline-block px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/35 text-amber-300 text-[10px] font-black uppercase tracking-widest">
+              Prova Ao Vivo • {isPathfinder ? 'Desbravadores' : 'Aventureiros'}
+            </span>
+            <h2 className="text-lg sm:text-2xl font-black uppercase tracking-tight text-white">
+              Prova Ao Vivo
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-300 font-medium max-w-md mx-auto">
+              Selecione uma opção abaixo para criar uma prova ou escanear o QR Code da sala:
+            </p>
+          </div>
+
+          {entryPermissionNotice && (
+            <div className="p-3 rounded-2xl bg-red-500/20 border border-red-400/40 text-red-200 text-xs font-bold text-center">
+              {entryPermissionNotice}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+            {/* Botão 1: Criar Prova (vai para a área de criação — Conselheiro+) */}
+            <button
+              type="button"
+              onClick={() => {
+                if (!hasHostPermission) {
+                  setEntryPermissionNotice(
+                    '🔒 O recurso de Criar Prova é liberado apenas de Conselheiro para cima.'
+                  );
+                  return;
+                }
+                setEntryPermissionNotice(null);
+                setRoleMode('HOST');
+                setIsCreatingNewRoom(true);
+                setEntryScreenConfirmed(true);
+              }}
+              className={`group relative overflow-hidden rounded-[24px] p-5 text-left border transition-all flex flex-col justify-between gap-4 cursor-pointer active:scale-[0.98] ${
+                hasHostPermission
+                  ? 'bg-gradient-to-br from-indigo-600 via-blue-600 to-indigo-700 hover:from-indigo-500 hover:to-blue-600 border-indigo-400/40 shadow-xl shadow-indigo-600/20'
+                  : 'bg-slate-800/80 border-slate-700 opacity-80'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="w-12 h-12 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center text-white">
+                  <Plus size={24} />
+                </div>
+                <span className="px-2.5 py-1 rounded-full bg-black/25 text-amber-300 text-[9px] font-black uppercase tracking-wider">
+                  Conselheiro+
+                </span>
+              </div>
+
+              <div className="space-y-1">
+                <h3 className="text-base sm:text-lg font-black uppercase tracking-tight text-white">
+                  Criar Prova
+                </h3>
+                <p className="text-[11px] text-indigo-100/90 font-medium leading-relaxed">
+                  Ir para a área de criação para escolher a especialidade e abrir sala com QR Code.
+                </p>
+              </div>
+            </button>
+
+            {/* Botão 2: Escanear QR Code (vai para a área da prova — exclusivo para celular) */}
+            <button
+              type="button"
+              onClick={() => {
+                setEntryPermissionNotice(null);
+                setRoleMode('STUDENT');
+                setEntryScreenConfirmed(true);
+                setIsQrScannerOpen(true);
+              }}
+              className="group relative overflow-hidden rounded-[24px] p-5 text-left bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-600 border border-emerald-400/40 shadow-xl shadow-emerald-600/20 transition-all flex flex-col justify-between gap-4 cursor-pointer active:scale-[0.98]"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="w-12 h-12 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center text-white">
+                  <Camera size={24} />
+                </div>
+                <span className="px-2.5 py-1 rounded-full bg-black/25 text-emerald-200 text-[9px] font-black uppercase tracking-wider">
+                  Área da Prova
+                </span>
+              </div>
+
+              <div className="space-y-1">
+                <h3 className="text-base sm:text-lg font-black uppercase tracking-tight text-white">
+                  Escanear QR Code
+                </h3>
+                <p className="text-[11px] text-emerald-100/90 font-medium leading-relaxed">
+                  Ir para a área da prova e abrir a câmera do celular para ler o QR Code da sala.
+                </p>
+              </div>
+            </button>
+          </div>
+
+          {hasHostPermission && hostRooms.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setEntryPermissionNotice(null);
+                setRoleMode('HOST');
+                setIsCreatingNewRoom(false);
+                setEntryScreenConfirmed(true);
+              }}
+              className="w-full py-3.5 px-4 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/20 text-amber-300 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all"
+            >
+              <QrCode size={16} />
+              <span>
+                Acessar Sala(s) Aberta(s) Sincronizada(s) ({hostRooms.length})
+              </span>
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ============================================================================
   // RENDERIZAÇÃO: MODO ALUNO (ÁREA SEPARADA E ISOLADA DE PROVA)
   // ============================================================================
   if (roleMode === 'STUDENT') {
-    const mySummary = buildCurrentParticipantPayload();
+    const myServerRecord = studentRoom?.participants
+      ? studentRoom.participants[studentId] ||
+        Object.values(studentRoom.participants).find(
+          (p) => p.name?.trim().toLowerCase() === studentName.trim().toLowerCase()
+        ) ||
+        null
+      : null;
+    const effectiveStudentAnswers =
+      Object.keys(studentAnswers).length > 0
+        ? studentAnswers
+        : myServerRecord?.answers && Object.keys(myServerRecord.answers).length > 0
+        ? myServerRecord.answers
+        : studentAnswers;
+    const studentPayloadPreview = buildCurrentParticipantPayload(
+      undefined,
+      effectiveStudentAnswers,
+      studentRoom
+    );
     const totalQuestions = studentRoom?.questions.length || 1;
     const activeQuestion = studentRoom?.questions[studentCurrentQ];
     const resetMobileViewportScroll = () => {
@@ -2848,6 +3883,7 @@ REGRAS OBRIGATÓRIAS:
         onCut={studentPhase === 'PLAYING' ? (e) => e.preventDefault() : undefined}
         onContextMenu={studentPhase === 'PLAYING' ? (e) => e.preventDefault() : undefined}
       >
+        {renderQrScannerModal()}
         {/* Topbar Exclusiva da Área Isolada de Prova (Com recuo superior de segurança para câmeras centrais / notch no celular) */}
         <div className="shrink-0 bg-slate-900/95 border-b border-slate-800 px-4 pt-[max(calc(env(safe-area-inset-top,0px)+14px),2.5rem)] sm:pt-3 pb-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -2856,7 +3892,9 @@ REGRAS OBRIGATÓRIAS:
             </div>
             <div className="min-w-0">
               <span className="text-[9px] font-black uppercase tracking-widest text-amber-400 block">
-                Ambiente Isolado de Prova • Anti-Cola Ativo
+                {hasHostPermission
+                  ? 'Ambiente Isolado de Prova • Anti-Cola Ativo'
+                  : 'Modo Aluno • Criar Sala: Exclusivo Conselheiro+'}
               </span>
               <h2 className="text-xs sm:text-sm font-black uppercase tracking-tight text-white truncate">
                 {studentRoom ? `Especialidade: ${studentRoom.specialtyName}` : 'Acesso à Prova Oficial por QR Code / PIN'}
@@ -2883,20 +3921,44 @@ REGRAS OBRIGATÓRIAS:
               </div>
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={() => {
-                if (onExitIsolatedMode) {
-                  onExitIsolatedMode();
-                } else {
-                  setRoleMode('HOST');
-                }
-              }}
-              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
-            >
-              <LogOut size={13} />
-              <span>{activeRoom ? 'Voltar ao Painel' : 'Sair da Prova'}</span>
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {studentPhase === 'ENTER_PIN' && isMobileDevice && (
+                <button
+                  type="button"
+                  onClick={() => setIsQrScannerOpen(true)}
+                  className="md:hidden px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer shadow-xs"
+                >
+                  <Camera size={13} />
+                  <span>Ler QR Code</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (onExitIsolatedMode) {
+                    onExitIsolatedMode();
+                  } else if (!isIsolatedStudentMode && !initialPin && isMobileDevice) {
+                    setEntryScreenConfirmed(false);
+                  } else if (hasHostPermission) {
+                    setRoleMode('HOST');
+                  } else if (onBack) {
+                    onBack();
+                  }
+                }}
+                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+              >
+                <LogOut size={13} />
+                <span>
+                  {!isIsolatedStudentMode && !initialPin && isMobileDevice
+                    ? 'Voltar'
+                    : hasHostPermission
+                    ? activeRoom
+                      ? 'Voltar ao Painel'
+                      : 'Modo Instrutor'
+                    : 'Sair da Prova'}
+                </span>
+              </button>
+            </div>
           )}
         </div>
 
@@ -3006,9 +4068,29 @@ REGRAS OBRIGATÓRIAS:
                   Entrar na Prova da Especialidade
                 </h3>
                 <p className="text-xs text-slate-400 font-medium">
-                  Confirme o código PIN da sala e identifique-se para iniciar em modo de tela bloqueada.
+                  {isMobileDevice
+                    ? 'Escaneie o QR Code da sala pelo celular ou digite o código PIN de 6 dígitos abaixo.'
+                    : 'Digite o código PIN de 6 dígitos da sala abaixo para iniciar sua prova.'}
                 </p>
               </div>
+
+              {/* Botão Principal de Ler QR Code pelo Aplicativo (Exclusivo para Celular) */}
+              {isMobileDevice && (
+                <button
+                  type="button"
+                  onClick={() => setIsQrScannerOpen(true)}
+                  className="md:hidden w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black uppercase tracking-wider text-xs sm:text-sm shadow-lg shadow-emerald-600/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Camera size={18} />
+                  <span>Escanear QR Code da Prova</span>
+                </button>
+              )}
+
+              {qrScannedSuccessMsg && (
+                <div className="p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-bold text-center">
+                  {qrScannedSuccessMsg}
+                </div>
+              )}
 
               <div className="space-y-3.5">
                 <div>
@@ -3245,45 +4327,155 @@ REGRAS OBRIGATÓRIAS:
             </div>
           )}
 
-          {/* 4. TELA DE CONCLUSÃO / ENTREGA DA PROVA PELO ALUNO (Exibe o tempo gasto; a nota fica exclusiva para o instrutor) */}
+          {/* 4. TELA DE CONCLUSÃO / ENTREGA DA PROVA PELO ALUNO (Exibe o tempo gasto; quando o instrutor clicar em "Liberar Resultado", exibe a nota e o gabarito) */}
           {studentPhase === 'FINISHED' && studentRoom && (
-            <div className="w-full max-w-md mx-auto bg-slate-900 border border-slate-800 rounded-[28px] p-6 text-center space-y-4 shadow-2xl">
-              <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center bg-indigo-500/20 border border-indigo-500/40 text-indigo-400">
-                <Clock size={34} />
-              </div>
+            <div className="w-full max-w-lg mx-auto bg-slate-900 border border-slate-800 rounded-[28px] p-5 sm:p-6 text-center space-y-4 shadow-2xl">
+              {studentRoom.resultsReleased ? (
+                <>
+                  <div
+                    className={`w-16 h-16 rounded-2xl mx-auto flex items-center justify-center border ${
+                      studentPayloadPreview.scorePercent >= studentRoom.passingScorePercent
+                        ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
+                        : 'bg-amber-500/20 border-amber-500/40 text-amber-400'
+                    }`}
+                  >
+                    <Award size={36} />
+                  </div>
 
-              <div className="space-y-1">
-                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
-                  Prova Entregue com Sucesso
-                </span>
-                <h3 className="text-xl font-black uppercase text-white">
-                  Avaliação Finalizada!
-                </h3>
-                <p className="text-xs text-slate-400 font-medium">
-                  Suas respostas foram enviadas para correção no painel do instrutor.
-                </p>
-              </div>
+                  <div className="space-y-1">
+                    <span className="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-black uppercase tracking-widest inline-block">
+                      Resultado Individual Recebido no Seu Aparelho
+                    </span>
+                    <p className="text-[11px] font-black uppercase tracking-wider text-indigo-300 pt-1">
+                      {studentPayloadPreview.name} • {studentPayloadPreview.unit}
+                    </p>
+                    <h3 className="text-xl sm:text-2xl font-black uppercase text-white pt-0.5">
+                      Nota Final: {studentPayloadPreview.grade10.toFixed(1)} / 10
+                    </h3>
+                    <p className="text-xs font-bold text-slate-300">
+                      Você acertou{' '}
+                      <strong className="text-emerald-400">
+                        {studentPayloadPreview.correctCount} de {studentRoom.questions.length} questões
+                      </strong>{' '}
+                      ({studentPayloadPreview.scorePercent}%)
+                    </p>
+                  </div>
 
-              {/* Destaque do Tempo que o Aluno Levou para Terminar a Prova */}
-              <div className="bg-indigo-950/50 border border-indigo-500/35 rounded-2xl p-4 space-y-1">
-                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-300 block">
-                  Tempo que você levou para terminar a prova
-                </span>
-                <p className="text-2xl sm:text-3xl font-black text-amber-300 tabular-nums">
-                  {formatDurationDetailed(
-                    studentFinalTimeSpentSec ||
-                      studentRoom.participants?.[studentId]?.timeSpentSeconds ||
-                      1
-                  )}
-                </p>
-                <span className="text-[11px] font-bold text-slate-400 block tabular-nums">
-                  Cronômetro registrado: {formatTimeMMSS(
-                    studentFinalTimeSpentSec ||
-                      studentRoom.participants?.[studentId]?.timeSpentSeconds ||
-                      1
-                  )}
-                </span>
-              </div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="bg-indigo-950/50 border border-indigo-500/35 rounded-2xl p-3 space-y-0.5">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-indigo-300 block">
+                        Tempo de Conclusão
+                      </span>
+                      <p className="text-lg sm:text-xl font-black text-amber-300 tabular-nums">
+                        {formatTimeMMSS(
+                          studentFinalTimeSpentSec ||
+                            myServerRecord?.timeSpentSeconds ||
+                            1
+                        )}
+                      </p>
+                    </div>
+
+                    <div
+                      className={`rounded-2xl p-3 border space-y-0.5 ${
+                        studentPayloadPreview.scorePercent >= studentRoom.passingScorePercent
+                          ? 'bg-emerald-950/45 border-emerald-500/40'
+                          : 'bg-amber-950/45 border-amber-500/40'
+                      }`}
+                    >
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-300 block">
+                        Desempenho
+                      </span>
+                      <p
+                        className={`text-sm sm:text-base font-black uppercase ${
+                          studentPayloadPreview.scorePercent >= studentRoom.passingScorePercent
+                            ? 'text-emerald-400'
+                            : 'text-amber-300'
+                        }`}
+                      >
+                        {studentPayloadPreview.scorePercent >= studentRoom.passingScorePercent
+                          ? '✅ Aprovado'
+                          : '📚 Revisar'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Revisão de Questões da Prova */}
+                  <div className="text-left space-y-2 pt-2 border-t border-slate-800 max-h-80 overflow-y-auto pr-1 scrollbar-hide">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 block">
+                      Gabarito Individual da Sua Prova:
+                    </span>
+                    {studentRoom.questions.map((q, idx) => {
+                      const chosen = effectiveStudentAnswers[idx];
+                      const isCorrect = chosen === q.correctIndex;
+                      return (
+                        <div
+                          key={q.id}
+                          className={`p-3 rounded-2xl border text-xs space-y-1 ${
+                            isCorrect
+                              ? 'bg-emerald-950/35 border-emerald-700/60'
+                              : 'bg-red-950/35 border-red-800/60'
+                          }`}
+                        >
+                          <p className="font-black text-white">
+                            {idx + 1}. {q.question}
+                          </p>
+                          <p className={isCorrect ? 'text-emerald-300 font-bold' : 'text-red-300 font-bold'}>
+                            Sua resposta:{' '}
+                            {chosen !== undefined
+                              ? `${String.fromCharCode(65 + chosen)}) ${q.options[chosen]}`
+                              : 'Não respondida'}{' '}
+                            {isCorrect ? '✅' : '❌'}
+                          </p>
+                          {!isCorrect && (
+                            <p className="text-emerald-400 font-bold">
+                              Correta: {String.fromCharCode(65 + q.correctIndex)}) {q.options[q.correctIndex]}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center bg-indigo-500/20 border border-indigo-500/40 text-indigo-400">
+                    <Clock size={34} />
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
+                      Prova Entregue com Sucesso
+                    </span>
+                    <h3 className="text-xl font-black uppercase text-white">
+                      Avaliação Finalizada!
+                    </h3>
+                    <p className="text-xs text-slate-400 font-medium">
+                      Suas respostas foram enviadas. Aguarde o instrutor liberar o resultado da prova.
+                    </p>
+                  </div>
+
+                  {/* Destaque do Tempo que o Aluno Levou para Terminar a Prova */}
+                  <div className="bg-indigo-950/50 border border-indigo-500/35 rounded-2xl p-4 space-y-1">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-300 block">
+                      Tempo que você levou para terminar a prova
+                    </span>
+                    <p className="text-2xl sm:text-3xl font-black text-amber-300 tabular-nums">
+                      {formatDurationDetailed(
+                        studentFinalTimeSpentSec ||
+                          studentRoom.participants?.[studentId]?.timeSpentSeconds ||
+                          1
+                      )}
+                    </p>
+                    <span className="text-[11px] font-bold text-slate-400 block tabular-nums">
+                      Cronômetro registrado: {formatTimeMMSS(
+                        studentFinalTimeSpentSec ||
+                          studentRoom.participants?.[studentId]?.timeSpentSeconds ||
+                          1
+                      )}
+                    </span>
+                  </div>
+                </>
+              )}
 
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 text-xs space-y-1.5">
                 <p className="font-bold text-slate-300">
@@ -3310,8 +4502,9 @@ REGRAS OBRIGATÓRIAS:
           )}
         </div>
 
-        {/* OVERLAY DE BLOQUEIO ANTI-COLA QUANDO O ALUNO MINIMIZA A TELA OU TROCA DE ABA */}
-        {(studentLocked || studentWarningModal) && studentPhase === 'PLAYING' && (
+        {/* OVERLAY DE BLOQUEIO ANTI-COLA QUANDO O ALUNO MINIMIZA A TELA OU MUDA DE JANELA */}
+        {(studentLocked || studentWarningModal) &&
+          (studentPhase === 'PLAYING' || studentPhase === 'WAITING_HOST') && (
           <div className="fixed inset-0 z-[100000] bg-red-950/95 backdrop-blur-md flex items-center justify-center p-5 text-center animate-fade-in">
             <div className="w-full max-w-md bg-slate-950 border-2 border-red-500 rounded-[28px] p-6 shadow-2xl space-y-4">
               <div className="w-16 h-16 rounded-2xl bg-red-600 text-white flex items-center justify-center mx-auto animate-bounce">
@@ -3367,6 +4560,7 @@ REGRAS OBRIGATÓRIAS:
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-2.5 pb-4 animate-fade-in">
+      {renderQrScannerModal()}
       {/* Barra Superior Compacta + Alternador de Múltiplas Provas */}
       <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-[20px] p-3 sm:px-4 sm:py-3 text-white shadow-md border border-white/10 space-y-2.5 overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
@@ -3405,6 +4599,22 @@ REGRAS OBRIGATÓRIAS:
               >
                 <ChevronLeft size={13} className="shrink-0" />
                 <span className="truncate">Voltar às Provas ({hostRooms.length})</span>
+              </button>
+            )}
+
+            {isMobileDevice && (
+              <button
+                type="button"
+                onClick={() => {
+                  setRoleMode('STUDENT');
+                  setEntryScreenConfirmed(true);
+                  setIsQrScannerOpen(true);
+                }}
+                className="md:hidden flex-1 sm:flex-initial justify-center min-w-0 px-2.5 py-2 sm:py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-200 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+                title="Escanear QR Code de uma sala de prova com a câmera do celular"
+              >
+                <Camera size={12} className="shrink-0" />
+                <span className="truncate">Escanear QR Code</span>
               </button>
             )}
 
@@ -4118,6 +5328,32 @@ REGRAS OBRIGATÓRIAS:
                     </div>
                   )}
 
+                  {activeRoom.status === 'FINISHED' && (
+                    <div className="space-y-1.5">
+                      <button
+                        type="button"
+                        onClick={handleReleaseResultsForAll}
+                        className={`w-full py-3 px-4 rounded-xl font-black uppercase tracking-wider text-xs flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md ${
+                          activeRoom.resultsReleased
+                            ? 'bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/50 text-emerald-600 dark:text-emerald-300'
+                            : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
+                        }`}
+                      >
+                        <Award size={16} className="shrink-0" />
+                        <span>
+                          {activeRoom.resultsReleased
+                            ? '✅ Resultado Enviado p/ Aparelho de Cada Aluno'
+                            : 'Liberar Resultado p/ Aparelhos'}
+                        </span>
+                      </button>
+                      {releaseFeedbackMsg && (
+                        <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 text-center">
+                          {releaseFeedbackMsg}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => handleCloseAndResetRoom(activeRoom.pin)}
@@ -4164,11 +5400,18 @@ REGRAS OBRIGATÓRIAS:
                   const totalQ = activeRoom.questions.length || 1;
                   const progressPct = Math.round((p.answeredCount / totalQ) * 100);
                   const isApproved = p.scorePercent >= activeRoom.passingScorePercent;
+                  const canViewStudentResult = activeRoom.status !== 'WAITING';
 
                   return (
                     <div
                       key={p.id}
+                      onClick={() => {
+                        if (canViewStudentResult) setInspectingStudent(p);
+                      }}
+                      title={canViewStudentResult ? 'Clique para abrir o resultado da prova' : undefined}
                       className={`p-3 rounded-2xl border transition-all space-y-2 ${
+                        canViewStudentResult ? 'cursor-pointer hover:brightness-105 active:scale-[0.99]' : ''
+                      } ${
                         p.status === 'LOCKED_CHEAT'
                           ? 'bg-red-50/90 dark:bg-red-950/50 border-red-500 ring-1 ring-red-500/40'
                           : p.status === 'FINISHED'
@@ -4252,7 +5495,10 @@ REGRAS OBRIGATÓRIAS:
                           {p.isLocked ? (
                             <button
                               type="button"
-                              onClick={() => handleUnlockStudent(p.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUnlockStudent(p.id);
+                              }}
                               className="px-2 py-0.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[9px] font-black uppercase flex items-center gap-1 cursor-pointer"
                             >
                               <Unlock size={10} />
@@ -4262,7 +5508,10 @@ REGRAS OBRIGATÓRIAS:
                             p.status === 'PLAYING' && (
                               <button
                                 type="button"
-                                onClick={() => handleLockOrDisqualifyStudent(p.id, false)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleLockOrDisqualifyStudent(p.id, false);
+                                }}
                                 className="px-2 py-0.5 rounded-lg bg-red-100 dark:bg-red-950/70 text-red-600 dark:text-red-300 text-[9px] font-black uppercase flex items-center gap-1 cursor-pointer"
                               >
                                 <Lock size={10} />
@@ -4270,14 +5519,19 @@ REGRAS OBRIGATÓRIAS:
                               </button>
                             )
                           )}
-                          <button
-                            type="button"
-                            onClick={() => setInspectingStudent(p)}
-                            className="px-2 py-0.5 rounded-lg bg-slate-200/80 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[9px] font-black uppercase flex items-center gap-1 cursor-pointer"
-                          >
-                            <Eye size={10} />
-                            <span>Respostas</span>
-                          </button>
+                          {canViewStudentResult && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setInspectingStudent(p);
+                              }}
+                              className="px-2 py-0.5 rounded-lg bg-slate-200/80 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[9px] font-black uppercase flex items-center gap-1 cursor-pointer"
+                            >
+                              <Eye size={10} />
+                              <span>Ver Resultado</span>
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -4358,11 +5612,18 @@ REGRAS OBRIGATÓRIAS:
                       const totalQ = activeRoom.questions.length || 1;
                       const progressPct = Math.round((p.answeredCount / totalQ) * 100);
                       const isApproved = p.scorePercent >= activeRoom.passingScorePercent;
+                      const canViewStudentResult = activeRoom.status !== 'WAITING';
 
                       return (
                         <div
                           key={p.id}
+                          onClick={() => {
+                            if (canViewStudentResult) setInspectingStudent(p);
+                          }}
+                          title={canViewStudentResult ? 'Clique para abrir o resultado da prova' : undefined}
                           className={`p-2.5 rounded-2xl border transition-all space-y-1.5 ${
+                            canViewStudentResult ? 'cursor-pointer hover:brightness-110 active:scale-[0.99]' : ''
+                          } ${
                             p.status === 'LOCKED_CHEAT'
                               ? 'bg-red-950/75 border-red-500 ring-1 ring-red-500/40'
                               : p.status === 'FINISHED'
@@ -4444,7 +5705,10 @@ REGRAS OBRIGATÓRIAS:
                               {p.isLocked ? (
                                 <button
                                   type="button"
-                                  onClick={() => handleUnlockStudent(p.id)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUnlockStudent(p.id);
+                                  }}
                                   className="px-2 py-0.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[8.5px] font-black uppercase flex items-center gap-0.5 cursor-pointer"
                                 >
                                   <Unlock size={9} />
@@ -4454,7 +5718,10 @@ REGRAS OBRIGATÓRIAS:
                                 p.status === 'PLAYING' && (
                                   <button
                                     type="button"
-                                    onClick={() => handleLockOrDisqualifyStudent(p.id, false)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleLockOrDisqualifyStudent(p.id, false);
+                                    }}
                                     className="px-2 py-0.5 rounded-lg bg-red-500/20 hover:bg-red-500/35 text-red-300 text-[8.5px] font-black uppercase flex items-center gap-0.5 cursor-pointer"
                                   >
                                     <Lock size={9} />
@@ -4462,14 +5729,19 @@ REGRAS OBRIGATÓRIAS:
                                   </button>
                                 )
                               )}
-                              <button
-                                type="button"
-                                onClick={() => setInspectingStudent(p)}
-                                className="px-2 py-0.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-200 text-[8.5px] font-black uppercase flex items-center gap-0.5 cursor-pointer"
-                              >
-                                <Eye size={9} />
-                                <span>Ver</span>
-                              </button>
+                              {canViewStudentResult && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setInspectingStudent(p);
+                                  }}
+                                  className="px-2 py-0.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-200 text-[8.5px] font-black uppercase flex items-center gap-0.5 cursor-pointer"
+                                >
+                                  <Eye size={9} />
+                                  <span>Ver Resultado</span>
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>

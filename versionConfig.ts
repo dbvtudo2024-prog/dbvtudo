@@ -6,14 +6,47 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.89';
+export const APP_VERSION = '3.0.92';
 export const APP_BUILD_DATE = '6 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
-    version: '3.0.89',
+    version: '3.0.92',
     date: '06/10/2026',
     tag: 'NOVO',
+    title: 'Escolha Inicial no App (Criar Prova / Escanear QR Code no Celular) & Anti-Cola Mobile em Tempo Real',
+    changes: [
+      'Ao entrar na área de Prova Ao Vivo pelo aplicativo no celular, exibe primeiro os botões "Criar Prova" (vai para a área de criação) e "Escanear QR Code" (vai para a área da prova).',
+      'A opção de ler/escanear QR Code com a câmera fica exclusiva para dispositivos móveis (celular).',
+      'O botão e ação "Ver Resultado" nos cards dos participantes ficam ocultos enquanto a prova ainda não começou (status Aguardando).',
+      'Reforço completo na detecção e envio de alertas Anti-Cola no celular (via sendBeacon, keepalive, WebSocket e reenvio automático ao retornar à janela, impedindo sobrescrita de bloqueios no servidor).'
+    ]
+  },
+  {
+    version: '3.0.91',
+    date: '06/10/2026',
+    tag: 'ATUAL',
+    title: 'Prova Ao Vivo Exclusiva de Conselheiro+, Leitor de QR Code no App e Resultado Individual por Aparelho',
+    changes: [
+      'A criação e gerenciamento de salas de Prova Ao Vivo agora fica liberada exclusivamente para cargos de Conselheiro para cima (Conselheiro, Instrutor, Capelão, Secretário, Tesoureiro, Diretor, Distrital, Regional, Pastor e ADM).',
+      'Adicionada a opção "Ler QR Code da Prova" com câmera integrada diretamente dentro do aplicativo para quem abrir pelo app escaneando o QR Code da sala.',
+      'Ao clicar em "Liberar Resultado", o sistema envia e exibe automaticamente o resultado individual (nota final, acertos, desempenho e gabarito individual) de cada aluno diretamente no seu respectivo aparelho.'
+    ]
+  },
+  {
+    version: '3.0.90',
+    date: '06/10/2026',
+    tag: 'ATUAL',
+    title: 'Botão Liberar Resultado Após Encerrar Prova & Card Clicável de Resultado',
+    changes: [
+      'Adicionado o botão "Liberar Resultado" no painel do instrutor após o encerramento da Prova Ao Vivo, permitindo liberar a nota final e o gabarito das questões na tela dos alunos no momento desejado.',
+      'Todo o card do aluno na lista de quem está fazendo a prova (e o botão "Ver Resultado") agora pode ser clicado diretamente para abrir as respostas detalhadas da prova.'
+    ]
+  },
+  {
+    version: '3.0.89',
+    date: '06/10/2026',
+    tag: 'ATUAL',
     title: 'Sincronização Automática PC ↔ Celular do Instrutor Logado na Prova Ao Vivo',
     changes: [
       'Detecção automática do usuário/instrutor logado que criou a Prova Ao Vivo tanto no PC quanto no Celular.',

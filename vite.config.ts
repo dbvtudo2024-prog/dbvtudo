@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '3.0.89';
+const appVersion = '3.0.92';
 const liveExamRooms = new Map<string, any>();
 const liveExamInstructorSessions = new Map<
   string,
@@ -32,7 +32,7 @@ function versionPlugin(): Plugin {
           buildDate: new Date(buildTime).toISOString(),
           timestamp: buildTime,
           highlights: [
-            "Sincronização automática em tempo real entre PC e Celular para o instrutor logado que criou a Prova Ao Vivo"
+            "Prova Ao Vivo liberada apenas de Conselheiro para cima, opção de Ler QR Code pelo aplicativo e envio individual do resultado para o aparelho de cada aluno"
           ]
         }, null, 2)
       });
@@ -48,7 +48,7 @@ function versionPlugin(): Plugin {
             buildDate: new Date(buildTime).toISOString(),
             timestamp: buildTime,
             highlights: [
-              "Sincronização automática em tempo real entre PC e Celular para o instrutor logado que criou a Prova Ao Vivo"
+              "Prova Ao Vivo liberada apenas de Conselheiro para cima, opção de Ler QR Code pelo aplicativo e envio individual do resultado para o aparelho de cada aluno"
             ]
           }));
           return;
@@ -116,44 +116,140 @@ function versionPlugin(): Plugin {
             req.on('end', () => {
               try {
                 const payload = JSON.parse(body || '{}');
-                const { action, pin, room, participant, alert, instructorKey, rooms, selectedRoomPin, closedPins } = payload;
+                const { action, pin, room, participant, alert, studentId, instructorKey, rooms, selectedRoomPin, closedPins } = payload;
 
-                if (action === 'UPSERT_ROOM' && room?.pin) {
-                  const rPin = String(room.pin);
-                  const existingRoom = liveExamRooms.get(rPin);
-                  const mergedParticipants: Record<string, any> = {
-                    ...(existingRoom?.participants || {}),
-                    ...(room.participants || {})
-                  };
-                  if (existingRoom?.participants && room.participants) {
-                    Object.keys(existingRoom.participants).forEach((pid) => {
-                      const ep = existingRoom.participants[pid];
-                      const rp = room.participants[pid];
-                      if (ep && rp) {
-                        mergedParticipants[pid] = {
-                          ...ep,
-                          ...rp,
-                          answeredCount: Math.max(ep.answeredCount || 0, rp.answeredCount || 0),
-                          cheatCount: Math.max(ep.cheatCount || 0, rp.cheatCount || 0)
-                        };
-                      }
-                    });
+                const mergeParticipantSrv = (existingP: any, incomingP: any, fromStudentUpdate = false): any => {
+                  if (!existingP) return incomingP;
+                  if (!incomingP) return existingP;
+
+                  const eCheat = Number(existingP.cheatCount || 0);
+                  const iCheat = Number(incomingP.cheatCount || 0);
+                  const maxCheat = Math.max(eCheat, iCheat);
+                  const maxAnswered = Math.max(Number(existingP.answeredCount || 0), Number(incomingP.answeredCount || 0));
+
+                  const answers =
+                    Object.keys(incomingP.answers || {}).length >= Object.keys(existingP.answers || {}).length
+                      ? incomingP.answers || existingP.answers || {}
+                      : existingP.answers || {};
+
+                  let isLocked: boolean;
+                  let status: string;
+                  if (existingP.status === 'DISQUALIFIED' || incomingP.status === 'DISQUALIFIED') {
+                    isLocked = true;
+                    status = 'DISQUALIFIED';
+                  } else if (fromStudentUpdate) {
+                    isLocked = Boolean(existingP.isLocked || incomingP.isLocked);
+                    status =
+                      incomingP.status === 'FINISHED' || existingP.status === 'FINISHED'
+                        ? 'FINISHED'
+                        : isLocked
+                        ? 'LOCKED_CHEAT'
+                        : incomingP.status || existingP.status || 'PLAYING';
+                  } else {
+                    if (eCheat > iCheat) {
+                      isLocked = Boolean(existingP.isLocked);
+                      status = isLocked ? 'LOCKED_CHEAT' : existingP.status || incomingP.status;
+                    } else {
+                      isLocked = Boolean(incomingP.isLocked);
+                      status =
+                        incomingP.status === 'FINISHED' || existingP.status === 'FINISHED'
+                          ? 'FINISHED'
+                          : isLocked
+                          ? 'LOCKED_CHEAT'
+                          : incomingP.status === 'LOCKED_CHEAT'
+                          ? 'PLAYING'
+                          : incomingP.status || existingP.status || 'PLAYING';
+                    }
                   }
+
+                  return {
+                    ...existingP,
+                    ...incomingP,
+                    answeredCount: maxAnswered,
+                    correctCount:
+                      Number(incomingP.answeredCount || 0) >= Number(existingP.answeredCount || 0)
+                        ? incomingP.correctCount ?? existingP.correctCount ?? 0
+                        : existingP.correctCount ?? incomingP.correctCount ?? 0,
+                    scorePercent:
+                      Number(incomingP.answeredCount || 0) >= Number(existingP.answeredCount || 0)
+                        ? incomingP.scorePercent ?? existingP.scorePercent ?? 0
+                        : existingP.scorePercent ?? incomingP.scorePercent ?? 0,
+                    grade10:
+                      Number(incomingP.answeredCount || 0) >= Number(existingP.answeredCount || 0)
+                        ? incomingP.grade10 ?? existingP.grade10 ?? 0
+                        : existingP.grade10 ?? incomingP.grade10 ?? 0,
+                    cheatCount: maxCheat,
+                    lastCheatReason:
+                      iCheat >= eCheat
+                        ? incomingP.lastCheatReason || existingP.lastCheatReason
+                        : existingP.lastCheatReason || incomingP.lastCheatReason,
+                    lastCheatTime:
+                      iCheat >= eCheat
+                        ? incomingP.lastCheatTime || existingP.lastCheatTime
+                        : existingP.lastCheatTime || incomingP.lastCheatTime,
+                    isLocked,
+                    status,
+                    answers,
+                    timeSpentSeconds: incomingP.timeSpentSeconds || existingP.timeSpentSeconds
+                  };
+                };
+
+                const mergeRoomSrv = (existingRoom: any, incomingRoom: any): any => {
+                  if (!existingRoom) return incomingRoom;
+                  if (!incomingRoom) return existingRoom;
+
+                  const mergedParticipants: Record<string, any> = {
+                    ...(existingRoom.participants || {}),
+                    ...(incomingRoom.participants || {})
+                  };
+                  const allPids = new Set([
+                    ...Object.keys(existingRoom.participants || {}),
+                    ...Object.keys(incomingRoom.participants || {})
+                  ]);
+                  allPids.forEach((pid) => {
+                    mergedParticipants[pid] = mergeParticipantSrv(
+                      existingRoom.participants?.[pid],
+                      incomingRoom.participants?.[pid],
+                      false
+                    );
+                  });
+
                   const alertIds = new Set<string>();
                   const mergedAlerts: any[] = [];
-                  [...(room.alerts || []), ...(existingRoom?.alerts || [])].forEach((a: any) => {
+                  [...(incomingRoom.alerts || []), ...(existingRoom.alerts || [])].forEach((a: any) => {
                     if (a?.id && !alertIds.has(a.id)) {
                       alertIds.add(a.id);
                       mergedAlerts.push(a);
                     }
                   });
 
-                  const savedRoom = {
+                  const status =
+                    existingRoom.status === 'FINISHED' || incomingRoom.status === 'FINISHED'
+                      ? 'FINISHED'
+                      : existingRoom.status === 'ACTIVE' || incomingRoom.status === 'ACTIVE'
+                      ? 'ACTIVE'
+                      : incomingRoom.status || existingRoom.status || 'WAITING';
+
+                  return {
                     ...existingRoom,
-                    ...room,
+                    ...incomingRoom,
+                    status,
+                    resultsReleased: Boolean(incomingRoom.resultsReleased || existingRoom.resultsReleased),
+                    startedAt: incomingRoom.startedAt || existingRoom.startedAt || null,
+                    extraSecondsAdded: Math.max(
+                      Number(existingRoom.extraSecondsAdded || 0),
+                      Number(incomingRoom.extraSecondsAdded || 0)
+                    ),
                     participants: mergedParticipants,
-                    alerts: mergedAlerts
+                    alerts: mergedAlerts,
+                    updatedAt: Math.max(Number(existingRoom.updatedAt || 0), Number(incomingRoom.updatedAt || 0), Date.now())
                   };
+                };
+
+                if (action === 'UPSERT_ROOM' && room?.pin) {
+                  const rPin = String(room.pin);
+                  const existingRoom = liveExamRooms.get(rPin);
+                  const savedRoom = mergeRoomSrv(existingRoom, room);
                   liveExamRooms.set(rPin, savedRoom);
                   const cKey = String(room.creatorKey || instructorKey || existingRoom?.creatorKey || '').trim();
                   if (cKey) {
@@ -172,6 +268,30 @@ function versionPlugin(): Plugin {
                   }
                   res.setHeader('Content-Type', 'application/json');
                   res.end(JSON.stringify({ ok: true, room: savedRoom }));
+                  return;
+                }
+
+                if (action === 'UNLOCK_STUDENT' && pin && studentId) {
+                  const existing = liveExamRooms.get(String(pin));
+                  if (existing && existing.participants?.[studentId]) {
+                    existing.participants = {
+                      ...existing.participants,
+                      [studentId]: {
+                        ...existing.participants[studentId],
+                        isLocked: false,
+                        status:
+                          existing.participants[studentId].status === 'FINISHED'
+                            ? 'FINISHED'
+                            : existing.status === 'ACTIVE'
+                            ? 'PLAYING'
+                            : 'WAITING'
+                      }
+                    };
+                    existing.updatedAt = Date.now();
+                    liveExamRooms.set(String(pin), existing);
+                  }
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify({ ok: true, room: existing || null }));
                   return;
                 }
 
@@ -217,16 +337,7 @@ function versionPlugin(): Plugin {
                     const rPin = String(r.pin);
                     nextPins.push(rPin);
                     const existingRoom = liveExamRooms.get(rPin);
-                    if (!existingRoom || (r.updatedAt || 0) >= (existingRoom.updatedAt || 0)) {
-                      liveExamRooms.set(rPin, {
-                        ...existingRoom,
-                        ...r,
-                        participants: {
-                          ...(existingRoom?.participants || {}),
-                          ...(r.participants || {})
-                        }
-                      });
-                    }
+                    liveExamRooms.set(rPin, mergeRoomSrv(existingRoom, r));
                   });
 
                   nextClosed.forEach((cPin) => {
@@ -252,15 +363,17 @@ function versionPlugin(): Plugin {
                   const existing = liveExamRooms.get(String(pin));
                   if (existing) {
                     const prevP = existing.participants?.[participant.id];
-                    const isLocked = prevP?.status === 'DISQUALIFIED' ? true : participant.isLocked;
+                    const mergedP = mergeParticipantSrv(prevP, participant, true);
                     existing.participants = {
                       ...(existing.participants || {}),
-                      [participant.id]: {
-                        ...prevP,
-                        ...participant,
-                        isLocked
-                      }
+                      [participant.id]: mergedP
                     };
+                    if (alert && alert.id) {
+                      const currentAlerts = Array.isArray(existing.alerts) ? existing.alerts : [];
+                      if (!currentAlerts.some((a: any) => a.id === alert.id)) {
+                        existing.alerts = [alert, ...currentAlerts];
+                      }
+                    }
                     existing.updatedAt = Date.now();
                     liveExamRooms.set(String(pin), existing);
                   }
@@ -273,13 +386,22 @@ function versionPlugin(): Plugin {
                   const existing = liveExamRooms.get(String(pin));
                   if (existing) {
                     const shouldLock = Boolean(existing.lockOnCheat);
-                    existing.participants = {
-                      ...(existing.participants || {}),
-                      [participant.id]: {
-                        ...(existing.participants?.[participant.id] || {}),
+                    const prevP = existing.participants?.[participant.id];
+                    const mergedP = mergeParticipantSrv(
+                      prevP,
+                      {
                         ...participant,
                         isLocked: shouldLock,
                         status: shouldLock ? 'LOCKED_CHEAT' : participant.status
+                      },
+                      true
+                    );
+                    existing.participants = {
+                      ...(existing.participants || {}),
+                      [participant.id]: {
+                        ...mergedP,
+                        isLocked: shouldLock,
+                        status: shouldLock ? 'LOCKED_CHEAT' : mergedP.status
                       }
                     };
                     const currentAlerts = Array.isArray(existing.alerts) ? existing.alerts : [];

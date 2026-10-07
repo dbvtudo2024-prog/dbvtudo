@@ -2374,8 +2374,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     return isUserLoggedIn && isAgeAllowedForSpecialtyDocs;
   }, [isUserLoggedIn, isAgeAllowedForSpecialtyDocs]);
 
-  // Apresentação PowerPoint: oculta para sem login, menores de 16 anos e cargos Aspirante, Desbravador(a) e Capitão(ã)
+  // Apresentação PowerPoint e Criar Sala de Prova Ao Vivo: liberado apenas de Conselheiro para cima (oculto para sem login, menores de 16 anos e cargos Aspirante, Desbravador(a), Aventureiro(a) e Capitão(ã))
   const canGenerateSpecialtyPptx = React.useMemo(() => {
+    if (isUserAdmin) return true;
     if (!isUserLoggedIn || !isAgeAllowedForSpecialtyDocs) return false;
 
     if (!normalizedUserRole) return true;
@@ -2383,11 +2384,13 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     const isRestrictedRole =
       normalizedUserRole.includes('aspirante') ||
       normalizedUserRole.includes('desbravador') ||
+      normalizedUserRole.includes('aventureiro') ||
       normalizedUserRole.includes('capitao') ||
-      normalizedUserRole.includes('capita');
+      normalizedUserRole.includes('capita') ||
+      normalizedUserRole.includes('secretario de unidade');
 
     return !isRestrictedRole;
-  }, [isUserLoggedIn, isAgeAllowedForSpecialtyDocs, normalizedUserRole]);
+  }, [isUserAdmin, isUserLoggedIn, isAgeAllowedForSpecialtyDocs, normalizedUserRole]);
 
   useEffect(() => {
     loadProfile();
@@ -10412,8 +10415,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   const fieldAndPracticeButtons = [
     { 
       label: 'Prova Ao Vivo (QR Code)', 
-      subtitle: 'Prova de Especialidade • Anti-Cola',
-      description: 'Crie uma prova de especialidade com QR Code, tempo limite, área isolada e alerta ao vivo se alguém minimizar a tela.',
+      subtitle: canGenerateSpecialtyPptx ? 'Conselheiro+ (Criar Sala) • Anti-Cola' : 'Área da Prova • PIN / QR Code no Celular',
+      description: canGenerateSpecialtyPptx
+        ? 'Crie uma prova de especialidade com QR Code, tempo limite e anti-cola (liberado de Conselheiro para cima) ou escaneie o QR Code pelo celular.'
+        : 'Escaneie o QR Code da sala pelo celular ou digite o PIN de 6 dígitos para fazer sua prova (criação exclusiva de Conselheiro acima).',
       badge: 'Anti-Cola',
       icon: QrCode, 
       gradient: 'from-[#be123c] via-[#e11d48] to-[#f43f5e]', 
@@ -11672,6 +11677,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             onActiveRoomChange={setHasActiveLiveExamRoom}
             currentUserEmail={userEmail || userProfile?.email || ''}
             currentUserName={userProfile?.nome || ''}
+            currentUserRole={userProfile?.funçao || (userProfile as any)?.cargo || normalizedUserRole || ''}
+            canHostLiveExam={canGenerateSpecialtyPptx}
             onBack={() => setActiveSubView('FIELD_TRAINING')}
           />
         )}
