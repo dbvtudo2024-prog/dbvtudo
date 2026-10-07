@@ -729,6 +729,77 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   const [showOpenModeChoiceModal, setShowOpenModeChoiceModal] = useState<boolean>(false);
   const [isRunningInStandaloneApp, setIsRunningInStandaloneApp] = useState<boolean>(false);
 
+  // Suporte ao botão lateral do mouse ("Voltar") para fechar modais ou recuar etapas internas da Prova Ao Vivo
+  useEffect(() => {
+    const handleInternalBack = (e: Event) => {
+      if (isQrFullscreenModalOpen) {
+        setIsQrFullscreenModalOpen(false);
+        e.preventDefault();
+        return;
+      }
+      if (isQrTelaoExpanded) {
+        setIsQrTelaoExpanded(false);
+        e.preventDefault();
+        return;
+      }
+      if (inspectingStudent) {
+        setInspectingStudent(null);
+        e.preventDefault();
+        return;
+      }
+      if (selectedHistoryExam) {
+        setSelectedHistoryExam(null);
+        e.preventDefault();
+        return;
+      }
+      if (isQrScannerOpen) {
+        setIsQrScannerOpen(false);
+        e.preventDefault();
+        return;
+      }
+      if (isCreatingNewRoom && hostRooms.length > 0) {
+        setIsCreatingNewRoom(false);
+        e.preventDefault();
+        return;
+      }
+      if (
+        !isIsolatedStudentMode &&
+        isMobileDevice &&
+        entryScreenConfirmed &&
+        !activeRoom &&
+        studentPhase === 'ENTER_PIN'
+      ) {
+        setEntryScreenConfirmed(false);
+        e.preventDefault();
+        return;
+      }
+      // Se o aluno estiver no meio de uma prova ativa, impede saída acidental pelo botão lateral do mouse
+      if (roleMode === 'STUDENT' && (studentPhase === 'WAITING_HOST' || studentPhase === 'PLAYING')) {
+        e.preventDefault();
+        return;
+      }
+    };
+
+    window.addEventListener('dbv_subcomponent_back_request', handleInternalBack);
+    return () => {
+      window.removeEventListener('dbv_subcomponent_back_request', handleInternalBack);
+    };
+  }, [
+    isQrFullscreenModalOpen,
+    isQrTelaoExpanded,
+    inspectingStudent,
+    selectedHistoryExam,
+    isQrScannerOpen,
+    isCreatingNewRoom,
+    hostRooms.length,
+    isIsolatedStudentMode,
+    isMobileDevice,
+    entryScreenConfirmed,
+    activeRoom,
+    studentPhase,
+    roleMode
+  ]);
+
   // Refs síncronos para garantir envio imediato de alertas Anti-Cola mesmo ao minimizar/trocar de app no celular
   const studentRoomRef = useRef<LiveExamRoomState | null>(studentRoom);
   studentRoomRef.current = studentRoom;

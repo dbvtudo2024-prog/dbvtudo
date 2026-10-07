@@ -6,14 +6,25 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.94';
+export const APP_VERSION = '3.0.95';
 export const APP_BUILD_DATE = '6 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
-    version: '3.0.94',
+    version: '3.0.95',
     date: '06/10/2026',
     tag: 'NOVO',
+    title: 'Navegação pelos Botões Laterais do Mouse & Zoom de Imagens nos Trunfos',
+    changes: [
+      'Adicionado suporte completo ao botão lateral "Voltar" do mouse para retornar páginas, sub-páginas (Bíblia, Especialidades, Classes, Cultura, Biblioteca, Treinamento) e fechar modais abertos sem sair do aplicativo.',
+      'Adicionado o botão de ampliar imagem nos cards e no modal de detalhes dos Trunfos para visualização em tamanho expandido.',
+      'Removidos os botões de editar e excluir da visualização de Trunfos, mantendo o gerenciamento centralizado apenas no Painel Administrativo.'
+    ]
+  },
+  {
+    version: '3.0.94',
+    date: '06/10/2026',
+    tag: 'ATUAL',
     title: 'Histórico de Provas Feitas para Usuários Logados no Aplicativo',
     changes: [
       'Adicionado o "Meu Histórico de Provas Feitas" exclusivo para quem está logado pelo aplicativo, sincronizado automaticamente na conta do usuário.',

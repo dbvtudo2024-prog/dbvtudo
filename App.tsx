@@ -626,38 +626,179 @@ const App: React.FC = () => {
     );
   }, [darkMode, activeAccentOption]);
 
-  // Gerenciar histórico para o botão voltar do Android
-  useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
-      if (event.state) {
-        if (event.state.view) setCurrentView(event.state.view);
-        if (event.state.subView !== undefined) {
-          setActiveSubView(event.state.subView);
-        } else {
-          setActiveSubView(undefined);
-        }
-        if (event.state.club) setSelectedClub(event.state.club);
-        if (event.state.guest !== undefined) setIsGuest(Boolean(event.state.guest));
+  const lastBackTimestampRef = React.useRef<number>(0);
+
+  // Função centralizada para voltar páginas/modais (usada pelo botão lateral do mouse e pelo botão Voltar do sistema)
+  const triggerAppBackNavigation = React.useCallback((): boolean => {
+    if (isSupabaseModalOpen) {
+      setIsSupabaseModalOpen(false);
+      return true;
+    }
+    if (showVersionHistory) {
+      setShowVersionHistory(false);
+      return true;
+    }
+    if (isSettingsModalOpen) {
+      setIsSettingsModalOpen(false);
+      return true;
+    }
+
+    // Dispara evento cancelável para que componentes filhos (ClubManagement, Profile, LiveSpecialtyExam, etc.) tratem sub-páginas ou modais internos primeiro
+    const backEvent = new CustomEvent('dbv_app_back_request', { cancelable: true });
+    const notHandledByChild = window.dispatchEvent(backEvent);
+    if (!notHandledByChild) {
+      return true;
+    }
+
+    if (isolatedExamPin !== null) {
+      return false;
+    }
+
+    if (currentView === 'SIGNUP') {
+      setCurrentView('LOGIN');
+      return true;
+    }
+
+    if (currentView === 'PROFILE') {
+      setCurrentView(selectedClub ? 'CLUB_LIST' : 'HOME');
+      return true;
+    }
+
+    if (currentView === 'CLUB_LIST') {
+      if (activeSubView) {
+        setActiveSubView(undefined);
       } else {
-        // Se não houver estado e não for LOGIN, tentamos manter ou ir para HOME
-        if (currentView !== 'LOGIN' && currentView !== 'SIGNUP') {
+        setCurrentView('HOME');
+      }
+      return true;
+    }
+
+    if (currentView === 'LOGIN') {
+      try {
+        if (localStorage.getItem('dbv_is_guest') === 'true') {
+          setIsGuest(true);
           setCurrentView('HOME');
-          setActiveSubView(undefined);
+          return true;
         }
+      } catch {}
+    }
+
+    return false;
+  }, [
+    isSupabaseModalOpen,
+    showVersionHistory,
+    isSettingsModalOpen,
+    isolatedExamPin,
+    currentView,
+    selectedClub,
+    activeSubView
+  ]);
+
+  // Suporte ao botão lateral do mouse ("Voltar" - Mouse Button 4 / event.button === 3) e tecla BrowserBack
+  useEffect(() => {
+    const handleMouseSideButtonDown = (e: MouseEvent) => {
+      if (e.button === 3 || e.button === 4) {
+        e.preventDefault();
+      }
+    };
+
+    const handleMouseSideButtonUp = (e: MouseEvent) => {
+      if (e.button === 3) {
+        e.preventDefault();
+        e.stopPropagation();
+        const now = Date.now();
+        if (now - lastBackTimestampRef.current > 280) {
+          lastBackTimestampRef.current = now;
+          triggerAppBackNavigation();
+        }
+      } else if (e.button === 4) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    const handleAuxClick = (e: MouseEvent) => {
+      if (e.button === 3 || e.button === 4) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    const handleBrowserBackKey = (e: KeyboardEvent) => {
+      if (e.key === 'BrowserBack') {
+        e.preventDefault();
+        const now = Date.now();
+        if (now - lastBackTimestampRef.current > 280) {
+          lastBackTimestampRef.current = now;
+          triggerAppBackNavigation();
+        }
+      }
+    };
+
+    window.addEventListener('mousedown', handleMouseSideButtonDown, true);
+    window.addEventListener('mouseup', handleMouseSideButtonUp, true);
+    window.addEventListener('auxclick', handleAuxClick, true);
+    window.addEventListener('keydown', handleBrowserBackKey, true);
+
+    return () => {
+      window.removeEventListener('mousedown', handleMouseSideButtonDown, true);
+      window.removeEventListener('mouseup', handleMouseSideButtonUp, true);
+      window.removeEventListener('auxclick', handleAuxClick, true);
+      window.removeEventListener('keydown', handleBrowserBackKey, true);
+    };
+  }, [triggerAppBackNavigation]);
+
+  // Gerenciar histórico para o botão voltar do Android / Navegador / Mouse
+  useEffect(() => {
+    const handlePopState = (_event: PopStateEvent) => {
+      const now = Date.now();
+      // Se o clique do botão lateral do mouse já tratou o retorno há poucos milissegundos, apenas mantém a entrada de histórico ativa
+      if (now - lastBackTimestampRef.current <= 280) {
+        try {
+          window.history.pushState(
+            { view: currentView, subView: activeSubView, club: selectedClub, guest: isGuest },
+            '',
+            ''
+          );
+        } catch {}
+        return;
+      }
+
+      lastBackTimestampRef.current = now;
+      const handled = triggerAppBackNavigation();
+      if (handled) {
+        try {
+          window.history.pushState(
+            { view: currentView, subView: activeSubView, club: selectedClub, guest: isGuest },
+            '',
+            ''
+          );
+        } catch {}
+      } else if (currentView !== 'LOGIN' && currentView !== 'SIGNUP') {
+        setCurrentView('HOME');
+        setActiveSubView(undefined);
+        try {
+          window.history.pushState(
+            { view: 'HOME', subView: undefined, club: selectedClub, guest: isGuest },
+            '',
+            ''
+          );
+        } catch {}
       }
     };
 
     window.addEventListener('popstate', handlePopState);
     
-    // Inicializar o estado inicial do histórico
+    // Inicializar o estado inicial do histórico com uma entrada sentinela para evitar sair do app ao usar o botão lateral do mouse
     try {
       if (!window.history.state) {
-        window.history.replaceState({ view: currentView, subView: activeSubView, club: selectedClub, guest: isGuest }, '', '');
+        window.history.replaceState({ view: currentView, subView: activeSubView, club: selectedClub, guest: isGuest, root: true }, '', '');
+        window.history.pushState({ view: currentView, subView: activeSubView, club: selectedClub, guest: isGuest }, '', '');
       }
     } catch (e) {}
 
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [currentView, activeSubView, selectedClub, isGuest]);
+  }, [currentView, activeSubView, selectedClub, isGuest, triggerAppBackNavigation]);
 
   // Sincronizar histórico quando a view ou subView muda
   useEffect(() => {

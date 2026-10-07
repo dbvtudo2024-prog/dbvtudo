@@ -571,6 +571,32 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   const [faixaConfig, setFaixaConfig] = useState<FaixaConfig>(DEFAULT_FAIXA_CONFIG);
   const [showGloboModal, setShowGloboModal] = useState(false);
 
+  // Suporte ao botão lateral do mouse ("Voltar") para fechar modais ou sair da visão da faixa no Perfil
+  useEffect(() => {
+    const handleProfileBack = (e: Event) => {
+      if (showGloboModal) {
+        setShowGloboModal(false);
+        e.preventDefault();
+        return;
+      }
+      if (showResetConfirm) {
+        setShowResetConfirm(false);
+        e.preventDefault();
+        return;
+      }
+      if (isSashView) {
+        setIsSashView(false);
+        e.preventDefault();
+        return;
+      }
+    };
+
+    window.addEventListener('dbv_app_back_request', handleProfileBack);
+    return () => {
+      window.removeEventListener('dbv_app_back_request', handleProfileBack);
+    };
+  }, [showGloboModal, showResetConfirm, isSashView]);
+
   useEffect(() => {
     fetchFaixaConfig().then(setFaixaConfig).catch(console.warn);
 

@@ -8234,16 +8234,6 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               </button>
             )}
           </div>
-          
-          {(isAdmin || isUserAdmin) && (
-            <button
-              onClick={() => setActiveSubView('TRUNFOS_ADMIN')}
-              className="bg-teal-600 hover:bg-teal-700 active:scale-95 text-white px-5 py-3.5 rounded-2xl font-black uppercase tracking-wider text-xs flex items-center justify-center space-x-2 shadow-md transition-all flex-shrink-0"
-            >
-              <Plus size={16} />
-              <span>Gerenciar / Excluir</span>
-            </button>
-          )}
         </div>
 
         {/* Listagem de Trunfos em Grid Unificado */}
@@ -8261,20 +8251,47 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {sortedTrunfos.map((item) => (
-              <button
+              <div
                 key={item.id}
-                onClick={() => setSelectedTrunfoModal(item)}
-                className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-3.5 flex flex-col items-center text-center shadow-sm hover:shadow-md active:scale-95 transition-all group"
+                onClick={() => {
+                  setSelectedTrunfoModal(item);
+                  setIsTrunfoImageZoomed(false);
+                }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setSelectedTrunfoModal(item);
+                    setIsTrunfoImageZoomed(false);
+                  }
+                }}
+                className="relative bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-3.5 flex flex-col items-center text-center shadow-sm hover:shadow-md active:scale-95 transition-all group cursor-pointer"
               >
-                {/* Miniatura */}
-                <div className="w-24 h-24 sm:w-28 sm:h-28 bg-slate-50 dark:bg-slate-900 rounded-2xl flex items-center justify-center overflow-hidden p-2 mb-3 border border-slate-100 dark:border-slate-800/60 group-hover:scale-105 transition-transform">
+                {/* Miniatura com botão de ampliar imagem */}
+                <div className="relative w-24 h-24 sm:w-28 sm:h-28 bg-slate-50 dark:bg-slate-900 rounded-2xl flex items-center justify-center overflow-hidden p-2 mb-3 border border-slate-100 dark:border-slate-800/60 group-hover:scale-105 transition-transform">
                   {item.imagem ? (
-                    <img 
-                      src={getImageUrl(item.imagem)} 
-                      alt={item.titulo}
-                      className="w-full h-full object-contain drop-shadow-sm"
-                      loading="lazy"
-                    />
+                    <>
+                      <img 
+                        src={getImageUrl(item.imagem)} 
+                        alt={item.titulo}
+                        className="w-full h-full object-contain drop-shadow-sm"
+                        loading="lazy"
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedTrunfoModal(item);
+                          setIsTrunfoImageZoomed(true);
+                        }}
+                        title="Ampliar imagem do trunfo"
+                        aria-label="Ampliar imagem do trunfo"
+                        className="absolute bottom-1.5 right-1.5 w-7 h-7 rounded-xl bg-slate-900/75 hover:bg-teal-600 text-white flex items-center justify-center shadow-md transition-all active:scale-90 cursor-pointer z-10"
+                      >
+                        <ZoomIn size={14} />
+                      </button>
+                    </>
                   ) : (
                     <Trophy size={36} className="text-teal-500 opacity-60" />
                   )}
@@ -8290,7 +8307,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     {item.ano}
                   </span>
                 )}
-              </button>
+              </div>
             ))}
           </div>
         )}
@@ -10412,6 +10429,202 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     </div>
   );
 
+  // Navegação centralizada de "Voltar" (botão de voltar do cabeçalho + botões laterais do mouse + botão voltar do sistema)
+  const handleClubBackNavigation = useCallback((): boolean => {
+    // 1. Fechar modais/zoom abertos primeiro
+    if (isTrunfoImageZoomed) {
+      setIsTrunfoImageZoomed(false);
+      return true;
+    }
+    if (selectedTrunfoModal) {
+      setSelectedTrunfoModal(null);
+      setIsTrunfoImageZoomed(false);
+      return true;
+    }
+    if (selectedCultureDetail) {
+      setSelectedCultureDetail(null);
+      return true;
+    }
+    if (isSpecialtySearchOpen) {
+      setIsSpecialtySearchOpen(false);
+      return true;
+    }
+    if (isPptxModalOpen && !isGeneratingPptx) {
+      setIsPptxModalOpen(false);
+      return true;
+    }
+    if (isExamModalOpen && !isGeneratingExam) {
+      setIsExamModalOpen(false);
+      return true;
+    }
+
+    // 2. Permitir que subcomponentes ativos (Prova Ao Vivo, Manual de Campo, etc.) fechem modais internos ou recuem etapas
+    const subBackEvent = new CustomEvent('dbv_subcomponent_back_request', { cancelable: true });
+    if (!window.dispatchEvent(subBackEvent)) {
+      return true;
+    }
+
+    // 3. Se já estiver na página principal do clube, retorna false para que o App volte à HOME
+    if (activeSubView === 'MAIN') {
+      return false;
+    }
+
+    // 4. Recuar entre as sub-páginas do clube (incluindo Bíblia, Especialidades, Classes, Cultura, Biblioteca, etc.)
+    if (activeSubView === 'CLASS_DETAILS') {
+      setActiveSubView('CLASSES');
+    } else if (activeSubView === 'SPECIALTY_DETAILS') {
+      if (specialtyNavStack.length > 0) {
+        const prev = specialtyNavStack[specialtyNavStack.length - 1];
+        setSpecialtyNavStack(prevStack => prevStack.slice(0, prevStack.length - 1));
+        setSelectedSpecialty(prev);
+        if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
+      } else if (selectedCategory) {
+        setActiveSubView('SPECIALTIES_LIST');
+      } else {
+        setActiveSubView('SPECIALTIES');
+      }
+    } else if (activeSubView === 'BIBLE_VERSES') {
+      setActiveSubView('BIBLE_CHAPTERS');
+    } else if (activeSubView === 'BIBLE_CHAPTERS') {
+      setActiveSubView('BIBLE_BOOKS');
+    } else if (activeSubView === 'BIBLE_BOOKS') {
+      setActiveSubView('BIBLE');
+    } else if (
+      activeSubView === 'BIBLE_MARKED_VERSES' ||
+      activeSubView === 'BIBLE_DICTIONARY' ||
+      activeSubView === 'BIBLE_NOTES' ||
+      activeSubView === 'BIBLE_SETTINGS'
+    ) {
+      setActiveSubView('BIBLE_MORE');
+    } else if (activeSubView === 'BIBLE_MORE') {
+      setActiveSubView('BIBLE');
+    } else if (activeSubView === 'BIBLE_DEVOTIONAL_VIEW') {
+      if (isAdmin && selectedDevocional) {
+        setActiveSubView('BIBLE_DEVOTIONAL_LIST');
+      } else {
+        setActiveSubView('BIBLE');
+      }
+    } else if (activeSubView === 'BIBLE') {
+      setActiveSubView('MAIN');
+    } else if (activeSubView === 'SPECIALTIES_LIST') {
+      setActiveSubView('SPECIALTIES');
+    } else if (activeSubView === 'DESBRAVA_PLUS_DETAILS') {
+      setActiveSubView('DESBRAVA_PLUS');
+    } else if (activeSubView === 'DESBRAVA_PLUS_PDF') {
+      setActiveSubView('DESBRAVA_PLUS');
+    } else if (activeSubView === 'IDEALS_ANTHEM') {
+      setActiveSubView('CULTURE');
+    } else if (activeSubView === 'IDEALS') {
+      setActiveSubView('IDEALS_ANTHEM');
+    } else if (activeSubView === 'ANTHEM') {
+      setActiveSubView('IDEALS_ANTHEM');
+    } else if (activeSubView === 'CULTURE_ADMIN') {
+      setActiveSubView('CULTURE_ADMIN_MENU');
+    } else if (activeSubView === 'CULTURE_ADMIN_MENU') {
+      setActiveSubView('BIBLE_ADMIN');
+    } else if (activeSubView === 'HISTORY_LIST') {
+      setActiveSubView('CULTURE');
+    } else if (activeSubView === 'HISTORY_DETAIL') {
+      setActiveSubView(club === ClubType.ADVENTURER ? 'CULTURE' : 'HISTORY_LIST');
+    } else if (activeSubView === 'UNIFORMS') {
+      setActiveAccordions([]);
+      setActiveSubView('CULTURE');
+    } else if (activeSubView === 'EMBLEMS') {
+      setActiveAccordions([]);
+      setActiveSubView('CULTURE');
+    } else if (activeSubView === 'LIBRARY') {
+      if (selectedLibraryCategory) {
+        const prevCat = selectedLibraryCategory;
+        setSelectedLibraryCategory(null);
+        if (isPathfinder && (prevCat === 'CLASSES' || prevCat === 'ANO' || prevCat === 'OUTROS')) {
+          setActiveSubView('LIBRARY_BOOKS_MENU');
+        }
+      } else {
+        setActiveSubView('MAIN');
+      }
+    } else if (activeSubView === 'LIBRARY_BOOKS_MENU') {
+      setActiveSubView('LIBRARY');
+    } else if (activeSubView === 'PDF_VIEWER') {
+      setActiveSubView(pdfReturnSubView);
+    } else if (activeSubView === 'MATERIALS') {
+      setActiveSubView('LIBRARY');
+    } else if (activeSubView === 'CAMPING') {
+      setActiveSubView('MATERIALS');
+    } else if (activeSubView === 'FORMULARIOS') {
+      setActiveSubView('MATERIALS');
+    } else if (activeSubView === 'BIBLE_ADMIN') {
+      setActiveSubView('MAIN');
+    } else if (activeSubView === 'BIBLE_ADMIN_ADD') {
+      setActiveSubView('BIBLE_ADMIN');
+    } else if (activeSubView === 'BIBLE_DEVOTIONAL_LIST') {
+      setActiveSubView('BIBLE_ADMIN');
+    } else if (
+      activeSubView === 'VIDEO_ADMIN' ||
+      activeSubView === 'FORM_ADMIN' ||
+      activeSubView === 'LINKS_ADMIN' ||
+      activeSubView === 'ACHIEVEMENTS_ADMIN' ||
+      activeSubView === 'TRUNFOS_ADMIN' ||
+      activeSubView === 'FAIXA_ADMIN'
+    ) {
+      setActiveSubView('BIBLE_ADMIN');
+    } else if (activeSubView === 'VIDEOS') {
+      setActiveSubView('MAIN');
+    } else if (activeSubView === 'VIDEO_PLAYER') {
+      setActiveSubView('VIDEOS');
+    } else if (activeSubView === 'TRUNFOS') {
+      setActiveSubView('MAIN');
+    } else if (activeSubView === 'FIELD_TRAINING') {
+      setActiveSubView('MAIN');
+    } else if (activeSubView === 'QUIZ') {
+      if (quizBackHandlerRef.current && quizBackHandlerRef.current()) {
+        return true;
+      }
+      setActiveSubView('FIELD_TRAINING');
+    } else if (activeSubView === 'LIVE_EXAM') {
+      setActiveSubView('FIELD_TRAINING');
+    } else if (activeSubView === 'UNIT_CORNER') {
+      setActiveSubView('FIELD_TRAINING');
+    } else if (activeSubView === 'FIELD_MANUAL') {
+      setActiveSubView('FIELD_TRAINING');
+    } else if (activeSubView === 'ORDEM_UNIDA') {
+      setActiveSubView('FIELD_TRAINING');
+    } else if (activeSubView === 'VERSION_HISTORY') {
+      setActiveSubView('MAIN');
+    } else {
+      setActiveSubView('MAIN');
+    }
+
+    return true;
+  }, [
+    isTrunfoImageZoomed,
+    selectedTrunfoModal,
+    selectedCultureDetail,
+    isSpecialtySearchOpen,
+    isPptxModalOpen,
+    isGeneratingPptx,
+    isExamModalOpen,
+    isGeneratingExam,
+    activeSubView,
+    specialtyNavStack,
+    selectedCategory,
+    isAdmin,
+    selectedDevocional,
+    club,
+    selectedLibraryCategory,
+    isPathfinder,
+    pdfReturnSubView
+  ]);
+
+  useEffect(() => {
+    const onAppBackRequest = (e: Event) => {
+      if (handleClubBackNavigation()) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('dbv_app_back_request', onAppBackRequest);
+    return () => window.removeEventListener('dbv_app_back_request', onAppBackRequest);
+  }, [handleClubBackNavigation]);
+
   const fieldAndPracticeButtons = [
     { 
       label: 'Prova Ao Vivo (QR Code)', 
@@ -11979,8 +12192,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         <div
           className="fixed inset-0 md:absolute md:inset-0 z-[200] bg-slate-900/60 dark:bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 md:p-8 animate-fade-in pointer-events-auto"
           onClick={() => {
-            setSelectedTrunfoModal(null);
-            setIsTrunfoImageZoomed(false);
+            if (isTrunfoImageZoomed) {
+              setIsTrunfoImageZoomed(false);
+            } else {
+              setSelectedTrunfoModal(null);
+              setIsTrunfoImageZoomed(false);
+            }
           }}
         >
           <div
@@ -12007,132 +12224,150 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                   {selectedTrunfoModal.titulo}
                 </h3>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedTrunfoModal(null);
-                  setIsTrunfoImageZoomed(false);
-                }}
-                className="w-10 h-10 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-full flex items-center justify-center transition-all active:scale-90 flex-shrink-0 cursor-pointer"
-                title="Fechar modal"
-              >
-                <X size={20} />
-              </button>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {selectedTrunfoModal.imagem && (
+                  <button
+                    type="button"
+                    onClick={() => setIsTrunfoImageZoomed((prev) => !prev)}
+                    className={`h-10 px-3 rounded-full flex items-center gap-1.5 text-xs font-black uppercase tracking-wider transition-all active:scale-90 cursor-pointer ${
+                      isTrunfoImageZoomed
+                        ? 'bg-teal-600 text-white shadow-sm'
+                        : 'bg-teal-50 dark:bg-teal-950/60 hover:bg-teal-100 dark:hover:bg-teal-900/70 text-teal-700 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800/70'
+                    }`}
+                    title={isTrunfoImageZoomed ? 'Reduzir imagem' : 'Ampliar imagem do trunfo'}
+                  >
+                    {isTrunfoImageZoomed ? <ZoomOut size={16} /> : <ZoomIn size={16} />}
+                    <span className="hidden sm:inline">{isTrunfoImageZoomed ? 'Reduzir' : 'Ampliar'}</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedTrunfoModal(null);
+                    setIsTrunfoImageZoomed(false);
+                  }}
+                  className="w-10 h-10 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-full flex items-center justify-center transition-all active:scale-90 flex-shrink-0 cursor-pointer"
+                  title="Fechar modal"
+                >
+                  <X size={20} />
+                </button>
+              </div>
             </div>
 
             {/* Corpo Rolável do Modal do Trunfo */}
-            <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5 scrollbar-hide">
-              {/* Destaque da Imagem e Identificação do Trunfo */}
-              <div className="bg-slate-50 dark:bg-slate-900/60 rounded-[26px] p-4 sm:p-5 border border-slate-200/70 dark:border-slate-700/60 flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
-                {selectedTrunfoModal.imagem && (
-                  <div className="w-28 h-28 sm:w-32 sm:h-32 bg-white dark:bg-slate-800 rounded-2xl p-2.5 flex items-center justify-center border border-slate-200/80 dark:border-slate-700 shadow-sm shrink-0 overflow-hidden">
-                    <img
-                      src={getImageUrl(selectedTrunfoModal.imagem)}
-                      alt={selectedTrunfoModal.titulo}
-                      className="w-full h-full object-contain drop-shadow-sm"
-                    />
-                  </div>
-                )}
-
-                <div className="flex-1 min-w-0 space-y-2.5">
-                  <h2 className="text-base sm:text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight leading-snug">
-                    {selectedTrunfoModal.titulo}
-                  </h2>
-
-                  <div className="flex items-center justify-center sm:justify-start flex-wrap gap-2">
-                    <span className="px-3 py-1 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest">
-                      {selectedTrunfoModal.club === 'ADVENTURER'
-                        ? 'Clube de Aventureiros'
-                        : selectedTrunfoModal.club === 'ALL'
-                        ? 'Desbravadores e Aventureiros'
-                        : 'Clube de Desbravadores'}
-                    </span>
-                    {selectedTrunfoModal.ano && (
-                      <span className="px-3 py-1 bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 rounded-xl text-[10px] font-black uppercase tracking-widest border border-teal-500/20">
-                        Ano {selectedTrunfoModal.ano}
+            {isTrunfoImageZoomed && selectedTrunfoModal.imagem ? (
+              <div className="flex-1 overflow-y-auto p-5 sm:p-6 flex flex-col items-center justify-center gap-4 bg-slate-50/80 dark:bg-slate-900/70 scrollbar-hide animate-fade-in">
+                <div
+                  onClick={() => setIsTrunfoImageZoomed(false)}
+                  title="Clique para voltar aos detalhes"
+                  className="w-full flex-1 min-h-[260px] sm:min-h-[340px] bg-white dark:bg-slate-800 rounded-[28px] p-4 sm:p-6 border border-slate-200/80 dark:border-slate-700 shadow-inner flex items-center justify-center cursor-zoom-out"
+                >
+                  <img
+                    src={getImageUrl(selectedTrunfoModal.imagem)}
+                    alt={selectedTrunfoModal.titulo}
+                    className="w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 max-w-full max-h-[56vh] object-contain drop-shadow-xl transition-transform duration-300"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsTrunfoImageZoomed(false)}
+                  className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest inline-flex items-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer"
+                >
+                  <ZoomOut size={16} />
+                  <span>Voltar aos Detalhes do Trunfo</span>
+                </button>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5 scrollbar-hide">
+                {/* Destaque da Imagem e Identificação do Trunfo */}
+                <div className="bg-slate-50 dark:bg-slate-900/60 rounded-[26px] p-4 sm:p-5 border border-slate-200/70 dark:border-slate-700/60 flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
+                  {selectedTrunfoModal.imagem && (
+                    <button
+                      type="button"
+                      onClick={() => setIsTrunfoImageZoomed(true)}
+                      title="Ampliar imagem do trunfo"
+                      className="relative group w-28 h-28 sm:w-32 sm:h-32 bg-white dark:bg-slate-800 rounded-2xl p-2.5 flex items-center justify-center border border-slate-200/80 dark:border-slate-700 shadow-sm shrink-0 overflow-hidden cursor-zoom-in hover:border-teal-500/60 transition-all active:scale-95"
+                    >
+                      <img
+                        src={getImageUrl(selectedTrunfoModal.imagem)}
+                        alt={selectedTrunfoModal.titulo}
+                        className="w-full h-full object-contain drop-shadow-sm group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <span className="absolute bottom-1.5 right-1.5 w-7 h-7 rounded-xl bg-slate-900/75 group-hover:bg-teal-600 text-white flex items-center justify-center shadow-md transition-colors">
+                        <ZoomIn size={14} />
                       </span>
+                    </button>
+                  )}
+
+                  <div className="flex-1 min-w-0 space-y-2.5">
+                    <h2 className="text-base sm:text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight leading-snug">
+                      {selectedTrunfoModal.titulo}
+                    </h2>
+
+                    <div className="flex items-center justify-center sm:justify-start flex-wrap gap-2">
+                      <span className="px-3 py-1 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                        {selectedTrunfoModal.club === 'ADVENTURER'
+                          ? 'Clube de Aventureiros'
+                          : selectedTrunfoModal.club === 'ALL'
+                          ? 'Desbravadores e Aventureiros'
+                          : 'Clube de Desbravadores'}
+                      </span>
+                      {selectedTrunfoModal.ano && (
+                        <span className="px-3 py-1 bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 rounded-xl text-[10px] font-black uppercase tracking-widest border border-teal-500/20">
+                          Ano {selectedTrunfoModal.ano}
+                        </span>
+                      )}
+                      {selectedTrunfoModal.imagem && (
+                        <button
+                          type="button"
+                          onClick={() => setIsTrunfoImageZoomed(true)}
+                          className="px-3 py-1 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer"
+                          title="Ampliar imagem do trunfo"
+                        >
+                          <ZoomIn size={13} />
+                          <span>Ampliar Imagem</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* História / Texto Principal */}
+                <div className="bg-slate-50 dark:bg-slate-900/70 rounded-[26px] p-5 sm:p-6 border border-slate-200/80 dark:border-slate-700/70 space-y-4">
+                  <div className="flex items-center space-x-2 text-xs font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest pb-2 border-b border-slate-200/70 dark:border-slate-700/60">
+                    <BookOpen size={16} className="text-teal-600 dark:text-teal-400 stroke-[2.5]" />
+                    <span>HISTÓRIA DO EVENTO</span>
+                  </div>
+                  <div className="space-y-3.5 text-slate-700 dark:text-slate-200 text-xs sm:text-sm leading-relaxed font-medium">
+                    {selectedTrunfoModal.historia ? (
+                      selectedTrunfoModal.historia.split('\n\n').map((paragraph, idx) => {
+                        const trimmed = paragraph.trim();
+                        if (!trimmed) return null;
+
+                        const match = trimmed.match(/^(Local|Participantes|Tema central|Atividades|Público|Edição|Data):\s*(.*)$/i);
+                        if (match) {
+                          return (
+                            <p key={idx} className="leading-relaxed">
+                              <strong className="font-black text-slate-900 dark:text-white tracking-wide">
+                                {match[1]}:{' '}
+                              </strong>
+                              <span className="text-slate-700 dark:text-slate-200">{match[2]}</span>
+                            </p>
+                          );
+                        }
+                        return (
+                          <p key={idx} className="leading-relaxed text-slate-700 dark:text-slate-200">
+                            {trimmed}
+                          </p>
+                        );
+                      })
+                    ) : (
+                      <p className="text-slate-400">Nenhuma história cadastrada para este trunfo.</p>
                     )}
                   </div>
                 </div>
               </div>
-
-              {/* História / Texto Principal */}
-              <div className="bg-slate-50 dark:bg-slate-900/70 rounded-[26px] p-5 sm:p-6 border border-slate-200/80 dark:border-slate-700/70 space-y-4">
-                <div className="flex items-center space-x-2 text-xs font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest pb-2 border-b border-slate-200/70 dark:border-slate-700/60">
-                  <BookOpen size={16} className="text-teal-600 dark:text-teal-400 stroke-[2.5]" />
-                  <span>HISTÓRIA DO EVENTO</span>
-                </div>
-                <div className="space-y-3.5 text-slate-700 dark:text-slate-200 text-xs sm:text-sm leading-relaxed font-medium">
-                  {selectedTrunfoModal.historia ? (
-                    selectedTrunfoModal.historia.split('\n\n').map((paragraph, idx) => {
-                      const trimmed = paragraph.trim();
-                      if (!trimmed) return null;
-
-                      const match = trimmed.match(/^(Local|Participantes|Tema central|Atividades|Público|Edição|Data):\s*(.*)$/i);
-                      if (match) {
-                        return (
-                          <p key={idx} className="leading-relaxed">
-                            <strong className="font-black text-slate-900 dark:text-white tracking-wide">
-                              {match[1]}:{' '}
-                            </strong>
-                            <span className="text-slate-700 dark:text-slate-200">{match[2]}</span>
-                          </p>
-                        );
-                      }
-                      return (
-                        <p key={idx} className="leading-relaxed text-slate-700 dark:text-slate-200">
-                          {trimmed}
-                        </p>
-                      );
-                    })
-                  ) : (
-                    <p className="text-slate-400">Nenhuma história cadastrada para este trunfo.</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Botões de Ação para Administradores */}
-              {(isAdmin || isUserAdmin) && (
-                <div className="pt-1 flex items-center justify-end space-x-2.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const trunfoToEdit = selectedTrunfoModal;
-                      setSelectedTrunfoModal(null);
-                      setNewTrunfo({
-                        titulo: trunfoToEdit.titulo,
-                        ano: trunfoToEdit.ano || '',
-                        imagem: trunfoToEdit.imagem || '',
-                        historia: trunfoToEdit.historia || '',
-                        club: trunfoToEdit.club || club
-                      });
-                      setEditingTrunfoId(trunfoToEdit.id);
-                      setActiveSubView('TRUNFOS_ADMIN');
-                      scrollToTop();
-                    }}
-                    className="flex items-center space-x-1.5 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 cursor-pointer"
-                  >
-                    <Edit2 size={15} />
-                    <span>Editar Trunfo</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const idToDelete = selectedTrunfoModal.id;
-                      if (confirm(`Tem certeza que deseja excluir o trunfo "${selectedTrunfoModal.titulo}"?`)) {
-                        setSelectedTrunfoModal(null);
-                        await handleDeleteTrunfo(idToDelete);
-                      }
-                    }}
-                    className="flex items-center space-x-1.5 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 cursor-pointer"
-                  >
-                    <Trash2 size={15} />
-                    <span>Excluir Trunfo</span>
-                  </button>
-                </div>
-              )}
-            </div>
+            )}
           </div>
         </div>
       )}

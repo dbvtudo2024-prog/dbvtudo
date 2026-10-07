@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '3.0.94';
+const appVersion = '3.0.95';
 const liveExamRooms = new Map<string, any>();
 const liveExamInstructorSessions = new Map<
   string,

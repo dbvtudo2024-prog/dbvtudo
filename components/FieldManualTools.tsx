@@ -2119,6 +2119,37 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
   const rootContainerRef = useRef<HTMLDivElement | null>(null);
   const trainerCommandsScrollRef = useRef<HTMLDivElement | null>(null);
 
+  // Suporte ao botão lateral do mouse ("Voltar") para fechar modais abertos no Manual de Campo e Ordem Unida
+  useEffect(() => {
+    const handleInternalBack = (e: Event) => {
+      if (isKnotZoomOpen) {
+        setIsKnotZoomOpen(false);
+        e.preventDefault();
+        return;
+      }
+      if (selectedLibrasLetterModal) {
+        setSelectedLibrasLetterModal(null);
+        e.preventDefault();
+        return;
+      }
+      if (selectedSemaphoreModal) {
+        setSelectedSemaphoreModal(null);
+        e.preventDefault();
+        return;
+      }
+      if (selectedDrillCmdModal) {
+        setSelectedDrillCmdModal(null);
+        e.preventDefault();
+        return;
+      }
+    };
+
+    window.addEventListener('dbv_subcomponent_back_request', handleInternalBack);
+    return () => {
+      window.removeEventListener('dbv_subcomponent_back_request', handleInternalBack);
+    };
+  }, [isKnotZoomOpen, selectedLibrasLetterModal, selectedSemaphoreModal, selectedDrillCmdModal]);
+
   // Suporte automático a rolagem horizontal pelo mouse (roda do mouse + arrastar com o botão esquerdo no PC) em todos os menus horizontais
   useEffect(() => {
     const root = rootContainerRef.current;
