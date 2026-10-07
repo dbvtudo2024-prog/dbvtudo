@@ -1,9 +1,9 @@
 {
-  "version": 1759804200000,
-  "versionName": "3.0.95",
-  "buildDate": "2026-10-07T03:20:00.000Z",
-  "timestamp": 1759804200000,
+  "version": 1759806000000,
+  "versionName": "3.0.96",
+  "buildDate": "2026-10-07T06:00:00.000Z",
+  "timestamp": 1759806000000,
   "highlights": [
-    "Navegação pelos botões laterais do mouse para voltar páginas e modais, zoom de imagens nos Trunfos e limpeza dos botões de edição na visualização de Trunfos"
+    "Novo botão Criar Prova (questões manuais ou geradas por IA a partir de qualquer tema), botão Criar Prova de Especialidade e botões compactos no celular"
   ]
 }

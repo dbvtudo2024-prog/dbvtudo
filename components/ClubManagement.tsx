@@ -1815,6 +1815,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   const [selectedSearchArea, setSelectedSearchArea] = useState<string>('TODAS');
   const [visibleSearchCount, setVisibleSearchCount] = useState<number>(40);
   const quizBackHandlerRef = useRef<(() => boolean) | null>(null);
+  const liveExamBackHandlerRef = useRef<(() => boolean) | null>(null);
 
   useEffect(() => {
     setVisibleSearchCount(40);
@@ -11654,6 +11655,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     }
                     setActiveSubView('FIELD_TRAINING');
                   } else if (activeSubView === 'LIVE_EXAM') {
+                    if (liveExamBackHandlerRef.current && liveExamBackHandlerRef.current()) {
+                      return;
+                    }
                     setActiveSubView('FIELD_TRAINING');
                   } else if (activeSubView === 'UNIT_CORNER') {
                     setActiveSubView('FIELD_TRAINING');
@@ -11899,6 +11903,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             currentUserRole={userProfile?.funçao || (userProfile as any)?.cargo || normalizedUserRole || ''}
             canHostLiveExam={canGenerateSpecialtyPptx}
             onBack={() => setActiveSubView('FIELD_TRAINING')}
+            onRegisterBackHandler={(fn) => {
+              liveExamBackHandlerRef.current = fn;
+            }}
           />
         )}
         {activeSubView === 'UNIT_CORNER' && (

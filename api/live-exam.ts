@@ -8,6 +8,34 @@ const globalInstructorSessions: Map<string, any> =
   (globalThis as any).__dbvLiveExamInstructorSessions || new Map<string, any>();
 (globalThis as any).__dbvLiveExamInstructorSessions = globalInstructorSessions;
 
+const globalStudentHistories: Map<string, any[]> =
+  (globalThis as any).__dbvLiveExamStudentHistories || new Map<string, any[]>();
+(globalThis as any).__dbvLiveExamStudentHistories = globalStudentHistories;
+
+function mergeStudentHistoryEntries(existingList: any[], incomingList: any[]): any[] {
+  const byPin = new Map<string, any>();
+  [...(existingList || []), ...(incomingList || [])].forEach((item) => {
+    if (!item || !item.pin) return;
+    const pinKey = String(item.pin);
+    const prev = byPin.get(pinKey);
+    if (!prev) {
+      byPin.set(pinKey, item);
+    } else {
+      const mergedReleased = Boolean(prev.resultsReleased || item.resultsReleased);
+      const newer = (item.completedAt || 0) >= (prev.completedAt || 0) ? item : prev;
+      const older = newer === item ? prev : item;
+      byPin.set(pinKey, {
+        ...older,
+        ...newer,
+        resultsReleased: mergedReleased,
+        cheatCount: Math.max(Number(prev.cheatCount || 0), Number(item.cheatCount || 0)),
+        answeredCount: Math.max(Number(prev.answeredCount || 0), Number(item.answeredCount || 0))
+      });
+    }
+  });
+  return Array.from(byPin.values()).sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+}
+
 function mergeParticipantRecords(existingP: any, incomingP: any, fromStudentUpdate = false): any {
   if (!existingP) return incomingP;
   if (!incomingP) return existingP;
@@ -170,6 +198,28 @@ export default async function handler(
       const u = new URL(req.url || '', 'http://localhost:3000');
       const pin = (req.query?.pin || u.searchParams.get('pin') || '').trim();
       const instructorKey = (req.query?.instructor || u.searchParams.get('instructor') || '').trim();
+      const studentHistoryKeysRaw = (
+        req.query?.studentHistoryKeys ||
+        u.searchParams.get('studentHistoryKeys') ||
+        ''
+      ).trim();
+
+      if (studentHistoryKeysRaw) {
+        const keys = studentHistoryKeysRaw
+          .split(',')
+          .map((k) => k.trim())
+          .filter(Boolean);
+        let merged: any[] = [];
+        keys.forEach((k) => {
+          const list = globalStudentHistories.get(k);
+          if (Array.isArray(list)) {
+            merged = mergeStudentHistoryEntries(merged, list);
+          }
+        });
+        res.statusCode = 200;
+        res.end(JSON.stringify({ entries: merged }));
+        return;
+      }
 
       if (instructorKey) {
         const session = globalInstructorSessions.get(instructorKey);
@@ -230,6 +280,21 @@ export default async function handler(
           selectedRoomPin,
           closedPins
         } = payload || {};
+
+        if (action === 'SYNC_STUDENT_HISTORY' && Array.isArray(payload?.keys) && Array.isArray(payload?.entries)) {
+          const keys = payload.keys.map((k: any) => String(k || '').trim()).filter(Boolean);
+          let combined = payload.entries;
+          keys.forEach((k: string) => {
+            const existing = globalStudentHistories.get(k) || [];
+            combined = mergeStudentHistoryEntries(existing, combined);
+          });
+          keys.forEach((k: string) => {
+            globalStudentHistories.set(k, combined);
+          });
+          res.statusCode = 200;
+          res.end(JSON.stringify({ ok: true, entries: combined }));
+          return;
+        }
 
         if (action === 'UPSERT_ROOM' && room?.pin) {
           const rPin = String(room.pin);

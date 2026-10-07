@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '3.0.95';
+const appVersion = '3.0.96';
 const liveExamRooms = new Map<string, any>();
 const liveExamInstructorSessions = new Map<
   string,
@@ -18,6 +18,31 @@ const liveExamInstructorSessions = new Map<
     updatedAt: number;
   }
 >();
+const liveExamStudentHistories = new Map<string, any[]>();
+
+function mergeStudentHistoryEntriesSrv(existingList: any[], incomingList: any[]): any[] {
+  const byPin = new Map<string, any>();
+  [...(existingList || []), ...(incomingList || [])].forEach((item) => {
+    if (!item || !item.pin) return;
+    const pinKey = String(item.pin);
+    const prev = byPin.get(pinKey);
+    if (!prev) {
+      byPin.set(pinKey, item);
+    } else {
+      const mergedReleased = Boolean(prev.resultsReleased || item.resultsReleased);
+      const newer = (item.completedAt || 0) >= (prev.completedAt || 0) ? item : prev;
+      const older = newer === item ? prev : item;
+      byPin.set(pinKey, {
+        ...older,
+        ...newer,
+        resultsReleased: mergedReleased,
+        cheatCount: Math.max(Number(prev.cheatCount || 0), Number(item.cheatCount || 0)),
+        answeredCount: Math.max(Number(prev.answeredCount || 0), Number(item.answeredCount || 0))
+      });
+    }
+  });
+  return Array.from(byPin.values()).sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+}
 
 function versionPlugin(): Plugin {
   return {
@@ -61,6 +86,25 @@ function versionPlugin(): Plugin {
               const u = new URL(req.url, 'http://localhost:3000');
               const pin = (u.searchParams.get('pin') || '').trim();
               const instructorKey = (u.searchParams.get('instructor') || '').trim();
+              const studentHistoryKeysRaw = (u.searchParams.get('studentHistoryKeys') || '').trim();
+
+              if (studentHistoryKeysRaw) {
+                const keys = studentHistoryKeysRaw
+                  .split(',')
+                  .map((k) => k.trim())
+                  .filter(Boolean);
+                let merged: any[] = [];
+                keys.forEach((k) => {
+                  const list = liveExamStudentHistories.get(k);
+                  if (Array.isArray(list)) {
+                    merged = mergeStudentHistoryEntriesSrv(merged, list);
+                  }
+                });
+                res.setHeader('Content-Type', 'application/json');
+                res.setHeader('Cache-Control', 'no-store');
+                res.end(JSON.stringify({ entries: merged }));
+                return;
+              }
 
               if (instructorKey) {
                 const session = liveExamInstructorSessions.get(instructorKey);
@@ -267,6 +311,21 @@ function versionPlugin(): Plugin {
                     updatedAt: Math.max(Number(existingRoom.updatedAt || 0), Number(incomingRoom.updatedAt || 0), Date.now())
                   };
                 };
+
+                if (action === 'SYNC_STUDENT_HISTORY' && Array.isArray(payload?.keys) && Array.isArray(payload?.entries)) {
+                  const keys = payload.keys.map((k: any) => String(k || '').trim()).filter(Boolean);
+                  let combined = payload.entries;
+                  keys.forEach((k: string) => {
+                    const existing = liveExamStudentHistories.get(k) || [];
+                    combined = mergeStudentHistoryEntriesSrv(existing, combined);
+                  });
+                  keys.forEach((k: string) => {
+                    liveExamStudentHistories.set(k, combined);
+                  });
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify({ ok: true, entries: combined }));
+                  return;
+                }
 
                 if (action === 'UPSERT_ROOM' && room?.pin) {
                   const rPin = String(room.pin);

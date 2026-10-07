@@ -6,14 +6,25 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.95';
+export const APP_VERSION = '3.0.96';
 export const APP_BUILD_DATE = '6 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
-    version: '3.0.95',
+    version: '3.0.96',
     date: '06/10/2026',
     tag: 'NOVO',
+    title: 'Criar Prova Personalizada (Manual ou Tema IA), Criar Prova de Especialidade & Botões Compactos no Celular',
+    changes: [
+      'Adicionado tanto no Celular quanto no PC o botão "Criar Prova (Manual ou IA)", permitindo criar salas de prova ao vivo adicionando questões manualmente ou digitando qualquer tema para a IA gerar as questões.',
+      'Botão de criação por catálogo renomeado para "Criar Prova de Especialidade" e botões da tela inicial de Prova Ao Vivo reduzidos em formato horizontal compacto para celular.',
+      'Melhorias na tela de projeção (Telão): ocultação automática do QR Code e PIN ao iniciar a prova com destaque ao cronômetro, contador contínuo via Web Worker mesmo com navegador minimizado e lista de participantes fixa na lateral.'
+    ]
+  },
+  {
+    version: '3.0.95',
+    date: '06/10/2026',
+    tag: 'ATUAL',
     title: 'Navegação pelos Botões Laterais do Mouse & Zoom de Imagens nos Trunfos',
     changes: [
       'Adicionado suporte completo ao botão lateral "Voltar" do mouse para retornar páginas, sub-páginas (Bíblia, Especialidades, Classes, Cultura, Biblioteca, Treinamento) e fechar modais abertos sem sair do aplicativo.',

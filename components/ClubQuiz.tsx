@@ -1432,10 +1432,10 @@ REGRAS OBRIGATÓRIAS:
                           </span>
                         )}
                       </div>
-                      <h4 className="font-black text-xs sm:text-sm text-white uppercase tracking-tight leading-snug truncate">
+                      <h4 className="font-black text-xs sm:text-sm text-white uppercase tracking-tight leading-snug break-words">
                         {card.title}
                       </h4>
-                      <p className="text-[10px] sm:text-[11px] text-white/85 font-medium truncate mt-0.5">
+                      <p className="text-[10px] sm:text-[11px] text-white/85 font-medium leading-snug line-clamp-2 mt-0.5">
                         {card.subtitle}
                       </p>
                     </div>
@@ -1454,24 +1454,24 @@ REGRAS OBRIGATÓRIAS:
             typeof document !== 'undefined' &&
             createPortal(
               <div
-                className="fixed inset-0 z-[9999] bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
+                className="fixed inset-0 z-[9999] bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
                 onClick={() => setIsSetupModalOpen(false)}
               >
                 <div
                   onClick={(e) => e.stopPropagation()}
-                  className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-[#111827] text-white rounded-[28px] p-5 sm:p-6 shadow-2xl border border-slate-700/80 space-y-4 relative animate-slide-up"
+                  className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-white dark:bg-[#111827] text-slate-900 dark:text-white rounded-[28px] p-5 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-700/80 space-y-4 relative animate-slide-up"
                 >
                 {/* Cabeçalho do Modal com a Modalidade Selecionada e Botão Fechar */}
-                <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-800">
+                <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${activeArenaCard.gradient} flex items-center justify-center text-white shrink-0 shadow-sm`}>
                       <ActiveArenaIcon size={20} strokeWidth={2.3} />
                     </div>
                     <div className="min-w-0">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-indigo-400 block">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 block">
                         {activeArenaCard.badge}
                       </span>
-                      <h4 className="font-black text-xs sm:text-sm uppercase tracking-tight text-white leading-snug line-clamp-2">
+                      <h4 className="font-black text-xs sm:text-sm uppercase tracking-tight text-slate-900 dark:text-white leading-snug break-words">
                         {activeArenaCard.title}
                       </h4>
                     </div>
@@ -1479,7 +1479,7 @@ REGRAS OBRIGATÓRIAS:
                   <button
                     type="button"
                     onClick={() => setIsSetupModalOpen(false)}
-                    className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+                    className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
                     title="Fechar"
                   >
                     <X size={16} strokeWidth={2.5} />
@@ -1488,10 +1488,10 @@ REGRAS OBRIGATÓRIAS:
 
                 {/* Quantidade de Perguntas (RODADAS) */}
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-2">
                     Rodadas
                   </label>
-                  <div className="grid grid-cols-3 gap-1.5 bg-[#0b0f19] p-1.5 rounded-2xl border border-slate-800/80">
+                  <div className="grid grid-cols-3 gap-1.5 bg-slate-100 dark:bg-[#0b0f19] p-1.5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80">
                     {[5, 10, 15].map((cnt) => (
                       <button
                         key={cnt}
@@ -1500,7 +1500,7 @@ REGRAS OBRIGATÓRIAS:
                         className={`py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
                           questionLimit === cnt
                             ? 'bg-indigo-600 text-white shadow-sm'
-                            : 'text-slate-400 hover:text-white'
+                            : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                         }`}
                       >
                         {cnt} Q
@@ -1511,10 +1511,10 @@ REGRAS OBRIGATÓRIAS:
 
                 {/* Tempo do Cronômetro por Questão (TEMPO / QUESTÃO) */}
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-2">
                     Tempo / Questão
                   </label>
-                  <div className="grid grid-cols-3 gap-1.5 bg-[#0b0f19] p-1.5 rounded-2xl border border-slate-800/80">
+                  <div className="grid grid-cols-3 gap-1.5 bg-slate-100 dark:bg-[#0b0f19] p-1.5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80">
                     {[
                       { sec: 15, label: '15s' },
                       { sec: 25, label: '25s' },
@@ -1527,7 +1527,7 @@ REGRAS OBRIGATÓRIAS:
                         className={`py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
                           secondsPerQuestion === t.sec
                             ? 'bg-indigo-600 text-white shadow-sm'
-                            : 'text-slate-400 hover:text-white'
+                            : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                         }`}
                       >
                         {t.label}
@@ -1538,17 +1538,17 @@ REGRAS OBRIGATÓRIAS:
 
                 {/* Modo de Avanço para a Próxima Pergunta (CLICAR vs AUTOMÁTICO 3S) */}
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-2">
                     Avanço para a Próxima Pergunta
                   </label>
-                  <div className="grid grid-cols-2 gap-1.5 bg-[#0b0f19] p-1.5 rounded-2xl border border-slate-800/80">
+                  <div className="grid grid-cols-2 gap-1.5 bg-slate-100 dark:bg-[#0b0f19] p-1.5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80">
                     <button
                       type="button"
                       onClick={() => handleToggleAutoAdvance(false)}
                       className={`py-2.5 px-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                         !autoAdvanceNext
                           ? 'bg-indigo-600 text-white shadow-sm'
-                          : 'text-slate-400 hover:text-white'
+                          : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                       }`}
                     >
                       <ChevronRight size={14} strokeWidth={2.5} />
@@ -1560,14 +1560,14 @@ REGRAS OBRIGATÓRIAS:
                       className={`py-2.5 px-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                         autoAdvanceNext
                           ? 'bg-indigo-600 text-white shadow-sm'
-                          : 'text-slate-400 hover:text-white'
+                          : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                       }`}
                     >
                       <Zap size={13} fill="currentColor" />
                       <span>Automático (3s)</span>
                     </button>
                   </div>
-                  <p className="text-[10px] text-slate-400 font-medium mt-1.5 px-1">
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-1.5 px-1">
                     {autoAdvanceNext
                       ? 'Após responder, conta 3 segundos e vai para a próxima (mantendo também o botão para clicar se quiser avançar antes).'
                       : 'Após responder, aguarda você clicar no botão para ir para a próxima pergunta.'}
@@ -1576,11 +1576,11 @@ REGRAS OBRIGATÓRIAS:
 
                 {/* Opções Extras para "Qual é esta Especialidade?" */}
                 {selectedArena === 'QUAL_ESPECIALIDADE' ? (
-                  <div className="space-y-2.5 bg-[#0b0f19] rounded-2xl p-3 border border-slate-800">
+                  <div className="space-y-2.5 bg-slate-50 dark:bg-[#0b0f19] rounded-2xl p-3 border border-slate-200 dark:border-slate-800">
                     <select
                       value={selectedSpecialtyAreaFilter}
                       onChange={(e) => setSelectedSpecialtyAreaFilter(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-xs font-bold text-white focus:outline-none"
+                      className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 dark:text-white focus:outline-none"
                     >
                       <option value="TODAS">Todas as Áreas ({specialtiesCatalog.length})</option>
                       {availableSpecialtyAreas.map((area) => (
@@ -1597,7 +1597,7 @@ REGRAS OBRIGATÓRIAS:
                         onChange={(e) => setShowSpecialtyAreaBadgeInQuiz(e.target.checked)}
                         className="w-4 h-4 accent-amber-500 rounded"
                       />
-                      <span className="text-xs font-bold text-slate-300">
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
                         Mostrar Área na Pergunta
                       </span>
                     </label>
@@ -1609,7 +1609,7 @@ REGRAS OBRIGATÓRIAS:
                     value={customBibleTopic}
                     onChange={(e) => setCustomBibleTopic(e.target.value)}
                     placeholder="Foco opcional p/ IA: Ex: Livro de Daniel, Mateus, ou em branco p/ Geral..."
-                    className="w-full bg-[#0b0f19] border border-indigo-500/40 focus:border-indigo-500 rounded-2xl px-4 py-3 text-xs sm:text-sm font-medium text-white placeholder:text-slate-400 focus:outline-none"
+                    className="w-full bg-slate-50 dark:bg-[#0b0f19] border border-indigo-200 dark:border-indigo-500/40 focus:border-indigo-500 rounded-2xl px-4 py-3 text-xs sm:text-sm font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none"
                   />
                 )}
 
