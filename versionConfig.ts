@@ -6,14 +6,24 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.92';
+export const APP_VERSION = '3.0.93';
 export const APP_BUILD_DATE = '6 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
-    version: '3.0.92',
+    version: '3.0.93',
     date: '06/10/2026',
     tag: 'NOVO',
+    title: 'Penalidade Automática de -0,1 Ponto por Saída de Tela na Prova Ao Vivo',
+    changes: [
+      'Cada saída de tela registrada pelo Sistema Anti-Cola aplica automaticamente uma penalidade de -0,1 ponto na nota final do aluno (e -1% no percentual equivalente).',
+      'Exibição em tempo real do desconto acumulado no cabeçalho da prova do aluno, no alerta de bloqueio, no boletim final individual e no painel de monitoramento do instrutor.'
+    ]
+  },
+  {
+    version: '3.0.92',
+    date: '06/10/2026',
+    tag: 'ATUAL',
     title: 'Escolha Inicial no App (Criar Prova / Escanear QR Code no Celular) & Anti-Cola Mobile em Tempo Real',
     changes: [
       'Ao entrar na área de Prova Ao Vivo pelo aplicativo no celular, exibe primeiro os botões "Criar Prova" (vai para a área de criação) e "Escanear QR Code" (vai para a área da prova).',

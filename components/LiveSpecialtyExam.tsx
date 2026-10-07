@@ -2056,8 +2056,11 @@ REGRAS OBRIGATÓRIAS:
         }
       });
       const answeredCount = Object.keys(ans).length;
-      const scorePercent = Math.round((correct / totalQ) * 100);
-      const grade10 = Number(((correct / totalQ) * 10).toFixed(1));
+      const effectiveCheatCount = Number(p.cheatCount || 0);
+      const rawGrade10 = (correct / totalQ) * 10;
+      const cheatPenalty = Number((effectiveCheatCount * 0.1).toFixed(1));
+      const grade10 = Math.max(0, Number((rawGrade10 - cheatPenalty).toFixed(1)));
+      const scorePercent = Math.max(0, Math.round(grade10 * 10));
       finalizedParticipants[p.id] = {
         ...p,
         answeredCount,
@@ -2241,10 +2244,16 @@ REGRAS OBRIGATÓRIAS:
         }
       });
       const answeredCount = Object.keys(ans).length;
-      const scorePercent = Math.round((correct / totalQ) * 100);
-      const grade10 = Number(((correct / totalQ) * 10).toFixed(1));
+      const effectiveCheatCount = Math.max(
+        Number(overrides?.cheatCount || 0),
+        studentCheatCount,
+        studentCheatCountRef.current
+      );
+      const rawGrade10 = (correct / totalQ) * 10;
+      const cheatPenalty = Number((effectiveCheatCount * 0.1).toFixed(1));
+      const grade10 = Math.max(0, Number((rawGrade10 - cheatPenalty).toFixed(1)));
+      const scorePercent = Math.max(0, Math.round(grade10 * 10));
 
-      const effectiveCheatCount = Math.max(studentCheatCount, studentCheatCountRef.current);
       const effectiveUnlockedCount = studentUnlockedCheatCountRef.current;
       const effectiveLocked =
         effectiveUnlockedCount >= effectiveCheatCount && effectiveUnlockedCount > 0
@@ -4115,8 +4124,12 @@ REGRAS OBRIGATÓRIAS:
         : myServerRecord?.answers && Object.keys(myServerRecord.answers).length > 0
         ? myServerRecord.answers
         : studentAnswers;
+    const effectiveStudentCheatCount = Math.max(
+      studentCheatCount,
+      Number(myServerRecord?.cheatCount || 0)
+    );
     const studentPayloadPreview = buildCurrentParticipantPayload(
-      undefined,
+      { cheatCount: effectiveStudentCheatCount },
       effectiveStudentAnswers,
       studentRoom
     );
@@ -4170,7 +4183,7 @@ REGRAS OBRIGATÓRIAS:
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               {studentCheatCount > 0 && (
                 <span className="px-2 py-1 rounded-xl bg-red-600/25 border border-red-500/50 text-red-300 text-[10px] font-black uppercase whitespace-nowrap">
-                  ⚠️ {studentCheatCount}
+                  ⚠️ {studentCheatCount} (-{(studentCheatCount * 0.1).toFixed(1).replace('.', ',')})
                 </span>
               )}
               <div
@@ -4412,7 +4425,7 @@ REGRAS OBRIGATÓRIAS:
                   <span>Sistema Anti-Cola Ativado</span>
                 </div>
                 <p className="text-[11px] text-slate-300 leading-relaxed font-medium">
-                  Durante a prova, <strong>não minimize a tela</strong>, não troque de aba e não abra outros aplicativos. Caso a tela seja minimizada, <strong>o instrutor recebe um alerta imediato</strong> com seu nome e sua prova é bloqueada.
+                  Durante a prova, <strong>não minimize a tela</strong>, não troque de aba e não abra outros aplicativos. Caso a tela seja minimizada, <strong>o instrutor recebe um alerta imediato</strong>, sua prova é bloqueada e há <strong>penalidade de -0,1 ponto na nota para cada saída registrada</strong>.
                 </p>
               </div>
 
@@ -4480,12 +4493,17 @@ REGRAS OBRIGATÓRIAS:
           {/* 3. REALIZAÇÃO DA PROVA PELO ALUNO */}
           {studentPhase === 'PLAYING' && studentRoom && activeQuestion && (
             <div className="w-full max-w-2xl mx-auto bg-slate-900 border border-slate-800 rounded-[28px] p-4 sm:p-6 shadow-2xl space-y-4 relative">
-              {/* Navegador de Questões em Pílulas */}
-              <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-800">
-                <span className="text-xs font-black uppercase tracking-wider text-indigo-400">
-                  Questão {studentCurrentQ + 1} de {totalQuestions}
-                </span>
-                <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide py-0.5">
+              {/* Navegador de Questões: Texto acima e sequência de números abaixo */}
+              <div className="flex flex-col gap-2.5 pb-3.5 border-b border-slate-800">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-emerald-400">
+                    Questão {studentCurrentQ + 1} de {totalQuestions}
+                  </span>
+                  <span className="text-[10px] sm:text-[11px] font-bold text-slate-400">
+                    {Object.keys(studentAnswers).length}/{totalQuestions} respondidas
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
                   {studentRoom.questions.map((_, idx) => {
                     const isAnswered = studentAnswers[idx] !== undefined;
                     const isCurrent = idx === studentCurrentQ;
@@ -4494,12 +4512,12 @@ REGRAS OBRIGATÓRIAS:
                         key={idx}
                         type="button"
                         onClick={() => setStudentCurrentQ(idx)}
-                        className={`w-7 h-7 rounded-lg text-[11px] font-black transition-all shrink-0 cursor-pointer ${
+                        className={`flex-1 min-w-[26px] max-w-[34px] h-7 sm:h-8 rounded-lg text-[11px] sm:text-xs font-black transition-all cursor-pointer flex items-center justify-center ${
                           isCurrent
-                            ? 'bg-indigo-600 text-white ring-2 ring-indigo-400'
+                            ? 'bg-indigo-600 text-white ring-2 ring-indigo-400 shadow-md shadow-indigo-600/30'
                             : isAnswered
                             ? 'bg-emerald-600/30 border border-emerald-500/50 text-emerald-300'
-                            : 'bg-slate-800 text-slate-400'
+                            : 'bg-slate-800 border border-slate-700/70 text-slate-400'
                         }`}
                       >
                         {idx + 1}
@@ -4604,7 +4622,7 @@ REGRAS OBRIGATÓRIAS:
                       {studentPayloadPreview.name} • {studentPayloadPreview.unit}
                     </p>
                     <h3 className="text-xl sm:text-2xl font-black uppercase text-white pt-0.5">
-                      Nota Final: {studentPayloadPreview.grade10.toFixed(1)} / 10
+                      Nota Final: {studentPayloadPreview.grade10.toFixed(1).replace('.', ',')} / 10
                     </h3>
                     <p className="text-xs font-bold text-slate-300">
                       Você acertou{' '}
@@ -4613,6 +4631,12 @@ REGRAS OBRIGATÓRIAS:
                       </strong>{' '}
                       ({studentPayloadPreview.scorePercent}%)
                     </p>
+                    {effectiveStudentCheatCount > 0 && (
+                      <p className="text-[11px] font-black text-red-400 pt-0.5">
+                        ⚠️ Penalidade por saída de tela: -{(effectiveStudentCheatCount * 0.1).toFixed(1).replace('.', ',')} pt ({effectiveStudentCheatCount}{' '}
+                        {effectiveStudentCheatCount === 1 ? 'saída registrada' : 'saídas registradas'})
+                      </p>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-2.5">
@@ -4743,11 +4767,11 @@ REGRAS OBRIGATÓRIAS:
                 </p>
                 <p className="font-bold text-slate-300">
                   Status Anti-Cola:{' '}
-                  {studentCheatCount === 0 ? (
-                    <span className="text-emerald-400 font-black">0 saídas de tela (Prova Íntegra)</span>
+                  {effectiveStudentCheatCount === 0 ? (
+                    <span className="text-emerald-400 font-black">0 saídas de tela (Sem penalidade)</span>
                   ) : (
                     <span className="text-red-400 font-black">
-                      {studentCheatCount} {studentCheatCount === 1 ? 'saída registrada' : 'saídas registradas'}
+                      {effectiveStudentCheatCount} {effectiveStudentCheatCount === 1 ? 'saída registrada' : 'saídas registradas'} (-{(effectiveStudentCheatCount * 0.1).toFixed(1).replace('.', ',')} pt)
                     </span>
                   )}
                 </p>
@@ -4774,6 +4798,9 @@ REGRAS OBRIGATÓRIAS:
                 </h3>
                 <p className="text-xs text-red-200 font-bold">
                   Motivo detectado: {studentLastCheatReason || studentWarningModal}
+                </p>
+                <p className="text-[11px] font-black text-amber-300 bg-amber-500/15 border border-amber-400/30 rounded-xl py-1.5 px-3 inline-block">
+                  ⚠️ Penalidade aplicada: -0,1 ponto por saída (Total acumulado: -{(studentCheatCount * 0.1).toFixed(1).replace('.', ',')} pt)
                 </p>
               </div>
 
@@ -5538,7 +5565,7 @@ REGRAS OBRIGATÓRIAS:
                             >
                               <div className="min-w-0">
                                 <p className="text-[11px] font-black text-red-800 dark:text-red-200 truncate">
-                                  🚨 {al.studentName} ({al.studentUnit}) — {al.violationNumber}ª saída às {al.timestamp}
+                                  🚨 {al.studentName} ({al.studentUnit}) — {al.violationNumber}ª saída (-0,1 pt) às {al.timestamp}
                                 </p>
                               </div>
                               {isLockedForThisAlert ? (
@@ -5758,7 +5785,7 @@ REGRAS OBRIGATÓRIAS:
                           )}
                           {p.cheatCount > 0 ? (
                             <span className="px-1.5 py-0.5 rounded-md bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-200">
-                              ⚠️ {p.cheatCount} {p.cheatCount === 1 ? 'saída' : 'saídas'}
+                              ⚠️ {p.cheatCount} {p.cheatCount === 1 ? 'saída' : 'saídas'} (-{(p.cheatCount * 0.1).toFixed(1).replace('.', ',')})
                             </span>
                           ) : (
                             <span className="text-emerald-600 dark:text-emerald-400">🛡️ 0 saídas</span>
@@ -5970,7 +5997,7 @@ REGRAS OBRIGATÓRIAS:
                               )}
                               {p.cheatCount > 0 && (
                                 <span className="px-1.5 py-0.5 rounded-md bg-red-500/25 text-red-300">
-                                  ⚠️ {p.cheatCount}x
+                                  ⚠️ {p.cheatCount}x (-{(p.cheatCount * 0.1).toFixed(1).replace('.', ',')})
                                 </span>
                               )}
                             </div>
@@ -6295,7 +6322,10 @@ REGRAS OBRIGATÓRIAS:
                 <div>
                   <h4 className="text-sm sm:text-base font-black uppercase">{inspectingStudent.name}</h4>
                   <p className="text-xs text-slate-400 font-bold">
-                    {inspectingStudent.unit} • Nota: {inspectingStudent.grade10.toFixed(1)} ({inspectingStudent.scorePercent}%) • Alertas: {inspectingStudent.cheatCount}
+                    {inspectingStudent.unit} • Nota: {inspectingStudent.grade10.toFixed(1).replace('.', ',')} ({inspectingStudent.scorePercent}%) • Saídas: {inspectingStudent.cheatCount}
+                    {inspectingStudent.cheatCount > 0
+                      ? ` (-${(inspectingStudent.cheatCount * 0.1).toFixed(1).replace('.', ',')} pt)`
+                      : ''}
                   </p>
                 </div>
                 <button

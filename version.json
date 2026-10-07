@@ -1,9 +1,9 @@
 {
-  "version": 1759801000000,
-  "versionName": "3.0.92",
-  "buildDate": "2026-10-07T01:25:00.000Z",
-  "timestamp": 1759801000000,
+  "version": 1759802800000,
+  "versionName": "3.0.93",
+  "buildDate": "2026-10-07T02:08:00.000Z",
+  "timestamp": 1759802800000,
   "highlights": [
-    "Tela inicial da Prova Ao Vivo no app com botões Criar Prova e Escanear QR Code (apenas celular), ocultação de Ver Resultado antes de iniciar a prova e reforço do sistema anti-cola no celular"
+    "Penalidade automática de -0,1 ponto na nota para cada saída de tela registrada no sistema Anti-Cola da Prova Ao Vivo"
   ]
 }
