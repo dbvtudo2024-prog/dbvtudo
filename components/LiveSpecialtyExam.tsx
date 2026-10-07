@@ -551,7 +551,7 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
     );
   }, [instructorIdentity.email, instructorIdentity.name, currentUserEmail, currentUserName]);
 
-  // Histórico de Provas Feitas pelo usuário logado no aplicativo
+  // Histórico de Provas Feitas pelo usuário logado no aplicativo (apenas provas com todas as questões respondidas)
   const [studentExamHistory, setStudentExamHistory] = useState<LiveExamStudentHistoryEntry[]>(() => {
     try {
       const key = instructorKey
@@ -560,7 +560,16 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
       const raw = localStorage.getItem(key) || localStorage.getItem('dbv_student_exam_history_global');
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed)) {
+          return parsed.filter((item: any) => {
+            if (!item || !item.pin) return false;
+            const totalQ = Number(item.totalQuestions || (Array.isArray(item.questions) ? item.questions.length : 0) || 0);
+            if (totalQ <= 0) return false;
+            const ansFromMap = item.answers && typeof item.answers === 'object' ? Object.keys(item.answers).length : 0;
+            const ansCount = Math.max(Number(item.answeredCount || 0), ansFromMap);
+            return ansCount >= totalQ;
+          });
+        }
       }
     } catch {}
     return [];
@@ -3691,9 +3700,21 @@ REGRAS OBRIGATÓRIAS:
 
   const persistStudentHistoryList = useCallback(
     (entries: LiveExamStudentHistoryEntry[], syncToCloud = true) => {
+      const isFullyAnswered = (entry?: Partial<LiveExamStudentHistoryEntry> | null): boolean => {
+        if (!entry || !entry.pin) return false;
+        const totalQ = Number(
+          entry.totalQuestions || (Array.isArray(entry.questions) ? entry.questions.length : 0) || 0
+        );
+        if (totalQ <= 0) return false;
+        const ansFromMap =
+          entry.answers && typeof entry.answers === 'object' ? Object.keys(entry.answers).length : 0;
+        const ansCount = Math.max(Number(entry.answeredCount || 0), ansFromMap);
+        return ansCount >= totalQ;
+      };
+
       const byPin = new Map<string, LiveExamStudentHistoryEntry>();
       entries.forEach((item) => {
-        if (!item || !item.pin) return;
+        if (!isFullyAnswered(item)) return;
         const prev = byPin.get(String(item.pin));
         if (!prev) {
           byPin.set(String(item.pin), item);
@@ -3725,7 +3746,7 @@ REGRAS OBRIGATÓRIAS:
 
       setStudentExamHistory(sorted);
       setSelectedHistoryExam((prevSel) =>
-        prevSel ? sorted.find((s) => String(s.pin) === String(prevSel.pin)) || prevSel : null
+        prevSel ? sorted.find((s) => String(s.pin) === String(prevSel.pin)) || null : null
       );
 
       const candidateKeys =
@@ -3860,8 +3881,17 @@ REGRAS OBRIGATÓRIAS:
             Object.values(rm.participants).find(
               (p) => p?.name && normNames.has(String(p.name).trim().toLowerCase())
             );
+          const totalQ = rm.questions?.length || 0;
+          const ansCount = matchedParticipant
+            ? Math.max(
+                Number(matchedParticipant.answeredCount || 0),
+                matchedParticipant.answers ? Object.keys(matchedParticipant.answers).length : 0
+              )
+            : 0;
           if (
             matchedParticipant &&
+            totalQ > 0 &&
+            ansCount >= totalQ &&
             (matchedParticipant.status === 'FINISHED' || rm.status === 'FINISHED')
           ) {
             const completedDate = new Date(rm.updatedAt || Date.now());
@@ -3881,8 +3911,8 @@ REGRAS OBRIGATÓRIAS:
                 { hour: '2-digit', minute: '2-digit' }
               )}`,
               completedAt: rm.updatedAt || Date.now(),
-              totalQuestions: rm.questions?.length || 1,
-              answeredCount: matchedParticipant.answeredCount || 0,
+              totalQuestions: totalQ,
+              answeredCount: ansCount,
               correctCount: matchedParticipant.correctCount || 0,
               scorePercent: matchedParticipant.scorePercent || 0,
               grade10: matchedParticipant.grade10 || 0,
@@ -3904,16 +3934,36 @@ REGRAS OBRIGATÓRIAS:
         ...cloudEntries,
         ...roomDerivedEntries
       ];
-      if (mergedInitial.length > 0) {
+      const hadIncompleteEntries = mergedInitial.some((entry) => {
+        if (!entry || !entry.pin) return false;
+        const totalQ = Number(
+          entry.totalQuestions || (Array.isArray(entry.questions) ? entry.questions.length : 0) || 0
+        );
+        const ansFromMap =
+          entry.answers && typeof entry.answers === 'object' ? Object.keys(entry.answers).length : 0;
+        const ansCount = Math.max(Number(entry.answeredCount || 0), ansFromMap);
+        return totalQ <= 0 || ansCount < totalQ;
+      });
+      if (mergedInitial.length > 0 || hadIncompleteEntries) {
         const shouldPushSync =
-          localEntries.length > 0 && (apiEntries.length === 0 || cloudEntries.length === 0);
+          hadIncompleteEntries ||
+          (localEntries.length > 0 && (apiEntries.length === 0 || cloudEntries.length === 0));
         persistStudentHistoryList(mergedInitial, shouldPushSync);
       }
 
       // Verifica se alguma prova do histórico que estava aguardando liberação já teve o resultado liberado pelo instrutor
       const byPinMap = new Map<string, LiveExamStudentHistoryEntry>();
       mergedInitial.forEach((e) => {
-        if (e?.pin) byPinMap.set(String(e.pin), e);
+        if (!e?.pin) return;
+        const totalQ = Number(
+          e.totalQuestions || (Array.isArray(e.questions) ? e.questions.length : 0) || 0
+        );
+        const ansFromMap =
+          e.answers && typeof e.answers === 'object' ? Object.keys(e.answers).length : 0;
+        const ansCount = Math.max(Number(e.answeredCount || 0), ansFromMap);
+        if (totalQ > 0 && ansCount >= totalQ) {
+          byPinMap.set(String(e.pin), e);
+        }
       });
       const pendingEntries = Array.from(byPinMap.values()).filter((e) => !e.resultsReleased);
       if (pendingEntries.length === 0) return;
@@ -4013,6 +4063,14 @@ REGRAS OBRIGATÓRIAS:
     const spentSec =
       studentFinalTimeSpentSec || mySrvRecord?.timeSpentSeconds || 1;
 
+    const totalQuestions = studentRoom.questions?.length || 0;
+    const answeredCount = Math.max(
+      Number(payload.answeredCount || 0),
+      Object.keys(effectiveAns || {}).length
+    );
+    // Só adiciona ao histórico de provas feitas se todas as questões da prova foram respondidas
+    if (totalQuestions <= 0 || answeredCount < totalQuestions) return;
+
     const nowDate = new Date();
     const dateStr = `${nowDate.toLocaleDateString('pt-BR')} às ${nowDate.toLocaleTimeString('pt-BR', {
       hour: '2-digit',
@@ -4032,8 +4090,8 @@ REGRAS OBRIGATÓRIAS:
       studentUnit: payload.unit,
       dateStr,
       completedAt: Date.now(),
-      totalQuestions: studentRoom.questions?.length || 1,
-      answeredCount: payload.answeredCount,
+      totalQuestions,
+      answeredCount,
       correctCount: payload.correctCount,
       scorePercent: payload.scorePercent,
       grade10: payload.grade10,

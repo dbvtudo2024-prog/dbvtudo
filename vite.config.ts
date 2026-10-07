@@ -20,10 +20,19 @@ const liveExamInstructorSessions = new Map<
 >();
 const liveExamStudentHistories = new Map<string, any[]>();
 
+function isFullyAnsweredHistoryEntrySrv(item: any): boolean {
+  if (!item || !item.pin) return false;
+  const totalQ = Number(item.totalQuestions || (Array.isArray(item.questions) ? item.questions.length : 0) || 0);
+  if (totalQ <= 0) return false;
+  const answeredFromMap = item.answers && typeof item.answers === 'object' ? Object.keys(item.answers).length : 0;
+  const answeredCount = Math.max(Number(item.answeredCount || 0), answeredFromMap);
+  return answeredCount >= totalQ;
+}
+
 function mergeStudentHistoryEntriesSrv(existingList: any[], incomingList: any[]): any[] {
   const byPin = new Map<string, any>();
   [...(existingList || []), ...(incomingList || [])].forEach((item) => {
-    if (!item || !item.pin) return;
+    if (!isFullyAnsweredHistoryEntrySrv(item)) return;
     const pinKey = String(item.pin);
     const prev = byPin.get(pinKey);
     if (!prev) {
