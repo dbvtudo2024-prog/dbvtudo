@@ -2118,6 +2118,7 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
   const [librasExpressionCat, setLibrasExpressionCat] = useState<'TODAS' | 'CUMPRIMENTOS' | 'CLUBE' | 'ACAMPAMENTO' | 'DIALOGO'>('TODAS');
   const rootContainerRef = useRef<HTMLDivElement | null>(null);
   const trainerCommandsScrollRef = useRef<HTMLDivElement | null>(null);
+  const knotImageSectionRef = useRef<HTMLDivElement | null>(null);
 
   // Suporte ao botão lateral do mouse ("Voltar") para fechar modais abertos no Manual de Campo e Ordem Unida
   useEffect(() => {
@@ -3461,6 +3462,12 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
                     onClick={() => {
                       setSelectedKnotId(k.id);
                       setActiveStepIdx(0);
+                      setTimeout(() => {
+                        knotImageSectionRef.current?.scrollIntoView({
+                          behavior: 'smooth',
+                          block: 'center'
+                        });
+                      }, 50);
                     }}
                     className={`p-2.5 rounded-xl border text-left transition-all flex items-center justify-between gap-1.5 ${
                       isSelected
@@ -3520,7 +3527,10 @@ const FieldManualTools: React.FC<FieldManualToolsProps> = ({ club, initialTab = 
 
             {/* Imagem 3D Oficial + Seletor de Passos */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
-              <div className="bg-slate-50 dark:bg-slate-900/80 rounded-2xl p-4 border border-slate-200/70 dark:border-slate-700 text-center space-y-3">
+              <div
+                ref={knotImageSectionRef}
+                className="bg-slate-50 dark:bg-slate-900/80 rounded-2xl p-4 border border-slate-200/70 dark:border-slate-700 text-center space-y-3 scroll-mt-4"
+              >
                 <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-slate-400">
                   <span>Visualização em 3D</span>
                   <button
