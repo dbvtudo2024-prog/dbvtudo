@@ -6,14 +6,24 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.93';
+export const APP_VERSION = '3.0.94';
 export const APP_BUILD_DATE = '6 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
-    version: '3.0.93',
+    version: '3.0.94',
     date: '06/10/2026',
     tag: 'NOVO',
+    title: 'Histórico de Provas Feitas para Usuários Logados no Aplicativo',
+    changes: [
+      'Adicionado o "Meu Histórico de Provas Feitas" exclusivo para quem está logado pelo aplicativo, sincronizado automaticamente na conta do usuário.',
+      'Exibe todas as provas realizadas com especialidade, PIN da sala, data/horário, tempo gasto, saídas anti-cola, nota final e modal com o gabarito individual completo assim que o instrutor liberar o resultado.'
+    ]
+  },
+  {
+    version: '3.0.93',
+    date: '06/10/2026',
+    tag: 'ATUAL',
     title: 'Penalidade Automática de -0,1 Ponto por Saída de Tela na Prova Ao Vivo',
     changes: [
       'Cada saída de tela registrada pelo Sistema Anti-Cola aplica automaticamente uma penalidade de -0,1 ponto na nota final do aluno (e -1% no percentual equivalente).',

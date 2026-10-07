@@ -1,9 +1,9 @@
 {
-  "version": 1759802800000,
-  "versionName": "3.0.93",
-  "buildDate": "2026-10-07T02:08:00.000Z",
-  "timestamp": 1759802800000,
+  "version": 1759803600000,
+  "versionName": "3.0.94",
+  "buildDate": "2026-10-07T02:18:00.000Z",
+  "timestamp": 1759803600000,
   "highlights": [
-    "Penalidade automática de -0,1 ponto na nota para cada saída de tela registrada no sistema Anti-Cola da Prova Ao Vivo"
+    "Histórico de Provas Feitas sincronizado para usuários logados no aplicativo, com visualização de notas, tempo, penalidades e gabarito individual"
   ]
 }

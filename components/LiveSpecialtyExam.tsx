@@ -159,6 +159,32 @@ export interface LiveExamRoomState {
   creatorName?: string;
 }
 
+export interface LiveExamStudentHistoryEntry {
+  id: string;
+  pin: string;
+  club: ClubType;
+  specialtyId: number;
+  specialtyName: string;
+  specialtyArea: string;
+  specialtyLogo: string;
+  specialtyCode: string;
+  studentName: string;
+  studentUnit: string;
+  dateStr: string;
+  completedAt: number;
+  totalQuestions: number;
+  answeredCount: number;
+  correctCount: number;
+  scorePercent: number;
+  grade10: number;
+  passingScorePercent: number;
+  cheatCount: number;
+  timeSpentSeconds: number;
+  resultsReleased: boolean;
+  questions?: LiveExamQuestion[];
+  answers?: Record<number, number>;
+}
+
 interface LiveSpecialtyExamProps {
   club: ClubType;
   specialties?: Especialidade[];
@@ -509,6 +535,36 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   instructorIdentityRef.current = instructorIdentity;
   const instructorSyncChannelRef = useRef<any>(null);
   const closedRoomPinsRef = useRef<Set<string>>(new Set());
+
+  // Verifica se o usuário está logado no aplicativo (não é visitante anônimo)
+  const isLoggedInUser = useMemo<boolean>(() => {
+    try {
+      if (localStorage.getItem('dbv_is_guest') === 'true') return false;
+    } catch {}
+    return Boolean(
+      (instructorIdentity.email && instructorIdentity.email !== 'email@exemplo.com') ||
+        instructorIdentity.name ||
+        (currentUserEmail && currentUserEmail !== 'email@exemplo.com') ||
+        currentUserName
+    );
+  }, [instructorIdentity.email, instructorIdentity.name, currentUserEmail, currentUserName]);
+
+  // Histórico de Provas Feitas pelo usuário logado no aplicativo
+  const [studentExamHistory, setStudentExamHistory] = useState<LiveExamStudentHistoryEntry[]>(() => {
+    try {
+      const key = instructorKey
+        ? `dbv_student_exam_history_${instructorKey}`
+        : 'dbv_student_exam_history_global';
+      const raw = localStorage.getItem(key) || localStorage.getItem('dbv_student_exam_history_global');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  });
+  const [selectedHistoryExam, setSelectedHistoryExam] = useState<LiveExamStudentHistoryEntry | null>(null);
+  const [isRefreshingHistoryPin, setIsRefreshingHistoryPin] = useState<string | null>(null);
 
   // ============================================================================
   // ESTADOS DO INSTRUTOR (HOST)
@@ -3232,6 +3288,281 @@ REGRAS OBRIGATÓRIAS:
     syncStudentToCloudRoom(studentRoom.pin, finalParticipant);
   }, [studentRoom, studentStartTime, buildCurrentParticipantPayload, syncStudentToCloudRoom]);
 
+  // Helper para mesclar e salvar o Histórico de Provas Feitas pelo usuário logado (LocalStorage + Nuvem Supabase)
+  const persistStudentHistoryList = useCallback(
+    (entries: LiveExamStudentHistoryEntry[], syncToCloud = true) => {
+      const byPin = new Map<string, LiveExamStudentHistoryEntry>();
+      entries.forEach((item) => {
+        if (!item || !item.pin) return;
+        const prev = byPin.get(String(item.pin));
+        if (!prev) {
+          byPin.set(String(item.pin), item);
+        } else {
+          const mergedReleased = Boolean(prev.resultsReleased || item.resultsReleased);
+          const newer = (item.completedAt || 0) >= (prev.completedAt || 0) ? item : prev;
+          const older = newer === item ? prev : item;
+          byPin.set(String(item.pin), {
+            ...older,
+            ...newer,
+            resultsReleased: mergedReleased,
+            cheatCount: Math.max(Number(prev.cheatCount || 0), Number(item.cheatCount || 0)),
+            answeredCount: Math.max(Number(prev.answeredCount || 0), Number(item.answeredCount || 0)),
+            questions:
+              newer.questions && newer.questions.length > 0
+                ? newer.questions
+                : older.questions || [],
+            answers:
+              newer.answers && Object.keys(newer.answers).length >= Object.keys(older.answers || {}).length
+                ? newer.answers
+                : older.answers || {}
+          });
+        }
+      });
+
+      const sorted = Array.from(byPin.values()).sort(
+        (a, b) => (b.completedAt || 0) - (a.completedAt || 0)
+      );
+
+      setStudentExamHistory(sorted);
+      setSelectedHistoryExam((prevSel) =>
+        prevSel ? sorted.find((s) => String(s.pin) === String(prevSel.pin)) || prevSel : null
+      );
+
+      try {
+        const jsonStr = JSON.stringify(sorted);
+        localStorage.setItem('dbv_student_exam_history_global', jsonStr);
+        if (instructorKeyRef.current) {
+          localStorage.setItem(`dbv_student_exam_history_${instructorKeyRef.current}`, jsonStr);
+        }
+      } catch {}
+
+      if (syncToCloud && instructorKeyRef.current) {
+        supabaseQfpy.storage
+          .from('App DBV Tudo')
+          .upload(
+            `provas/student_history_${instructorKeyRef.current}.json`,
+            JSON.stringify({
+              userKey: instructorKeyRef.current,
+              updatedAt: Date.now(),
+              entries: sorted
+            }),
+            {
+              upsert: true,
+              contentType: 'application/json',
+              cacheControl: '0'
+            }
+          )
+          .catch(() => {});
+      }
+    },
+    []
+  );
+
+  // Carrega o histórico de provas do usuário logado da nuvem e verifica se salas pendentes já tiveram resultado liberado
+  useEffect(() => {
+    if (!isLoggedInUser) return;
+    let cancelled = false;
+
+    const loadHistory = async () => {
+      let localEntries: LiveExamStudentHistoryEntry[] = [];
+      try {
+        const rawKey = instructorKey
+          ? localStorage.getItem(`dbv_student_exam_history_${instructorKey}`) ||
+            localStorage.getItem('dbv_student_exam_history_global')
+          : localStorage.getItem('dbv_student_exam_history_global');
+        if (rawKey) {
+          const parsed = JSON.parse(rawKey);
+          if (Array.isArray(parsed)) localEntries = parsed;
+        }
+      } catch {}
+
+      let cloudEntries: LiveExamStudentHistoryEntry[] = [];
+      if (instructorKey) {
+        try {
+          const cloudData = await downloadCloudExamJson<{ entries?: LiveExamStudentHistoryEntry[] }>(
+            `provas/student_history_${instructorKey}.json`
+          );
+          if (cloudData && Array.isArray(cloudData.entries)) {
+            cloudEntries = cloudData.entries;
+          }
+        } catch {}
+      }
+
+      if (cancelled) return;
+      const mergedInitial = [...localEntries, ...cloudEntries];
+      if (mergedInitial.length > 0) {
+        persistStudentHistoryList(mergedInitial, false);
+      }
+
+      // Verifica se alguma prova do histórico que estava aguardando liberação já teve o resultado liberado pelo instrutor
+      const byPinMap = new Map<string, LiveExamStudentHistoryEntry>();
+      mergedInitial.forEach((e) => {
+        if (e?.pin) byPinMap.set(String(e.pin), e);
+      });
+      const pendingEntries = Array.from(byPinMap.values()).filter((e) => !e.resultsReleased);
+      if (pendingEntries.length === 0) return;
+
+      let updatedAny = false;
+      const updatedList = Array.from(byPinMap.values());
+
+      for (const pending of pendingEntries) {
+        try {
+          const [apiRoom, cloudRoom] = await Promise.all([
+            fetch(`/api/live-exam?pin=${pending.pin}&t=${Date.now()}`, { cache: 'no-store' })
+              .then((r) => (r.ok ? r.json() : null))
+              .then((d) => (d?.room ? (d.room as LiveExamRoomState) : null))
+              .catch(() => null),
+            downloadCloudExamJson<LiveExamRoomState>(`provas/room_${pending.pin}.json`)
+          ]);
+          const roomData = apiRoom || cloudRoom;
+          const released = Boolean(apiRoom?.resultsReleased || cloudRoom?.resultsReleased);
+          if (roomData && released) {
+            updatedAny = true;
+            const idx = updatedList.findIndex((item) => String(item.pin) === String(pending.pin));
+            if (idx >= 0) {
+              const myP =
+                roomData.participants?.[studentId] ||
+                Object.values(roomData.participants || {}).find(
+                  (p) =>
+                    p.name?.trim().toLowerCase() ===
+                    (pending.studentName || studentName || '').trim().toLowerCase()
+                );
+              updatedList[idx] = {
+                ...updatedList[idx],
+                resultsReleased: true,
+                grade10: myP?.grade10 ?? updatedList[idx].grade10,
+                scorePercent: myP?.scorePercent ?? updatedList[idx].scorePercent,
+                correctCount: myP?.correctCount ?? updatedList[idx].correctCount,
+                cheatCount: Math.max(updatedList[idx].cheatCount || 0, Number(myP?.cheatCount || 0)),
+                questions: roomData.questions || updatedList[idx].questions,
+                answers:
+                  myP?.answers && Object.keys(myP.answers).length > 0
+                    ? myP.answers
+                    : updatedList[idx].answers
+              };
+            }
+          }
+        } catch {}
+      }
+
+      if (!cancelled && updatedAny) {
+        persistStudentHistoryList(updatedList, true);
+      }
+    };
+
+    loadHistory();
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoggedInUser, instructorKey, studentId, studentName, persistStudentHistoryList]);
+
+  // Salva/atualiza automaticamente a prova no histórico do usuário logado quando a prova é finalizada ou quando o instrutor libera o resultado
+  useEffect(() => {
+    if (!isLoggedInUser || studentPhase !== 'FINISHED' || !studentRoom?.pin) return;
+
+    const mySrvRecord =
+      studentRoom.participants?.[studentId] ||
+      Object.values(studentRoom.participants || {}).find(
+        (p) => p.name?.trim().toLowerCase() === studentName.trim().toLowerCase()
+      );
+    const effectiveAns =
+      Object.keys(studentAnswers).length > 0
+        ? studentAnswers
+        : mySrvRecord?.answers && Object.keys(mySrvRecord.answers).length > 0
+        ? mySrvRecord.answers
+        : studentAnswers;
+    const effectiveCheat = Math.max(
+      studentCheatCount,
+      studentCheatCountRef.current,
+      Number(mySrvRecord?.cheatCount || 0)
+    );
+    const payload = buildCurrentParticipantPayload(
+      { cheatCount: effectiveCheat },
+      effectiveAns,
+      studentRoom
+    );
+    const spentSec =
+      studentFinalTimeSpentSec || mySrvRecord?.timeSpentSeconds || 1;
+
+    const nowDate = new Date();
+    const dateStr = `${nowDate.toLocaleDateString('pt-BR')} às ${nowDate.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit'
+    })}`;
+
+    const newEntry: LiveExamStudentHistoryEntry = {
+      id: `hist_${studentRoom.pin}_${studentId}`,
+      pin: String(studentRoom.pin),
+      club: studentRoom.club || club,
+      specialtyId: studentRoom.specialtyId,
+      specialtyName: studentRoom.specialtyName,
+      specialtyArea: studentRoom.specialtyArea,
+      specialtyLogo: studentRoom.specialtyLogo,
+      specialtyCode: studentRoom.specialtyCode,
+      studentName: payload.name,
+      studentUnit: payload.unit,
+      dateStr,
+      completedAt: Date.now(),
+      totalQuestions: studentRoom.questions?.length || 1,
+      answeredCount: payload.answeredCount,
+      correctCount: payload.correctCount,
+      scorePercent: payload.scorePercent,
+      grade10: payload.grade10,
+      passingScorePercent: studentRoom.passingScorePercent || 70,
+      cheatCount: effectiveCheat,
+      timeSpentSeconds: spentSec,
+      resultsReleased: Boolean(studentRoom.resultsReleased),
+      questions: studentRoom.questions,
+      answers: effectiveAns
+    };
+
+    persistStudentHistoryList([newEntry, ...studentExamHistory], true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    isLoggedInUser,
+    studentPhase,
+    studentRoom?.pin,
+    studentRoom?.resultsReleased,
+    studentFinalTimeSpentSec,
+    studentCheatCount
+  ]);
+
+  const handleRefreshHistoryEntryResult = async (entry: LiveExamStudentHistoryEntry) => {
+    setIsRefreshingHistoryPin(entry.pin);
+    try {
+      const [apiRoom, cloudRoom] = await Promise.all([
+        fetch(`/api/live-exam?pin=${entry.pin}&t=${Date.now()}`, { cache: 'no-store' })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d) => (d?.room ? (d.room as LiveExamRoomState) : null))
+          .catch(() => null),
+        downloadCloudExamJson<LiveExamRoomState>(`provas/room_${entry.pin}.json`)
+      ]);
+      const roomData = apiRoom || cloudRoom;
+      const released = Boolean(apiRoom?.resultsReleased || cloudRoom?.resultsReleased);
+      if (roomData && released) {
+        const myP =
+          roomData.participants?.[studentId] ||
+          Object.values(roomData.participants || {}).find(
+            (p) =>
+              p.name?.trim().toLowerCase() === (entry.studentName || studentName || '').trim().toLowerCase()
+          );
+        const updatedEntry: LiveExamStudentHistoryEntry = {
+          ...entry,
+          resultsReleased: true,
+          grade10: myP?.grade10 ?? entry.grade10,
+          scorePercent: myP?.scorePercent ?? entry.scorePercent,
+          correctCount: myP?.correctCount ?? entry.correctCount,
+          cheatCount: Math.max(entry.cheatCount || 0, Number(myP?.cheatCount || 0)),
+          questions: roomData.questions || entry.questions,
+          answers:
+            myP?.answers && Object.keys(myP.answers).length > 0 ? myP.answers : entry.answers
+        };
+        persistStudentHistoryList([updatedEntry, ...studentExamHistory], true);
+      }
+    } catch {}
+    setIsRefreshingHistoryPin(null);
+  };
+
   useEffect(() => {
     if (roleMode !== 'STUDENT' || studentPhase !== 'PLAYING' || !studentRoom) return;
 
@@ -3902,23 +4233,23 @@ REGRAS OBRIGATÓRIAS:
     if (!isQrScannerOpen || typeof document === 'undefined') return null;
     return createPortal(
       <div
-        className="fixed inset-0 z-[100005] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"
+        className="fixed inset-0 z-[100005] bg-slate-900/65 dark:bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"
         onClick={() => setIsQrScannerOpen(false)}
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-md bg-slate-900 border border-indigo-500/40 rounded-[28px] p-4 sm:p-5 text-white shadow-2xl space-y-3.5"
+          className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-indigo-500/40 rounded-[28px] p-4 sm:p-5 text-slate-800 dark:text-white shadow-2xl space-y-3.5"
         >
-          <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-800">
+          <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-200 dark:border-slate-800">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-indigo-600/25 border border-indigo-500/40 text-indigo-400 flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-600/25 border border-indigo-200 dark:border-indigo-500/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
                 <Camera size={18} />
               </div>
               <div>
-                <h4 className="text-sm font-black uppercase tracking-tight text-white">
+                <h4 className="text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white">
                   Ler QR Code da Prova
                 </h4>
-                <p className="text-[11px] text-slate-400 font-medium">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
                   Aponte a câmera para o QR Code da sala
                 </p>
               </div>
@@ -3926,7 +4257,7 @@ REGRAS OBRIGATÓRIAS:
             <button
               type="button"
               onClick={() => setIsQrScannerOpen(false)}
-              className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center cursor-pointer"
+              className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center cursor-pointer"
             >
               <X size={16} />
             </button>
@@ -3948,7 +4279,7 @@ REGRAS OBRIGATÓRIAS:
           </div>
 
           {qrScannerError && (
-            <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-[11px] font-bold text-center">
+            <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/15 border border-amber-300 dark:border-amber-500/40 text-amber-800 dark:text-amber-200 text-[11px] font-bold text-center">
               {qrScannerError}
             </div>
           )}
@@ -3959,7 +4290,7 @@ REGRAS OBRIGATÓRIAS:
               onClick={() =>
                 setQrScannerFacingMode((prev) => (prev === 'environment' ? 'user' : 'environment'))
               }
-              className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-[10px] sm:text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
+              className="py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-[10px] sm:text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <RefreshCw size={13} />
               <span>Trocar Câmera</span>
@@ -3991,24 +4322,24 @@ REGRAS OBRIGATÓRIAS:
     return (
       <div className="w-full max-w-2xl mx-auto py-4 sm:py-8 px-2 animate-fade-in">
         {renderQrScannerModal()}
-        <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 border border-white/10 rounded-[28px] p-5 sm:p-7 text-white shadow-2xl space-y-5">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 rounded-[28px] p-5 sm:p-7 text-slate-800 dark:text-white shadow-xl space-y-5">
           <div className="text-center space-y-2">
-            <div className="w-16 h-16 rounded-2xl bg-indigo-600/25 border border-indigo-400/40 text-indigo-300 flex items-center justify-center mx-auto shadow-lg">
+            <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-600/25 border border-indigo-200 dark:border-indigo-400/40 text-indigo-600 dark:text-indigo-300 flex items-center justify-center mx-auto shadow-sm">
               <QrCode size={32} />
             </div>
-            <span className="inline-block px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/35 text-amber-300 text-[10px] font-black uppercase tracking-widest">
+            <span className="inline-block px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-500/20 border border-amber-300 dark:border-amber-400/35 text-amber-700 dark:text-amber-300 text-[10px] font-black uppercase tracking-widest">
               Prova Ao Vivo • {isPathfinder ? 'Desbravadores' : 'Aventureiros'}
             </span>
-            <h2 className="text-lg sm:text-2xl font-black uppercase tracking-tight text-white">
+            <h2 className="text-lg sm:text-2xl font-black uppercase tracking-tight text-slate-900 dark:text-white">
               Prova Ao Vivo
             </h2>
-            <p className="text-xs sm:text-sm text-slate-300 font-medium max-w-md mx-auto">
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-300 font-medium max-w-md mx-auto">
               Selecione uma opção abaixo para criar uma prova ou escanear o QR Code da sala:
             </p>
           </div>
 
           {entryPermissionNotice && (
-            <div className="p-3 rounded-2xl bg-red-500/20 border border-red-400/40 text-red-200 text-xs font-bold text-center">
+            <div className="p-3 rounded-2xl bg-red-50 dark:bg-red-500/20 border border-red-200 dark:border-red-400/40 text-red-700 dark:text-red-200 text-xs font-bold text-center">
               {entryPermissionNotice}
             </div>
           )}
@@ -4031,24 +4362,24 @@ REGRAS OBRIGATÓRIAS:
               }}
               className={`group relative overflow-hidden rounded-[24px] p-5 text-left border transition-all flex flex-col justify-between gap-4 cursor-pointer active:scale-[0.98] ${
                 hasHostPermission
-                  ? 'bg-gradient-to-br from-indigo-600 via-blue-600 to-indigo-700 hover:from-indigo-500 hover:to-blue-600 border-indigo-400/40 shadow-xl shadow-indigo-600/20'
-                  : 'bg-slate-800/80 border-slate-700 opacity-80'
+                  ? 'bg-gradient-to-br from-indigo-600 via-blue-600 to-indigo-700 hover:from-indigo-500 hover:to-blue-600 border-indigo-400/40 shadow-xl shadow-indigo-600/20 text-white'
+                  : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 opacity-85 text-slate-600 dark:text-white'
               }`}
             >
               <div className="flex items-center justify-between gap-2">
-                <div className="w-12 h-12 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center text-white">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${hasHostPermission ? 'bg-white/15 border border-white/20 text-white' : 'bg-slate-200 dark:bg-white/15 border border-slate-300 dark:border-white/20 text-slate-600 dark:text-white'}`}>
                   <Plus size={24} />
                 </div>
-                <span className="px-2.5 py-1 rounded-full bg-black/25 text-amber-300 text-[9px] font-black uppercase tracking-wider">
+                <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${hasHostPermission ? 'bg-black/25 text-amber-300' : 'bg-amber-100 dark:bg-black/25 text-amber-800 dark:text-amber-300'}`}>
                   Conselheiro+
                 </span>
               </div>
 
               <div className="space-y-1">
-                <h3 className="text-base sm:text-lg font-black uppercase tracking-tight text-white">
+                <h3 className={`text-base sm:text-lg font-black uppercase tracking-tight ${hasHostPermission ? 'text-white' : 'text-slate-800 dark:text-white'}`}>
                   Criar Prova
                 </h3>
-                <p className="text-[11px] text-indigo-100/90 font-medium leading-relaxed">
+                <p className={`text-[11px] font-medium leading-relaxed ${hasHostPermission ? 'text-indigo-100/90' : 'text-slate-500 dark:text-indigo-100/90'}`}>
                   Ir para a área de criação para escolher a especialidade e abrir sala com QR Code.
                 </p>
               </div>
@@ -4094,7 +4425,7 @@ REGRAS OBRIGATÓRIAS:
                 setIsCreatingNewRoom(false);
                 setEntryScreenConfirmed(true);
               }}
-              className="w-full py-3.5 px-4 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/20 text-amber-300 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all"
+              className="w-full py-3.5 px-4 rounded-2xl bg-amber-50 hover:bg-amber-100 dark:bg-white/10 dark:hover:bg-white/15 border border-amber-300 dark:border-white/20 text-amber-700 dark:text-amber-300 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all"
             >
               <QrCode size={16} />
               <span>
@@ -4103,6 +4434,245 @@ REGRAS OBRIGATÓRIAS:
             </button>
           )}
         </div>
+
+        {/* Histórico de Provas Feitas pelo Usuário Logado na Tela Inicial do App */}
+        {isLoggedInUser && (
+          <div className="mt-4 bg-white dark:bg-slate-900/95 border border-slate-200/80 dark:border-slate-800 rounded-[26px] p-4 sm:p-5 text-slate-800 dark:text-white shadow-lg space-y-3">
+            <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/40 text-amber-600 dark:text-amber-300 flex items-center justify-center shrink-0">
+                  <Award size={16} />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white truncate">
+                    Meu Histórico de Provas Feitas ({studentExamHistory.length})
+                  </h3>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">
+                    Conta conectada: {instructorIdentity.name || studentName || instructorIdentity.email}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {studentExamHistory.length === 0 ? (
+              <div className="py-5 px-3 text-center rounded-2xl bg-slate-50 dark:bg-slate-950/70 border border-dashed border-slate-200 dark:border-slate-800 space-y-1">
+                <BookOpen size={22} className="text-slate-400 dark:text-slate-500 mx-auto" />
+                <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                  Você ainda não possui provas finalizadas salvas no seu histórico.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1 scrollbar-hide">
+                {studentExamHistory.map((item) => {
+                  const approved = item.scorePercent >= (item.passingScorePercent || 70);
+                  return (
+                    <div
+                      key={item.pin}
+                      onClick={() => setSelectedHistoryExam(item)}
+                      className="p-3 rounded-2xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-950/90 dark:hover:bg-slate-800/80 border border-slate-200/80 dark:border-slate-800 transition-all flex items-center justify-between gap-3 cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        {item.specialtyLogo ? (
+                          <img
+                            src={item.specialtyLogo}
+                            alt={item.specialtyName}
+                            className="w-10 h-10 object-contain shrink-0"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-300 shrink-0">
+                            <Award size={18} />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h4 className="text-xs font-black uppercase text-slate-900 dark:text-white truncate">
+                              {item.specialtyName}
+                            </h4>
+                            <span className="px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-slate-800 text-amber-800 dark:text-amber-300 text-[9px] font-black">
+                              #{item.pin}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">
+                            {item.dateStr} • ⏱️ {formatTimeMMSS(item.timeSpentSeconds)}
+                            {item.cheatCount > 0
+                              ? ` • ⚠️ ${item.cheatCount}x (-${(item.cheatCount * 0.1).toFixed(1).replace('.', ',')} pt)`
+                              : ' • 🛡️ 0 saídas'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        {item.resultsReleased ? (
+                          <>
+                            <span
+                              className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase ${
+                                approved
+                                  ? 'bg-emerald-50 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
+                                  : 'bg-amber-50 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/40 text-amber-700 dark:text-amber-300'
+                              }`}
+                            >
+                              Nota {item.grade10.toFixed(1).replace('.', ',')} ({item.scorePercent}%)
+                            </span>
+                            <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-300">
+                              Ver Gabarito →
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[9px] font-black uppercase">
+                              ⏳ Aguardando Nota
+                            </span>
+                            <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-300">
+                              Conferir →
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Modal de Detalhes / Gabarito de Prova do Histórico */}
+        {selectedHistoryExam &&
+          typeof document !== 'undefined' &&
+          createPortal(
+            <div
+              className="fixed inset-0 z-[100005] bg-slate-900/65 dark:bg-slate-950/88 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"
+              onClick={() => setSelectedHistoryExam(null)}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-lg max-h-[88vh] overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-indigo-500/40 rounded-[28px] p-5 text-slate-800 dark:text-white space-y-4 shadow-2xl scrollbar-hide"
+              >
+                <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {selectedHistoryExam.specialtyLogo && (
+                      <img
+                        src={selectedHistoryExam.specialtyLogo}
+                        alt={selectedHistoryExam.specialtyName}
+                        className="w-10 h-10 object-contain shrink-0"
+                        referrerPolicy="no-referrer"
+                      />
+                    )}
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 block">
+                        Histórico de Prova • Sala #{selectedHistoryExam.pin}
+                      </span>
+                      <h4 className="text-sm sm:text-base font-black uppercase text-slate-900 dark:text-white truncate">
+                        {selectedHistoryExam.specialtyName}
+                      </h4>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedHistoryExam(null)}
+                    className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0 cursor-pointer"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+
+                {selectedHistoryExam.resultsReleased ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-2.5 text-center">
+                      <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 space-y-0.5">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 block">
+                          Nota Final
+                        </span>
+                        <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">
+                          {selectedHistoryExam.grade10.toFixed(1).replace('.', ',')} / 10
+                        </p>
+                        <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 block">
+                          {selectedHistoryExam.correctCount}/{selectedHistoryExam.totalQuestions} acertos ({selectedHistoryExam.scorePercent}%)
+                        </span>
+                      </div>
+                      <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 space-y-0.5">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 block">
+                          Tempo & Anti-Cola
+                        </span>
+                        <p className="text-base font-black text-amber-600 dark:text-amber-300 tabular-nums">
+                          ⏱️ {formatTimeMMSS(selectedHistoryExam.timeSpentSeconds)}
+                        </p>
+                        <span className="text-[10px] font-bold text-red-600 dark:text-red-300 block">
+                          {selectedHistoryExam.cheatCount > 0
+                            ? `⚠️ ${selectedHistoryExam.cheatCount} saída(s) (-${(selectedHistoryExam.cheatCount * 0.1).toFixed(1).replace('.', ',')} pt)`
+                            : '🛡️ 0 saídas (Sem penalidade)'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {selectedHistoryExam.questions && selectedHistoryExam.questions.length > 0 && (
+                      <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 block">
+                          Gabarito da Prova Realizada:
+                        </span>
+                        {selectedHistoryExam.questions.map((q, idx) => {
+                          const chosen = selectedHistoryExam.answers?.[idx];
+                          const isCorrect = chosen === q.correctIndex;
+                          return (
+                            <div
+                              key={q.id || idx}
+                              className={`p-3 rounded-2xl border text-xs space-y-1 ${
+                                isCorrect
+                                  ? 'bg-emerald-50/70 dark:bg-emerald-950/35 border-emerald-200 dark:border-emerald-700/60'
+                                  : 'bg-red-50/70 dark:bg-red-950/35 border-red-200 dark:border-red-800/60'
+                              }`}
+                            >
+                              <p className="font-black text-slate-900 dark:text-white">
+                                {idx + 1}. {q.question}
+                              </p>
+                              <p className={isCorrect ? 'text-emerald-700 dark:text-emerald-300 font-bold' : 'text-red-700 dark:text-red-300 font-bold'}>
+                                Sua resposta:{' '}
+                                {chosen !== undefined
+                                  ? `${String.fromCharCode(65 + chosen)}) ${q.options[chosen]}`
+                                  : 'Não respondida'}{' '}
+                                {isCorrect ? '✅' : '❌'}
+                              </p>
+                              {!isCorrect && (
+                                <p className="text-emerald-600 dark:text-emerald-400 font-bold">
+                                  Correta: {String.fromCharCode(65 + q.correctIndex)}) {q.options[q.correctIndex]}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 text-center space-y-3">
+                    <Clock size={28} className="text-amber-500 dark:text-amber-400 mx-auto" />
+                    <div className="space-y-1">
+                      <h5 className="text-sm font-black uppercase text-slate-900 dark:text-white">
+                        Resultado Ainda Não Liberado pelo Instrutor
+                      </h5>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                        Você concluiu esta prova em {selectedHistoryExam.dateStr} ({selectedHistoryExam.answeredCount}/{selectedHistoryExam.totalQuestions} respondidas). Assim que o instrutor clicar em "Liberar Resultado", sua nota e gabarito aparecerão aqui.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isRefreshingHistoryPin === selectedHistoryExam.pin}
+                      onClick={() => handleRefreshHistoryEntryResult(selectedHistoryExam)}
+                      className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <RefreshCw
+                        size={14}
+                        className={isRefreshingHistoryPin === selectedHistoryExam.pin ? 'animate-spin' : ''}
+                      />
+                      <span>Verificar se o Resultado Foi Liberado</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>,
+            document.body
+          )}
       </div>
     );
   }
@@ -4147,7 +4717,7 @@ REGRAS OBRIGATÓRIAS:
 
     return (
       <div
-        className={`h-full w-full bg-slate-950 text-white flex flex-col overflow-hidden ${
+        className={`h-full w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col overflow-hidden ${
           studentPhase === 'PLAYING' ? 'select-none' : ''
         }`}
         onCopy={studentPhase === 'PLAYING' ? (e) => e.preventDefault() : undefined}
@@ -4157,23 +4727,23 @@ REGRAS OBRIGATÓRIAS:
         {renderQrScannerModal()}
         {/* Topbar da Área de Prova (Com recuo superior apenas quando em modo isolado tela cheia) */}
         <div
-          className={`shrink-0 bg-slate-900/95 border-b border-slate-800 px-3.5 sm:px-5 ${
+          className={`shrink-0 bg-white/95 dark:bg-slate-900/95 border-b border-slate-200 dark:border-slate-800 px-3.5 sm:px-5 ${
             isIsolatedStudentMode
               ? 'pt-[max(calc(env(safe-area-inset-top,0px)+12px),2.25rem)] sm:pt-3 pb-2.5'
               : 'py-2.5 sm:py-3'
           } flex items-center justify-between gap-2.5`}
         >
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-400 shrink-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-red-50 dark:bg-red-600/20 border border-red-200 dark:border-red-500/40 flex items-center justify-center text-red-600 dark:text-red-400 shrink-0">
               <ShieldCheck size={17} />
             </div>
             <div className="min-w-0 flex-1">
-              <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-amber-400 block truncate">
+              <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 block truncate">
                 {studentRoom
                   ? `Sala #${studentRoom.pin} • Anti-Cola Ativo`
                   : 'Prova Ao Vivo • Anti-Cola Ativo'}
               </span>
-              <h2 className="text-xs sm:text-sm font-black uppercase tracking-tight text-white truncate">
+              <h2 className="text-xs sm:text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white truncate">
                 {studentRoom ? studentRoom.specialtyName : 'Acesso à Prova Oficial'}
               </h2>
             </div>
@@ -4182,7 +4752,7 @@ REGRAS OBRIGATÓRIAS:
           {studentPhase === 'PLAYING' ? (
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               {studentCheatCount > 0 && (
-                <span className="px-2 py-1 rounded-xl bg-red-600/25 border border-red-500/50 text-red-300 text-[10px] font-black uppercase whitespace-nowrap">
+                <span className="px-2 py-1 rounded-xl bg-red-50 dark:bg-red-600/25 border border-red-200 dark:border-red-500/50 text-red-700 dark:text-red-300 text-[10px] font-black uppercase whitespace-nowrap">
                   ⚠️ {studentCheatCount} (-{(studentCheatCount * 0.1).toFixed(1).replace('.', ',')})
                 </span>
               )}
@@ -4190,7 +4760,7 @@ REGRAS OBRIGATÓRIAS:
                 className={`px-2.5 sm:px-3 py-1.5 rounded-xl font-black text-xs sm:text-sm tabular-nums flex items-center gap-1.5 border whitespace-nowrap ${
                   studentRemainingSeconds <= 60
                     ? 'bg-red-600 text-white border-red-500 animate-pulse'
-                    : 'bg-slate-800 text-amber-300 border-slate-700'
+                    : 'bg-amber-50 dark:bg-slate-800 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-slate-700'
                 }`}
               >
                 <Timer size={14} />
@@ -4212,7 +4782,7 @@ REGRAS OBRIGATÓRIAS:
                     onBack();
                   }
                 }}
-                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700/80 text-slate-200 text-[10px] sm:text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap"
+                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 text-[10px] sm:text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap"
               >
                 <LogOut size={13} />
                 <span>
@@ -4233,22 +4803,22 @@ REGRAS OBRIGATÓRIAS:
         <div className="flex-1 w-full overflow-y-auto overscroll-contain px-4 py-4 sm:py-8 pb-28 scrollbar-hide">
           {/* MODAL DE ESCOLHA: ABRIR NO APP INSTALADO OU NO NAVEGADOR PADRÃO (Exibido apenas se possuir o App instalado) */}
           {showOpenModeChoiceModal && studentPhase === 'ENTER_PIN' && (
-            <div className="fixed inset-0 z-[99999] bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-              <div className="w-full max-w-md bg-slate-900 border border-indigo-500/40 rounded-[28px] p-5 sm:p-6 shadow-2xl space-y-4 text-center">
-                <div className="w-14 h-14 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 text-indigo-400 flex items-center justify-center mx-auto">
+            <div className="fixed inset-0 z-[99999] bg-slate-900/65 dark:bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+              <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-indigo-500/40 rounded-[28px] p-5 sm:p-6 shadow-2xl space-y-4 text-center">
+                <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-600/20 border border-indigo-200 dark:border-indigo-500/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto">
                   <Smartphone size={28} />
                 </div>
 
                 <div className="space-y-1.5">
-                  <span className="inline-block px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-black uppercase tracking-widest">
+                  <span className="inline-block px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-[10px] font-black uppercase tracking-widest">
                     App DBV Tudo Detectado
                   </span>
-                  <h3 className="text-lg sm:text-xl font-black uppercase tracking-tight text-white">
+                  <h3 className="text-lg sm:text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white">
                     Onde deseja abrir a Prova?
                   </h3>
-                  <p className="text-xs text-slate-300 font-medium leading-relaxed">
+                  <p className="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
                     Identificamos que você possui o aplicativo <strong>DBV Tudo</strong> instalado neste aparelho. Escolha como prefere responder à prova da sala{' '}
-                    <strong className="text-amber-300">{studentPinInput || initialPin}</strong>:
+                    <strong className="text-amber-600 dark:text-amber-300">{studentPinInput || initialPin}</strong>:
                   </p>
                 </div>
 
@@ -4311,7 +4881,7 @@ REGRAS OBRIGATÓRIAS:
                         window.location.href = intentUrl;
                       }
                     }}
-                    className="w-full py-3.5 px-5 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-black uppercase tracking-wider text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer transition-all"
+                    className="w-full py-3.5 px-5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-black uppercase tracking-wider text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer transition-all"
                   >
                     <Globe size={17} />
                     <span>Abrir no Navegador Padrão</span>
@@ -4323,18 +4893,18 @@ REGRAS OBRIGATÓRIAS:
 
           {/* 1. TELA DE ENTRADA COM PIN E IDENTIFICAÇÃO DO ALUNO */}
           {studentPhase === 'ENTER_PIN' && (
-            <div className="w-full max-w-md mx-auto bg-slate-900 border border-slate-800 rounded-[28px] p-5 sm:p-6 shadow-2xl space-y-4">
+            <div className="w-full max-w-md mx-auto bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-[28px] p-5 sm:p-6 shadow-xl space-y-4">
               <div className="text-center space-y-1.5">
-                <div className="w-14 h-14 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 text-indigo-400 flex items-center justify-center mx-auto mb-2">
+                <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-600/20 border border-indigo-200 dark:border-indigo-500/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-2">
                   <QrCode size={28} />
                 </div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">
+                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
                   Sala de Avaliação • {isPathfinder ? 'Desbravadores' : 'Aventureiros'}
                 </span>
-                <h3 className="text-lg sm:text-xl font-black uppercase tracking-tight text-white">
+                <h3 className="text-lg sm:text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white">
                   Entrar na Prova da Especialidade
                 </h3>
-                <p className="text-xs text-slate-400 font-medium">
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                   {isMobileDevice
                     ? 'Escaneie o QR Code da sala pelo celular ou digite o código PIN de 6 dígitos abaixo.'
                     : 'Digite o código PIN de 6 dígitos da sala abaixo para iniciar sua prova.'}
@@ -4354,14 +4924,14 @@ REGRAS OBRIGATÓRIAS:
               )}
 
               {qrScannedSuccessMsg && (
-                <div className="p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-bold text-center">
+                <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold text-center">
                   {qrScannedSuccessMsg}
                 </div>
               )}
 
               <div className="space-y-3.5">
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 block mb-1">
                     Código PIN da Sala (6 dígitos)
                   </label>
                   <input
@@ -4373,12 +4943,12 @@ REGRAS OBRIGATÓRIAS:
                     onBlur={resetMobileViewportScroll}
                     placeholder="Ex: 482915"
                     style={{ WebkitUserSelect: 'text', userSelect: 'text' }}
-                    className="w-full select-text bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-2xl px-4 py-3 text-center text-xl font-black tracking-[0.35em] text-amber-300 focus:outline-none"
+                    className="w-full select-text bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-indigo-500 rounded-2xl px-4 py-3 text-center text-xl font-black tracking-[0.35em] text-amber-600 dark:text-amber-300 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 block mb-1">
                     Seu Nome Completo *
                   </label>
                   <input
@@ -4393,12 +4963,12 @@ REGRAS OBRIGATÓRIAS:
                     onBlur={resetMobileViewportScroll}
                     placeholder="Digite seu nome e sobrenome"
                     style={{ WebkitUserSelect: 'text', userSelect: 'text' }}
-                    className="w-full select-text bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-2xl px-4 py-3.5 text-base font-bold text-white placeholder:text-slate-500 focus:outline-none"
+                    className="w-full select-text bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-indigo-500 rounded-2xl px-4 py-3.5 text-base font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 block mb-1">
                     Sua Unidade / Clube
                   </label>
                   <input
@@ -4413,24 +4983,24 @@ REGRAS OBRIGATÓRIAS:
                     onBlur={resetMobileViewportScroll}
                     placeholder="Ex: Unidade Águia / Clube Orion"
                     style={{ WebkitUserSelect: 'text', userSelect: 'text' }}
-                    className="w-full select-text bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-2xl px-4 py-3.5 text-base font-bold text-white placeholder:text-slate-500 focus:outline-none"
+                    className="w-full select-text bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-indigo-500 rounded-2xl px-4 py-3.5 text-base font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
                   />
                 </div>
               </div>
 
               {/* Aviso das Regras Anti-Cola */}
-              <div className="bg-red-950/40 border border-red-500/30 rounded-2xl p-3.5 space-y-1.5">
-                <div className="flex items-center gap-2 text-red-400 font-black text-[11px] uppercase tracking-wider">
+              <div className="bg-red-50/80 dark:bg-red-950/40 border border-red-200 dark:border-red-500/30 rounded-2xl p-3.5 space-y-1.5">
+                <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-black text-[11px] uppercase tracking-wider">
                   <ShieldAlert size={16} className="shrink-0" />
                   <span>Sistema Anti-Cola Ativado</span>
                 </div>
-                <p className="text-[11px] text-slate-300 leading-relaxed font-medium">
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
                   Durante a prova, <strong>não minimize a tela</strong>, não troque de aba e não abra outros aplicativos. Caso a tela seja minimizada, <strong>o instrutor recebe um alerta imediato</strong>, sua prova é bloqueada e há <strong>penalidade de -0,1 ponto na nota para cada saída registrada</strong>.
                 </p>
               </div>
 
               {studentError && (
-                <div className="p-3 rounded-xl bg-red-600/20 border border-red-500 text-red-200 text-xs font-bold text-center">
+                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-600/20 border border-red-300 dark:border-red-500 text-red-700 dark:text-red-200 text-xs font-bold text-center">
                   {studentError}
                 </div>
               )}
@@ -4458,7 +5028,7 @@ REGRAS OBRIGATÓRIAS:
 
           {/* 2. SALA DE ESPERA DO ALUNO (AGUARDANDO O INSTRUTOR INICIAR) */}
           {studentPhase === 'WAITING_HOST' && studentRoom && (
-            <div className="w-full max-w-md mx-auto bg-slate-900 border border-slate-800 rounded-[28px] p-6 text-center space-y-4 shadow-2xl">
+            <div className="w-full max-w-md mx-auto bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-[28px] p-6 text-center space-y-4 shadow-xl">
               {studentRoom.specialtyLogo && (
                 <img
                   src={studentRoom.specialtyLogo}
@@ -4468,22 +5038,22 @@ REGRAS OBRIGATÓRIAS:
                 />
               )}
               <div className="space-y-1">
-                <span className="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-black uppercase tracking-widest inline-block">
+                <span className="px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-black uppercase tracking-widest inline-block">
                   Conectado na Sala #{studentRoom.pin}
                 </span>
-                <h3 className="text-lg sm:text-xl font-black uppercase text-white mt-2">
+                <h3 className="text-lg sm:text-xl font-black uppercase text-slate-900 dark:text-white mt-2">
                   {studentRoom.specialtyName}
                 </h3>
-                <p className="text-xs text-slate-400 font-bold">
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-bold">
                   {studentRoom.questions.length} Questões • Tempo Limite: {studentRoom.durationMinutes} min
                 </p>
               </div>
 
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-1">
-                <p className="text-xs font-black text-indigo-300 uppercase">
+              <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-1">
+                <p className="text-xs font-black text-indigo-600 dark:text-indigo-300 uppercase">
                   Participante: {studentName} ({studentUnit || 'Geral'})
                 </p>
-                <p className="text-[11px] text-slate-400 font-medium">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
                   Aguarde o instrutor clicar em <strong>"Iniciar Prova"</strong>. Não minimize esta tela!
                 </p>
               </div>
@@ -4492,14 +5062,14 @@ REGRAS OBRIGATÓRIAS:
 
           {/* 3. REALIZAÇÃO DA PROVA PELO ALUNO */}
           {studentPhase === 'PLAYING' && studentRoom && activeQuestion && (
-            <div className="w-full max-w-2xl mx-auto bg-slate-900 border border-slate-800 rounded-[28px] p-4 sm:p-6 shadow-2xl space-y-4 relative">
+            <div className="w-full max-w-2xl mx-auto bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-[28px] p-4 sm:p-6 shadow-xl space-y-4 relative">
               {/* Navegador de Questões: Texto acima e sequência de números abaixo */}
-              <div className="flex flex-col gap-2.5 pb-3.5 border-b border-slate-800">
+              <div className="flex flex-col gap-2.5 pb-3.5 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-emerald-400">
+                  <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
                     Questão {studentCurrentQ + 1} de {totalQuestions}
                   </span>
-                  <span className="text-[10px] sm:text-[11px] font-bold text-slate-400">
+                  <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 dark:text-slate-400">
                     {Object.keys(studentAnswers).length}/{totalQuestions} respondidas
                   </span>
                 </div>
@@ -4516,8 +5086,8 @@ REGRAS OBRIGATÓRIAS:
                           isCurrent
                             ? 'bg-indigo-600 text-white ring-2 ring-indigo-400 shadow-md shadow-indigo-600/30'
                             : isAnswered
-                            ? 'bg-emerald-600/30 border border-emerald-500/50 text-emerald-300'
-                            : 'bg-slate-800 border border-slate-700/70 text-slate-400'
+                            ? 'bg-emerald-50 dark:bg-emerald-600/30 border border-emerald-300 dark:border-emerald-500/50 text-emerald-700 dark:text-emerald-300'
+                            : 'bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/70 text-slate-600 dark:text-slate-400'
                         }`}
                       >
                         {idx + 1}
@@ -4529,7 +5099,7 @@ REGRAS OBRIGATÓRIAS:
 
               {/* Enunciado da Questão */}
               <div className="py-2">
-                <h4 className="text-sm sm:text-base md:text-lg font-black text-white leading-relaxed">
+                <h4 className="text-sm sm:text-base md:text-lg font-black text-slate-900 dark:text-white leading-relaxed">
                   {activeQuestion.question}
                 </h4>
               </div>
@@ -4545,15 +5115,15 @@ REGRAS OBRIGATÓRIAS:
                       onClick={() => handleStudentSelectOption(studentCurrentQ, optIdx)}
                       className={`w-full p-3.5 sm:p-4 rounded-2xl border text-left transition-all flex items-center gap-3 cursor-pointer ${
                         isSelected
-                          ? 'bg-indigo-600/30 border-indigo-500 text-white ring-1 ring-indigo-400'
-                          : 'bg-slate-950/90 hover:bg-slate-800/80 border-slate-800 text-slate-200'
+                          ? 'bg-indigo-50 dark:bg-indigo-600/30 border-indigo-500 text-indigo-950 dark:text-white ring-1 ring-indigo-400'
+                          : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-950/90 dark:hover:bg-slate-800/80 border-slate-200/80 dark:border-slate-800 text-slate-800 dark:text-slate-200'
                       }`}
                     >
                       <span
                         className={`w-8 h-8 rounded-xl font-black text-xs flex items-center justify-center shrink-0 ${
                           isSelected
                             ? 'bg-indigo-600 text-white'
-                            : 'bg-slate-800 text-slate-300 border border-slate-700'
+                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
                         }`}
                       >
                         {String.fromCharCode(65 + optIdx)}
@@ -4565,12 +5135,12 @@ REGRAS OBRIGATÓRIAS:
               </div>
 
               {/* Botões Anterior / Próxima / Entregar Prova */}
-              <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-800">
+              <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   disabled={studentCurrentQ === 0}
                   onClick={() => setStudentCurrentQ((prev) => Math.max(0, prev - 1))}
-                  className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-xs font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-white disabled:opacity-40 text-xs font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
                 >
                   <ChevronLeft size={15} />
                   <span>Anterior</span>
@@ -4601,38 +5171,38 @@ REGRAS OBRIGATÓRIAS:
 
           {/* 4. TELA DE CONCLUSÃO / ENTREGA DA PROVA PELO ALUNO (Exibe o tempo gasto; quando o instrutor clicar em "Liberar Resultado", exibe a nota e o gabarito) */}
           {studentPhase === 'FINISHED' && studentRoom && (
-            <div className="w-full max-w-lg mx-auto bg-slate-900 border border-slate-800 rounded-[28px] p-5 sm:p-6 text-center space-y-4 shadow-2xl">
+            <div className="w-full max-w-lg mx-auto bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-[28px] p-5 sm:p-6 text-center space-y-4 shadow-xl">
               {studentRoom.resultsReleased ? (
                 <>
                   <div
                     className={`w-16 h-16 rounded-2xl mx-auto flex items-center justify-center border ${
                       studentPayloadPreview.scorePercent >= studentRoom.passingScorePercent
-                        ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
-                        : 'bg-amber-500/20 border-amber-500/40 text-amber-400'
+                        ? 'bg-emerald-50 dark:bg-emerald-500/20 border-emerald-200 dark:border-emerald-500/40 text-emerald-600 dark:text-emerald-400'
+                        : 'bg-amber-50 dark:bg-amber-500/20 border-amber-200 dark:border-amber-500/40 text-amber-600 dark:text-amber-400'
                     }`}
                   >
                     <Award size={36} />
                   </div>
 
                   <div className="space-y-1">
-                    <span className="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-black uppercase tracking-widest inline-block">
+                    <span className="px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-black uppercase tracking-widest inline-block">
                       Resultado Individual Recebido no Seu Aparelho
                     </span>
-                    <p className="text-[11px] font-black uppercase tracking-wider text-indigo-300 pt-1">
+                    <p className="text-[11px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-300 pt-1">
                       {studentPayloadPreview.name} • {studentPayloadPreview.unit}
                     </p>
-                    <h3 className="text-xl sm:text-2xl font-black uppercase text-white pt-0.5">
+                    <h3 className="text-xl sm:text-2xl font-black uppercase text-slate-900 dark:text-white pt-0.5">
                       Nota Final: {studentPayloadPreview.grade10.toFixed(1).replace('.', ',')} / 10
                     </h3>
-                    <p className="text-xs font-bold text-slate-300">
+                    <p className="text-xs font-bold text-slate-600 dark:text-slate-300">
                       Você acertou{' '}
-                      <strong className="text-emerald-400">
+                      <strong className="text-emerald-600 dark:text-emerald-400">
                         {studentPayloadPreview.correctCount} de {studentRoom.questions.length} questões
                       </strong>{' '}
                       ({studentPayloadPreview.scorePercent}%)
                     </p>
                     {effectiveStudentCheatCount > 0 && (
-                      <p className="text-[11px] font-black text-red-400 pt-0.5">
+                      <p className="text-[11px] font-black text-red-600 dark:text-red-400 pt-0.5">
                         ⚠️ Penalidade por saída de tela: -{(effectiveStudentCheatCount * 0.1).toFixed(1).replace('.', ',')} pt ({effectiveStudentCheatCount}{' '}
                         {effectiveStudentCheatCount === 1 ? 'saída registrada' : 'saídas registradas'})
                       </p>
@@ -4640,11 +5210,11 @@ REGRAS OBRIGATÓRIAS:
                   </div>
 
                   <div className="grid grid-cols-2 gap-2.5">
-                    <div className="bg-indigo-950/50 border border-indigo-500/35 rounded-2xl p-3 space-y-0.5">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-indigo-300 block">
+                    <div className="bg-indigo-50/70 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-500/35 rounded-2xl p-3 space-y-0.5">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-300 block">
                         Tempo de Conclusão
                       </span>
-                      <p className="text-lg sm:text-xl font-black text-amber-300 tabular-nums">
+                      <p className="text-lg sm:text-xl font-black text-amber-600 dark:text-amber-300 tabular-nums">
                         {formatTimeMMSS(
                           studentFinalTimeSpentSec ||
                             myServerRecord?.timeSpentSeconds ||
@@ -4656,18 +5226,18 @@ REGRAS OBRIGATÓRIAS:
                     <div
                       className={`rounded-2xl p-3 border space-y-0.5 ${
                         studentPayloadPreview.scorePercent >= studentRoom.passingScorePercent
-                          ? 'bg-emerald-950/45 border-emerald-500/40'
-                          : 'bg-amber-950/45 border-amber-500/40'
+                          ? 'bg-emerald-50/70 dark:bg-emerald-950/45 border-emerald-200 dark:border-emerald-500/40'
+                          : 'bg-amber-50/70 dark:bg-amber-950/45 border-amber-200 dark:border-amber-500/40'
                       }`}
                     >
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-300 block">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300 block">
                         Desempenho
                       </span>
                       <p
                         className={`text-sm sm:text-base font-black uppercase ${
                           studentPayloadPreview.scorePercent >= studentRoom.passingScorePercent
-                            ? 'text-emerald-400'
-                            : 'text-amber-300'
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : 'text-amber-600 dark:text-amber-300'
                         }`}
                       >
                         {studentPayloadPreview.scorePercent >= studentRoom.passingScorePercent
@@ -4678,8 +5248,8 @@ REGRAS OBRIGATÓRIAS:
                   </div>
 
                   {/* Revisão de Questões da Prova */}
-                  <div className="text-left space-y-2 pt-2 border-t border-slate-800 max-h-80 overflow-y-auto pr-1 scrollbar-hide">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 block">
+                  <div className="text-left space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800 max-h-80 overflow-y-auto pr-1 scrollbar-hide">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 block">
                       Gabarito Individual da Sua Prova:
                     </span>
                     {studentRoom.questions.map((q, idx) => {
@@ -4690,14 +5260,14 @@ REGRAS OBRIGATÓRIAS:
                           key={q.id}
                           className={`p-3 rounded-2xl border text-xs space-y-1 ${
                             isCorrect
-                              ? 'bg-emerald-950/35 border-emerald-700/60'
-                              : 'bg-red-950/35 border-red-800/60'
+                              ? 'bg-emerald-50/70 dark:bg-emerald-950/35 border-emerald-200 dark:border-emerald-700/60'
+                              : 'bg-red-50/70 dark:bg-red-950/35 border-red-200 dark:border-red-800/60'
                           }`}
                         >
-                          <p className="font-black text-white">
+                          <p className="font-black text-slate-900 dark:text-white">
                             {idx + 1}. {q.question}
                           </p>
-                          <p className={isCorrect ? 'text-emerald-300 font-bold' : 'text-red-300 font-bold'}>
+                          <p className={isCorrect ? 'text-emerald-700 dark:text-emerald-300 font-bold' : 'text-red-700 dark:text-red-300 font-bold'}>
                             Sua resposta:{' '}
                             {chosen !== undefined
                               ? `${String.fromCharCode(65 + chosen)}) ${q.options[chosen]}`
@@ -4705,7 +5275,7 @@ REGRAS OBRIGATÓRIAS:
                             {isCorrect ? '✅' : '❌'}
                           </p>
                           {!isCorrect && (
-                            <p className="text-emerald-400 font-bold">
+                            <p className="text-emerald-600 dark:text-emerald-400 font-bold">
                               Correta: {String.fromCharCode(65 + q.correctIndex)}) {q.options[q.correctIndex]}
                             </p>
                           )}
@@ -4716,35 +5286,35 @@ REGRAS OBRIGATÓRIAS:
                 </>
               ) : (
                 <>
-                  <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center bg-indigo-500/20 border border-indigo-500/40 text-indigo-400">
+                  <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center bg-indigo-50 dark:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-500/40 text-indigo-600 dark:text-indigo-400">
                     <Clock size={34} />
                   </div>
 
                   <div className="space-y-1">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
                       Prova Entregue com Sucesso
                     </span>
-                    <h3 className="text-xl font-black uppercase text-white">
+                    <h3 className="text-xl font-black uppercase text-slate-900 dark:text-white">
                       Avaliação Finalizada!
                     </h3>
-                    <p className="text-xs text-slate-400 font-medium">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                       Suas respostas foram enviadas. Aguarde o instrutor liberar o resultado da prova.
                     </p>
                   </div>
 
                   {/* Destaque do Tempo que o Aluno Levou para Terminar a Prova */}
-                  <div className="bg-indigo-950/50 border border-indigo-500/35 rounded-2xl p-4 space-y-1">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-300 block">
+                  <div className="bg-indigo-50/70 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-500/35 rounded-2xl p-4 space-y-1">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-300 block">
                       Tempo que você levou para terminar a prova
                     </span>
-                    <p className="text-2xl sm:text-3xl font-black text-amber-300 tabular-nums">
+                    <p className="text-2xl sm:text-3xl font-black text-amber-600 dark:text-amber-300 tabular-nums">
                       {formatDurationDetailed(
                         studentFinalTimeSpentSec ||
                           studentRoom.participants?.[studentId]?.timeSpentSeconds ||
                           1
                       )}
                     </p>
-                    <span className="text-[11px] font-bold text-slate-400 block tabular-nums">
+                    <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block tabular-nums">
                       Cronômetro registrado: {formatTimeMMSS(
                         studentFinalTimeSpentSec ||
                           studentRoom.participants?.[studentId]?.timeSpentSeconds ||
@@ -4755,22 +5325,22 @@ REGRAS OBRIGATÓRIAS:
                 </>
               )}
 
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 text-xs space-y-1.5">
-                <p className="font-bold text-slate-300">
-                  Aluno: <span className="text-white">{studentName}</span>
+              <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 text-xs space-y-1.5">
+                <p className="font-bold text-slate-600 dark:text-slate-300">
+                  Aluno: <span className="text-slate-900 dark:text-white">{studentName}</span>
                 </p>
-                <p className="font-bold text-slate-300">
+                <p className="font-bold text-slate-600 dark:text-slate-300">
                   Questões respondidas:{' '}
-                  <span className="text-white">
+                  <span className="text-slate-900 dark:text-white">
                     {Object.keys(studentAnswers).length} de {studentRoom.questions.length}
                   </span>
                 </p>
-                <p className="font-bold text-slate-300">
+                <p className="font-bold text-slate-600 dark:text-slate-300">
                   Status Anti-Cola:{' '}
                   {effectiveStudentCheatCount === 0 ? (
-                    <span className="text-emerald-400 font-black">0 saídas de tela (Sem penalidade)</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-black">0 saídas de tela (Sem penalidade)</span>
                   ) : (
-                    <span className="text-red-400 font-black">
+                    <span className="text-red-600 dark:text-red-400 font-black">
                       {effectiveStudentCheatCount} {effectiveStudentCheatCount === 1 ? 'saída registrada' : 'saídas registradas'} (-{(effectiveStudentCheatCount * 0.1).toFixed(1).replace('.', ',')} pt)
                     </span>
                   )}
@@ -4778,6 +5348,236 @@ REGRAS OBRIGATÓRIAS:
               </div>
             </div>
           )}
+
+          {/* HISTÓRICO DE PROVAS FEITAS PELO USUÁRIO LOGADO NO APP (Exibido nas telas ENTER_PIN e FINISHED) */}
+          {isLoggedInUser && !isIsolatedStudentMode && (studentPhase === 'ENTER_PIN' || studentPhase === 'FINISHED') && (
+            <div className="w-full max-w-md mx-auto mt-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-[28px] p-5 text-slate-800 dark:text-white shadow-xl space-y-3">
+              <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/40 text-amber-600 dark:text-amber-300 flex items-center justify-center shrink-0">
+                    <Award size={16} />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="text-xs sm:text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white truncate">
+                      Meu Histórico de Provas Feitas ({studentExamHistory.length})
+                    </h4>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">
+                      Salvo na sua conta do aplicativo
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {studentExamHistory.length === 0 ? (
+                <div className="py-5 px-3 text-center rounded-2xl bg-slate-50 dark:bg-slate-950/70 border border-dashed border-slate-200 dark:border-slate-800 space-y-1">
+                  <BookOpen size={20} className="text-slate-400 dark:text-slate-500 mx-auto" />
+                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                    Nenhuma prova finalizada no seu histórico ainda.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-1 scrollbar-hide">
+                  {studentExamHistory.map((item) => {
+                    const approved = item.scorePercent >= (item.passingScorePercent || 70);
+                    return (
+                      <div
+                        key={item.pin}
+                        onClick={() => setSelectedHistoryExam(item)}
+                        className="p-3 rounded-2xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800/80 border border-slate-200/80 dark:border-slate-800 transition-all flex items-center justify-between gap-2.5 cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          {item.specialtyLogo ? (
+                            <img
+                              src={item.specialtyLogo}
+                              alt={item.specialtyName}
+                              className="w-9 h-9 object-contain shrink-0"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-300 shrink-0">
+                              <Award size={16} />
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <h5 className="text-xs font-black uppercase text-slate-900 dark:text-white truncate">
+                              {item.specialtyName}
+                            </h5>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">
+                              #{item.pin} • {item.dateStr}
+                            </p>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold truncate">
+                              ⏱️ {formatTimeMMSS(item.timeSpentSeconds)}
+                              {item.cheatCount > 0
+                                ? ` • ⚠️ ${item.cheatCount}x (-${(item.cheatCount * 0.1).toFixed(1).replace('.', ',')} pt)`
+                                : ' • 🛡️ 0 saídas'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          {item.resultsReleased ? (
+                            <span
+                              className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase ${
+                                approved
+                                  ? 'bg-emerald-50 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
+                                  : 'bg-amber-50 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/40 text-amber-700 dark:text-amber-300'
+                              }`}
+                            >
+                              Nota {item.grade10.toFixed(1).replace('.', ',')}
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[9px] font-black uppercase">
+                              ⏳ Pendente
+                            </span>
+                          )}
+                          <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400">
+                            Abrir →
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Modal de Detalhes / Gabarito de Prova do Histórico (Modo Aluno) */}
+          {selectedHistoryExam &&
+            typeof document !== 'undefined' &&
+            createPortal(
+              <div
+                className="fixed inset-0 z-[100005] bg-slate-900/65 dark:bg-slate-950/88 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"
+                onClick={() => setSelectedHistoryExam(null)}
+              >
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full max-w-lg max-h-[88vh] overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-indigo-500/40 rounded-[28px] p-5 text-slate-800 dark:text-white space-y-4 shadow-2xl scrollbar-hide"
+                >
+                  <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {selectedHistoryExam.specialtyLogo && (
+                        <img
+                          src={selectedHistoryExam.specialtyLogo}
+                          alt={selectedHistoryExam.specialtyName}
+                          className="w-10 h-10 object-contain shrink-0"
+                          referrerPolicy="no-referrer"
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 block">
+                          Histórico de Prova • Sala #{selectedHistoryExam.pin}
+                        </span>
+                        <h4 className="text-sm sm:text-base font-black uppercase text-slate-900 dark:text-white truncate">
+                          {selectedHistoryExam.specialtyName}
+                        </h4>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedHistoryExam(null)}
+                      className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0 cursor-pointer"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  {selectedHistoryExam.resultsReleased ? (
+                    <>
+                      <div className="grid grid-cols-2 gap-2.5 text-center">
+                        <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 space-y-0.5">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 block">
+                            Nota Final
+                          </span>
+                          <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">
+                            {selectedHistoryExam.grade10.toFixed(1).replace('.', ',')} / 10
+                          </p>
+                          <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 block">
+                            {selectedHistoryExam.correctCount}/{selectedHistoryExam.totalQuestions} acertos ({selectedHistoryExam.scorePercent}%)
+                          </span>
+                        </div>
+                        <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 space-y-0.5">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 block">
+                            Tempo & Anti-Cola
+                          </span>
+                          <p className="text-base font-black text-amber-600 dark:text-amber-300 tabular-nums">
+                            ⏱️ {formatTimeMMSS(selectedHistoryExam.timeSpentSeconds)}
+                          </p>
+                          <span className="text-[10px] font-bold text-red-600 dark:text-red-300 block">
+                            {selectedHistoryExam.cheatCount > 0
+                              ? `⚠️ ${selectedHistoryExam.cheatCount} saída(s) (-${(selectedHistoryExam.cheatCount * 0.1).toFixed(1).replace('.', ',')} pt)`
+                              : '🛡️ 0 saídas (Sem penalidade)'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {selectedHistoryExam.questions && selectedHistoryExam.questions.length > 0 && (
+                        <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 block">
+                            Gabarito da Prova Realizada:
+                          </span>
+                          {selectedHistoryExam.questions.map((q, idx) => {
+                            const chosen = selectedHistoryExam.answers?.[idx];
+                            const isCorrect = chosen === q.correctIndex;
+                            return (
+                              <div
+                                key={q.id || idx}
+                                className={`p-3 rounded-2xl border text-xs space-y-1 ${
+                                  isCorrect
+                                    ? 'bg-emerald-50/70 dark:bg-emerald-950/35 border-emerald-200 dark:border-emerald-700/60'
+                                    : 'bg-red-50/70 dark:bg-red-950/35 border-red-200 dark:border-red-800/60'
+                                }`}
+                              >
+                                <p className="font-black text-slate-900 dark:text-white">
+                                  {idx + 1}. {q.question}
+                                </p>
+                                <p className={isCorrect ? 'text-emerald-700 dark:text-emerald-300 font-bold' : 'text-red-700 dark:text-red-300 font-bold'}>
+                                  Sua resposta:{' '}
+                                  {chosen !== undefined
+                                    ? `${String.fromCharCode(65 + chosen)}) ${q.options[chosen]}`
+                                    : 'Não respondida'}{' '}
+                                  {isCorrect ? '✅' : '❌'}
+                                </p>
+                                {!isCorrect && (
+                                  <p className="text-emerald-600 dark:text-emerald-400 font-bold">
+                                    Correta: {String.fromCharCode(65 + q.correctIndex)}) {q.options[q.correctIndex]}
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 text-center space-y-3">
+                      <Clock size={28} className="text-amber-500 dark:text-amber-400 mx-auto" />
+                      <div className="space-y-1">
+                        <h5 className="text-sm font-black uppercase text-slate-900 dark:text-white">
+                          Resultado Ainda Não Liberado pelo Instrutor
+                        </h5>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                          Você concluiu esta prova em {selectedHistoryExam.dateStr} ({selectedHistoryExam.answeredCount}/{selectedHistoryExam.totalQuestions} respondidas). Assim que o instrutor clicar em "Liberar Resultado", sua nota e gabarito aparecerão aqui.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={isRefreshingHistoryPin === selectedHistoryExam.pin}
+                        onClick={() => handleRefreshHistoryEntryResult(selectedHistoryExam)}
+                        className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <RefreshCw
+                          size={14}
+                          className={isRefreshingHistoryPin === selectedHistoryExam.pin ? 'animate-spin' : ''}
+                        />
+                        <span>Verificar se o Resultado Foi Liberado</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>,
+              document.body
+            )}
         </div>
 
         {/* OVERLAY DE BLOQUEIO ANTI-COLA QUANDO O ALUNO MINIMIZA A TELA OU MUDA DE JANELA */}
@@ -4843,10 +5643,10 @@ REGRAS OBRIGATÓRIAS:
     <div className="w-full max-w-6xl mx-auto space-y-2.5 pb-4 animate-fade-in">
       {renderQrScannerModal()}
       {/* Barra Superior Compacta + Alternador de Múltiplas Provas */}
-      <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-[20px] p-3 sm:px-4 sm:py-3 text-white shadow-md border border-white/10 space-y-2.5 overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-[20px] p-3 sm:px-4 sm:py-3 text-slate-900 dark:text-white shadow-sm border border-slate-200/80 dark:border-white/10 space-y-2.5 overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div className="min-w-0 flex-1">
-            <h3 className="text-xs sm:text-base font-black uppercase tracking-tight leading-snug break-words sm:truncate">
+            <h3 className="text-xs sm:text-base font-black uppercase tracking-tight leading-snug break-words sm:truncate text-slate-900 dark:text-white">
               {activeRoom
                 ? `Sala #${activeRoom.pin} — ${activeRoom.specialtyName}`
                 : hostRooms.length > 0
@@ -4864,7 +5664,7 @@ REGRAS OBRIGATÓRIAS:
                   setSelectedSpecialty(null);
                   setQuestions([]);
                 }}
-                className="flex-1 sm:flex-initial justify-center min-w-0 px-2.5 py-2 sm:py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer shadow-sm transition-all"
+                className="flex-1 sm:flex-initial justify-center min-w-0 px-2.5 py-2 sm:py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer shadow-sm transition-all"
                 title="Abrir mais uma prova ao mesmo tempo sem fechar a sala atual"
               >
                 <Plus size={13} className="shrink-0" />
@@ -4891,7 +5691,7 @@ REGRAS OBRIGATÓRIAS:
                   setEntryScreenConfirmed(true);
                   setIsQrScannerOpen(true);
                 }}
-                className="md:hidden flex-1 sm:flex-initial justify-center min-w-0 px-2.5 py-2 sm:py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-200 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+                className="md:hidden flex-1 sm:flex-initial justify-center min-w-0 px-2.5 py-2 sm:py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/20 dark:hover:bg-amber-500/30 border border-amber-300 dark:border-amber-400/40 text-amber-800 dark:text-amber-200 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
                 title="Escanear QR Code de uma sala de prova com a câmera do celular"
               >
                 <Camera size={12} className="shrink-0" />
@@ -4907,7 +5707,7 @@ REGRAS OBRIGATÓRIAS:
                 }
                 setRoleMode('STUDENT');
               }}
-              className="flex-1 sm:flex-initial justify-center min-w-0 px-2.5 py-2 sm:py-1.5 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+              className="flex-1 sm:flex-initial justify-center min-w-0 px-2.5 py-2 sm:py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/15 dark:hover:bg-white/25 border border-slate-200 dark:border-white/20 text-slate-700 dark:text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
             >
               <QrCode size={12} className="shrink-0" />
               <span className="truncate">{activeRoom ? 'Testar como Aluno' : 'Entrar como Aluno'}</span>
@@ -4917,8 +5717,8 @@ REGRAS OBRIGATÓRIAS:
 
         {/* BARRA DE ABAS DE MÚLTIPLAS PROVAS ABERTAS SIMULTANEAMENTE (No celular: título em cima e provas abertas abaixo) */}
         {hostRooms.length > 0 && (
-          <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 pt-2 border-t border-white/10">
-            <span className="text-[9px] font-black uppercase tracking-widest text-indigo-300 shrink-0 sm:mr-1">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 pt-2 border-t border-slate-100 dark:border-white/10">
+            <span className="text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-300 shrink-0 sm:mr-1">
               Provas Abertas ({hostRooms.length}):
             </span>
 
@@ -4938,7 +5738,7 @@ REGRAS OBRIGATÓRIAS:
                     className={`group flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-left transition-all shrink-0 cursor-pointer ${
                       isSelectedTab
                         ? 'bg-indigo-600 border-indigo-400 text-white shadow-md'
-                        : 'bg-slate-900/80 hover:bg-slate-800 border-white/10 text-slate-300'
+                        : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-900/80 dark:hover:bg-slate-800 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300'
                     }`}
                   >
                     {roomTab.specialtyLogo && (
@@ -4956,7 +5756,7 @@ REGRAS OBRIGATÓRIAS:
                         </span>
                         <span
                           className={`text-[9px] font-black px-1.5 py-0.5 rounded-md ${
-                            isSelectedTab ? 'bg-black/25 text-amber-300' : 'bg-slate-800 text-amber-400'
+                            isSelectedTab ? 'bg-black/25 text-amber-300' : 'bg-amber-100 dark:bg-slate-800 text-amber-800 dark:text-amber-400'
                           }`}
                         >
                           #{roomTab.pin}
@@ -4982,7 +5782,7 @@ REGRAS OBRIGATÓRIAS:
                         handleCloseAndResetRoom(roomTab.pin);
                       }}
                       title={`Fechar sala #${roomTab.pin}`}
-                      className="p-0.5 rounded-md hover:bg-red-500/30 text-slate-300 hover:text-red-200 transition-colors cursor-pointer"
+                      className={`p-0.5 rounded-md hover:bg-red-500/20 transition-colors cursor-pointer ${isSelectedTab ? 'text-white/80 hover:text-white' : 'text-slate-400 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-200'}`}
                     >
                       <X size={12} />
                     </button>
@@ -5438,20 +6238,20 @@ REGRAS OBRIGATÓRIAS:
 
                   <div className="w-full min-w-0 flex flex-col gap-2">
                     <div className="grid grid-cols-2 gap-2">
-                      <div className="w-full overflow-hidden bg-slate-900 text-white rounded-xl py-2.5 px-3 text-center border border-slate-800">
-                        <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">
+                      <div className="w-full overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl py-2.5 px-3 text-center border border-slate-200 dark:border-slate-800">
+                        <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
                           PIN da Sala
                         </span>
-                        <p className="text-lg sm:text-xl font-black tracking-[0.14em] text-amber-400 leading-tight truncate">
+                        <p className="text-lg sm:text-xl font-black tracking-[0.14em] text-amber-600 dark:text-amber-400 leading-tight truncate">
                           {activeRoom.pin}
                         </p>
                       </div>
 
-                      <div className="w-full overflow-hidden bg-slate-900 text-white rounded-xl py-2.5 px-3 text-center border border-slate-800">
-                        <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">
+                      <div className="w-full overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl py-2.5 px-3 text-center border border-slate-200 dark:border-slate-800">
+                        <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
                           Tempo Restante
                         </span>
-                        <div className="text-lg sm:text-xl font-black text-sky-400 tabular-nums leading-tight flex items-center justify-center gap-1">
+                        <div className="text-lg sm:text-xl font-black text-sky-600 dark:text-sky-400 tabular-nums leading-tight flex items-center justify-center gap-1">
                           <Timer size={14} className="shrink-0" />
                           <span>{formatTimeMMSS(hostRemainingSeconds)}</span>
                         </div>
@@ -5851,17 +6651,17 @@ REGRAS OBRIGATÓRIAS:
         sidebarOverlayTarget &&
         createPortal(
           <div
-            className="absolute inset-0 z-40 bg-slate-950/88 dark:bg-slate-950/92 backdrop-blur-xl flex flex-col justify-between p-3.5 lg:p-4 animate-fade-in text-white cursor-default select-none shadow-2xl overflow-hidden"
+            className="absolute inset-0 z-40 bg-white/95 dark:bg-slate-950/92 backdrop-blur-xl flex flex-col justify-between p-3.5 lg:p-4 animate-fade-in text-slate-800 dark:text-white cursor-default select-none shadow-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {isSidebarOpen ? (
               <>
                 {/* Topo do Overlay sobre o Menu Lateral */}
-                <div className="w-full space-y-2.5 pb-2.5 border-b border-white/10 shrink-0">
+                <div className="w-full space-y-2.5 pb-2.5 border-b border-slate-200 dark:border-white/10 shrink-0">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-500/20 border border-indigo-400/35 rounded-full">
-                      <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-                      <span className="text-[9px] font-black uppercase tracking-wider text-indigo-200">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 dark:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-400/35 rounded-full">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse shrink-0" />
+                      <span className="text-[9px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-200">
                         Fazendo a Prova ({participantsList.length})
                       </span>
                     </div>
@@ -5869,7 +6669,7 @@ REGRAS OBRIGATÓRIAS:
                     <button
                       type="button"
                       onClick={() => onToggleSidebar?.(false)}
-                      className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 hover:text-white flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+                      className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-600 dark:text-white/80 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-all active:scale-95 cursor-pointer"
                       title="Recolher lista lateral"
                     >
                       <PanelLeftClose size={15} />
@@ -5886,10 +6686,10 @@ REGRAS OBRIGATÓRIAS:
                       />
                     )}
                     <div className="min-w-0 flex-1">
-                      <h4 className="text-xs font-black uppercase text-white truncate">
+                      <h4 className="text-xs font-black uppercase text-slate-900 dark:text-white truncate">
                         {activeRoom.specialtyName}
                       </h4>
-                      <span className="text-[9px] font-black text-amber-400 tracking-wider block">
+                      <span className="text-[9px] font-black text-amber-600 dark:text-amber-400 tracking-wider block">
                         PIN #{activeRoom.pin} • {participantsList.filter((p) => p.status === 'FINISHED').length} entregaram
                       </span>
                     </div>
@@ -5899,13 +6699,13 @@ REGRAS OBRIGATÓRIAS:
                 {/* Lista ao Vivo de Quem Está Fazendo a Prova sobre o Menu Lateral */}
                 <div className="flex-1 overflow-y-auto space-y-2 my-2.5 pr-1 scrollbar-hide">
                   {participantsList.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center p-4 border border-dashed border-white/15 rounded-2xl space-y-2">
-                      <Users size={24} className="text-indigo-400/80 mx-auto" />
-                      <p className="text-xs font-black uppercase text-white/90">
+                    <div className="h-full flex flex-col items-center justify-center text-center p-4 border border-dashed border-slate-200 dark:border-white/15 rounded-2xl space-y-2">
+                      <Users size={24} className="text-indigo-500 dark:text-indigo-400/80 mx-auto" />
+                      <p className="text-xs font-black uppercase text-slate-800 dark:text-white/90">
                         Nenhum aluno na sala ainda
                       </p>
-                      <p className="text-[10px] font-medium text-slate-400 leading-relaxed">
-                        Assim que escanearem o QR Code ou digitarem o PIN <strong className="text-amber-400">#{activeRoom.pin}</strong>, aparecerão listados aqui.
+                      <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
+                        Assim que escanearem o QR Code ou digitarem o PIN <strong className="text-amber-600 dark:text-amber-400">#{activeRoom.pin}</strong>, aparecerão listados aqui.
                       </p>
                     </div>
                   ) : (
@@ -5923,26 +6723,26 @@ REGRAS OBRIGATÓRIAS:
                           }}
                           title={canViewStudentResult ? 'Clique para abrir o resultado da prova' : undefined}
                           className={`p-2.5 rounded-2xl border transition-all space-y-1.5 ${
-                            canViewStudentResult ? 'cursor-pointer hover:brightness-110 active:scale-[0.99]' : ''
+                            canViewStudentResult ? 'cursor-pointer hover:brightness-105 active:scale-[0.99]' : ''
                           } ${
                             p.status === 'LOCKED_CHEAT'
-                              ? 'bg-red-950/75 border-red-500 ring-1 ring-red-500/40'
+                              ? 'bg-red-50 dark:bg-red-950/75 border-red-500 ring-1 ring-red-500/40'
                               : p.status === 'FINISHED'
-                              ? 'bg-emerald-950/45 border-emerald-500/40'
-                              : 'bg-slate-900/90 border-white/10'
+                              ? 'bg-emerald-50/70 dark:bg-emerald-950/45 border-emerald-300 dark:border-emerald-500/40'
+                              : 'bg-slate-50 dark:bg-slate-900/90 border-slate-200/80 dark:border-white/10'
                           }`}
                         >
                           <div className="flex items-start justify-between gap-1.5">
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-1 flex-wrap">
-                                <h5 className="text-xs font-black text-white truncate">
+                                <h5 className="text-xs font-black text-slate-900 dark:text-white truncate">
                                   {p.name}
                                 </h5>
-                                <span className="px-1.5 py-0.5 rounded-full bg-white/10 text-slate-300 text-[8px] font-black uppercase shrink-0">
+                                <span className="px-1.5 py-0.5 rounded-full bg-slate-200/80 dark:bg-white/10 text-slate-600 dark:text-slate-300 text-[8px] font-black uppercase shrink-0">
                                   {p.unit}
                                 </span>
                               </div>
-                              <p className="text-[9px] font-bold text-slate-400">
+                              <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400">
                                 Q. {Math.min(totalQ, p.currentQuestionIdx + 1)}/{totalQ} • Resp: {p.answeredCount}/{totalQ}
                               </p>
                             </div>
@@ -5957,7 +6757,7 @@ REGRAS OBRIGATÓRIAS:
                                   ? 'bg-slate-800 text-red-400'
                                   : p.status === 'PLAYING'
                                   ? 'bg-indigo-600 text-white'
-                                  : 'bg-amber-500/25 text-amber-300'
+                                  : 'bg-amber-100 dark:bg-amber-500/25 text-amber-800 dark:text-amber-300'
                               }`}
                             >
                               {p.status === 'LOCKED_CHEAT'
@@ -5972,14 +6772,14 @@ REGRAS OBRIGATÓRIAS:
                             </span>
                           </div>
 
-                          <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                          <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
                             <div
                               className={`h-full transition-all duration-300 ${
                                 p.status === 'LOCKED_CHEAT'
                                   ? 'bg-red-500'
                                   : p.status === 'FINISHED'
-                                  ? 'bg-emerald-400'
-                                  : 'bg-indigo-500'
+                                  ? 'bg-emerald-500 dark:bg-emerald-400'
+                                  : 'bg-indigo-600 dark:bg-indigo-500'
                               }`}
                               style={{ width: `${progressPct}%` }}
                             />
@@ -5987,16 +6787,16 @@ REGRAS OBRIGATÓRIAS:
 
                           <div className="flex items-center justify-between gap-1 pt-0.5">
                             <div className="flex items-center gap-1 text-[8.5px] font-black flex-wrap">
-                              <span className={isApproved ? 'text-emerald-400' : 'text-slate-400'}>
+                              <span className={isApproved ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}>
                                 {p.correctCount}/{totalQ} ({p.scorePercent}%)
                               </span>
                               {p.timeSpentSeconds !== undefined && p.timeSpentSeconds > 0 && (
-                                <span className="px-1.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300">
+                                <span className="px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300">
                                   ⏱️ {formatTimeMMSS(p.timeSpentSeconds)}
                                 </span>
                               )}
                               {p.cheatCount > 0 && (
-                                <span className="px-1.5 py-0.5 rounded-md bg-red-500/25 text-red-300">
+                                <span className="px-1.5 py-0.5 rounded-md bg-red-100 dark:bg-red-500/25 text-red-700 dark:text-red-300">
                                   ⚠️ {p.cheatCount}x (-{(p.cheatCount * 0.1).toFixed(1).replace('.', ',')})
                                 </span>
                               )}
@@ -6023,7 +6823,7 @@ REGRAS OBRIGATÓRIAS:
                                       e.stopPropagation();
                                       handleLockOrDisqualifyStudent(p.id, false);
                                     }}
-                                    className="px-2 py-0.5 rounded-lg bg-red-500/20 hover:bg-red-500/35 text-red-300 text-[8.5px] font-black uppercase flex items-center gap-0.5 cursor-pointer"
+                                    className="px-2 py-0.5 rounded-lg bg-red-100 hover:bg-red-200 dark:bg-red-500/20 dark:hover:bg-red-500/35 text-red-700 dark:text-red-300 text-[8.5px] font-black uppercase flex items-center gap-0.5 cursor-pointer"
                                   >
                                     <Lock size={9} />
                                     <span>Bloquear</span>
@@ -6037,7 +6837,7 @@ REGRAS OBRIGATÓRIAS:
                                     e.stopPropagation();
                                     setInspectingStudent(p);
                                   }}
-                                  className="px-2 py-0.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-200 text-[8.5px] font-black uppercase flex items-center gap-0.5 cursor-pointer"
+                                  className="px-2 py-0.5 rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-slate-200 text-[8.5px] font-black uppercase flex items-center gap-0.5 cursor-pointer"
                                 >
                                   <Eye size={9} />
                                   <span>Ver Resultado</span>
@@ -6052,9 +6852,9 @@ REGRAS OBRIGATÓRIAS:
                 </div>
 
                 {/* Rodapé do Overlay sobre o Menu Lateral */}
-                <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[9px] font-black uppercase tracking-wider text-slate-400 shrink-0">
+                <div className="pt-2 border-t border-slate-200 dark:border-white/10 flex items-center justify-between text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 shrink-0">
                   <span>Na Sala: {participantsList.length}</span>
-                  <span className={activeRoom.alerts.length > 0 ? 'text-red-400 animate-pulse' : 'text-emerald-400'}>
+                  <span className={activeRoom.alerts.length > 0 ? 'text-red-600 dark:text-red-400 animate-pulse' : 'text-emerald-600 dark:text-emerald-400'}>
                     Alertas: {activeRoom.alerts.length}
                   </span>
                 </div>
@@ -6067,8 +6867,8 @@ REGRAS OBRIGATÓRIAS:
                 title="Clique para abrir a lista de quem está fazendo a prova"
               >
                 <div className="flex flex-col items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-[8px] font-black uppercase tracking-wider text-indigo-300">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
+                  <span className="text-[8px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-300">
                     Prova
                   </span>
                 </div>
@@ -6093,7 +6893,7 @@ REGRAS OBRIGATÓRIAS:
                   )}
                 </div>
 
-                <span className="text-[9px] font-black uppercase text-white/80 hover:text-white">
+                <span className="text-[9px] font-black uppercase text-slate-600 dark:text-white/80 hover:text-slate-900 dark:hover:text-white">
                   Abrir
                 </span>
               </div>
@@ -6311,17 +7111,17 @@ REGRAS OBRIGATÓRIAS:
         typeof document !== 'undefined' &&
         createPortal(
           <div
-            className="fixed inset-0 z-[99999] bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
+            className="fixed inset-0 z-[99999] bg-slate-900/65 dark:bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
             onClick={() => setInspectingStudent(null)}
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-lg max-h-[85vh] overflow-y-auto bg-slate-900 border border-slate-700 rounded-[28px] p-5 text-white space-y-3 shadow-2xl"
+              className="w-full max-w-lg max-h-[85vh] overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-[28px] p-5 text-slate-800 dark:text-white space-y-3 shadow-2xl"
             >
-              <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
                 <div>
-                  <h4 className="text-sm sm:text-base font-black uppercase">{inspectingStudent.name}</h4>
-                  <p className="text-xs text-slate-400 font-bold">
+                  <h4 className="text-sm sm:text-base font-black uppercase text-slate-900 dark:text-white">{inspectingStudent.name}</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-bold">
                     {inspectingStudent.unit} • Nota: {inspectingStudent.grade10.toFixed(1).replace('.', ',')} ({inspectingStudent.scorePercent}%) • Saídas: {inspectingStudent.cheatCount}
                     {inspectingStudent.cheatCount > 0
                       ? ` (-${(inspectingStudent.cheatCount * 0.1).toFixed(1).replace('.', ',')} pt)`
@@ -6331,7 +7131,7 @@ REGRAS OBRIGATÓRIAS:
                 <button
                   type="button"
                   onClick={() => setInspectingStudent(null)}
-                  className="w-8 h-8 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center cursor-pointer"
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center cursor-pointer"
                 >
                   <X size={16} />
                 </button>
@@ -6346,13 +7146,13 @@ REGRAS OBRIGATÓRIAS:
                       key={q.id}
                       className={`p-3 rounded-xl border text-xs space-y-1 ${
                         chosen === undefined
-                          ? 'bg-slate-950 border-slate-800 text-slate-400'
+                          ? 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400'
                           : isCorrect
-                          ? 'bg-emerald-950/40 border-emerald-700/60 text-emerald-200'
-                          : 'bg-red-950/40 border-red-700/60 text-red-200'
+                          ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-700/60 text-emerald-800 dark:text-emerald-200'
+                          : 'bg-red-50/70 dark:bg-red-950/40 border-red-200 dark:border-red-700/60 text-red-800 dark:text-red-200'
                       }`}
                     >
-                      <p className="font-black text-white">
+                      <p className="font-black text-slate-900 dark:text-white">
                         Q{idx + 1}. {q.question}
                       </p>
                       <p className="font-bold">
@@ -6360,7 +7160,7 @@ REGRAS OBRIGATÓRIAS:
                         {chosen !== undefined ? q.options[chosen] : 'Ainda não respondeu'}
                       </p>
                       {!isCorrect && (
-                        <p className="text-emerald-400 font-bold">
+                        <p className="text-emerald-600 dark:text-emerald-400 font-bold">
                           Correta: {q.options[q.correctIndex]}
                         </p>
                       )}
