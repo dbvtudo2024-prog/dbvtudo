@@ -135,11 +135,11 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
         </header>
 
         {/* Conteúdo Central no Corpo: No celular posicionado mais para cima; no PC centralizado */}
-        <main className="flex-1 flex items-start md:items-center justify-center px-4 sm:px-8 lg:px-12 pt-1 pb-4 sm:py-8 md:py-10 max-w-6xl mx-auto w-full">
+        <main className="flex-1 flex items-start md:items-center justify-center px-4 sm:px-8 lg:px-12 pt-5 pb-4 sm:py-8 md:py-10 max-w-6xl mx-auto w-full">
           <div className="w-full flex flex-col md:flex-row items-center justify-center md:justify-around gap-5 sm:gap-8 md:gap-12 lg:gap-16">
             
             {/* Lado Esquerdo no PC: Logo e Escritas perfeitamente centralizadas */}
-            <div className="flex flex-col items-center justify-center text-center shrink-0 -mt-1 sm:mt-0 md:w-[380px] lg:w-[420px]">
+            <div className="flex flex-col items-center justify-center text-center shrink-0 md:w-[380px] lg:w-[420px]">
               <div 
                 onClick={handleLogoClick}
                 role="button"
