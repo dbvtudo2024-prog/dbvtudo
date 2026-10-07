@@ -171,6 +171,8 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
                     className="w-full h-full object-contain drop-shadow-2xl select-none" 
                     alt="DBV Tudo Logo"
                   />
+                  {/* Fio de luz reto passando suavemente por cima de toda a logo */}
+                  <div className="app-logo-sheen-mask" aria-hidden="true" />
                 </div>
               </div>
               
@@ -205,11 +207,16 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
 
               {/* Botões Um Sobre o Outro (com simetria e alinhamento idênticos entre si) */}
               <div className="flex flex-col gap-4 sm:gap-5 w-full items-center">
-                {/* Card Desbravadores - Borda Vermelha */}
+                {/* Card Desbravadores - Borda Vermelha + Luz Sutil Giratória */}
                 <button 
                   onClick={() => onSelectClub(ClubType.PATHFINDER)}
-                  className="w-full group relative bg-white dark:bg-slate-800 p-5 sm:p-6 min-h-[110px] sm:min-h-[125px] rounded-[28px] sm:rounded-[32px] shadow-[0_10px_30px_rgba(220,55,27,0.06)] border-2 border-[#dc371b]/40 flex items-center justify-center active:scale-[0.98] transition-all overflow-hidden hover:border-[#dc371b] hover:shadow-[0_12px_35px_rgba(220,55,27,0.15)]"
+                  className="w-full group relative bg-white dark:bg-slate-800 p-5 sm:p-6 min-h-[110px] sm:min-h-[125px] rounded-[28px] sm:rounded-[32px] shadow-[0_10px_30px_rgba(220,55,27,0.06)] border border-[#dc371b]/30 flex items-center justify-center active:scale-[0.98] transition-all overflow-hidden hover:border-[#dc371b]/70 hover:shadow-[0_12px_35px_rgba(220,55,27,0.15)]"
                 >
+                  {/* Luz sutil girando em volta do botão (Vermelho Desbravadores + Dourado, alternando rápido e devagar) */}
+                  <span className="ministry-orbit-ring" aria-hidden="true">
+                    <span className="ministry-orbit-spinner ministry-orbit-dbv" />
+                  </span>
+
                   {/* Logo de fundo transparente */}
                   <div className="absolute right-[-15px] top-1/2 -translate-y-1/2 opacity-[0.06] dark:opacity-[0.03] grayscale pointer-events-none group-hover:scale-125 transition-transform duration-1000">
                     <img 
@@ -239,11 +246,16 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
                   </div>
                 </button>
 
-                {/* Card Aventureiros - Borda Vinho */}
+                {/* Card Aventureiros - Borda Vinho + Luz Sutil Giratória */}
                 <button 
                   onClick={() => onSelectClub(ClubType.ADVENTURER)}
-                  className="w-full group relative bg-white dark:bg-slate-800 p-5 sm:p-6 min-h-[110px] sm:min-h-[125px] rounded-[28px] sm:rounded-[32px] shadow-[0_10px_30px_rgba(128,0,0,0.06)] border-2 border-[#800000]/40 flex items-center justify-center active:scale-[0.98] transition-all overflow-hidden hover:border-[#800000] hover:shadow-[0_12px_35px_rgba(128,0,0,0.15)]"
+                  className="w-full group relative bg-white dark:bg-slate-800 p-5 sm:p-6 min-h-[110px] sm:min-h-[125px] rounded-[28px] sm:rounded-[32px] shadow-[0_10px_30px_rgba(128,0,0,0.06)] border border-[#800000]/30 flex items-center justify-center active:scale-[0.98] transition-all overflow-hidden hover:border-[#800000]/70 hover:shadow-[0_12px_35px_rgba(128,0,0,0.15)]"
                 >
+                  {/* Luz sutil girando em volta do botão (Vinho Aventureiros + Dourado, alternando rápido e devagar) */}
+                  <span className="ministry-orbit-ring" aria-hidden="true">
+                    <span className="ministry-orbit-spinner ministry-orbit-avt orbit-delay-1" />
+                  </span>
+
                   {/* Logo de fundo transparente */}
                   <div className="absolute right-[-15px] top-1/2 -translate-y-1/2 opacity-[0.06] dark:opacity-[0.03] grayscale pointer-events-none group-hover:scale-125 transition-transform duration-1000">
                     <img 

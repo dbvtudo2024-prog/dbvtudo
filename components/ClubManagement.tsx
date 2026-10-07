@@ -11148,7 +11148,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             >
               <div 
                 onAnimationEnd={() => setIsLogoWobbling(false)}
-                className={`relative w-20 h-20 lg:w-22 lg:h-22 flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300 ${
+                className={`relative w-20 h-20 lg:w-22 lg:h-22 flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300 animate-float-sm ${
                   isLogoWobbling ? 'animate-logo-wobble' : ''
                 }`}
               >
@@ -11163,6 +11163,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                   draggable={false}
                   className="relative w-full h-full object-contain drop-shadow-md group-hover:drop-shadow-lg transition-all select-none"
                 />
+                <div className="app-logo-sheen-mask app-logo-sheen-mask-sm" aria-hidden="true" />
               </div>
               <h1 className="mt-2 font-black text-slate-800 dark:text-white text-lg lg:text-xl tracking-tight uppercase leading-none">
                 DBV Tudo
@@ -11237,11 +11238,16 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                 }}
                 className={`w-full relative overflow-hidden flex items-center px-5 py-4 rounded-2xl font-black text-xs lg:text-sm uppercase tracking-wider transition-all text-left group active:scale-[0.98] ${
                   isPathfinder
-                    ? 'bg-[#dc371b] text-white shadow-lg shadow-red-600/35 ring-2 ring-red-400 scale-[1.02]'
+                    ? 'bg-[#dc371b] text-white shadow-lg shadow-red-600/35 border border-red-400/35 scale-[1.02]'
                     : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60'
                 }`}
                 title="Área de Desbravadores"
               >
+                {isPathfinder && (
+                  <span className="ministry-orbit-ring" aria-hidden="true">
+                    <span className="ministry-orbit-spinner ministry-orbit-dbv-active" />
+                  </span>
+                )}
                 {/* Emblema sombreado à direita (estilo tela inicial) */}
                 <div className={`absolute -right-2 -bottom-2 grayscale pointer-events-none group-hover:scale-125 transition-transform duration-700 ${
                   isPathfinder ? 'opacity-25' : 'opacity-15 dark:opacity-15'
@@ -11263,11 +11269,16 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                 }}
                 className={`w-full relative overflow-hidden flex items-center px-5 py-4 rounded-2xl font-black text-xs lg:text-sm uppercase tracking-wider transition-all text-left group active:scale-[0.98] ${
                   !isPathfinder
-                    ? 'bg-[#800000] text-white shadow-lg shadow-red-950/45 ring-2 ring-amber-400/80 scale-[1.02]'
+                    ? 'bg-[#800000] text-white shadow-lg shadow-red-950/45 border border-amber-400/30 scale-[1.02]'
                     : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60'
                 }`}
                 title="Área de Aventureiros"
               >
+                {!isPathfinder && (
+                  <span className="ministry-orbit-ring" aria-hidden="true">
+                    <span className="ministry-orbit-spinner ministry-orbit-avt-active" />
+                  </span>
+                )}
                 {/* Emblema sombreado à direita (estilo tela inicial) */}
                 <div className={`absolute -right-2 -bottom-2 grayscale pointer-events-none group-hover:scale-125 transition-transform duration-700 ${
                   !isPathfinder ? 'opacity-25' : 'opacity-15 dark:opacity-15'
@@ -11295,7 +11306,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                 setIsSidebarOpen(true);
               }}
               onAnimationEnd={() => setIsLogoWobbling(false)}
-              className={`relative w-14 h-14 lg:w-16 lg:h-16 flex items-center justify-center cursor-pointer group transition-transform duration-300 hover:scale-110 select-none ${
+              className={`relative w-14 h-14 lg:w-16 lg:h-16 flex items-center justify-center cursor-pointer group transition-transform duration-300 hover:scale-110 select-none animate-float-sm ${
                 isLogoWobbling ? 'animate-logo-wobble' : ''
               }`}
               title="Clique para expandir o menu"
@@ -11312,6 +11323,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                 draggable={false}
                 className="relative w-full h-full object-contain drop-shadow-md group-hover:drop-shadow-lg transition-all select-none"
               />
+              <div className="app-logo-sheen-mask app-logo-sheen-mask-sm" aria-hidden="true" />
             </div>
 
             {/* 2. Logo Abaixo: Foto de Perfil Compacta (com bolinha de status sem cortes) */}
@@ -11366,14 +11378,19 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                   e.stopPropagation();
                   handleMinistryButtonClick(ClubType.PATHFINDER);
                 }}
-                className={`w-12 h-12 lg:w-13 lg:h-13 rounded-2xl flex flex-col items-center justify-center transition-all relative group active:scale-90 ${
+                className={`w-12 h-12 lg:w-13 lg:h-13 overflow-hidden rounded-2xl flex flex-col items-center justify-center transition-all relative group active:scale-90 ${
                   isPathfinder
-                    ? 'bg-[#dc371b] text-white shadow-lg shadow-red-600/40 ring-2 ring-red-400 scale-105'
+                    ? 'bg-[#dc371b] text-white shadow-lg shadow-red-600/40 border border-red-400/35 scale-105'
                     : 'bg-slate-100 dark:bg-slate-800/70 hover:bg-red-50 dark:hover:bg-red-950/40 text-slate-500 hover:text-[#dc371b] dark:text-slate-300 border border-slate-200/50 dark:border-slate-700/50'
                 }`}
                 title="Desbravadores (DBV)"
                 aria-label="Selecionar Desbravadores"
               >
+                {isPathfinder && (
+                  <span className="ministry-orbit-ring" aria-hidden="true">
+                    <span className="ministry-orbit-spinner ministry-orbit-dbv-active" />
+                  </span>
+                )}
                 <img 
                   src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png" 
                   alt="Brasão Desbravadores" 
@@ -11392,14 +11409,19 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                   e.stopPropagation();
                   handleMinistryButtonClick(ClubType.ADVENTURER);
                 }}
-                className={`w-12 h-12 lg:w-13 lg:h-13 rounded-2xl flex flex-col items-center justify-center transition-all relative group active:scale-90 ${
+                className={`w-12 h-12 lg:w-13 lg:h-13 overflow-hidden rounded-2xl flex flex-col items-center justify-center transition-all relative group active:scale-90 ${
                   !isPathfinder
-                    ? 'bg-[#800000] text-white shadow-lg shadow-red-950/50 ring-2 ring-amber-400/90 scale-105'
+                    ? 'bg-[#800000] text-white shadow-lg shadow-red-950/50 border border-amber-400/30 scale-105'
                     : 'bg-slate-100 dark:bg-slate-800/70 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-slate-500 hover:text-[#800000] dark:text-slate-300 border border-slate-200/50 dark:border-slate-700/50'
                 }`}
                 title="Aventureiros (AVT)"
                 aria-label="Selecionar Aventureiros"
               >
+                {!isPathfinder && (
+                  <span className="ministry-orbit-ring" aria-hidden="true">
+                    <span className="ministry-orbit-spinner ministry-orbit-avt-active" />
+                  </span>
+                )}
                 <img 
                   src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png" 
                   alt="Brasão Aventureiros" 
@@ -11558,16 +11580,22 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                   onAnimationEnd={() => setIsLogoWobbling(false)}
                   title="Voltar ao Início"
                   aria-label="Voltar ao Início"
-                  className={`w-full h-full flex items-center justify-center cursor-pointer select-none md:hidden active:scale-90 transition-transform ${
+                  className={`relative w-full h-full flex items-center justify-center cursor-pointer select-none md:hidden active:scale-90 transition-transform group animate-float-sm ${
                     isLogoWobbling ? 'animate-logo-wobble' : ''
                   }`}
                 >
+                  <div
+                    className={`absolute inset-0.5 rounded-full app-logo-click-glow blur-md pointer-events-none transition-all duration-500 ${
+                      isLogoWobbling ? 'opacity-100 scale-115' : 'opacity-0 scale-90 group-hover:opacity-60 group-hover:scale-105'
+                    }`}
+                  />
                   <img 
                     src="https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/logo%20app.PNG" 
                     alt="Logo DBV Tudo"
                     draggable={false}
-                    className="w-full h-full object-contain select-none" 
+                    className="relative w-full h-full object-contain drop-shadow-md select-none" 
                   />
+                  <div className="app-logo-sheen-mask app-logo-sheen-mask-sm" aria-hidden="true" />
                 </button>
               ) : (
               <button 

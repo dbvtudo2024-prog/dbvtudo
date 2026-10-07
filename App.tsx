@@ -90,6 +90,112 @@ const styles = `
       transparent 75%
     );
   }
+
+  /* Efeito de fio de luz reto passando por cima de toda a logo (recortado no formato exato da logo) */
+  @keyframes logoLightThreadSweep {
+    0% {
+      transform: translateX(-125%) skewX(-22deg);
+      opacity: 0;
+    }
+    6% {
+      opacity: 1;
+    }
+    38% {
+      transform: translateX(125%) skewX(-22deg);
+      opacity: 1;
+    }
+    43%, 100% {
+      transform: translateX(125%) skewX(-22deg);
+      opacity: 0;
+    }
+  }
+
+  @keyframes logoLightThreadSweepSm {
+    0% {
+      transform: translateX(-95%) skewX(-20deg);
+      opacity: 0;
+    }
+    8% {
+      opacity: 1;
+    }
+    52% {
+      transform: translateX(95%) skewX(-20deg);
+      opacity: 1;
+    }
+    58%, 100% {
+      transform: translateX(95%) skewX(-20deg);
+      opacity: 0;
+    }
+  }
+
+  @keyframes floatLogoSm {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-2.5px);
+    }
+  }
+
+  .animate-float-sm {
+    animation: floatLogoSm 4.2s ease-in-out infinite;
+  }
+
+  .app-logo-sheen-mask {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 10;
+    -webkit-mask-image: url("https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/logo%20app.PNG");
+    mask-image: url("https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/logo%20app.PNG");
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+  }
+
+  .app-logo-sheen-mask::after {
+    content: "";
+    position: absolute;
+    top: -20%;
+    bottom: -20%;
+    left: 0;
+    width: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      transparent calc(50% - 14px),
+      rgba(253, 224, 71, 0.16) calc(50% - 8px),
+      rgba(254, 240, 138, 0.52) calc(50% - 2.5px),
+      rgba(255, 255, 255, 0.90) 50%,
+      rgba(254, 240, 138, 0.52) calc(50% + 2.5px),
+      rgba(253, 224, 71, 0.16) calc(50% + 8px),
+      transparent calc(50% + 14px),
+      transparent 100%
+    );
+    animation: logoLightThreadSweep 4.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    will-change: transform, opacity;
+  }
+
+  /* Versão calibrada para logos menores (cabeçalho de celular e barra lateral) */
+  .app-logo-sheen-mask-sm::after {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      transparent calc(50% - 10px),
+      rgba(253, 224, 71, 0.28) calc(50% - 6px),
+      rgba(254, 240, 138, 0.78) calc(50% - 2px),
+      rgba(255, 255, 255, 0.98) 50%,
+      rgba(254, 240, 138, 0.78) calc(50% + 2px),
+      rgba(253, 224, 71, 0.28) calc(50% + 6px),
+      transparent calc(50% + 10px),
+      transparent 100%
+    );
+    animation: logoLightThreadSweepSm 3.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
   
   .glass {
     background: rgba(255, 255, 255, 0.7);
@@ -201,6 +307,132 @@ const styles = `
   html.dark[data-accent] .dark\\:bg-slate-800:not(.no-accent-override, .no-accent-override *) {
     background-color: rgba(20, 26, 38, 0.76) !important;
     border-color: rgba(var(--app-accent-rgb, 220, 160, 72), 0.16) !important;
+  }
+
+  /* Luz sutil girando em volta dos botões (alternando momentos rápidos e devagar) */
+  @keyframes ministryOrbitVarSpeed {
+    0% {
+      transform: translate(-50%, -50%) rotate(0deg);
+    }
+    10% {
+      transform: translate(-50%, -50%) rotate(65deg);
+    }
+    23% {
+      transform: translate(-50%, -50%) rotate(415deg);
+    }
+    33.33% {
+      transform: translate(-50%, -50%) rotate(480deg);
+    }
+    43.33% {
+      transform: translate(-50%, -50%) rotate(545deg);
+    }
+    56.33% {
+      transform: translate(-50%, -50%) rotate(895deg);
+    }
+    66.67% {
+      transform: translate(-50%, -50%) rotate(960deg);
+    }
+    76.67% {
+      transform: translate(-50%, -50%) rotate(1025deg);
+    }
+    89.67% {
+      transform: translate(-50%, -50%) rotate(1375deg);
+    }
+    100% {
+      transform: translate(-50%, -50%) rotate(1440deg);
+    }
+  }
+
+  .ministry-orbit-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 2px;
+    pointer-events: none;
+    z-index: 20;
+    overflow: hidden;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+
+  .ministry-orbit-spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 240%;
+    aspect-ratio: 1 / 1;
+    animation: ministryOrbitVarSpeed 13s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+    will-change: transform;
+  }
+
+  .ministry-orbit-spinner.orbit-delay-1 {
+    animation-duration: 14.5s;
+    animation-delay: -4.2s;
+  }
+
+  .ministry-orbit-spinner.orbit-delay-2 {
+    animation-duration: 15.8s;
+    animation-delay: -8.7s;
+  }
+
+  /* Desbravadores: Vermelho oficial (#dc371b) com ponta Dourada sutil */
+  .ministry-orbit-dbv {
+    background: conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      transparent 255deg,
+      rgba(220, 55, 27, 0.16) 278deg,
+      rgba(220, 55, 27, 0.62) 308deg,
+      rgba(245, 158, 11, 0.85) 328deg,
+      rgba(253, 224, 71, 0.92) 338deg,
+      rgba(220, 55, 27, 0.65) 350deg,
+      transparent 360deg
+    );
+  }
+
+  /* Aventureiros: Vinho oficial (#800000 / #9f1239) com ponta Dourada sutil */
+  .ministry-orbit-avt {
+    background: conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      transparent 255deg,
+      rgba(128, 0, 0, 0.20) 278deg,
+      rgba(159, 18, 57, 0.68) 308deg,
+      rgba(245, 158, 11, 0.85) 328deg,
+      rgba(253, 224, 71, 0.92) 338deg,
+      rgba(128, 0, 0, 0.70) 350deg,
+      transparent 360deg
+    );
+  }
+
+  /* Menu Lateral Ativo (sobre fundo preenchido #dc371b ou #800000): feixe Dourado + Branco luminoso */
+  .ministry-orbit-dbv-active {
+    background: conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      transparent 245deg,
+      rgba(251, 146, 60, 0.25) 272deg,
+      rgba(245, 158, 11, 0.78) 305deg,
+      rgba(253, 224, 71, 0.96) 328deg,
+      rgba(255, 255, 255, 0.98) 338deg,
+      rgba(251, 191, 36, 0.75) 350deg,
+      transparent 360deg
+    );
+  }
+
+  .ministry-orbit-avt-active {
+    background: conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      transparent 245deg,
+      rgba(244, 63, 94, 0.28) 272deg,
+      rgba(245, 158, 11, 0.80) 305deg,
+      rgba(253, 224, 71, 0.96) 328deg,
+      rgba(255, 255, 255, 0.98) 338deg,
+      rgba(251, 191, 36, 0.75) 350deg,
+      transparent 360deg
+    );
   }
 `;
 

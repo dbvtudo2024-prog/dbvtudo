@@ -5345,6 +5345,13 @@ REGRAS OBRIGATÓRIAS:
                   : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 opacity-85 text-slate-600 dark:text-white'
               }`}
             >
+              <span className="ministry-orbit-ring" aria-hidden="true">
+                <span
+                  className={`ministry-orbit-spinner ${
+                    isPathfinder ? 'ministry-orbit-dbv' : 'ministry-orbit-avt'
+                  }`}
+                />
+              </span>
               <div className="flex items-center justify-between gap-2 shrink-0">
                 <div
                   className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl flex items-center justify-center ${
@@ -5420,6 +5427,13 @@ REGRAS OBRIGATÓRIAS:
                   : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 opacity-85 text-slate-600 dark:text-white'
               }`}
             >
+              <span className="ministry-orbit-ring" aria-hidden="true">
+                <span
+                  className={`ministry-orbit-spinner orbit-delay-1 ${
+                    isPathfinder ? 'ministry-orbit-dbv' : 'ministry-orbit-avt'
+                  }`}
+                />
+              </span>
               <div className="flex items-center justify-between gap-2 shrink-0">
                 <div
                   className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl flex items-center justify-center ${
@@ -5482,6 +5496,13 @@ REGRAS OBRIGATÓRIAS:
                 }}
                 className="group relative overflow-hidden rounded-2xl sm:rounded-[22px] p-3 sm:p-4 text-left bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-600 border border-emerald-400/40 shadow-lg shadow-emerald-600/20 transition-all flex flex-row md:flex-col items-center md:items-stretch justify-between gap-3 cursor-pointer active:scale-[0.98]"
               >
+                <span className="ministry-orbit-ring" aria-hidden="true">
+                  <span
+                    className={`ministry-orbit-spinner orbit-delay-2 ${
+                      isPathfinder ? 'ministry-orbit-dbv' : 'ministry-orbit-avt'
+                    }`}
+                  />
+                </span>
                 <div className="flex items-center justify-between gap-2 shrink-0">
                   <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center text-white">
                     <Camera className="w-5 h-5 sm:w-5 sm:h-5" />
@@ -5515,6 +5536,13 @@ REGRAS OBRIGATÓRIAS:
                 }}
                 className="group relative overflow-hidden rounded-2xl sm:rounded-[22px] p-3 sm:p-4 text-left bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-600 border border-emerald-400/40 shadow-lg shadow-emerald-600/20 transition-all flex flex-row md:flex-col items-center md:items-stretch justify-between gap-3 cursor-pointer active:scale-[0.98]"
               >
+                <span className="ministry-orbit-ring" aria-hidden="true">
+                  <span
+                    className={`ministry-orbit-spinner orbit-delay-2 ${
+                      isPathfinder ? 'ministry-orbit-dbv' : 'ministry-orbit-avt'
+                    }`}
+                  />
+                </span>
                 <div className="flex items-center justify-between gap-2 shrink-0">
                   <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center text-white">
                     <QrCode className="w-5 h-5 sm:w-5 sm:h-5" />
