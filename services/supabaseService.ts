@@ -8,11 +8,51 @@ export { CANONICAL_BIBLE_BOOKS, RUD_UNIFORMES_DBV, RUD_UNIFORMES_AVT, RUD_EMBLEM
 export const QFPY_URL = 'https://qfpyjavbncijowjvznkg.supabase.co';
 export const QFPY_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmcHlqYXZibmNpam93anZ6bmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NDcxMDUsImV4cCI6MjA3NDQyMzEwNX0.adxRCkobV-m_XUHp1KBXmg67VXkR-HL4QKFVtgQOmYc';
 
-export const DEMB_URL = 'https://dembhtmryutggifbpuka.supabase.co';
-export const DEMB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlbWJodG1yeXV0Z2dpZmJwdWthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MDQ0NjUsImV4cCI6MjA5NTM4MDQ2NX0.PVAqzmvqo4wDO2_i_MCF1lw8yxXzLxJj1Uj_gcyKTRI';
+export const DEMB_URL = QFPY_URL;
+export const DEMB_KEY = QFPY_KEY;
 
 const DEFAULT_URL = QFPY_URL;
 const DEFAULT_KEY = QFPY_KEY;
+
+// Fetch resiliente para todos os clientes Supabase:
+// Impede que falhas de rede transitórias ou de sessão disparem TypeError: Failed to fetch e console.error no GoTrue
+export const safeSupabaseFetch: typeof fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  let targetUrl = typeof input === 'string'
+    ? input
+    : input instanceof URL
+    ? input.toString()
+    : (input as Request)?.url || '';
+
+  if (targetUrl.includes('dembhtmryutggifbpuka.supabase.co')) {
+    targetUrl = targetUrl.replace('https://dembhtmryutggifbpuka.supabase.co', QFPY_URL);
+  }
+
+  try {
+    return await fetch(targetUrl || input, init);
+  } catch {
+    // Tenta fallback via proxy local caso seja requisição para o projeto principal
+    if (typeof window !== 'undefined' && targetUrl.startsWith(QFPY_URL)) {
+      try {
+        const proxyPath = targetUrl.replace(QFPY_URL, '/supabase-proxy');
+        return await fetch(proxyPath, init);
+      } catch {}
+    }
+
+    return new Response(
+      JSON.stringify({
+        message: 'Network request unavailable',
+        error: 'network_unavailable',
+        user: null,
+        session: null
+      }),
+      {
+        status: 503,
+        statusText: 'Service Unavailable',
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
+  }
+};
 
 const envMeta = (typeof import.meta !== 'undefined' && (import.meta as any).env) ? (import.meta as any).env : {};
 const supabaseKey = envMeta.VITE_SUPABASE_ANON_KEY || DEFAULT_KEY;
@@ -84,50 +124,63 @@ export const supabaseQfpy = createClient(QFPY_URL, QFPY_KEY, {
     autoRefreshToken: true,
     detectSessionInUrl: false,
     storage: safeSupabaseStorage
+  },
+  global: {
+    fetch: safeSupabaseFetch
   }
 });
 
-export const supabaseDemb = createClient(DEMB_URL, DEMB_KEY, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: false,
-    storage: safeSupabaseStorage
-  }
-});
+export const supabaseDemb = supabaseQfpy;
 
 let _activeAuthProject: 'qfpy' | 'demb' = (() => {
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
-      const saved = window.localStorage.getItem('dbv_active_supabase_project');
-      if (saved === 'demb' || saved === 'qfpy') return saved;
-      if (window.localStorage.getItem('sb-qfpyjavbncijowjvznkg-auth-token')) return 'qfpy';
-      if (window.localStorage.getItem('sb-dembhtmryutggifbpuka-auth-token')) return 'demb';
+      window.localStorage.removeItem('sb-dembhtmryutggifbpuka-auth-token');
+      window.localStorage.setItem('dbv_active_supabase_project', 'qfpy');
     }
   } catch {}
-  return supabaseUrl.includes('dembhtmryutggifbpuka') ? 'demb' : 'qfpy';
+  return 'qfpy';
 })();
 
-export function setActiveSupabaseProject(proj: 'qfpy' | 'demb') {
-  _activeAuthProject = proj;
+export function setActiveSupabaseProject(_proj: 'qfpy' | 'demb') {
+  _activeAuthProject = 'qfpy';
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.setItem('dbv_active_supabase_project', proj);
+      window.localStorage.setItem('dbv_active_supabase_project', 'qfpy');
     }
   } catch {}
 }
 
 export function getActiveSupabaseClient() {
-  return _activeAuthProject === 'demb' ? supabaseDemb : supabaseQfpy;
+  return supabaseQfpy;
 }
 
-export const supabase = new Proxy(supabaseQfpy, {
-  get(_target, prop, _receiver) {
-    const client = getActiveSupabaseClient() as any;
-    const value = client[prop];
-    return typeof value === 'function' ? value.bind(client) : value;
-  }
-});
+export const supabase = supabaseQfpy;
+
+export async function getSafeAuthUser(): Promise<any | null> {
+  try {
+    const { data: sessionData } = await supabaseQfpy.auth.getSession();
+    if (sessionData?.session?.user) {
+      return sessionData.session.user;
+    }
+  } catch {}
+
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const tokenRaw = window.localStorage.getItem('sb-qfpyjavbncijowjvznkg-auth-token');
+      if (!tokenRaw) return null;
+      const parsed = JSON.parse(tokenRaw);
+      if (parsed?.user?.id) return parsed.user;
+    }
+  } catch {}
+
+  try {
+    const { data, error } = await supabaseQfpy.auth.getUser();
+    if (!error && data?.user) return data.user;
+  } catch {}
+
+  return null;
+}
 
 export async function authenticateUserMultiProject(email: string, rawPassword: string): Promise<{
   user: any | null;
@@ -1986,10 +2039,8 @@ export async function fetchUserFaixaSpecialties(email?: string | null, userId?: 
     let rawData: any = null;
     let effectiveUserId = userId;
     if (!effectiveUserId) {
-      try {
-        const { data } = await supabase.auth.getUser();
-        if (data?.user) effectiveUserId = data.user.id;
-      } catch {}
+      const user = await getSafeAuthUser();
+      if (user?.id) effectiveUserId = user.id;
     }
 
     if (effectiveUserId) {
@@ -2040,10 +2091,8 @@ export async function updateUserFaixa(email?: string | null, specialties: string
 
     let effectiveUserId = userId;
     if (!effectiveUserId) {
-      try {
-        const { data } = await supabase.auth.getUser();
-        if (data?.user) effectiveUserId = data.user.id;
-      } catch {}
+      const user = await getSafeAuthUser();
+      if (user?.id) effectiveUserId = user.id;
     }
 
     if (!effectiveUserId) return { error: "Sem ID de usuário autenticado" };
@@ -2152,12 +2201,10 @@ export async function fetchUserSpecialties(email?: string | null, userId?: strin
     // 1. Obter userId da sessão se não fornecido
     let effectiveUserId = userId;
     if (!effectiveUserId) {
-      try {
-        const { data } = await supabase.auth.getUser();
-        if (data?.user) {
-          effectiveUserId = data.user.id;
-        }
-      } catch {}
+      const user = await getSafeAuthUser();
+      if (user?.id) {
+        effectiveUserId = user.id;
+      }
     }
 
     // 2. Se temos userId, buscar primeiro por user_id na tabela Usuarios
@@ -2230,12 +2277,10 @@ export async function updateUserSpecialties(email?: string | null, specialties: 
     // Obter user_id se não fornecido
     let effectiveUserId = userId;
     if (!effectiveUserId) {
-      try {
-        const { data } = await supabase.auth.getUser();
-        if (data?.user) {
-          effectiveUserId = data.user.id;
-        }
-      } catch {}
+      const user = await getSafeAuthUser();
+      if (user?.id) {
+        effectiveUserId = user.id;
+      }
     }
 
     let success = false;
@@ -3059,8 +3104,8 @@ export async function fetchUserAchievements(emailOrUserId: string): Promise<numb
   try {
     let targetUserId = emailOrUserId;
     if (!targetUserId || targetUserId.includes('@')) {
-      const { data: authData } = await supabase.auth.getUser();
-      targetUserId = authData?.user?.id || '';
+      const user = await getSafeAuthUser();
+      targetUserId = user?.id || '';
     }
     if (!targetUserId) return [];
 
@@ -3090,8 +3135,8 @@ export async function updateUserAchievements(emailOrUserId: string, achievementI
   try {
     let targetUserId = emailOrUserId;
     if (!targetUserId || targetUserId.includes('@')) {
-      const { data: authData } = await supabase.auth.getUser();
-      targetUserId = authData?.user?.id || '';
+      const user = await getSafeAuthUser();
+      targetUserId = user?.id || '';
     }
     if (!targetUserId) return { error: 'User ID not found' };
 

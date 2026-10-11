@@ -161,6 +161,8 @@ export interface LiveExamRoomState {
   specialtyLogo: string;
   specialtyCode: string;
   durationMinutes: number;
+  unlimitedTime?: boolean;
+  manuallyFinished?: boolean;
   passingScorePercent: number;
   lockOnCheat: boolean;
   status: 'WAITING' | 'ACTIVE' | 'FINISHED';
@@ -171,9 +173,21 @@ export interface LiveExamRoomState {
   participants: Record<string, LiveExamParticipant>;
   alerts: LiveExamCheatAlert[];
   updatedAt: number;
+  createdAt?: number;
   creatorKey?: string;
   creatorEmail?: string;
   creatorName?: string;
+}
+
+const UNLIMITED_DURATION_MINUTES = 9999;
+
+export function isUnlimitedRoomDuration(
+  durationMinutes?: number | null,
+  unlimitedTime?: boolean | null
+): boolean {
+  if (unlimitedTime === true) return true;
+  const n = Number(durationMinutes);
+  return Number.isNaN(n) || n <= 0 || n >= UNLIMITED_DURATION_MINUTES;
 }
 
 export interface LiveExamStudentHistoryEntry {
@@ -364,19 +378,72 @@ function buildFallbackSpecialtyQuestions(
     });
   });
 
-  // Completa caso a especialidade tenha poucos requisitos cadastrados
-  while (generated.length < count) {
-    const n = generated.length + 1;
-    generated.push({
-      id: `q_spec_extra_${Date.now()}_${n}`,
-      question: `Na avaliação oficial da especialidade "${specialty.nome}", qual é o critério exigido pelo Manual Administrativo para aprovação e direito ao emblema?`,
-      options: [
+  // Completa caso a especialidade tenha poucos requisitos cadastrados (suporta provas com mais de 15 questões)
+  const extraTemplates = [
+    {
+      q: `Na avaliação oficial da especialidade "${specialty.nome}", qual é o critério exigido pelo Manual Administrativo para aprovação e direito ao emblema?`,
+      opts: [
         'Cumprir integralmente os requisitos teóricos e práticos sob avaliação de um instrutor habilitado.',
         'Cumprir apenas metade dos requisitos sem necessidade de comprovação prática.',
         'Apenas assistir a uma palestra rápida sem realizar a avaliação.',
         'Decorar somente o código da especialidade sem estudar o conteúdo.'
-      ],
-      correctIndex: 0,
+      ]
+    },
+    {
+      q: `Qual é a finalidade prática do estudo da especialidade "${specialty.nome}" (${areaName}) dentro do programa oficial do clube?`,
+      opts: [
+        `Desenvolver habilidades práticas, conhecimento técnico e serviço útil na área de ${areaName}.`,
+        'Acumular insígnias apenas para fins decorativos sem aprendizado real.',
+        'Substituir o cumprimento do cartão de classes regulares.',
+        'Isentar o membro de participar das atividades da unidade.'
+      ]
+    },
+    {
+      q: `Sobre o registro e investidura da especialidade "${specialty.nome}", o que deve ocorrer após a aprovação na prova e nos requisitos?`,
+      opts: [
+        'A aprovação deve ser registrada pela secretaria do clube para entrega oficial da insígnia na faixa.',
+        'O próprio aluno compra e costura o emblema sem autorização da direção.',
+        'Não há necessidade de comprovação junto ao instrutor ou conselheiro.',
+        'A especialidade perde a validade após trinta dias.'
+      ]
+    },
+    {
+      q: `Durante as atividades práticas relacionadas à especialidade "${specialty.nome}", qual princípio deve ser sempre priorizado pelos membros?`,
+      opts: [
+        'Segurança, responsabilidade, ética cristã e fidelidade às orientações técnicas do manual.',
+        'Improvisação sem observar normas de segurança ou instruções do instrutor.',
+        'Execução rápida mesmo descumprindo as etapas obrigatórias.',
+        'Realização individual secreta sem acompanhamento da liderança.'
+      ]
+    }
+  ];
+
+  while (generated.length < count) {
+    const n = generated.length + 1;
+    const tpl = extraTemplates[(n - 1) % extraTemplates.length];
+    const reqRef = cleanReqs.length > 0 ? cleanReqs[(n - 1) % cleanReqs.length] : '';
+    const targetSlot = n % 4;
+    const baseOpts = reqRef && n % 2 === 0
+      ? [
+          reqRef.length > 170 ? reqRef.slice(0, 167) + '...' : reqRef,
+          'Executar a tarefa sem seguir o padrão técnico exigido pela Divisão Sul-Americana.',
+          'Ignorar a etapa prática prevista no requisito oficial.',
+          'Entregar apenas o título da especialidade sem demonstrar o conteúdo.'
+        ]
+      : [...tpl.opts];
+    const reordered = [...baseOpts];
+    const temp = reordered[targetSlot];
+    reordered[targetSlot] = reordered[0];
+    reordered[0] = temp;
+
+    generated.push({
+      id: `q_spec_extra_${Date.now()}_${n}`,
+      question:
+        reqRef && n % 2 === 0
+          ? `Questão complementar (${n}) sobre os requisitos de "${specialty.nome}": qual item abaixo faz parte do estudo desta especialidade?`
+          : tpl.q,
+      options: reordered,
+      correctIndex: targetSlot,
       explanation: 'Toda especialidade exige o cumprimento integral de seus requisitos com aprovação do instrutor.'
     });
   }
@@ -626,10 +693,7 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   const appliedExamsHistoryRef = useRef<LiveExamRoomState[]>(appliedExamsHistory);
   appliedExamsHistoryRef.current = appliedExamsHistory;
   const [selectedAppliedExam, setSelectedAppliedExam] = useState<LiveExamRoomState | null>(null);
-  const [inspectingAppliedStudent, setInspectingAppliedStudent] = useState<{
-    room: LiveExamRoomState;
-    participant: LiveExamParticipant;
-  } | null>(null);
+  const [inspectingAppliedStudent, setInspectingAppliedStudent] = useState<LiveExamParticipant | null>(null);
   const [confirmDeleteAppliedPin, setConfirmDeleteAppliedPin] = useState<string | null>(null);
   const [confirmDeleteHistoryPin, setConfirmDeleteHistoryPin] = useState<string | null>(null);
 
@@ -781,19 +845,37 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
 
   // Estado de Múltiplas Salas Ativas do Instrutor (permite abrir várias provas simultâneas)
   const [hostRooms, setHostRooms] = useState<LiveExamRoomState[]>(() => {
+    const sanitizeLoadedRoom = (r: any): LiveExamRoomState => {
+      const unlim = isUnlimitedRoomDuration(r?.durationMinutes, r?.unlimitedTime);
+      const manFin = Boolean(r?.manuallyFinished || r?.resultsReleased);
+      return {
+        ...r,
+        durationMinutes: unlim ? UNLIMITED_DURATION_MINUTES : Number(r?.durationMinutes || 15),
+        unlimitedTime: unlim,
+        manuallyFinished: manFin,
+        status:
+          unlim && r?.status === 'FINISHED' && !manFin
+            ? r?.startedAt
+              ? 'ACTIVE'
+              : 'WAITING'
+            : r?.status || 'WAITING'
+      };
+    };
     try {
       const savedMulti = localStorage.getItem('dbv_instructor_active_exam_rooms');
       if (savedMulti) {
         const parsedMulti = JSON.parse(savedMulti);
         if (Array.isArray(parsedMulti) && parsedMulti.length > 0) {
-          return parsedMulti.filter((r: any) => r && r.pin && Array.isArray(r.questions));
+          return parsedMulti
+            .filter((r: any) => r && r.pin && Array.isArray(r.questions))
+            .map(sanitizeLoadedRoom);
         }
       }
       const savedSingle = localStorage.getItem('dbv_instructor_active_exam_room');
       if (savedSingle) {
         const parsed = JSON.parse(savedSingle);
         if (parsed && parsed.pin && Array.isArray(parsed.questions)) {
-          return [parsed];
+          return [sanitizeLoadedRoom(parsed)];
         }
       }
     } catch {}
@@ -842,6 +924,41 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   const [hostRemainingSeconds, setHostRemainingSeconds] = useState<number>(0);
   const projectorWindowRef = useRef<Window | null>(null);
   const qrModalRef = useRef<HTMLDivElement | null>(null);
+  const activeRoomQrSectionRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToQrCodeSection = useCallback(() => {
+    [80, 240, 450].forEach((delay) => {
+      setTimeout(() => {
+        try {
+          if (activeRoomQrSectionRef.current) {
+            activeRoomQrSectionRef.current.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center'
+            });
+          }
+        } catch {}
+      }, delay);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (
+      !isIsolatedStudentMode &&
+      entryScreenConfirmed &&
+      roleMode === 'HOST' &&
+      !isCreatingNewRoom &&
+      activeRoom?.pin
+    ) {
+      scrollToQrCodeSection();
+    }
+  }, [
+    isIsolatedStudentMode,
+    entryScreenConfirmed,
+    roleMode,
+    isCreatingNewRoom,
+    activeRoom?.pin,
+    scrollToQrCodeSection
+  ]);
 
   // ============================================================================
   // ESTADOS DO ALUNO (STUDENT - ÁREA ISOLADA DE PROVA)
@@ -911,6 +1028,7 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
 
   const [studentRoom, setStudentRoom] = useState<LiveExamRoomState | null>(null);
   const [studentPhase, setStudentPhase] = useState<'ENTER_PIN' | 'WAITING_HOST' | 'PLAYING' | 'FINISHED'>('ENTER_PIN');
+  const [studentExamAlreadyClosed, setStudentExamAlreadyClosed] = useState<boolean>(false);
   const [isConnectingRoom, setIsConnectingRoom] = useState<boolean>(false);
   const [studentError, setStudentError] = useState<string | null>(null);
   const [studentCurrentQ, setStudentCurrentQ] = useState<number>(0);
@@ -962,6 +1080,7 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
       if (roleMode === 'STUDENT' && studentPhase === 'FINISHED') {
         setStudentPhase('ENTER_PIN');
         setStudentRoom(null);
+        setStudentExamAlreadyClosed(false);
       }
       setEntryScreenConfirmed(false);
       return true;
@@ -1016,6 +1135,8 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   studentRoomRef.current = studentRoom;
   const studentPhaseRef = useRef(studentPhase);
   studentPhaseRef.current = studentPhase;
+  const studentExamAlreadyClosedRef = useRef<boolean>(studentExamAlreadyClosed);
+  studentExamAlreadyClosedRef.current = studentExamAlreadyClosed;
   const studentCheatCountRef = useRef<number>(studentCheatCount);
   const studentUnlockedCheatCountRef = useRef<number>(0);
   const studentLockedRef = useRef<boolean>(studentLocked);
@@ -1023,6 +1144,113 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   const studentPendingAlertsRef = useRef<LiveExamCheatAlert[]>([]);
   const isStudentAwayRef = useRef<boolean>(false);
   const studentGraceUntilRef = useRef<number>(0);
+
+  // Detecta automaticamente ao abrir o link de uma prova (ou digitar o PIN de 6 dígitos) se a prova já foi encerrada,
+  // exibindo a mensagem de "Prova Encerrada" sem adicionar o nome à lista de participantes nem gerar nota zero.
+  useEffect(() => {
+    if (roleMode !== 'STUDENT' || studentPhase !== 'ENTER_PIN') return;
+    const cleanPin = (studentPinInput || initialPin || '').replace(/\D/g, '').trim();
+    if (cleanPin.length !== 6) return;
+
+    let cancelled = false;
+
+    const checkIfExamAlreadyClosedOnEntry = async () => {
+      try {
+        const [apiRoom, cloudRoom] = await Promise.all([
+          fetch(`/api/live-exam?pin=${cleanPin}&t=${Date.now()}`, { cache: 'no-store' })
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data) =>
+              data?.room && String(data.room.pin) === cleanPin
+                ? (data.room as LiveExamRoomState)
+                : null
+            )
+            .catch(() => null),
+          downloadCloudExamJson<LiveExamRoomState>(`provas/room_${cleanPin}.json`).then((parsed) =>
+            parsed && String(parsed.pin) === cleanPin ? parsed : null
+          )
+        ]);
+
+        if (cancelled) return;
+
+        let resolved: LiveExamRoomState | null = cloudRoom || apiRoom;
+        if (apiRoom && cloudRoom) {
+          resolved =
+            (cloudRoom.updatedAt || 0) >= (apiRoom.updatedAt || 0) ? cloudRoom : apiRoom;
+        }
+
+        if (!resolved) {
+          try {
+            const localMulti = localStorage.getItem('dbv_instructor_active_exam_rooms');
+            if (localMulti) {
+              const parsedMulti = JSON.parse(localMulti);
+              if (Array.isArray(parsedMulti)) {
+                const matched = parsedMulti.find((r: any) => r && String(r.pin) === cleanPin);
+                if (matched) resolved = matched;
+              }
+            }
+            if (!resolved) {
+              const localSaved = localStorage.getItem('dbv_instructor_active_exam_room');
+              if (localSaved) {
+                const parsed = JSON.parse(localSaved);
+                if (parsed && String(parsed.pin) === cleanPin) {
+                  resolved = parsed;
+                }
+              }
+            }
+          } catch {}
+        }
+
+        if (!resolved || cancelled) return;
+
+        const isResUnlimited = isUnlimitedRoomDuration(
+          resolved.durationMinutes,
+          resolved.unlimitedTime
+        );
+        const isResManuallyFinished = Boolean(
+          resolved.manuallyFinished || resolved.resultsReleased
+        );
+        const effectiveStatus: LiveExamRoomState['status'] =
+          isResUnlimited && resolved.status === 'FINISHED' && !isResManuallyFinished
+            ? resolved.startedAt
+              ? 'ACTIVE'
+              : 'WAITING'
+            : resolved.status;
+
+        if (effectiveStatus === 'FINISHED') {
+          const existingMe =
+            resolved.participants?.[studentId] ||
+            (studentName.trim()
+              ? Object.values(resolved.participants || {}).find(
+                  (p) => p.name?.trim().toLowerCase() === studentName.trim().toLowerCase()
+                )
+              : undefined);
+          const hasExistingAnswers = Boolean(
+            existingMe &&
+              (Number(existingMe.answeredCount || 0) > 0 ||
+                Object.keys(existingMe.answers || {}).length > 0)
+          );
+
+          if (!hasExistingAnswers) {
+            setStudentExamAlreadyClosed(true);
+            studentExamAlreadyClosedRef.current = true;
+            setStudentRoom({
+              ...resolved,
+              status: 'FINISHED'
+            });
+            setShowOpenModeChoiceModal(false);
+            setIsConnectingRoom(false);
+            setStudentPhase('FINISHED');
+          }
+        }
+      } catch {}
+    };
+
+    checkIfExamAlreadyClosedOnEntry();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [roleMode, studentPhase, studentPinInput, initialPin, studentId, studentName]);
 
   // Ao escanear o QR Code (isIsolatedStudentMode):
   // - Se a pessoa possuir o App instalado, exibe a opção de abrir no App ou no Navegador.
@@ -1290,8 +1518,11 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
     ) => {
       const iKey = instructorKeyRef.current;
       if (room) {
+        const isUnlimited = isUnlimitedRoomDuration(room.durationMinutes, room.unlimitedTime);
         const enrichedRoom: LiveExamRoomState = {
           ...room,
+          durationMinutes: isUnlimited ? UNLIMITED_DURATION_MINUTES : Number(room.durationMinutes || 15),
+          unlimitedTime: isUnlimited,
           creatorKey: room.creatorKey || iKey || undefined,
           creatorEmail: room.creatorEmail || instructorIdentityRef.current.email || undefined,
           creatorName: room.creatorName || instructorIdentityRef.current.name || undefined
@@ -1513,20 +1744,39 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
               }
             });
 
-            const nextStatus =
+            const nextResultsReleased = isExtNewer
+              ? Boolean(extRoom.resultsReleased ?? locRoom.resultsReleased)
+              : Boolean(locRoom.resultsReleased ?? extRoom.resultsReleased);
+            const effDuration = Number(
+              (isExtNewer ? extRoom.durationMinutes : locRoom.durationMinutes) ??
+                extRoom.durationMinutes ??
+                locRoom.durationMinutes ??
+                15
+            );
+            const isUnlimited = isUnlimitedRoomDuration(
+              effDuration,
+              Boolean(extRoom.unlimitedTime ?? locRoom.unlimitedTime)
+            );
+            const manuallyFinished = Boolean(
+              locRoom.manuallyFinished || extRoom.manuallyFinished || nextResultsReleased
+            );
+            let nextStatus =
               locRoom.status === 'FINISHED' || extRoom.status === 'FINISHED'
                 ? 'FINISHED'
                 : locRoom.status === 'ACTIVE' || extRoom.status === 'ACTIVE'
                 ? 'ACTIVE'
                 : 'WAITING';
+            if (isUnlimited && nextStatus === 'FINISHED' && !manuallyFinished) {
+              nextStatus =
+                locRoom.status === 'ACTIVE' || extRoom.status === 'ACTIVE' || locRoom.startedAt || extRoom.startedAt
+                  ? 'ACTIVE'
+                  : 'WAITING';
+            }
             const nextStartedAt = extRoom.startedAt || locRoom.startedAt || null;
             const nextExtraSeconds = Math.max(
               locRoom.extraSecondsAdded || 0,
               extRoom.extraSecondsAdded || 0
             );
-            const nextResultsReleased = isExtNewer
-              ? Boolean(extRoom.resultsReleased ?? locRoom.resultsReleased)
-              : Boolean(locRoom.resultsReleased ?? extRoom.resultsReleased);
 
             if (
               nextStatus !== locRoom.status ||
@@ -1539,6 +1789,9 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
             ) {
               byPin.set(pin, {
                 ...(isExtNewer ? extRoom : locRoom),
+                durationMinutes: isUnlimited ? UNLIMITED_DURATION_MINUTES : effDuration,
+                unlimitedTime: isUnlimited,
+                manuallyFinished,
                 status: nextStatus,
                 resultsReleased: nextResultsReleased,
                 startedAt: nextStartedAt,
@@ -1740,6 +1993,10 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
           if (!payload?.participant || !current) return;
           const p: LiveExamParticipant = payload.participant;
           const existing = current.participants[p.id];
+          if (current.status === 'FINISHED' && !existing) {
+            broadcastRoomSync(current);
+            return;
+          }
           const mergedParticipant: LiveExamParticipant = existing
             ? {
                 ...existing,
@@ -1775,6 +2032,10 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
           if (!payload?.participant || !current) return;
           const p: LiveExamParticipant = payload.participant;
           const prevP = current.participants[p.id];
+          if (current.status === 'FINISHED' && !prevP) {
+            broadcastRoomSync(current);
+            return;
+          }
           const prevCheat = Number(prevP?.cheatCount || 0);
           const incomingCheat = Number(p.cheatCount || 0);
           const maxCheat = Math.max(prevCheat, incomingCheat);
@@ -1948,6 +2209,14 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
               Object.values(externalRoom.participants || {}).forEach((sp) => {
                 if (!sp?.id) return;
                 const lp = mergedParticipants[sp.id];
+                if (
+                  latestLocal.status === 'FINISHED' &&
+                  !lp &&
+                  Number(sp.answeredCount || 0) === 0 &&
+                  Object.keys(sp.answers || {}).length === 0
+                ) {
+                  return;
+                }
                 const spCheat = Number(sp.cheatCount || 0);
                 const lpCheat = Number(lp?.cheatCount || 0);
                 const spUnlocked = Number(sp.unlockedCheatCount || 0);
@@ -2048,13 +2317,25 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
                 }
               });
 
-              if (externalRoom.status === 'FINISHED' && nextStatus !== 'FINISHED') {
+              const isExtUnlimited = isUnlimitedRoomDuration(
+                externalRoom.durationMinutes ?? latestLocal.durationMinutes,
+                externalRoom.unlimitedTime ?? latestLocal.unlimitedTime
+              );
+              const isExtNewer = (externalRoom.updatedAt || 0) > (latestLocal.updatedAt || 0);
+              if (isExtNewer && typeof externalRoom.resultsReleased === 'boolean') {
+                nextResultsReleased = externalRoom.resultsReleased;
+              }
+              const isExtManuallyFinished = Boolean(
+                externalRoom.manuallyFinished || latestLocal.manuallyFinished || nextResultsReleased
+              );
+              if (
+                externalRoom.status === 'FINISHED' &&
+                nextStatus !== 'FINISHED' &&
+                (!isExtUnlimited || isExtManuallyFinished)
+              ) {
                 nextStatus = 'FINISHED';
               } else if (externalRoom.status === 'ACTIVE' && nextStatus === 'WAITING') {
                 nextStatus = 'ACTIVE';
-              }
-              if (externalRoom.resultsReleased) {
-                nextResultsReleased = true;
               }
               if (!nextStartedAt && externalRoom.startedAt) {
                 nextStartedAt = externalRoom.startedAt;
@@ -2120,9 +2401,20 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
     const updateTimers = () => {
       const currentSelected = activeRoomRef.current;
       let calculatedRemaining = 0;
+      const isUnlimitedSelected = Boolean(
+        currentSelected &&
+          isUnlimitedRoomDuration(currentSelected.durationMinutes, currentSelected.unlimitedTime)
+      );
       if (!currentSelected || currentSelected.status === 'FINISHED') {
         calculatedRemaining = 0;
         setHostRemainingSeconds(0);
+      } else if (isUnlimitedSelected) {
+        if (currentSelected.status === 'ACTIVE' && currentSelected.startedAt) {
+          calculatedRemaining = Math.max(0, Math.floor((Date.now() - currentSelected.startedAt) / 1000));
+        } else {
+          calculatedRemaining = 0;
+        }
+        setHostRemainingSeconds(calculatedRemaining);
       } else if (currentSelected.status !== 'ACTIVE' || !currentSelected.startedAt) {
         calculatedRemaining = currentSelected.durationMinutes * 60;
         setHostRemainingSeconds(calculatedRemaining);
@@ -2143,26 +2435,53 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
           if (doc) {
             const mins = Math.floor(calculatedRemaining / 60);
             const secs = calculatedRemaining % 60;
-            const formatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            const mmss = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            const isFinishedRoom = currentSelected.status === 'FINISHED';
+            const formatted = isFinishedRoom
+              ? 'PROVA ENCERRADA'
+              : isUnlimitedSelected
+              ? currentSelected.status === 'ACTIVE'
+                ? `∞ LIVRE (${mmss})`
+                : '∞ SEM LIMITE'
+              : mmss;
             const timerEl = doc.getElementById('telao-v3-timer');
-            if (timerEl && timerEl.textContent !== formatted) {
-              timerEl.textContent = formatted;
+            if (timerEl) {
+              if (timerEl.textContent !== formatted) {
+                timerEl.textContent = formatted;
+              }
+              timerEl.classList.toggle('timer-finished-text', isFinishedRoom);
+            }
+            const timerLabelEl = doc.getElementById('telao-v3-timer-label');
+            if (timerLabelEl) {
+              const nextLabel = isFinishedRoom
+                ? 'STATUS DA AVALIAÇÃO'
+                : isUnlimitedSelected
+                ? 'TEMPO DE PROVA'
+                : 'TEMPO RESTANTE';
+              if (timerLabelEl.textContent !== nextLabel) {
+                timerLabelEl.textContent = nextLabel;
+              }
             }
             const timerCardEl = doc.getElementById('telao-v3-timer-card');
             if (timerCardEl) {
               timerCardEl.classList.toggle('timer-featured', currentSelected.status !== 'WAITING');
               timerCardEl.classList.toggle(
                 'timer-urgent',
-                currentSelected.status === 'ACTIVE' && calculatedRemaining <= 60
+                isFinishedRoom ||
+                  (!isUnlimitedSelected && currentSelected.status === 'ACTIVE' && calculatedRemaining <= 60)
               );
             }
           }
         }
       } catch {}
 
-      // Verifica se alguma sala aberta esgotou o tempo
+      // Verifica se alguma sala aberta (com tempo limite definido) esgotou o tempo
       hostRoomsRef.current.forEach((roomItem) => {
-        if (roomItem.status === 'ACTIVE' && roomItem.startedAt) {
+        if (
+          roomItem.status === 'ACTIVE' &&
+          roomItem.startedAt &&
+          !isUnlimitedRoomDuration(roomItem.durationMinutes, roomItem.unlimitedTime)
+        ) {
           const totalAllowed = roomItem.durationMinutes * 60 + (roomItem.extraSecondsAdded || 0);
           const elapsed = Math.floor((Date.now() - roomItem.startedAt) / 1000);
           const remaining = Math.max(0, totalAllowed - elapsed);
@@ -2170,6 +2489,7 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
             const finishedRoom: LiveExamRoomState = {
               ...roomItem,
               status: 'FINISHED',
+              manuallyFinished: true,
               updatedAt: Date.now()
             };
             persistHostRoom(finishedRoom);
@@ -2222,11 +2542,11 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   // ============================================================================
   // GERAÇÃO DE QUESTÕES DA ESPECIALIDADE (IA + REQUISITOS OFICIAIS)
   // ============================================================================
-  const handleSelectSpecialtyForExam = async (spec: Especialidade) => {
+  const handleSelectSpecialtyForExam = async (spec: Especialidade, customCountOverride?: number) => {
     setSelectedSpecialty(spec);
     setSpecialtyEditingQuestionIdx(null);
     setIsGeneratingSpecialtyQuestions(true);
-    const targetCount = specialtyQuestionCount;
+    const targetCount = Math.max(1, Math.min(100, Number(customCountOverride ?? specialtyQuestionCount) || 10));
 
     try {
       let reqs = spec.requisitos || [];
@@ -2316,7 +2636,7 @@ REGRAS OBRIGATÓRIAS:
         } catch {}
       }
 
-      if (Array.isArray(parsedQuestions) && parsedQuestions.length >= 3) {
+      if (Array.isArray(parsedQuestions) && parsedQuestions.length >= 1) {
         const formatted: LiveExamQuestion[] = parsedQuestions.slice(0, targetCount).map((q, idx) => {
           const rawOpts =
             Array.isArray(q.options) && q.options.length >= 4
@@ -2339,7 +2659,12 @@ REGRAS OBRIGATÓRIAS:
             explanation: String(q.explanation || '')
           };
         });
-        setSpecialtyQuestions(formatted);
+        if (formatted.length < targetCount) {
+          const topUp = buildFallbackSpecialtyQuestions(spec, reqs, targetCount).slice(formatted.length);
+          setSpecialtyQuestions([...formatted, ...topUp]);
+        } else {
+          setSpecialtyQuestions(formatted);
+        }
       } else {
         setSpecialtyQuestions(buildFallbackSpecialtyQuestions(spec, reqs, targetCount));
       }
@@ -2377,7 +2702,7 @@ REGRAS OBRIGATÓRIAS:
   };
 
   // Gera questões com IA a partir de um Tema Livre digitado pelo instrutor
-  const handleGenerateCustomThemeQuestions = async () => {
+  const handleGenerateCustomThemeQuestions = async (customCountOverride?: number | React.MouseEvent) => {
     const themeTitle = customExamTitle.trim();
     const extraDetails = customExamTopicDetails.trim();
     if (!themeTitle) {
@@ -2388,7 +2713,10 @@ REGRAS OBRIGATÓRIAS:
     setCustomThemeNotice(null);
     setCustomEditingQuestionIdx(null);
     setIsGeneratingCustomQuestions(true);
-    const targetCount = customQuestionCount;
+    const targetCount = Math.max(
+      1,
+      Math.min(100, (typeof customCountOverride === 'number' ? customCountOverride : customQuestionCount) || 10)
+    );
 
     try {
       const clubLabel = isPathfinder ? 'Clube de Desbravadores' : 'Clube de Aventureiros';
@@ -2486,7 +2814,28 @@ REGRAS OBRIGATÓRIAS:
             explanation: String(q.explanation || '')
           };
         });
-        setCustomQuestions(formatted);
+        if (formatted.length < targetCount) {
+          const extraFallback: LiveExamQuestion[] = Array.from({ length: targetCount - formatted.length }).map(
+            (_, i) => {
+              const idx = formatted.length + i;
+              return {
+                id: `theme_fb_extra_${Date.now()}_${idx}`,
+                question: `Questão ${idx + 1} sobre ${themeTitle}: complemente ou edite o enunciado se desejar.`,
+                options: [
+                  `Alternativa correta sobre ${themeTitle}`,
+                  'Segunda alternativa',
+                  'Terceira alternativa',
+                  'Quarta alternativa'
+                ],
+                correctIndex: 0,
+                explanation: ''
+              };
+            }
+          );
+          setCustomQuestions([...formatted, ...extraFallback]);
+        } else {
+          setCustomQuestions(formatted);
+        }
         setCustomEditingQuestionIdx(null);
       } else {
         const fallbackList: LiveExamQuestion[] = Array.from({ length: targetCount }).map((_, idx) => ({
@@ -2704,12 +3053,16 @@ REGRAS OBRIGATÓRIAS:
     return generated.slice(0, count);
   };
 
-  const handleSelectBookForExam = async (book: LiveExamBookItem, customFocusOverride?: string) => {
+  const handleSelectBookForExam = async (
+    book: LiveExamBookItem,
+    customFocusOverride?: string,
+    customCountOverride?: number
+  ) => {
     setSelectedBookForExam(book);
     setBookExamNotice(null);
     setBookEditingQuestionIdx(null);
     setIsGeneratingBookQuestions(true);
-    const targetCount = bookQuestionCount;
+    const targetCount = Math.max(1, Math.min(100, Number(customCountOverride ?? bookQuestionCount) || 10));
     const focusStr = (customFocusOverride !== undefined ? customFocusOverride : bookChapterFocus).trim();
 
     try {
@@ -2829,7 +3182,12 @@ REGRAS OBRIGATÓRIAS:
             explanation: String(q.explanation || '')
           };
         });
-        setBookQuestions(formatted);
+        if (formatted.length < targetCount) {
+          const topUp = buildFallbackBookQuestions(book, targetCount, focusStr).slice(formatted.length);
+          setBookQuestions([...formatted, ...topUp]);
+        } else {
+          setBookQuestions(formatted);
+        }
       } else {
         setBookQuestions(buildFallbackBookQuestions(book, targetCount, focusStr));
       }
@@ -2860,7 +3218,7 @@ REGRAS OBRIGATÓRIAS:
 
     if (examCreationMode === 'BOOKS' && selectedBookForExam) {
       specialtyId = selectedBookForExam.id;
-      roomTitle = `📚 ${selectedBookForExam.title}`;
+      roomTitle = selectedBookForExam.title;
       roomArea = `${selectedBookForExam.categoryLabel} • ${selectedBookForExam.badgeText}`;
       roomLogo = selectedBookForExam.cover || '';
       roomCode = 'LIVRO';
@@ -2872,8 +3230,29 @@ REGRAS OBRIGATÓRIAS:
       roomCode = selectedSpecialty.codigo || selectedSpecialty.sigla || `ESP-${selectedSpecialty.id}`;
     } else {
       roomTitle = customExamTitle.trim() || 'Prova Personalizada';
+      const normCustom = roomTitle
+        .replace(/^📚\s*/g, '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+      const matchedBook = booksCatalog.find(
+        (b) =>
+          b.title
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .trim() === normCustom
+      );
+      if (matchedBook) {
+        specialtyId = matchedBook.id;
+        roomArea = `${matchedBook.categoryLabel} • ${matchedBook.badgeText}`;
+        roomLogo = matchedBook.cover || '';
+        roomCode = 'LIVRO';
+      }
     }
 
+    const isUnlimited = isUnlimitedRoomDuration(durationMinutes);
     const newRoom: LiveExamRoomState = {
       pin,
       club,
@@ -2882,18 +3261,23 @@ REGRAS OBRIGATÓRIAS:
       specialtyArea: roomArea,
       specialtyLogo: roomLogo,
       specialtyCode: roomCode,
-      durationMinutes,
+      durationMinutes: isUnlimited ? UNLIMITED_DURATION_MINUTES : durationMinutes,
+      unlimitedTime: isUnlimited,
+      manuallyFinished: false,
       passingScorePercent,
       lockOnCheat,
       status: 'WAITING',
+      resultsReleased: false,
       startedAt: null,
       extraSecondsAdded: 0,
       questions,
       participants: {},
       alerts: [],
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
+      createdAt: Date.now()
     };
     persistHostRoom(newRoom, { selectRoom: true });
+    scrollToQrCodeSection();
   };
 
   // Comandos do Instrutor na Sala Ao Vivo
@@ -2910,6 +3294,7 @@ REGRAS OBRIGATÓRIAS:
     const updated: LiveExamRoomState = {
       ...activeRoom,
       status: 'ACTIVE',
+      manuallyFinished: false,
       startedAt: Date.now(),
       participants: updatedParticipants,
       updatedAt: Date.now()
@@ -2932,7 +3317,27 @@ REGRAS OBRIGATÓRIAS:
       updatedAt: Date.now()
     };
     persistHostRoom(updated);
-    hostChannelRef.current
+    (hostChannelsMapRef.current.get(activeRoom.pin) || hostChannelRef.current)
+      ?.send({
+        type: 'broadcast',
+        event: 'host:room_sync',
+        payload: { room: updated }
+      })
+      .catch(() => {});
+  };
+
+  const handleSetRoomUnlimitedTime = () => {
+    if (!activeRoom) return;
+    const updated: LiveExamRoomState = {
+      ...activeRoom,
+      durationMinutes: UNLIMITED_DURATION_MINUTES,
+      unlimitedTime: true,
+      manuallyFinished: false,
+      extraSecondsAdded: 0,
+      updatedAt: Date.now()
+    };
+    persistHostRoom(updated);
+    (hostChannelsMapRef.current.get(activeRoom.pin) || hostChannelRef.current)
       ?.send({
         type: 'broadcast',
         event: 'host:room_sync',
@@ -2946,6 +3351,7 @@ REGRAS OBRIGATÓRIAS:
     const updated: LiveExamRoomState = {
       ...activeRoom,
       status: 'FINISHED',
+      manuallyFinished: true,
       updatedAt: Date.now()
     };
     persistHostRoom(updated);
@@ -2958,15 +3364,60 @@ REGRAS OBRIGATÓRIAS:
       .catch(() => {});
   };
 
-  const handleReleaseResultsForAll = () => {
-    if (!activeRoom) return;
-    const totalQ = activeRoom.questions.length || 1;
+  const handleReleaseResultsForAll = (targetRoomOverride?: LiveExamRoomState) => {
+    const targetRoom =
+      targetRoomOverride && targetRoomOverride.pin ? targetRoomOverride : activeRoom;
+    if (!targetRoom) return;
+
+    // Se o resultado já havia sido enviado, alterna para RETIRAR RESULTADO (resultsReleased: false)
+    if (targetRoom.resultsReleased) {
+      const withdrawn: LiveExamRoomState = {
+        ...targetRoom,
+        status: 'FINISHED',
+        manuallyFinished: true,
+        resultsReleased: false,
+        updatedAt: Date.now()
+      };
+      persistHostRoom(withdrawn);
+      persistAppliedExamsList(
+        [
+          withdrawn,
+          ...appliedExamsHistoryRef.current.filter((r) => String(r.pin) !== String(withdrawn.pin))
+        ],
+        true
+      );
+      if (selectedAppliedExam?.pin === withdrawn.pin) {
+        setSelectedAppliedExam(withdrawn);
+      }
+      const ch = hostChannelsMapRef.current.get(withdrawn.pin) || hostChannelRef.current;
+      ch?.send({
+        type: 'broadcast',
+        event: 'host:room_sync',
+        payload: { room: withdrawn }
+      }).catch(() => {});
+      ch?.send({
+        type: 'broadcast',
+        event: 'host:release_results',
+        payload: {
+          pin: withdrawn.pin,
+          resultsReleased: false,
+          room: withdrawn,
+          participants: withdrawn.participants
+        }
+      }).catch(() => {});
+
+      setReleaseFeedbackMsg('🔒 Resultado retirado dos aparelhos dos alunos.');
+      setTimeout(() => setReleaseFeedbackMsg(null), 5000);
+      return;
+    }
+
+    const totalQ = targetRoom.questions.length || 1;
     const finalizedParticipants: Record<string, LiveExamParticipant> = {};
-    Object.values(activeRoom.participants || {}).forEach((p) => {
+    Object.values(targetRoom.participants || {}).forEach((p) => {
       const ans = p.answers || {};
       let correct = 0;
       Object.entries(ans).forEach(([qIdxStr, chosenOpt]) => {
-        const qItem = activeRoom.questions[Number(qIdxStr)];
+        const qItem = targetRoom.questions[Number(qIdxStr)];
         if (qItem && qItem.correctIndex === Number(chosenOpt)) {
           correct += 1;
         }
@@ -2991,14 +3442,25 @@ REGRAS OBRIGATÓRIAS:
     });
 
     const updated: LiveExamRoomState = {
-      ...activeRoom,
+      ...targetRoom,
       status: 'FINISHED',
+      manuallyFinished: true,
       resultsReleased: true,
       participants: finalizedParticipants,
       updatedAt: Date.now()
     };
     persistHostRoom(updated);
-    const ch = hostChannelsMapRef.current.get(activeRoom.pin) || hostChannelRef.current;
+    persistAppliedExamsList(
+      [
+        updated,
+        ...appliedExamsHistoryRef.current.filter((r) => String(r.pin) !== String(updated.pin))
+      ],
+      true
+    );
+    if (selectedAppliedExam?.pin === updated.pin) {
+      setSelectedAppliedExam(updated);
+    }
+    const ch = hostChannelsMapRef.current.get(updated.pin) || hostChannelRef.current;
     ch?.send({
       type: 'broadcast',
       event: 'host:room_sync',
@@ -3008,7 +3470,7 @@ REGRAS OBRIGATÓRIAS:
       type: 'broadcast',
       event: 'host:release_results',
       payload: {
-        pin: activeRoom.pin,
+        pin: updated.pin,
         resultsReleased: true,
         room: updated,
         participants: finalizedParticipants
@@ -3231,7 +3693,22 @@ REGRAS OBRIGATÓRIAS:
         }
         if (!cloudRoom || !cloudRoom.pin) return;
 
+        const isCloudUnlimited = isUnlimitedRoomDuration(
+          cloudRoom.durationMinutes ?? fallbackRoom?.durationMinutes,
+          cloudRoom.unlimitedTime ?? fallbackRoom?.unlimitedTime
+        );
+        if (isCloudUnlimited) {
+          cloudRoom.durationMinutes = UNLIMITED_DURATION_MINUTES;
+          cloudRoom.unlimitedTime = true;
+          if (cloudRoom.status === 'FINISHED' && !cloudRoom.manuallyFinished && !cloudRoom.resultsReleased) {
+            cloudRoom.status = cloudRoom.startedAt ? 'ACTIVE' : 'WAITING';
+          }
+        }
+
         const prevP = cloudRoom.participants?.[participant.id];
+        if (cloudRoom.status === 'FINISHED' && !prevP) {
+          return;
+        }
         const maxCheat = Math.max(Number(prevP?.cheatCount || 0), Number(participant.cheatCount || 0));
         const maxUnlocked = Math.max(
           Number(prevP?.unlockedCheatCount || 0),
@@ -3336,7 +3813,21 @@ REGRAS OBRIGATÓRIAS:
     }
 
     setStudentError(null);
+    setStudentExamAlreadyClosed(false);
+    studentExamAlreadyClosedRef.current = false;
     setIsConnectingRoom(true);
+    setStudentCurrentQ(0);
+    setStudentAnswers({});
+    setStudentFinalTimeSpentSec(0);
+    setStudentCheatCount(0);
+    studentCheatCountRef.current = 0;
+    studentUnlockedCheatCountRef.current = 0;
+    studentLockedRef.current = false;
+    setStudentLocked(false);
+    setStudentWarningModal(null);
+    studentPendingAlertsRef.current = [];
+    studentGraceUntilRef.current = Date.now() + 3500;
+    isStudentAwayRef.current = false;
 
     try {
       localStorage.setItem('dbv_exam_student_name', studentName.trim());
@@ -3350,7 +3841,7 @@ REGRAS OBRIGATÓRIAS:
     // 1. Tenta buscar estado imediato no servidor (/api/live-exam), nuvem Supabase (sem cache) ou localStorage
     try {
       const [apiRoom, cloudRoom] = await Promise.all([
-        fetch(`/api/live-exam?pin=${cleanPin}`)
+        fetch(`/api/live-exam?pin=${cleanPin}&t=${Date.now()}`, { cache: 'no-store' })
           .then((res) => (res.ok ? res.json() : null))
           .then((data) => (data?.room && String(data.room.pin) === cleanPin ? (data.room as LiveExamRoomState) : null))
           .catch(() => null),
@@ -3384,6 +3875,63 @@ REGRAS OBRIGATÓRIAS:
           }
         }
       } catch {}
+    }
+
+    if (resolvedRoom) {
+      const isResUnlimited = isUnlimitedRoomDuration(
+        resolvedRoom.durationMinutes,
+        resolvedRoom.unlimitedTime
+      );
+      if (isResUnlimited) {
+        resolvedRoom = {
+          ...resolvedRoom,
+          durationMinutes: UNLIMITED_DURATION_MINUTES,
+          unlimitedTime: true,
+          status:
+            resolvedRoom.status === 'FINISHED' &&
+            !resolvedRoom.manuallyFinished &&
+            !resolvedRoom.resultsReleased
+              ? resolvedRoom.startedAt
+                ? 'ACTIVE'
+                : 'WAITING'
+              : resolvedRoom.status
+        };
+      }
+
+      // Se a prova já foi encerrada, verifica se este aluno já havia respondido a prova antes.
+      // Caso NÃO tenha participado/respondido, mostra a tela de "Prova Encerrada" e NÃO adiciona seu nome à lista de participantes.
+      if (resolvedRoom.status === 'FINISHED') {
+        const existingMe =
+          resolvedRoom.participants?.[studentId] ||
+          Object.values(resolvedRoom.participants || {}).find(
+            (p) => p.name?.trim().toLowerCase() === studentName.trim().toLowerCase()
+          );
+        const hasParticipatedWithAnswers = Boolean(
+          existingMe &&
+            (Number(existingMe.answeredCount || 0) > 0 ||
+              Object.keys(existingMe.answers || {}).length > 0)
+        );
+
+        if (!hasParticipatedWithAnswers) {
+          setStudentExamAlreadyClosed(true);
+          studentExamAlreadyClosedRef.current = true;
+          setStudentRoom(resolvedRoom);
+          setIsConnectingRoom(false);
+          setStudentPhase('FINISHED');
+          return;
+        }
+
+        if (existingMe?.answers && Object.keys(existingMe.answers).length > 0) {
+          setStudentAnswers(existingMe.answers);
+        }
+        if (existingMe?.timeSpentSeconds && existingMe.timeSpentSeconds > 0) {
+          setStudentFinalTimeSpentSec(existingMe.timeSpentSeconds);
+        }
+        setStudentRoom(resolvedRoom);
+        setIsConnectingRoom(false);
+        setStudentPhase('FINISHED');
+        return;
+      }
     }
 
     const initialParticipant: LiveExamParticipant = {
@@ -3451,7 +3999,26 @@ REGRAS OBRIGATÓRIAS:
     channel
       .on('broadcast', { event: 'host:room_sync' }, ({ payload }) => {
         if (!payload?.room) return;
-        const incomingRoom: LiveExamRoomState = payload.room;
+        const rawIncoming: LiveExamRoomState = payload.room;
+        const isIncUnlimited = isUnlimitedRoomDuration(
+          rawIncoming.durationMinutes,
+          rawIncoming.unlimitedTime
+        );
+        const safeIncomingStatus: LiveExamRoomState['status'] =
+          isIncUnlimited &&
+          rawIncoming.status === 'FINISHED' &&
+          !rawIncoming.manuallyFinished &&
+          !rawIncoming.resultsReleased
+            ? rawIncoming.startedAt
+              ? 'ACTIVE'
+              : 'WAITING'
+            : rawIncoming.status;
+        const incomingRoom: LiveExamRoomState = {
+          ...rawIncoming,
+          durationMinutes: isIncUnlimited ? UNLIMITED_DURATION_MINUTES : rawIncoming.durationMinutes,
+          unlimitedTime: isIncUnlimited,
+          status: safeIncomingStatus
+        };
         didResolveFromHost = true;
         setStudentRoom(incomingRoom);
         setIsConnectingRoom(false);
@@ -3461,6 +4028,26 @@ REGRAS OBRIGATÓRIAS:
           Object.values(incomingRoom.participants || {}).find(
             (p) => p.name?.trim().toLowerCase() === studentName.trim().toLowerCase()
           );
+
+        const isRoomClosedForNewStudent =
+          ((incomingRoom.status === 'FINISHED' &&
+            (!isIncUnlimited || incomingRoom.manuallyFinished || incomingRoom.resultsReleased)) ||
+            incomingRoom.resultsReleased) &&
+          (!myRecord ||
+            (Number(myRecord.answeredCount || 0) === 0 &&
+              Object.keys(myRecord.answers || {}).length === 0)) &&
+          Object.keys(studentAnswers).length === 0 &&
+          !studentStartTime;
+
+        if (isRoomClosedForNewStudent) {
+          setStudentExamAlreadyClosed(true);
+          studentExamAlreadyClosedRef.current = true;
+          setStudentRoom(incomingRoom);
+          setIsConnectingRoom(false);
+          setStudentPhase('FINISHED');
+          return;
+        }
+
         if (myRecord) {
           const recCheat = Number(myRecord.cheatCount || 0);
           const recUnlocked = Number(myRecord.unlockedCheatCount || 0);
@@ -3509,7 +4096,11 @@ REGRAS OBRIGATÓRIAS:
         if (incomingRoom.status === 'ACTIVE' && !incomingRoom.resultsReleased) {
           setStudentPhase((prev) => (prev === 'FINISHED' ? 'FINISHED' : 'PLAYING'));
           setStudentStartTime((prev) => prev || Date.now());
-        } else if (incomingRoom.status === 'FINISHED' || incomingRoom.resultsReleased) {
+        } else if (
+          (incomingRoom.status === 'FINISHED' &&
+            (!isIncUnlimited || incomingRoom.manuallyFinished || incomingRoom.resultsReleased)) ||
+          incomingRoom.resultsReleased
+        ) {
           setStudentFinalTimeSpentSec((prev) => {
             if (prev > 0) return prev;
             const recSpent = myRecord?.timeSpentSeconds;
@@ -3524,9 +4115,13 @@ REGRAS OBRIGATÓRIAS:
       })
       .on('broadcast', { event: 'host:release_results' }, ({ payload }) => {
         if (!payload?.room) return;
+        const releasedFlag =
+          payload.resultsReleased !== undefined
+            ? Boolean(payload.resultsReleased)
+            : Boolean(payload.room.resultsReleased ?? true);
         const incomingRoom: LiveExamRoomState = {
           ...payload.room,
-          resultsReleased: true
+          resultsReleased: releasedFlag
         };
         didResolveFromHost = true;
         setStudentRoom(incomingRoom);
@@ -3546,11 +4141,13 @@ REGRAS OBRIGATÓRIAS:
           setStudentFinalTimeSpentSec((prev) => prev || myRecord.timeSpentSeconds || 1);
         }
         setStudentPhase('FINISHED');
-        try {
-          if (typeof navigator !== 'undefined' && navigator.vibrate) {
-            navigator.vibrate([80, 50, 140]);
-          }
-        } catch {}
+        if (releasedFlag) {
+          try {
+            if (typeof navigator !== 'undefined' && navigator.vibrate) {
+              navigator.vibrate([80, 50, 140]);
+            }
+          } catch {}
+        }
       })
       .on('broadcast', { event: 'host:unlock_student' }, ({ payload }) => {
         if (payload?.studentId === studentId) {
@@ -3616,7 +4213,13 @@ REGRAS OBRIGATÓRIAS:
 
   // Polling complementar do Aluno para sincronizar status da sala / desbloqueio do instrutor + Heartbeat de presença
   useEffect(() => {
-    if (roleMode !== 'STUDENT' || studentPhase === 'ENTER_PIN' || !studentRoom?.pin) return;
+    if (
+      roleMode !== 'STUDENT' ||
+      studentPhase === 'ENTER_PIN' ||
+      studentExamAlreadyClosed ||
+      !studentRoom?.pin
+    )
+      return;
     const pin = studentRoom.pin;
 
     const interval = setInterval(async () => {
@@ -3640,15 +4243,52 @@ REGRAS OBRIGATÓRIAS:
             : cloudRoom || apiRoom;
 
         if (baseSrv) {
-          const mergedStatus: LiveExamRoomState['status'] =
+          const isCloudNewer = Number(cloudRoom?.updatedAt || 0) >= Number(apiRoom?.updatedAt || 0);
+          const localRoomUpdated = Number(studentRoomRef.current?.updatedAt || 0);
+          const bestSrvUpdated = Math.max(
+            Number(cloudRoom?.updatedAt || 0),
+            Number(apiRoom?.updatedAt || 0),
+            Number(baseSrv.updatedAt || 0)
+          );
+          const mergedResultsReleased =
+            localRoomUpdated > bestSrvUpdated && typeof studentRoomRef.current?.resultsReleased === 'boolean'
+              ? studentRoomRef.current.resultsReleased
+              : isCloudNewer
+              ? Boolean(cloudRoom?.resultsReleased ?? apiRoom?.resultsReleased ?? baseSrv.resultsReleased)
+              : Boolean(apiRoom?.resultsReleased ?? cloudRoom?.resultsReleased ?? baseSrv.resultsReleased);
+          const isSrvUnlimited = isUnlimitedRoomDuration(
+            baseSrv.durationMinutes ??
+              cloudRoom?.durationMinutes ??
+              apiRoom?.durationMinutes ??
+              studentRoomRef.current?.durationMinutes,
+            baseSrv.unlimitedTime ??
+              cloudRoom?.unlimitedTime ??
+              apiRoom?.unlimitedTime ??
+              studentRoomRef.current?.unlimitedTime
+          );
+          const isSrvManuallyFinished = Boolean(
+            cloudRoom?.manuallyFinished ||
+              apiRoom?.manuallyFinished ||
+              baseSrv.manuallyFinished ||
+              mergedResultsReleased
+          );
+          let mergedStatus: LiveExamRoomState['status'] =
             cloudRoom?.status === 'FINISHED' || apiRoom?.status === 'FINISHED' || baseSrv.status === 'FINISHED'
               ? 'FINISHED'
               : cloudRoom?.status === 'ACTIVE' || apiRoom?.status === 'ACTIVE' || baseSrv.status === 'ACTIVE'
               ? 'ACTIVE'
               : 'WAITING';
-          const mergedResultsReleased = Boolean(
-            cloudRoom?.resultsReleased || apiRoom?.resultsReleased || baseSrv.resultsReleased
-          );
+          if (isSrvUnlimited && mergedStatus === 'FINISHED' && !isSrvManuallyFinished) {
+            mergedStatus =
+              cloudRoom?.status === 'ACTIVE' ||
+              apiRoom?.status === 'ACTIVE' ||
+              baseSrv.status === 'ACTIVE' ||
+              cloudRoom?.startedAt ||
+              apiRoom?.startedAt ||
+              baseSrv.startedAt
+                ? 'ACTIVE'
+                : 'WAITING';
+          }
           const mergedExtraSeconds = Math.max(
             cloudRoom?.extraSecondsAdded || 0,
             apiRoom?.extraSecondsAdded || 0,
@@ -3699,16 +4339,16 @@ REGRAS OBRIGATÓRIAS:
 
           const srv: LiveExamRoomState = {
             ...baseSrv,
+            durationMinutes: isSrvUnlimited ? UNLIMITED_DURATION_MINUTES : baseSrv.durationMinutes,
+            unlimitedTime: isSrvUnlimited,
+            manuallyFinished: isSrvManuallyFinished,
             status: mergedStatus,
             resultsReleased: mergedResultsReleased,
             extraSecondsAdded: mergedExtraSeconds,
             participants: mergedParticipants
           };
 
-          setStudentRoom((prev) => ({
-            ...srv,
-            resultsReleased: Boolean(srv.resultsReleased || prev?.resultsReleased)
-          }));
+          setStudentRoom(srv);
 
           const me =
             srv.participants?.[studentId] ||
@@ -3851,7 +4491,11 @@ REGRAS OBRIGATÓRIAS:
             isStudentAwayRef.current = false;
             setStudentPhase('PLAYING');
             setStudentStartTime((prev) => prev || Date.now());
-          } else if ((srv.status === 'FINISHED' || srv.resultsReleased) && studentPhase !== 'FINISHED') {
+          } else if (
+            ((srv.status === 'FINISHED' && (!isSrvUnlimited || isSrvManuallyFinished)) ||
+              srv.resultsReleased) &&
+            studentPhase !== 'FINISHED'
+          ) {
             setStudentFinalTimeSpentSec((prev) => {
               if (prev > 0) return prev;
               const recSpent = me?.timeSpentSeconds;
@@ -4366,16 +5010,37 @@ REGRAS OBRIGATÓRIAS:
 
           const newer = (rm.updatedAt || 0) >= (prev.updatedAt || 0) ? rm : prev;
           const older = newer === rm ? prev : rm;
+          const nextResultsReleased =
+            newer.resultsReleased !== undefined
+              ? Boolean(newer.resultsReleased)
+              : Boolean(older.resultsReleased);
+          const isUnlimited = isUnlimitedRoomDuration(
+            newer.durationMinutes ?? older.durationMinutes,
+            newer.unlimitedTime ?? older.unlimitedTime
+          );
+          const manuallyFinished = Boolean(
+            prev.manuallyFinished || rm.manuallyFinished || nextResultsReleased
+          );
+          let nextStatus: LiveExamRoomState['status'] =
+            prev.status === 'FINISHED' || rm.status === 'FINISHED'
+              ? 'FINISHED'
+              : prev.status === 'ACTIVE' || rm.status === 'ACTIVE'
+              ? 'ACTIVE'
+              : newer.status || 'WAITING';
+          if (isUnlimited && nextStatus === 'FINISHED' && !manuallyFinished) {
+            nextStatus =
+              prev.status === 'ACTIVE' || rm.status === 'ACTIVE' || prev.startedAt || rm.startedAt
+                ? 'ACTIVE'
+                : 'WAITING';
+          }
           byPin.set(pinKey, {
             ...older,
             ...newer,
-            status:
-              prev.status === 'FINISHED' || rm.status === 'FINISHED'
-                ? 'FINISHED'
-                : prev.status === 'ACTIVE' || rm.status === 'ACTIVE'
-                ? 'ACTIVE'
-                : newer.status || 'WAITING',
-            resultsReleased: Boolean(prev.resultsReleased || rm.resultsReleased),
+            durationMinutes: isUnlimited ? UNLIMITED_DURATION_MINUTES : newer.durationMinutes ?? older.durationMinutes,
+            unlimitedTime: isUnlimited,
+            manuallyFinished,
+            status: nextStatus,
+            resultsReleased: nextResultsReleased,
             questions:
               newer.questions && newer.questions.length > 0
                 ? newer.questions
@@ -4481,9 +5146,12 @@ REGRAS OBRIGATÓRIAS:
         if (!prev) {
           byPin.set(String(item.pin), item);
         } else {
-          const mergedReleased = Boolean(prev.resultsReleased || item.resultsReleased);
           const newer = (item.completedAt || 0) >= (prev.completedAt || 0) ? item : prev;
           const older = newer === item ? prev : item;
+          const mergedReleased =
+            newer.resultsReleased !== undefined
+              ? Boolean(newer.resultsReleased)
+              : Boolean(older.resultsReleased);
           byPin.set(String(item.pin), {
             ...older,
             ...newer,
@@ -4615,12 +5283,10 @@ REGRAS OBRIGATÓRIAS:
       setConfirmDeleteAppliedPin(null);
       if (selectedAppliedExam?.pin === cleanPin) {
         setSelectedAppliedExam(null);
-      }
-      if (inspectingAppliedStudent?.room.pin === cleanPin) {
         setInspectingAppliedStudent(null);
       }
     },
-    [persistAppliedExamsList, persistHostRoom, selectedAppliedExam, inspectingAppliedStudent]
+    [persistAppliedExamsList, persistHostRoom, selectedAppliedExam]
   );
 
   // Exclui um item de "Meu Histórico de Provas Feitas"
@@ -4788,7 +5454,7 @@ REGRAS OBRIGATÓRIAS:
         persistStudentHistoryList(mergedInitial, shouldPushSync);
       }
 
-      // Verifica se alguma prova do histórico pessoal que estava aguardando liberação já teve o resultado liberado
+      // Verifica se alguma prova do histórico pessoal teve o resultado liberado ou retirado pelo instrutor
       const byPinMap = new Map<string, LiveExamStudentHistoryEntry>();
       mergedInitial.forEach((e) => {
         if (!e?.pin || deletedStudentHistoryPinsRef.current.has(String(e.pin))) return;
@@ -4803,13 +5469,13 @@ REGRAS OBRIGATÓRIAS:
           byPinMap.set(String(e.pin), e);
         }
       });
-      const pendingEntries = Array.from(byPinMap.values()).filter((e) => !e.resultsReleased);
-      if (pendingEntries.length === 0) return;
+      const entriesToCheck = Array.from(byPinMap.values());
+      if (entriesToCheck.length === 0) return;
 
       let updatedAny = false;
       const updatedList = Array.from(byPinMap.values());
 
-      for (const pending of pendingEntries) {
+      for (const pending of entriesToCheck) {
         try {
           const [apiRoom, cloudRoom] = await Promise.all([
             fetch(`/api/live-exam?pin=${pending.pin}&t=${Date.now()}`, { cache: 'no-store' })
@@ -4818,32 +5484,40 @@ REGRAS OBRIGATÓRIAS:
               .catch(() => null),
             downloadCloudExamJson<LiveExamRoomState>(`provas/room_${pending.pin}.json`)
           ]);
-          const roomData = apiRoom || cloudRoom;
-          const released = Boolean(apiRoom?.resultsReleased || cloudRoom?.resultsReleased);
-          if (roomData && released) {
-            updatedAny = true;
-            const idx = updatedList.findIndex((item) => String(item.pin) === String(pending.pin));
-            if (idx >= 0) {
-              const myP =
-                roomData.participants?.[studentId] ||
-                Object.values(roomData.participants || {}).find(
-                  (p) =>
-                    p.name?.trim().toLowerCase() ===
-                    (pending.studentName || studentName || '').trim().toLowerCase()
-                );
-              updatedList[idx] = {
-                ...updatedList[idx],
-                resultsReleased: true,
-                grade10: myP?.grade10 ?? updatedList[idx].grade10,
-                scorePercent: myP?.scorePercent ?? updatedList[idx].scorePercent,
-                correctCount: myP?.correctCount ?? updatedList[idx].correctCount,
-                cheatCount: Math.max(updatedList[idx].cheatCount || 0, Number(myP?.cheatCount || 0)),
-                questions: roomData.questions || updatedList[idx].questions,
-                answers:
-                  myP?.answers && Object.keys(myP.answers).length > 0
-                    ? myP.answers
-                    : updatedList[idx].answers
-              };
+          const roomData =
+            apiRoom && cloudRoom
+              ? (cloudRoom.updatedAt || 0) >= (apiRoom.updatedAt || 0)
+                ? cloudRoom
+                : apiRoom
+              : cloudRoom || apiRoom;
+          if (roomData) {
+            const released = Boolean(roomData.resultsReleased);
+            if (released !== Boolean(pending.resultsReleased)) {
+              updatedAny = true;
+              const idx = updatedList.findIndex((item) => String(item.pin) === String(pending.pin));
+              if (idx >= 0) {
+                const myP =
+                  roomData.participants?.[studentId] ||
+                  Object.values(roomData.participants || {}).find(
+                    (p) =>
+                      p.name?.trim().toLowerCase() ===
+                      (pending.studentName || studentName || '').trim().toLowerCase()
+                  );
+                updatedList[idx] = {
+                  ...updatedList[idx],
+                  resultsReleased: released,
+                  completedAt: Date.now(),
+                  grade10: myP?.grade10 ?? updatedList[idx].grade10,
+                  scorePercent: myP?.scorePercent ?? updatedList[idx].scorePercent,
+                  correctCount: myP?.correctCount ?? updatedList[idx].correctCount,
+                  cheatCount: Math.max(updatedList[idx].cheatCount || 0, Number(myP?.cheatCount || 0)),
+                  questions: roomData.questions || updatedList[idx].questions,
+                  answers:
+                    myP?.answers && Object.keys(myP.answers).length > 0
+                      ? myP.answers
+                      : updatedList[idx].answers
+                };
+              }
             }
           }
         } catch {}
@@ -4877,7 +5551,13 @@ REGRAS OBRIGATÓRIAS:
 
   // Salva/atualiza automaticamente a prova no histórico do usuário logado quando a prova é finalizada ou quando o instrutor libera o resultado
   useEffect(() => {
-    if (!isLoggedInUser || studentPhase !== 'FINISHED' || !studentRoom?.pin) return;
+    if (
+      !isLoggedInUser ||
+      studentPhase !== 'FINISHED' ||
+      studentExamAlreadyClosed ||
+      !studentRoom?.pin
+    )
+      return;
 
     const mySrvRecord =
       studentRoom.participants?.[studentId] ||
@@ -4964,9 +5644,14 @@ REGRAS OBRIGATÓRIAS:
           .catch(() => null),
         downloadCloudExamJson<LiveExamRoomState>(`provas/room_${entry.pin}.json`)
       ]);
-      const roomData = apiRoom || cloudRoom;
-      const released = Boolean(apiRoom?.resultsReleased || cloudRoom?.resultsReleased);
-      if (roomData && released) {
+      const roomData =
+        apiRoom && cloudRoom
+          ? (cloudRoom.updatedAt || 0) >= (apiRoom.updatedAt || 0)
+            ? cloudRoom
+            : apiRoom
+          : cloudRoom || apiRoom;
+      if (roomData) {
+        const released = Boolean(roomData.resultsReleased);
         const myP =
           roomData.participants?.[studentId] ||
           Object.values(roomData.participants || {}).find(
@@ -4975,7 +5660,8 @@ REGRAS OBRIGATÓRIAS:
           );
         const updatedEntry: LiveExamStudentHistoryEntry = {
           ...entry,
-          resultsReleased: true,
+          resultsReleased: released,
+          completedAt: Date.now(),
           grade10: myP?.grade10 ?? entry.grade10,
           scorePercent: myP?.scorePercent ?? entry.scorePercent,
           correctCount: myP?.correctCount ?? entry.correctCount,
@@ -4994,9 +5680,13 @@ REGRAS OBRIGATÓRIAS:
     if (roleMode !== 'STUDENT' || studentPhase !== 'PLAYING' || !studentRoom) return;
 
     const updateStudentTimer = () => {
-      const totalAllowed = studentRoom.durationMinutes * 60 + (studentRoom.extraSecondsAdded || 0);
       const baseStart = studentRoom.startedAt || studentStartTime || Date.now();
-      const elapsed = Math.floor((Date.now() - baseStart) / 1000);
+      const elapsed = Math.max(0, Math.floor((Date.now() - baseStart) / 1000));
+      if (isUnlimitedRoomDuration(studentRoom.durationMinutes, studentRoom.unlimitedTime)) {
+        setStudentRemainingSeconds(elapsed);
+        return;
+      }
+      const totalAllowed = studentRoom.durationMinutes * 60 + (studentRoom.extraSecondsAdded || 0);
       const remaining = Math.max(0, totalAllowed - elapsed);
       setStudentRemainingSeconds(remaining);
 
@@ -5062,6 +5752,127 @@ REGRAS OBRIGATÓRIAS:
     return `${mins} min e ${String(secs).padStart(2, '0')} seg`;
   };
 
+  const normalizeTextForEvalType = useCallback((val?: string | null) => {
+    return String(val || '')
+      .replace(/^📚\s*/g, '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }, []);
+
+  const findMatchingBookForRoom = useCallback(
+    (room?: Partial<LiveExamRoomState | LiveExamStudentHistoryEntry> | null): LiveExamBookItem | null => {
+      if (!room || booksCatalog.length === 0) return null;
+      const normTitle = normalizeTextForEvalType(room.specialtyName);
+      if (!normTitle) return null;
+
+      const exact = booksCatalog.find((b) => normalizeTextForEvalType(b.title) === normTitle);
+      if (exact) return exact;
+
+      if (normTitle.length >= 6) {
+        const cleanWithoutLivroPrefix = normTitle.replace(/^(livro|leitura)\s+(do|da|de|dos|das)?\s*/, '').trim();
+        const sub = booksCatalog.find((b) => {
+          const bNorm = normalizeTextForEvalType(b.title);
+          if (bNorm.length < 5) return false;
+          return (
+            bNorm === cleanWithoutLivroPrefix ||
+            bNorm.includes(normTitle) ||
+            normTitle.includes(bNorm) ||
+            (cleanWithoutLivroPrefix.length >= 6 &&
+              (bNorm.includes(cleanWithoutLivroPrefix) || cleanWithoutLivroPrefix.includes(bNorm)))
+          );
+        });
+        if (sub) return sub;
+      }
+      return null;
+    },
+    [booksCatalog, normalizeTextForEvalType]
+  );
+
+  const getRoomEvaluationType = useCallback(
+    (
+      room?: Partial<LiveExamRoomState | LiveExamStudentHistoryEntry> | null
+    ): 'BOOK' | 'SPECIALTY' | 'CUSTOM' => {
+      if (!room) return 'SPECIALTY';
+
+      const code = String(room.specialtyCode || '').trim().toUpperCase();
+      const rawName = String(room.specialtyName || '').trim();
+      const normName = normalizeTextForEvalType(rawName);
+      const normArea = normalizeTextForEvalType(room.specialtyArea);
+      const qList = Array.isArray(room.questions) ? room.questions : [];
+
+      if (
+        code === 'LIVRO' ||
+        rawName.includes('📚') ||
+        /^livro(\s|$)/i.test(normName) ||
+        normArea.includes('livro') ||
+        normArea.includes('biblioteca') ||
+        qList.some((q) => String(q?.id || '').startsWith('book_q_') || String(q?.id || '').startsWith('q_book_'))
+      ) {
+        return 'BOOK';
+      }
+
+      if (findMatchingBookForRoom(room)) {
+        return 'BOOK';
+      }
+
+      if (
+        qList.length > 0 &&
+        qList.some((q) =>
+          /\b(o livro|do livro|no livro|deste livro|leitura do livro|obra literaria)\b/i.test(
+            String(q?.question || '')
+          )
+        )
+      ) {
+        return 'BOOK';
+      }
+
+      if (catalog.length > 0 && normName) {
+        const matchesSpec = catalog.some((s) => normalizeTextForEvalType(s.nome) === normName);
+        if (matchesSpec) return 'SPECIALTY';
+      }
+
+      if (
+        code === 'PROVA' ||
+        normArea === 'prova personalizada' ||
+        qList.some((q) => String(q?.id || '').startsWith('theme_') || String(q?.id || '').startsWith('manual_q_'))
+      ) {
+        return 'CUSTOM';
+      }
+
+      return 'SPECIALTY';
+    },
+    [catalog, findMatchingBookForRoom, normalizeTextForEvalType]
+  );
+
+  const getRoomEvaluationHeaderLabel = useCallback(
+    (room?: Partial<LiveExamRoomState | LiveExamStudentHistoryEntry> | null): string => {
+      const evalType = getRoomEvaluationType(room);
+      if (evalType === 'BOOK') return 'LIVRO EM AVALIAÇÃO';
+      if (evalType === 'CUSTOM') return 'TEMA EM AVALIAÇÃO';
+      return 'ESPECIALIDADE EM AVALIAÇÃO';
+    },
+    [getRoomEvaluationType]
+  );
+
+  const getRoomResolvedLogo = useCallback(
+    (room?: Partial<LiveExamRoomState | LiveExamStudentHistoryEntry> | null): string => {
+      if (!room) return '';
+      if (room.specialtyLogo && String(room.specialtyLogo).trim()) {
+        return String(room.specialtyLogo).trim();
+      }
+      const matchedBook = findMatchingBookForRoom(room);
+      if (matchedBook?.cover) {
+        return matchedBook.cover;
+      }
+      return '';
+    },
+    [findMatchingBookForRoom]
+  );
+
   const handleCloseProjectionWindow = useCallback(() => {
     try {
       if (projectorWindowRef.current && !projectorWindowRef.current.closed) {
@@ -5106,6 +5917,10 @@ REGRAS OBRIGATÓRIAS:
     setIsSecondScreenActive(true);
 
     const pList = Object.values(activeRoom.participants || {}) as LiveExamParticipant[];
+    const evalType = getRoomEvaluationType(activeRoom);
+    const evalHeaderLabel = getRoomEvaluationHeaderLabel(activeRoom);
+    const resolvedRoomLogo = getRoomResolvedLogo(activeRoom);
+    const cleanRoomTitle = activeRoom.specialtyName.replace(/^📚\s*/, '');
     const statusLabel =
       activeRoom.status === 'ACTIVE'
         ? '🟢 PROVA EM ANDAMENTO'
@@ -5170,12 +5985,14 @@ REGRAS OBRIGATÓRIAS:
       background: #4f46e5;
       color: #ffffff;
       border: 1px solid rgba(255,255,255,0.2);
-      padding: 10px 20px;
-      border-radius: 14px;
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
       font-weight: 900;
-      font-size: 13px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
+      font-size: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       cursor: pointer;
       box-shadow: 0 10px 25px rgba(79, 70, 229, 0.35);
     }
@@ -5355,6 +6172,14 @@ REGRAS OBRIGATÓRIAS:
       color: #f87171;
       text-shadow: 0 0 40px rgba(248, 113, 113, 0.45);
     }
+    .stat-card.timer-featured .timer-value.timer-finished-text,
+    .timer-value.timer-finished-text {
+      font-size: clamp(32px, 5.2vw, 76px);
+      line-height: 1.08;
+      letter-spacing: 0.05em;
+      color: #f87171;
+      text-shadow: 0 0 36px rgba(248, 113, 113, 0.45);
+    }
     .status-banner {
       background: rgba(16, 185, 129, 0.14);
       border: 1px solid rgba(16, 185, 129, 0.35);
@@ -5461,8 +6286,8 @@ REGRAS OBRIGATÓRIAS:
   <div class="top-bar">
     <div class="badge">PROVA EM ANDAMENTO</div>
     <div class="top-actions">
-      <button class="fs-btn" onclick="if(!document.fullscreenElement){document.documentElement.requestFullscreen().catch(()=>{});}else{document.exitFullscreen().catch(()=>{});}">
-        ⛶ Tela Cheia (F11)
+      <button class="fs-btn" title="Tela Cheia (F11)" aria-label="Tela Cheia (F11)" onclick="if(!document.fullscreenElement){document.documentElement.requestFullscreen().catch(()=>{});}else{document.exitFullscreen().catch(()=>{});}">
+        ⛶
       </button>
     </div>
   </div>
@@ -5479,10 +6304,10 @@ REGRAS OBRIGATÓRIAS:
     </div>
     <div class="info-column">
       <div class="spec-header">
-        ${activeRoom.specialtyLogo ? `<img id="telao-v3-logo" src="${activeRoom.specialtyLogo}" referrerpolicy="no-referrer" />` : ''}
+        ${resolvedRoomLogo ? `<img id="telao-v3-logo" src="${resolvedRoomLogo}" referrerpolicy="no-referrer" />` : ''}
         <div>
-          <span class="stat-label" style="color:#818cf8;">ESPECIALIDADE EM AVALIAÇÃO</span>
-          <h1 id="telao-v3-title" class="spec-title">${activeRoom.specialtyName}</h1>
+          <span id="telao-v3-eval-type" class="stat-label" style="color:${evalType === 'BOOK' ? '#fbbf24' : evalType === 'CUSTOM' ? '#c084fc' : '#818cf8'};">${evalHeaderLabel}</span>
+          <h1 id="telao-v3-title" class="spec-title">${cleanRoomTitle}</h1>
         </div>
       </div>
       <div id="telao-v3-cards-row" class="cards-row ${activeRoom.status !== 'WAITING' ? 'single-timer' : ''}">
@@ -5490,9 +6315,17 @@ REGRAS OBRIGATÓRIAS:
           <span class="stat-label">CÓDIGO PIN DA SALA</span>
           <div id="telao-v3-pin" class="pin-value">${activeRoom.pin}</div>
         </div>
-        <div id="telao-v3-timer-card" class="stat-card ${activeRoom.status !== 'WAITING' ? 'timer-featured' : ''} ${activeRoom.status === 'ACTIVE' && hostRemainingSeconds <= 60 ? 'timer-urgent' : ''}">
-          <span class="stat-label">TEMPO RESTANTE</span>
-          <div id="telao-v3-timer" class="timer-value">${formatTimeMMSS(activeRoom.status === 'FINISHED' ? 0 : hostRemainingSeconds)}</div>
+        <div id="telao-v3-timer-card" class="stat-card ${activeRoom.status !== 'WAITING' ? 'timer-featured' : ''} ${activeRoom.status === 'FINISHED' || (!isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime) && activeRoom.status === 'ACTIVE' && hostRemainingSeconds <= 60) ? 'timer-urgent' : ''}">
+          <span id="telao-v3-timer-label" class="stat-label">${activeRoom.status === 'FINISHED' ? 'STATUS DA AVALIAÇÃO' : isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime) ? 'TEMPO DE PROVA' : 'TEMPO RESTANTE'}</span>
+          <div id="telao-v3-timer" class="timer-value ${activeRoom.status === 'FINISHED' ? 'timer-finished-text' : ''}">${
+            activeRoom.status === 'FINISHED'
+              ? 'PROVA ENCERRADA'
+              : isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime)
+              ? activeRoom.status === 'ACTIVE'
+                ? `∞ LIVRE (${formatTimeMMSS(hostRemainingSeconds)})`
+                : '∞ SEM LIMITE'
+              : formatTimeMMSS(hostRemainingSeconds)
+          }</div>
         </div>
       </div>
       <div class="status-banner">
@@ -5538,6 +6371,8 @@ REGRAS OBRIGATÓRIAS:
         status: activeRoom.status,
         startedAt: activeRoom.startedAt,
         durationMinutes: activeRoom.durationMinutes,
+        unlimitedTime: isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime),
+        manuallyFinished: Boolean(activeRoom.manuallyFinished),
         extraSecondsAdded: activeRoom.extraSecondsAdded || 0,
         specialtyName: activeRoom.specialtyName,
         specialtyLogo: activeRoom.specialtyLogo,
@@ -5557,7 +6392,9 @@ REGRAS OBRIGATÓRIAS:
           pin: incoming.pin || prev.pin,
           status: nextStatus,
           startedAt: incoming.startedAt || prev.startedAt,
-          durationMinutes: incoming.durationMinutes || prev.durationMinutes,
+          durationMinutes: incoming.durationMinutes !== undefined ? incoming.durationMinutes : prev.durationMinutes,
+          unlimitedTime: Boolean(incoming.unlimitedTime || prev.unlimitedTime || Number(incoming.durationMinutes) <= 0 || Number(incoming.durationMinutes) >= 9999),
+          manuallyFinished: Boolean(incoming.manuallyFinished || prev.manuallyFinished),
           extraSecondsAdded: Math.max(Number(incoming.extraSecondsAdded || 0), Number(prev.extraSecondsAdded || 0)),
           specialtyName: incoming.specialtyName || prev.specialtyName,
           specialtyLogo: incoming.specialtyLogo || prev.specialtyLogo,
@@ -5605,16 +6442,21 @@ REGRAS OBRIGATÓRIAS:
         var st = window.__telaoRoomState;
         if (!st) return;
 
-        var totalAllowed = (Number(st.durationMinutes) || 15) * 60 + (Number(st.extraSecondsAdded) || 0);
+        var isUnlimited = Boolean(st.unlimitedTime) || Number(st.durationMinutes) <= 0 || Number(st.durationMinutes) >= 9999;
+        var totalAllowed = isUnlimited ? 0 : (Number(st.durationMinutes) || 15) * 60 + (Number(st.extraSecondsAdded) || 0);
         var remaining = totalAllowed;
         if (st.status === 'FINISHED') {
           remaining = 0;
         } else if (st.status === 'ACTIVE' && st.startedAt) {
           var elapsed = Math.floor((Date.now() - Number(st.startedAt)) / 1000);
-          remaining = Math.max(0, totalAllowed - elapsed);
-          if (remaining <= 0) {
-            st.status = 'FINISHED';
-            remaining = 0;
+          if (isUnlimited) {
+            remaining = Math.max(0, elapsed);
+          } else {
+            remaining = Math.max(0, totalAllowed - elapsed);
+            if (remaining <= 0) {
+              st.status = 'FINISHED';
+              remaining = 0;
+            }
           }
         }
 
@@ -5634,13 +6476,32 @@ REGRAS OBRIGATÓRIAS:
         var timerCardEl = document.getElementById('telao-v3-timer-card');
         if (timerCardEl) {
           timerCardEl.classList.toggle('timer-featured', isStarted);
-          timerCardEl.classList.toggle('timer-urgent', st.status === 'ACTIVE' && remaining <= 60);
+          timerCardEl.classList.toggle('timer-urgent', st.status === 'FINISHED' || (!isUnlimited && st.status === 'ACTIVE' && remaining <= 60));
+        }
+
+        var timerLabelEl = document.getElementById('telao-v3-timer-label');
+        if (timerLabelEl) {
+          var nextLabelTxt = st.status === 'FINISHED'
+            ? 'STATUS DA AVALIAÇÃO'
+            : isUnlimited
+            ? 'TEMPO DE PROVA'
+            : 'TEMPO RESTANTE';
+          if (timerLabelEl.textContent !== nextLabelTxt) {
+            timerLabelEl.textContent = nextLabelTxt;
+          }
         }
 
         var timerEl = document.getElementById('telao-v3-timer');
-        var formatted = formatMMSS(remaining);
-        if (timerEl && timerEl.textContent !== formatted) {
-          timerEl.textContent = formatted;
+        var formatted = st.status === 'FINISHED'
+          ? 'PROVA ENCERRADA'
+          : isUnlimited
+          ? (st.status === 'ACTIVE' ? '∞ LIVRE (' + formatMMSS(remaining) + ')' : '∞ SEM LIMITE')
+          : formatMMSS(remaining);
+        if (timerEl) {
+          if (timerEl.textContent !== formatted) {
+            timerEl.textContent = formatted;
+          }
+          timerEl.classList.toggle('timer-finished-text', st.status === 'FINISHED');
         }
 
         var statusEl = document.getElementById('telao-v3-status');
@@ -5783,25 +6644,47 @@ REGRAS OBRIGATÓRIAS:
       }
 
       const timerCardEl = doc.getElementById('telao-v3-timer-card');
+      const isUnlimitedRoom = isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime);
+      const isFinishedRoom = activeRoom.status === 'FINISHED';
       if (timerCardEl) {
         timerCardEl.classList.toggle('timer-featured', isStarted);
         timerCardEl.classList.toggle(
           'timer-urgent',
-          activeRoom.status === 'ACTIVE' && effectiveRem <= 60
+          isFinishedRoom ||
+            (!isUnlimitedRoom && activeRoom.status === 'ACTIVE' && effectiveRem <= 60)
         );
+      }
+
+      const timerLabelEl = doc.getElementById('telao-v3-timer-label');
+      if (timerLabelEl) {
+        const nextLabel = isFinishedRoom
+          ? 'STATUS DA AVALIAÇÃO'
+          : isUnlimitedRoom
+          ? 'TEMPO DE PROVA'
+          : 'TEMPO RESTANTE';
+        if (timerLabelEl.textContent !== nextLabel) {
+          timerLabelEl.textContent = nextLabel;
+        }
       }
 
       const qrEl = doc.getElementById('telao-v3-qr') as HTMLImageElement | null;
       if (qrEl && qrCodeDataUrl && qrEl.src !== qrCodeDataUrl) {
         qrEl.src = qrCodeDataUrl;
       }
+      const resolvedLogo = getRoomResolvedLogo(activeRoom);
       const logoEl = doc.getElementById('telao-v3-logo') as HTMLImageElement | null;
-      if (logoEl && activeRoom.specialtyLogo) {
-        logoEl.src = activeRoom.specialtyLogo;
+      if (logoEl && resolvedLogo && logoEl.src !== resolvedLogo) {
+        logoEl.src = resolvedLogo;
+      }
+      const evalTypeEl = doc.getElementById('telao-v3-eval-type') as HTMLElement | null;
+      const nextEvalLabel = getRoomEvaluationHeaderLabel(activeRoom);
+      if (evalTypeEl && evalTypeEl.textContent !== nextEvalLabel) {
+        evalTypeEl.textContent = nextEvalLabel;
       }
       const titleEl = doc.getElementById('telao-v3-title');
-      if (titleEl && titleEl.textContent !== activeRoom.specialtyName) {
-        titleEl.textContent = activeRoom.specialtyName;
+      const cleanTitle = activeRoom.specialtyName.replace(/^📚\s*/, '');
+      if (titleEl && titleEl.textContent !== cleanTitle) {
+        titleEl.textContent = cleanTitle;
       }
 
       const pinEl = doc.getElementById('telao-v3-pin');
@@ -5810,9 +6693,18 @@ REGRAS OBRIGATÓRIAS:
       }
 
       const timerEl = doc.getElementById('telao-v3-timer');
-      const formattedTimer = formatTimeMMSS(effectiveRem);
-      if (timerEl && timerEl.textContent !== formattedTimer) {
-        timerEl.textContent = formattedTimer;
+      const formattedTimer = isFinishedRoom
+        ? 'PROVA ENCERRADA'
+        : isUnlimitedRoom
+        ? activeRoom.status === 'ACTIVE'
+          ? `∞ LIVRE (${formatTimeMMSS(effectiveRem)})`
+          : '∞ SEM LIMITE'
+        : formatTimeMMSS(effectiveRem);
+      if (timerEl) {
+        if (timerEl.textContent !== formattedTimer) {
+          timerEl.textContent = formattedTimer;
+        }
+        timerEl.classList.toggle('timer-finished-text', isFinishedRoom);
       }
 
       const statusEl = doc.getElementById('telao-v3-status');
@@ -6246,16 +7138,32 @@ REGRAS OBRIGATÓRIAS:
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-end gap-1.5 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-slate-200/60 dark:border-slate-800/60">
+                  <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center justify-end gap-1.5 w-full sm:w-auto shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200/60 dark:border-slate-800/60">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleReleaseResultsForAll(roomItem);
+                      }}
+                      className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 cursor-pointer border whitespace-nowrap ${
+                        roomItem.resultsReleased
+                          ? 'bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/20 dark:hover:bg-amber-500/30 border-amber-300 dark:border-amber-500/40 text-amber-800 dark:text-amber-300'
+                          : 'bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                      }`}
+                    >
+                      <Award size={12} className="shrink-0" />
+                      <span>{roomItem.resultsReleased ? 'Retirar Resultado' : 'Liberar Resultado'}</span>
+                    </button>
+
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedAppliedExam(roomItem);
                       }}
-                      className="px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/20 dark:hover:bg-indigo-500/30 border border-indigo-200 dark:border-indigo-500/30 text-indigo-700 dark:text-indigo-300 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                      className="px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/20 dark:hover:bg-indigo-500/30 border border-indigo-200 dark:border-indigo-500/30 text-indigo-700 dark:text-indigo-300 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap"
                     >
-                      <Eye size={12} />
+                      <Eye size={12} className="shrink-0" />
                       <span>Respostas ({pList.length})</span>
                     </button>
 
@@ -6271,11 +7179,12 @@ REGRAS OBRIGATÓRIAS:
                         setIsCreatingNewRoom(false);
                         setRoleMode('HOST');
                         setEntryScreenConfirmed(true);
+                        scrollToQrCodeSection();
                       }}
-                      className="px-2.5 py-1.5 rounded-xl bg-slate-200/80 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                      className="px-2.5 py-1.5 rounded-xl bg-slate-200/80 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap"
                       title="Abrir sala no painel ao vivo"
                     >
-                      <QrCode size={12} />
+                      <QrCode size={12} className="shrink-0" />
                       <span>Sala</span>
                     </button>
 
@@ -6285,10 +7194,10 @@ REGRAS OBRIGATÓRIAS:
                         e.stopPropagation();
                         setConfirmDeleteAppliedPin(roomItem.pin);
                       }}
-                      className="px-2.5 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-500/15 dark:hover:bg-red-500/30 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-300 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                      className="px-2.5 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-500/15 dark:hover:bg-red-500/30 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-300 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap"
                       title="Excluir esta prova aplicada"
                     >
-                      <Trash2 size={12} />
+                      <Trash2 size={12} className="shrink-0" />
                       <span>Excluir</span>
                     </button>
                   </div>
@@ -6467,28 +7376,47 @@ REGRAS OBRIGATÓRIAS:
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">
                         Participantes que Responderam ({Object.keys(selectedAppliedExam.participants || {}).length})
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setHostRooms((prev) => {
-                            const exists = prev.some((r) => r.pin === selectedAppliedExam.pin);
-                            return exists ? prev : [selectedAppliedExam, ...prev];
-                          });
-                          setSelectedRoomPin(selectedAppliedExam.pin);
-                          setIsCreatingNewRoom(false);
-                          setRoleMode('HOST');
-                          setEntryScreenConfirmed(true);
-                          setSelectedAppliedExam(null);
-                        }}
-                        className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <QrCode size={13} />
-                        <span>Abrir Sala no Painel Ao Vivo</span>
-                      </button>
+                      <div className="grid grid-cols-1 sm:flex sm:flex-wrap items-center gap-1.5 w-full sm:w-auto">
+                        <button
+                          type="button"
+                          onClick={() => handleReleaseResultsForAll(selectedAppliedExam)}
+                          className={`px-3 py-2 sm:py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer transition-all whitespace-nowrap ${
+                            selectedAppliedExam.resultsReleased
+                              ? 'bg-amber-600 hover:bg-amber-500 text-white'
+                              : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                          }`}
+                        >
+                          <Award size={13} className="shrink-0" />
+                          <span>
+                            {selectedAppliedExam.resultsReleased
+                              ? 'Retirar Resultado'
+                              : 'Liberar Resultado'}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setHostRooms((prev) => {
+                              const exists = prev.some((r) => r.pin === selectedAppliedExam.pin);
+                              return exists ? prev : [selectedAppliedExam, ...prev];
+                            });
+                            setSelectedRoomPin(selectedAppliedExam.pin);
+                            setIsCreatingNewRoom(false);
+                            setRoleMode('HOST');
+                            setEntryScreenConfirmed(true);
+                            setSelectedAppliedExam(null);
+                            scrollToQrCodeSection();
+                          }}
+                          className="px-3 py-2 sm:py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+                        >
+                          <QrCode size={13} className="shrink-0" />
+                          <span>Abrir Sala no Painel Ao Vivo</span>
+                        </button>
+                      </div>
                     </div>
 
                     {Object.values(selectedAppliedExam.participants || {}).length === 0 ? (
@@ -6585,7 +7513,7 @@ REGRAS OBRIGATÓRIAS:
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 pt-0.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 pt-0.5">
             {/* Botão 1: Criar Prova de Especialidade (Conselheiro+) */}
             <button
               type="button"
@@ -6922,6 +7850,7 @@ REGRAS OBRIGATÓRIAS:
                 setRoleMode('HOST');
                 setIsCreatingNewRoom(false);
                 setEntryScreenConfirmed(true);
+                scrollToQrCodeSection();
               }}
               className="w-full py-2.5 sm:py-3.5 px-4 rounded-2xl bg-amber-50 hover:bg-amber-100 dark:bg-white/10 dark:hover:bg-white/15 border border-amber-300 dark:border-white/20 text-amber-700 dark:text-amber-300 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all"
             >
@@ -7273,13 +8202,18 @@ REGRAS OBRIGATÓRIAS:
               )}
               <div
                 className={`px-2.5 sm:px-3 py-1.5 rounded-xl font-black text-xs sm:text-sm tabular-nums flex items-center gap-1.5 border whitespace-nowrap ${
+                  !isUnlimitedRoomDuration(studentRoom?.durationMinutes, studentRoom?.unlimitedTime) &&
                   studentRemainingSeconds <= 60
                     ? 'bg-red-600 text-white border-red-500 animate-pulse'
                     : 'bg-amber-50 dark:bg-slate-800 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-slate-700'
                 }`}
               >
                 <Timer size={14} />
-                <span>{formatTimeMMSS(studentRemainingSeconds)}</span>
+                <span>
+                  {isUnlimitedRoomDuration(studentRoom?.durationMinutes, studentRoom?.unlimitedTime)
+                    ? `∞ Livre (${formatTimeMMSS(studentRemainingSeconds)})`
+                    : formatTimeMMSS(studentRemainingSeconds)}
+                </span>
               </div>
             </div>
           ) : (isIsolatedStudentMode || Boolean(initialPin)) ? (
@@ -7540,23 +8474,33 @@ REGRAS OBRIGATÓRIAS:
           {/* 2. SALA DE ESPERA DO ALUNO (AGUARDANDO O INSTRUTOR INICIAR) */}
           {studentPhase === 'WAITING_HOST' && studentRoom && (
             <div className="w-full max-w-md mx-auto bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-[28px] p-6 text-center space-y-4 shadow-xl">
-              {studentRoom.specialtyLogo && (
+              {getRoomResolvedLogo(studentRoom) ? (
                 <img
-                  src={studentRoom.specialtyLogo}
+                  src={getRoomResolvedLogo(studentRoom)}
                   alt={studentRoom.specialtyName}
                   className="w-24 h-24 object-contain mx-auto drop-shadow-xl"
                   referrerPolicy="no-referrer"
                 />
-              )}
+              ) : getRoomEvaluationType(studentRoom) === 'BOOK' ? (
+                <div className="w-20 h-20 rounded-2xl bg-amber-50 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/30 text-amber-600 dark:text-amber-300 flex items-center justify-center mx-auto shadow-md">
+                  <BookOpen size={36} />
+                </div>
+              ) : null}
               <div className="space-y-1">
                 <span className="px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-black uppercase tracking-widest inline-block">
                   Conectado na Sala #{studentRoom.pin}
                 </span>
-                <h3 className="text-lg sm:text-xl font-black uppercase text-slate-900 dark:text-white mt-2">
-                  {studentRoom.specialtyName}
+                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 block pt-1">
+                  {getRoomEvaluationHeaderLabel(studentRoom)}
+                </span>
+                <h3 className="text-lg sm:text-xl font-black uppercase text-slate-900 dark:text-white">
+                  {studentRoom.specialtyName.replace(/^📚\s*/, '')}
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-bold">
-                  {studentRoom.questions.length} Questões • Tempo Limite: {studentRoom.durationMinutes} min
+                  {studentRoom.questions.length} Questões • Tempo Limite:{' '}
+                  {isUnlimitedRoomDuration(studentRoom.durationMinutes, studentRoom.unlimitedTime)
+                    ? 'Sem limite de tempo'
+                    : `${studentRoom.durationMinutes} min`}
                 </p>
               </div>
 
@@ -7577,7 +8521,7 @@ REGRAS OBRIGATÓRIAS:
               {/* Navegador de Questões: Texto acima e sequência de números abaixo */}
               <div className="flex flex-col gap-2.5 pb-3.5 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                  <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
                     Questão {studentCurrentQ + 1} de {totalQuestions}
                   </span>
                   <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 dark:text-slate-400">
@@ -7597,8 +8541,8 @@ REGRAS OBRIGATÓRIAS:
                           isCurrent
                             ? 'bg-indigo-600 text-white ring-2 ring-indigo-400 shadow-md shadow-indigo-600/30'
                             : isAnswered
-                            ? 'bg-emerald-50 dark:bg-emerald-600/30 border border-emerald-300 dark:border-emerald-500/50 text-emerald-700 dark:text-emerald-300'
-                            : 'bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/70 text-slate-600 dark:text-slate-400'
+                            ? 'bg-slate-300 dark:bg-slate-700 border border-slate-400 dark:border-slate-500 text-slate-900 dark:text-slate-100'
+                            : 'bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/70 text-slate-500 dark:text-slate-400'
                         }`}
                       >
                         {idx + 1}
@@ -7680,10 +8624,61 @@ REGRAS OBRIGATÓRIAS:
             </div>
           )}
 
-          {/* 4. TELA DE CONCLUSÃO / ENTREGA DA PROVA PELO ALUNO (Exibe o tempo gasto; quando o instrutor clicar em "Liberar Resultado", exibe a nota e o gabarito) */}
+          {/* 4. TELA DE CONCLUSÃO / ENTREGA DA PROVA PELO ALUNO (Ou aviso de PROVA ENCERRADA caso acesse o link após o encerramento) */}
           {studentPhase === 'FINISHED' && studentRoom && (
             <div className="w-full max-w-lg mx-auto bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-[28px] p-5 sm:p-6 text-center space-y-4 shadow-xl">
-              {studentRoom.resultsReleased ? (
+              {studentExamAlreadyClosed ||
+              (Object.keys(effectiveStudentAnswers).length === 0 &&
+                Number(myServerRecord?.answeredCount || 0) === 0 &&
+                !studentStartTime) ? (
+                <>
+                  <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center bg-red-50 dark:bg-red-500/20 border border-red-200 dark:border-red-500/40 text-red-600 dark:text-red-400">
+                    <Lock size={34} />
+                  </div>
+
+                  {getRoomResolvedLogo(studentRoom) ? (
+                    <img
+                      src={getRoomResolvedLogo(studentRoom)}
+                      alt={studentRoom.specialtyName}
+                      className="w-20 h-20 object-contain mx-auto drop-shadow-md"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : null}
+
+                  <div className="space-y-1.5">
+                    <span className="px-3 py-1 rounded-full bg-red-50 dark:bg-red-500/20 border border-red-200 dark:border-red-500/40 text-red-700 dark:text-red-300 text-[10px] font-black uppercase tracking-widest inline-block">
+                      🏁 Sala #{studentRoom.pin} • Avaliação Encerrada
+                    </span>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 pt-1">
+                      {getRoomEvaluationHeaderLabel(studentRoom)}
+                    </p>
+                    <h3 className="text-xl sm:text-2xl font-black uppercase text-slate-900 dark:text-white">
+                      Prova Encerrada
+                    </h3>
+                    <p className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200">
+                      {studentRoom.specialtyName.replace(/^📚\s*/, '')}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed max-w-sm mx-auto pt-1">
+                      Esta prova já foi encerrada pelo instrutor e não está mais recebendo novos participantes ou respostas.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStudentExamAlreadyClosed(false);
+                      studentExamAlreadyClosedRef.current = false;
+                      setStudentRoom(null);
+                      setStudentPinInput('');
+                      setStudentPhase('ENTER_PIN');
+                    }}
+                    className="w-full py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-indigo-600/20 transition-all"
+                  >
+                    <QrCode size={16} />
+                    <span>Digitar Outro PIN ou Ler Novo QR Code</span>
+                  </button>
+                </>
+              ) : studentRoom.resultsReleased ? (
                 <>
                   <div
                     className={`w-16 h-16 rounded-2xl mx-auto flex items-center justify-center border ${
@@ -7836,27 +8831,34 @@ REGRAS OBRIGATÓRIAS:
                 </>
               )}
 
-              <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 text-xs space-y-1.5">
-                <p className="font-bold text-slate-600 dark:text-slate-300">
-                  Aluno: <span className="text-slate-900 dark:text-white">{studentName}</span>
-                </p>
-                <p className="font-bold text-slate-600 dark:text-slate-300">
-                  Questões respondidas:{' '}
-                  <span className="text-slate-900 dark:text-white">
-                    {Object.keys(studentAnswers).length} de {studentRoom.questions.length}
-                  </span>
-                </p>
-                <p className="font-bold text-slate-600 dark:text-slate-300">
-                  Status Anti-Cola:{' '}
-                  {effectiveStudentCheatCount === 0 ? (
-                    <span className="text-emerald-600 dark:text-emerald-400 font-black">0 saídas de tela (Sem penalidade)</span>
-                  ) : (
-                    <span className="text-red-600 dark:text-red-400 font-black">
-                      {effectiveStudentCheatCount} {effectiveStudentCheatCount === 1 ? 'saída registrada' : 'saídas registradas'} (-{(effectiveStudentCheatCount * 0.1).toFixed(1).replace('.', ',')} pt)
+              {!(
+                studentExamAlreadyClosed ||
+                (Object.keys(effectiveStudentAnswers).length === 0 &&
+                  Number(myServerRecord?.answeredCount || 0) === 0 &&
+                  !studentStartTime)
+              ) && (
+                <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 text-xs space-y-1.5">
+                  <p className="font-bold text-slate-600 dark:text-slate-300">
+                    Aluno: <span className="text-slate-900 dark:text-white">{studentName}</span>
+                  </p>
+                  <p className="font-bold text-slate-600 dark:text-slate-300">
+                    Questões respondidas:{' '}
+                    <span className="text-slate-900 dark:text-white">
+                      {Object.keys(effectiveStudentAnswers).length} de {studentRoom.questions.length}
                     </span>
-                  )}
-                </p>
-              </div>
+                  </p>
+                  <p className="font-bold text-slate-600 dark:text-slate-300">
+                    Status Anti-Cola:{' '}
+                    {effectiveStudentCheatCount === 0 ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-black">0 saídas de tela (Sem penalidade)</span>
+                    ) : (
+                      <span className="text-red-600 dark:text-red-400 font-black">
+                        {effectiveStudentCheatCount} {effectiveStudentCheatCount === 1 ? 'saída registrada' : 'saídas registradas'} (-{(effectiveStudentCheatCount * 0.1).toFixed(1).replace('.', ',')} pt)
+                      </span>
+                    )}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -8170,7 +9172,7 @@ REGRAS OBRIGATÓRIAS:
       {renderAppliedExamModals()}
       {/* Barra Superior Compacta + Alternador de Múltiplas Provas */}
       <div className="bg-white dark:bg-slate-900 rounded-[20px] p-3 sm:px-4 sm:py-3 text-slate-900 dark:text-white shadow-sm border border-slate-200/80 dark:border-white/10 space-y-2.5 overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <h3 className="text-xs sm:text-base font-black uppercase tracking-tight leading-snug break-words sm:truncate text-slate-900 dark:text-white">
               {activeRoom
@@ -8183,7 +9185,7 @@ REGRAS OBRIGATÓRIAS:
             </h3>
           </div>
 
-          <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 w-full sm:w-auto shrink-0">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-1.5 w-full lg:w-auto shrink-0">
             {hostRooms.length > 0 && !isCreatingNewRoom && (
               <>
                 <button
@@ -8192,11 +9194,11 @@ REGRAS OBRIGATÓRIAS:
                     setExamCreationMode('SPECIALTY');
                     setIsCreatingNewRoom(true);
                   }}
-                  className="flex-1 sm:flex-initial justify-center min-w-0 px-2.5 py-2 sm:py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer shadow-sm transition-all"
+                  className="justify-center px-2.5 py-2 sm:py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer shadow-sm transition-all whitespace-nowrap"
                   title="Criar uma nova prova de especialidade"
                 >
                   <Plus size={13} className="shrink-0" />
-                  <span className="truncate">Especialidade</span>
+                  <span>Especialidade</span>
                 </button>
                 <button
                   type="button"
@@ -8204,11 +9206,11 @@ REGRAS OBRIGATÓRIAS:
                     setExamCreationMode('BOOKS');
                     setIsCreatingNewRoom(true);
                   }}
-                  className="flex-1 sm:flex-initial justify-center min-w-0 px-2.5 py-2 sm:py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer shadow-sm transition-all"
+                  className="justify-center px-2.5 py-2 sm:py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer shadow-sm transition-all whitespace-nowrap"
                   title="Criar uma prova baseada nos livros"
                 >
                   <BookOpen size={12} className="shrink-0" />
-                  <span className="truncate">Prova dos Livros</span>
+                  <span>Prova dos Livros</span>
                 </button>
                 <button
                   type="button"
@@ -8216,11 +9218,11 @@ REGRAS OBRIGATÓRIAS:
                     setExamCreationMode('CUSTOM');
                     setIsCreatingNewRoom(true);
                   }}
-                  className="flex-1 sm:flex-initial justify-center min-w-0 px-2.5 py-2 sm:py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer shadow-sm transition-all"
+                  className="justify-center px-2.5 py-2 sm:py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer shadow-sm transition-all whitespace-nowrap"
                   title="Criar prova adicionando questões manualmente ou pelo tema com IA"
                 >
                   <Sparkles size={12} className="shrink-0" />
-                  <span className="truncate">Manual / IA</span>
+                  <span>Manual / IA</span>
                 </button>
               </>
             )}
@@ -8228,11 +9230,14 @@ REGRAS OBRIGATÓRIAS:
             {hostRooms.length > 0 && isCreatingNewRoom && (
               <button
                 type="button"
-                onClick={() => setIsCreatingNewRoom(false)}
-                className="flex-1 sm:flex-initial justify-center min-w-0 px-2.5 py-2 sm:py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all"
+                onClick={() => {
+                  setIsCreatingNewRoom(false);
+                  scrollToQrCodeSection();
+                }}
+                className="justify-center px-2.5 py-2 sm:py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all whitespace-nowrap"
               >
                 <ChevronLeft size={13} className="shrink-0" />
-                <span className="truncate">Voltar às Provas ({hostRooms.length})</span>
+                <span>Voltar às Provas ({hostRooms.length})</span>
               </button>
             )}
 
@@ -8244,11 +9249,11 @@ REGRAS OBRIGATÓRIAS:
                   setEntryScreenConfirmed(true);
                   setIsQrScannerOpen(true);
                 }}
-                className="md:hidden flex-1 sm:flex-initial justify-center min-w-0 px-2.5 py-2 sm:py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/20 dark:hover:bg-amber-500/30 border border-amber-300 dark:border-amber-400/40 text-amber-800 dark:text-amber-200 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+                className="md:hidden justify-center px-2.5 py-2 sm:py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/20 dark:hover:bg-amber-500/30 border border-amber-300 dark:border-amber-400/40 text-amber-800 dark:text-amber-200 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                 title="Escanear QR Code de uma sala de prova com a câmera do celular"
               >
                 <Camera size={12} className="shrink-0" />
-                <span className="truncate">Escanear QR Code</span>
+                <span>Escanear QR Code</span>
               </button>
             )}
 
@@ -8260,10 +9265,10 @@ REGRAS OBRIGATÓRIAS:
                 }
                 setRoleMode('STUDENT');
               }}
-              className="flex-1 sm:flex-initial justify-center min-w-0 px-2.5 py-2 sm:py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/15 dark:hover:bg-white/25 border border-slate-200 dark:border-white/20 text-slate-700 dark:text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+              className="justify-center px-2.5 py-2 sm:py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/15 dark:hover:bg-white/25 border border-slate-200 dark:border-white/20 text-slate-700 dark:text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
             >
               <QrCode size={12} className="shrink-0" />
-              <span className="truncate">{activeRoom ? 'Testar como Aluno' : 'Entrar como Aluno'}</span>
+              <span>{activeRoom ? 'Testar como Aluno' : 'Entrar como Aluno'}</span>
             </button>
           </div>
         </div>
@@ -8287,6 +9292,7 @@ REGRAS OBRIGATÓRIAS:
                     onClick={() => {
                       setSelectedRoomPin(roomTab.pin);
                       setIsCreatingNewRoom(false);
+                      scrollToQrCodeSection();
                     }}
                     className={`group flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-left transition-all shrink-0 cursor-pointer ${
                       isSelectedTab
@@ -8566,10 +9572,10 @@ REGRAS OBRIGATÓRIAS:
                     <div className="flex flex-wrap gap-1">
                       {[
                         { id: 'TODOS', label: `Todos (${booksCatalog.length})` },
-                        { id: 'CLASSE', label: 'Livro das Classes' },
-                        { id: 'ANO', label: 'Livros do Ano' },
-                        { id: 'OUTROS', label: 'Outros Livros' },
-                        { id: 'AVENTUREIROS', label: 'Aventureiros' }
+                        { id: 'CLASSES', label: 'Livro das Classes' },
+                        { id: 'ANO_DBV', label: 'Livros do Ano' },
+                        { id: 'OUTROS_DBV', label: 'Outros Livros' },
+                        { id: 'AVT', label: 'Aventureiros' }
                       ].map((cat) => (
                         <button
                           key={cat.id}
@@ -8599,10 +9605,10 @@ REGRAS OBRIGATÓRIAS:
                       </div>
                     ) : (
                       filteredBooksCatalog.map((book) => {
-                        const isSelected = selectedBookForExam?.id === book.id;
+                        const isSelected = selectedBookForExam?.uid === book.uid;
                         return (
                           <button
-                            key={book.id}
+                            key={book.uid}
                             type="button"
                             onClick={() => handleSelectBookForExam(book)}
                             className={`w-full p-2.5 rounded-xl text-left flex items-center gap-3 transition-all cursor-pointer ${
@@ -8637,9 +9643,7 @@ REGRAS OBRIGATÓRIAS:
                                 }`}
                               >
                                 {book.categoryLabel}
-                                {book.classe ? ` • ${book.classe}` : ''}
-                                {book.year ? ` • ${book.year}` : ''}
-                                {book.author ? ` • ${book.author}` : ''}
+                                {book.badgeText ? ` • ${book.badgeText}` : ''}
                               </p>
                             </div>
                           </button>
@@ -8656,16 +9660,16 @@ REGRAS OBRIGATÓRIAS:
                       </label>
                       <input
                         type="text"
-                        value={bookFocusInstructions}
-                        onChange={(e) => setBookFocusInstructions(e.target.value)}
+                        value={bookChapterFocus}
+                        onChange={(e) => setBookChapterFocus(e.target.value)}
                         placeholder="Ex: Capítulos 1 a 4, personagens principais, lições..."
                         className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-800 dark:text-white focus:border-amber-500 focus:outline-none"
                       />
                     </div>
 
-                    {customThemeNotice && (
+                    {bookExamNotice && (
                       <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/15 border border-amber-300 dark:border-amber-500/40 text-amber-800 dark:text-amber-200 text-[11px] font-bold">
-                        {customThemeNotice}
+                        {bookExamNotice}
                       </div>
                     )}
 
@@ -8759,49 +9763,187 @@ REGRAS OBRIGATÓRIAS:
                 </>
               )}
 
-              {/* Configurações de Tempo, Quantidade de Questões e Anti-Cola */}
-              <div className="grid grid-cols-2 gap-3 pt-1">
-                <div>
-                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
-                    Nº de Questões (IA)
-                  </label>
-                  <div className="grid grid-cols-3 gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
-                    {[5, 10, 15].map((cnt) => (
+              {/* Configurações de Quantidade de Questões (inclusive > 15) e Tempo Limite (inclusive Sem Limite e > 25m) */}
+              <div className="space-y-3 pt-1">
+                {/* Bloco 1: Nº de Questões */}
+                <div className="bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/70 rounded-2xl p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Nº de Questões (IA / Prova)
+                    </label>
+                    <span className="px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 text-[10px] font-black uppercase">
+                      {questionCount} {questionCount === 1 ? 'questão' : 'questões'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-1 bg-slate-200/60 dark:bg-slate-950 p-1 rounded-xl">
+                    {[5, 10, 15, 20, 25, 30, 40, 50].map((cnt) => (
                       <button
                         key={cnt}
                         type="button"
-                        onClick={() => setQuestionCount(cnt)}
-                        className={`py-1.5 rounded-lg text-xs font-black cursor-pointer ${
+                        onClick={() => {
+                          setQuestionCount(cnt);
+                          if (!isGeneratingQuestions) {
+                            if (examCreationMode === 'SPECIALTY' && selectedSpecialty) {
+                              handleSelectSpecialtyForExam(selectedSpecialty, cnt);
+                            } else if (examCreationMode === 'BOOKS' && selectedBookForExam) {
+                              handleSelectBookForExam(selectedBookForExam, undefined, cnt);
+                            }
+                          }
+                        }}
+                        className={`py-1.5 rounded-lg text-[11px] font-black cursor-pointer transition-all ${
                           questionCount === cnt
-                            ? 'bg-indigo-600 text-white'
-                            : 'text-slate-500 dark:text-slate-400'
+                            ? 'bg-indigo-600 text-white shadow-xs'
+                            : 'text-slate-600 dark:text-slate-400 hover:bg-white/60 dark:hover:bg-slate-800'
                         }`}
                       >
                         {cnt}
                       </button>
                     ))}
                   </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-0.5">
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                      Personalizar quantidade (1 a 100):
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setQuestionCount(Math.max(1, questionCount - 1))}
+                        className="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-black flex items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700"
+                        title="Diminuir 1 questão"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={questionCount}
+                        onChange={(e) => {
+                          const raw = parseInt(e.target.value, 10);
+                          if (!Number.isNaN(raw)) {
+                            setQuestionCount(Math.max(1, Math.min(100, raw)));
+                          }
+                        }}
+                        className="w-16 px-2 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-center text-xs font-black text-indigo-600 dark:text-indigo-300 focus:outline-none focus:border-indigo-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setQuestionCount(Math.min(100, questionCount + 1))}
+                        className="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-black flex items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700"
+                        title="Aumentar 1 questão"
+                      >
+                        +
+                      </button>
+                      {!isGeneratingQuestions &&
+                        questions.length > 0 &&
+                        questions.length !== questionCount &&
+                        ((examCreationMode === 'SPECIALTY' && selectedSpecialty) ||
+                          (examCreationMode === 'BOOKS' && selectedBookForExam) ||
+                          (examCreationMode === 'CUSTOM' && customExamTitle.trim())) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (examCreationMode === 'SPECIALTY' && selectedSpecialty) {
+                                handleSelectSpecialtyForExam(selectedSpecialty, questionCount);
+                              } else if (examCreationMode === 'BOOKS' && selectedBookForExam) {
+                                handleSelectBookForExam(selectedBookForExam, undefined, questionCount);
+                              } else if (examCreationMode === 'CUSTOM') {
+                                handleGenerateCustomThemeQuestions(questionCount);
+                              }
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider cursor-pointer whitespace-nowrap"
+                          >
+                            Gerar {questionCount}
+                          </button>
+                        )}
+                    </div>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
-                    Tempo Limite
-                  </label>
-                  <div className="grid grid-cols-3 gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
-                    {[10, 15, 25].map((mins) => (
+                {/* Bloco 2: Tempo Limite */}
+                <div className="bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/70 rounded-2xl p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Tempo Limite da Prova
+                    </label>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                        durationMinutes <= 0
+                          ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                          : 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300'
+                      }`}
+                    >
+                      {durationMinutes <= 0 ? '∞ Sem Tempo Limite' : `${durationMinutes} min`}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-1 bg-slate-200/60 dark:bg-slate-950 p-1 rounded-xl">
+                    {[
+                      { mins: 0, label: '∞ Livre' },
+                      { mins: 10, label: '10m' },
+                      { mins: 15, label: '15m' },
+                      { mins: 25, label: '25m' },
+                      { mins: 30, label: '30m' },
+                      { mins: 45, label: '45m' },
+                      { mins: 60, label: '60m' },
+                      { mins: 90, label: '90m' }
+                    ].map((opt) => (
                       <button
-                        key={mins}
+                        key={opt.mins}
                         type="button"
-                        onClick={() => setDurationMinutes(mins)}
-                        className={`py-1.5 rounded-lg text-xs font-black cursor-pointer ${
-                          durationMinutes === mins
-                            ? 'bg-indigo-600 text-white'
-                            : 'text-slate-500 dark:text-slate-400'
+                        onClick={() => setDurationMinutes(opt.mins)}
+                        className={`py-1.5 px-1 rounded-lg text-[10px] sm:text-[11px] font-black cursor-pointer transition-all whitespace-nowrap ${
+                          durationMinutes === opt.mins
+                            ? opt.mins === 0
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'bg-indigo-600 text-white shadow-xs'
+                            : 'text-slate-600 dark:text-slate-400 hover:bg-white/60 dark:hover:bg-slate-800'
                         }`}
                       >
-                        {mins}m
+                        {opt.label}
                       </button>
                     ))}
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-0.5">
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                      Outro tempo em minutos (0 = sem limite):
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setDurationMinutes(Math.max(0, durationMinutes - 5))}
+                        className="px-2 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-[10px] font-black flex items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700"
+                        title="Diminuir 5 minutos"
+                      >
+                        -5m
+                      </button>
+                      <input
+                        type="number"
+                        min={0}
+                        max={300}
+                        value={durationMinutes}
+                        onChange={(e) => {
+                          const raw = parseInt(e.target.value, 10);
+                          if (e.target.value === '') {
+                            setDurationMinutes(0);
+                          } else if (!Number.isNaN(raw)) {
+                            setDurationMinutes(Math.max(0, Math.min(300, raw)));
+                          }
+                        }}
+                        className="w-16 px-2 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-center text-xs font-black text-indigo-600 dark:text-indigo-300 focus:outline-none focus:border-indigo-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setDurationMinutes(Math.min(300, (durationMinutes <= 0 ? 25 : durationMinutes) + 5))}
+                        className="px-2 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-[10px] font-black flex items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700"
+                        title="Aumentar 5 minutos"
+                      >
+                        +5m
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -9130,20 +10272,32 @@ REGRAS OBRIGATÓRIAS:
             {/* Cabeçalho da Especialidade + Status + Indicadores Rápidos */}
             <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-700">
               <div className="flex items-center gap-2.5 min-w-0">
-                {activeRoom.specialtyLogo && (
+                {getRoomResolvedLogo(activeRoom) ? (
                   <img
-                    src={activeRoom.specialtyLogo}
+                    src={getRoomResolvedLogo(activeRoom)}
                     alt={activeRoom.specialtyName}
-                    className="w-10 h-10 object-contain shrink-0"
+                    className="w-10 h-10 object-contain rounded-lg shrink-0"
                     referrerPolicy="no-referrer"
                   />
-                )}
+                ) : getRoomEvaluationType(activeRoom) === 'BOOK' ? (
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/30 text-amber-600 dark:text-amber-300 flex items-center justify-center shrink-0">
+                    <BookOpen size={18} />
+                  </div>
+                ) : null}
                 <div className="min-w-0">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 block">
-                    Especialidade em Avaliação • {activeRoom.questions.length} Questões
+                  <span
+                    className={`text-[9px] font-black uppercase tracking-widest block ${
+                      getRoomEvaluationType(activeRoom) === 'BOOK'
+                        ? 'text-amber-600 dark:text-amber-400'
+                        : getRoomEvaluationType(activeRoom) === 'CUSTOM'
+                        ? 'text-violet-600 dark:text-violet-400'
+                        : 'text-indigo-600 dark:text-indigo-400'
+                    }`}
+                  >
+                    {getRoomEvaluationHeaderLabel(activeRoom)} • {activeRoom.questions.length} Questões
                   </span>
                   <h4 className="text-sm sm:text-base font-black uppercase text-slate-800 dark:text-white leading-tight break-words">
-                    {activeRoom.specialtyName}
+                    {activeRoom.specialtyName.replace(/^📚\s*/, '')}
                   </h4>
                 </div>
               </div>
@@ -9176,7 +10330,7 @@ REGRAS OBRIGATÓRIAS:
             {/* Corpo do Painel da Sala em 2 Colunas Equilibradas no PC */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
               {/* Lado Esquerdo (6 Colunas): QR Code Grande Acima do PIN + Cronômetro + Projeção */}
-              <div className="lg:col-span-6 flex flex-col justify-between gap-3">
+              <div ref={activeRoomQrSectionRef} className="lg:col-span-6 flex flex-col justify-between gap-3">
                 <div className="flex flex-col items-center gap-3 w-full min-w-0">
                   {qrCodeDataUrl && (
                     <div
@@ -9213,11 +10367,29 @@ REGRAS OBRIGATÓRIAS:
 
                       <div className="w-full overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl py-2 px-3 text-center border border-slate-200 dark:border-slate-800">
                         <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
-                          Tempo Restante
+                          {activeRoom.status === 'FINISHED'
+                            ? 'Status da Avaliação'
+                            : isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime)
+                            ? 'Tempo de Prova'
+                            : 'Tempo Restante'}
                         </span>
-                        <div className="text-lg sm:text-xl font-black text-sky-600 dark:text-sky-400 tabular-nums leading-tight flex items-center justify-center gap-1">
+                        <div
+                          className={`text-lg sm:text-xl font-black tabular-nums leading-tight flex items-center justify-center gap-1 ${
+                            activeRoom.status === 'FINISHED'
+                              ? 'text-red-500 dark:text-red-400'
+                              : 'text-sky-600 dark:text-sky-400'
+                          }`}
+                        >
                           <Timer size={14} className="shrink-0" />
-                          <span>{formatTimeMMSS(hostRemainingSeconds)}</span>
+                          <span>
+                            {activeRoom.status === 'FINISHED'
+                              ? 'Prova Encerrada'
+                              : isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime)
+                              ? activeRoom.status === 'ACTIVE'
+                                ? `∞ Livre (${formatTimeMMSS(hostRemainingSeconds)})`
+                                : '∞ Sem Limite'
+                              : formatTimeMMSS(hostRemainingSeconds)}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -9373,19 +10545,44 @@ REGRAS OBRIGATÓRIAS:
                   )}
 
                   {activeRoom.status === 'ACTIVE' && (
-                    <div className="grid grid-cols-2 gap-2 w-full">
-                      <button
-                        type="button"
-                        onClick={() => handleAddExtraTime(5)}
-                        className="py-2.5 px-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-[10px] sm:text-xs font-black uppercase flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
-                      >
-                        <Clock size={13} className="shrink-0" />
-                        <span>+5 Minutos</span>
-                      </button>
+                    <div className="space-y-2 w-full">
+                      {!isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime) ? (
+                        <div className="grid grid-cols-3 gap-1.5 w-full">
+                          <button
+                            type="button"
+                            onClick={() => handleAddExtraTime(5)}
+                            className="py-2 px-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-[10px] font-black uppercase flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap"
+                          >
+                            <Clock size={12} className="shrink-0" />
+                            <span>+5 Min</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAddExtraTime(15)}
+                            className="py-2 px-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-[10px] font-black uppercase flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap"
+                          >
+                            <Clock size={12} className="shrink-0" />
+                            <span>+15 Min</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSetRoomUnlimitedTime}
+                            className="py-2 px-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-black uppercase flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap"
+                            title="Deixar esta prova sem tempo limite"
+                          >
+                            <span>∞ Sem Limite</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="py-2 px-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/70 text-emerald-700 dark:text-emerald-300 text-[10px] font-black uppercase flex items-center justify-center gap-1.5">
+                          <Clock size={12} className="shrink-0" />
+                          <span>∞ Prova Sem Limite de Tempo</span>
+                        </div>
+                      )}
                       <button
                         type="button"
                         onClick={handleFinishExamForAll}
-                        className="py-2.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-[10px] sm:text-xs font-black uppercase flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+                        className="w-full py-2.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-[10px] sm:text-xs font-black uppercase flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
                       >
                         <Square size={13} fill="currentColor" className="shrink-0" />
                         <span>Encerrar Prova</span>
@@ -9397,17 +10594,17 @@ REGRAS OBRIGATÓRIAS:
                     <div className="space-y-1.5">
                       <button
                         type="button"
-                        onClick={handleReleaseResultsForAll}
+                        onClick={() => handleReleaseResultsForAll(activeRoom)}
                         className={`w-full py-3 px-4 rounded-xl font-black uppercase tracking-wider text-xs flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md ${
                           activeRoom.resultsReleased
-                            ? 'bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/50 text-emerald-600 dark:text-emerald-300'
+                            ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/20'
                             : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
                         }`}
                       >
                         <Award size={16} className="shrink-0" />
                         <span>
                           {activeRoom.resultsReleased
-                            ? '✅ Resultado Enviado p/ Aparelho de Cada Aluno'
+                            ? 'Retirar Resultado'
                             : 'Liberar Resultado p/ Aparelhos'}
                         </span>
                       </button>
@@ -9908,21 +11105,21 @@ REGRAS OBRIGATÓRIAS:
                     <button
                       type="button"
                       onClick={handleCloseProjectionWindow}
-                      className="hidden md:flex px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-[11px] font-black uppercase tracking-wider items-center gap-1.5 cursor-pointer shadow-lg shadow-red-600/25 transition-all"
+                      className="hidden md:flex w-10 h-10 rounded-xl bg-red-600 hover:bg-red-500 text-white items-center justify-center cursor-pointer shadow-lg shadow-red-600/25 transition-all"
                       title="Fechar a janela de projeção do Telão"
+                      aria-label="Fechar Projeção"
                     >
-                      <X size={14} />
-                      <span>Fechar Projeção</span>
+                      <Monitor size={18} />
                     </button>
                   ) : (
                     <button
                       type="button"
                       onClick={handleProjectQrToAnotherScreen}
-                      className="hidden md:flex px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-[11px] font-black uppercase tracking-wider items-center gap-1.5 cursor-pointer shadow-lg shadow-amber-500/25 transition-all"
-                      title="Abre uma janela exclusiva para projetar no Telão da Igreja (2ª Tela / HDMI) mantendo seu painel no PC"
+                      className="hidden md:flex w-10 h-10 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 items-center justify-center cursor-pointer shadow-lg shadow-amber-500/25 transition-all"
+                      title="Projetar em Outra Tela (Telão)"
+                      aria-label="Projetar em Outra Tela (Telão)"
                     >
-                      <Monitor size={14} />
-                      <span>Projetar em Outra Tela (Telão)</span>
+                      <Monitor size={18} />
                     </button>
                   )}
 
@@ -9943,10 +11140,11 @@ REGRAS OBRIGATÓRIAS:
                         setIsQrTelaoExpanded((prev) => !prev);
                       }
                     }}
-                    className="hidden md:flex px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 border border-white/20 text-white text-[11px] font-black uppercase tracking-wider items-center gap-1.5 cursor-pointer shadow-lg shadow-indigo-600/30 transition-all"
+                    title={isQrTelaoExpanded ? 'Sair da Tela Cheia' : 'Tela Cheia (F11)'}
+                    aria-label={isQrTelaoExpanded ? 'Sair da Tela Cheia' : 'Tela Cheia (F11)'}
+                    className="hidden md:flex w-10 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 border border-white/20 text-white items-center justify-center cursor-pointer shadow-lg shadow-indigo-600/30 transition-all"
                   >
-                    {isQrTelaoExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-                    <span>{isQrTelaoExpanded ? 'Sair da Tela Cheia' : 'Tela Cheia (F11)'}</span>
+                    {isQrTelaoExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
                   </button>
 
                   <button
@@ -9960,10 +11158,9 @@ REGRAS OBRIGATÓRIAS:
                     }}
                     title="Fechar"
                     aria-label="Fechar"
-                    className="p-2 md:px-3 md:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                    className="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 flex items-center justify-center cursor-pointer transition-all"
                   >
-                    <X size={16} />
-                    <span className="hidden md:inline">Fechar</span>
+                    <X size={18} />
                   </button>
                 </div>
               </div>
@@ -10025,9 +11222,9 @@ REGRAS OBRIGATÓRIAS:
                       activeRoom.status !== 'WAITING' ? 'justify-center text-center' : ''
                     }`}
                   >
-                    {activeRoom.specialtyLogo && (
+                    {getRoomResolvedLogo(activeRoom) ? (
                       <img
-                        src={activeRoom.specialtyLogo}
+                        src={getRoomResolvedLogo(activeRoom)}
                         alt={activeRoom.specialtyName}
                         className={`object-contain shrink-0 drop-shadow-lg ${
                           isQrTelaoExpanded
@@ -10036,14 +11233,30 @@ REGRAS OBRIGATÓRIAS:
                         }`}
                         referrerPolicy="no-referrer"
                       />
-                    )}
+                    ) : getRoomEvaluationType(activeRoom) === 'BOOK' ? (
+                      <div
+                        className={`rounded-2xl bg-amber-500/20 border border-amber-400/40 text-amber-300 flex items-center justify-center shrink-0 shadow-lg ${
+                          isQrTelaoExpanded
+                            ? 'w-20 h-20 sm:w-24 sm:h-24'
+                            : 'w-14 h-14 sm:w-16 sm:h-16'
+                        }`}
+                      >
+                        <BookOpen className={isQrTelaoExpanded ? 'w-10 h-10 sm:w-12 sm:h-12' : 'w-7 h-7 sm:w-8 sm:h-8'} />
+                      </div>
+                    ) : null}
                     <div className="min-w-0">
                       <span
-                        className={`font-black uppercase tracking-[0.16em] text-indigo-400 block mb-0.5 ${
+                        className={`font-black uppercase tracking-[0.16em] block mb-0.5 ${
+                          getRoomEvaluationType(activeRoom) === 'BOOK'
+                            ? 'text-amber-400'
+                            : getRoomEvaluationType(activeRoom) === 'CUSTOM'
+                            ? 'text-violet-400'
+                            : 'text-indigo-400'
+                        } ${
                           isQrTelaoExpanded ? 'text-xs sm:text-sm' : 'text-[10px] sm:text-[11px]'
                         }`}
                       >
-                        ESPECIALIDADE EM AVALIAÇÃO
+                        {getRoomEvaluationHeaderLabel(activeRoom)}
                       </span>
                       <h2
                         className={`font-black uppercase tracking-tight leading-tight text-white break-words ${
@@ -10052,7 +11265,7 @@ REGRAS OBRIGATÓRIAS:
                             : 'text-xl sm:text-3xl'
                         }`}
                       >
-                        {activeRoom.specialtyName}
+                        {activeRoom.specialtyName.replace(/^📚\s*/, '')}
                       </h2>
                     </div>
                   </div>
@@ -10092,7 +11305,9 @@ REGRAS OBRIGATÓRIAS:
                             isQrTelaoExpanded ? 'text-xs' : 'text-[10px]'
                           }`}
                         >
-                          TEMPO RESTANTE
+                          {isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime)
+                            ? 'TEMPO DE PROVA'
+                            : 'TEMPO RESTANTE'}
                         </span>
                         <div
                           className={`font-black text-sky-400 tabular-nums leading-tight ${
@@ -10101,7 +11316,9 @@ REGRAS OBRIGATÓRIAS:
                               : 'text-2xl sm:text-3xl'
                           }`}
                         >
-                          {formatTimeMMSS(hostRemainingSeconds)}
+                          {isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime)
+                            ? '∞ SEM LIMITE'
+                            : formatTimeMMSS(hostRemainingSeconds)}
                         </div>
                       </div>
                     </div>
@@ -10112,7 +11329,10 @@ REGRAS OBRIGATÓRIAS:
                           ? 'rounded-[36px] p-10 sm:p-12'
                           : 'rounded-[28px] p-6 sm:p-8'
                       } ${
-                        activeRoom.status === 'ACTIVE' && hostRemainingSeconds <= 60
+                        activeRoom.status === 'FINISHED' ||
+                        (!isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime) &&
+                          activeRoom.status === 'ACTIVE' &&
+                          hostRemainingSeconds <= 60)
                           ? 'bg-red-950/60 border-red-500/60 shadow-red-600/20'
                           : 'bg-slate-900/90 border-sky-400/45 shadow-sky-500/20'
                       }`}
@@ -10121,25 +11341,46 @@ REGRAS OBRIGATÓRIAS:
                         className={`font-black uppercase tracking-[0.22em] block mb-2 ${
                           isQrTelaoExpanded ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'
                         } ${
-                          activeRoom.status === 'ACTIVE' && hostRemainingSeconds <= 60
+                          activeRoom.status === 'FINISHED' ||
+                          (!isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime) &&
+                            activeRoom.status === 'ACTIVE' &&
+                            hostRemainingSeconds <= 60)
                             ? 'text-red-300'
                             : 'text-sky-300'
                         }`}
                       >
-                        TEMPO RESTANTE
+                        {activeRoom.status === 'FINISHED'
+                          ? 'STATUS DA AVALIAÇÃO'
+                          : isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime)
+                          ? 'TEMPO DE PROVA'
+                          : 'TEMPO RESTANTE'}
                       </span>
                       <div
-                        className={`font-black tabular-nums tracking-wider leading-none ${
-                          isQrTelaoExpanded
-                            ? 'text-7xl sm:text-8xl md:text-9xl'
-                            : 'text-6xl sm:text-7xl md:text-8xl'
+                        className={`font-black tabular-nums tracking-wider leading-tight ${
+                          activeRoom.status === 'FINISHED'
+                            ? isQrTelaoExpanded
+                              ? 'text-4xl sm:text-5xl md:text-6xl'
+                              : 'text-3xl sm:text-4xl md:text-5xl'
+                            : isQrTelaoExpanded
+                            ? 'text-7xl sm:text-8xl md:text-9xl leading-none'
+                            : 'text-6xl sm:text-7xl md:text-8xl leading-none'
                         } ${
-                          activeRoom.status === 'ACTIVE' && hostRemainingSeconds <= 60
+                          activeRoom.status === 'FINISHED'
+                            ? 'text-red-400 drop-shadow-[0_0_30px_rgba(248,113,113,0.45)]'
+                            : !isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime) &&
+                              activeRoom.status === 'ACTIVE' &&
+                              hostRemainingSeconds <= 60
                             ? 'text-red-400 animate-pulse drop-shadow-[0_0_30px_rgba(248,113,113,0.45)]'
                             : 'text-sky-400 drop-shadow-[0_0_30px_rgba(56,189,248,0.35)]'
                         }`}
                       >
-                        {formatTimeMMSS(hostRemainingSeconds)}
+                        {activeRoom.status === 'FINISHED'
+                          ? 'PROVA ENCERRADA'
+                          : isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime)
+                          ? activeRoom.status === 'ACTIVE'
+                            ? `∞ LIVRE (${formatTimeMMSS(hostRemainingSeconds)})`
+                            : '∞ SEM LIMITE'
+                          : formatTimeMMSS(hostRemainingSeconds)}
                       </div>
                     </div>
                   )}

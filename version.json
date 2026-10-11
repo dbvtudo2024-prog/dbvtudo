@@ -1,9 +1,9 @@
 {
-  "version": 1760208000000,
-  "versionName": "3.0.98",
-  "buildDate": "2026-10-11T18:55:00.000Z",
-  "timestamp": 1760208000000,
+  "version": 1760211600000,
+  "versionName": "3.0.99",
+  "buildDate": "2026-10-11T19:25:00.000Z",
+  "timestamp": 1760211600000,
   "highlights": [
-    "Nova Área de Provas Aplicadas (com opção de excluir e ver respostas dos alunos) separada do Histórico Pessoal + Nova Área Prova dos Livros"
+    "Prova Ao Vivo: Opção Sem Tempo Limite, Tempo Acima de 25m (30m, 45m, 60m, 90m ou personalizado) e Mais de 15 Questões (20, 25, 30, 40, 50 ou personalizado)"
   ]
 }

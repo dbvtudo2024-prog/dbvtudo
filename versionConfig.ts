@@ -6,14 +6,25 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.98';
+export const APP_VERSION = '3.0.99';
 export const APP_BUILD_DATE = '11 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
-    version: '3.0.98',
+    version: '3.0.99',
     date: '11/10/2026',
     tag: 'NOVO',
+    title: 'Prova Ao Vivo Sem Tempo Limite, Tempo Acima de 25 Minutos e Mais de 15 Questões',
+    changes: [
+      'Opção "∞ Sem Limite" de Tempo na Prova Ao Vivo: Agora é possível criar provas sem tempo limite (tempo livre) ou converter uma sala em andamento para tempo ilimitado a qualquer momento.',
+      'Tempos Maiores que 25 Minutos: Adicionados botões rápidos de 30m, 45m, 60m e 90m, além de controle personalizado (-5m / +5m / digitação livre até 300 minutos) e botão de +15 Minutos na sala ativa.',
+      'Provas com Mais de 15 Questões: Adicionadas opções rápidas para 20, 25, 30, 40 e 50 questões, além de seletor numérico personalizado (até 100 questões) para Especialidades, Livros e Provas Personalizadas.'
+    ]
+  },
+  {
+    version: '3.0.98',
+    date: '11/10/2026',
+    tag: 'ATUAL',
     title: 'Área de Provas Aplicadas (com Opção de Excluir) & Prova dos Livros na Prova Ao Vivo',
     changes: [
       'Separação Definitiva entre "Provas Aplicadas" e "Meu Histórico de Provas Feitas": Provas que você criou e que foram respondidas por outras pessoas (como Fisiologia Vegetal) não aparecem mais misturadas nas suas provas feitas — agora elas ficam organizadas exclusivamente na nova seção "Provas Aplicadas".',

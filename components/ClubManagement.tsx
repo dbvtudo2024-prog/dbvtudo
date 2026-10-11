@@ -10,7 +10,7 @@ import {
   createDevocional, updateDevocional, deleteDevocional, fetchUserSpecialties, updateUserSpecialties, 
   getLocalUserSpecialties, saveLocalUserSpecialties,
   getLocalCatalogFavorites, saveLocalCatalogFavorites,
-  fetchCultura, updateCultura, fetchUserProfile, supabase,
+  fetchCultura, updateCultura, fetchUserProfile, supabase, getSafeAuthUser,
   fetchLivrosClasses, fetchLivrosAno, fetchOutrosLivros, fetchManuaisDBV,
   fetchCampingDBV, fetchFormularios, DEFAULT_FORMULARIOS, createFormulario, updateFormulario, deleteFormulario,
   fetchVideos, fetchVideoCategories,
@@ -2468,10 +2468,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     const hasLocalProfile = Boolean(localStorage.getItem(PROFILE_KEY));
     const isGuestStored = localStorage.getItem('dbv_is_guest') === 'true';
     if (!isGuest && !isGuestStored && hasLocalProfile) {
-      supabase.auth.getUser()
-        .then(({ data, error }) => {
-          if (!error && data?.user) {
-            fetchUserProfile(data.user.id)
+      getSafeAuthUser()
+        .then((user) => {
+          if (user?.id) {
+            fetchUserProfile(user.id)
               .then(profile => {
                 if (profile) {
                   let localParsed: any = null;
@@ -2492,8 +2492,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     }
                   }
 
-                  const effectiveCargo = localParsed?.cargo || profile.funçao || (profile as any).cargo || fundoCargo || data.user.user_metadata?.cargo || '';
-                  const effectiveBirthDate = localParsed?.data_nascimento || profile.data_nascimento || (profile as any)['data de nascimento'] || (profile as any)['nascimento'] || fundoBirthDate || data.user.user_metadata?.data_nascimento || '';
+                  const effectiveCargo = localParsed?.cargo || profile.funçao || (profile as any).cargo || fundoCargo || user.user_metadata?.cargo || '';
+                  const effectiveBirthDate = localParsed?.data_nascimento || profile.data_nascimento || (profile as any)['data de nascimento'] || (profile as any)['nascimento'] || fundoBirthDate || user.user_metadata?.data_nascimento || '';
                   const effectiveName = localParsed?.name || profile.nome || '';
                   const effectiveClube = localParsed?.clube || profile.clube || profile.clube_de || '';
                   const effectiveAvatar = localParsed?.avatar || profile.foto || '';
@@ -2506,15 +2506,15 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     clube: effectiveClube,
                     foto: effectiveAvatar,
                     data_nascimento: effectiveBirthDate,
-                    email: data.user.email || localParsed?.email || profile.email,
+                    email: user.email || localParsed?.email || profile.email,
                     ADM: effectiveAdmin
                   });
 
                   if (effectiveAdmin) {
                     setIsUserAdmin(true);
                   }
-                  if (!userEmail && data.user.email) {
-                    setUserEmail(data.user.email);
+                  if (!userEmail && user.email) {
+                    setUserEmail(user.email);
                   }
                   if (localParsed) {
                     localParsed.isAdmin = effectiveAdmin;

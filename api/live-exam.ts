@@ -25,9 +25,12 @@ function mergeStudentHistoryEntries(existingList: any[], incomingList: any[]): a
     if (!prev) {
       byPin.set(pinKey, item);
     } else {
-      const mergedReleased = Boolean(prev.resultsReleased || item.resultsReleased);
       const newer = (item.completedAt || 0) >= (prev.completedAt || 0) ? item : prev;
       const older = newer === item ? prev : item;
+      const mergedReleased =
+        typeof newer.resultsReleased === 'boolean'
+          ? newer.resultsReleased
+          : Boolean(prev.resultsReleased || item.resultsReleased);
       byPin.set(pinKey, {
         ...older,
         ...newer,
@@ -167,18 +170,50 @@ function mergeRoomRecords(existingRoom: any, incomingRoom: any): any {
 
   const mergedAlerts = dedupeAlertsList([...(incomingRoom.alerts || []), ...(existingRoom.alerts || [])]);
 
-  const status =
+  const isIncomingNewer = Number(incomingRoom.updatedAt || 0) >= Number(existingRoom.updatedAt || 0);
+  const resultsReleased =
+    isIncomingNewer && typeof incomingRoom.resultsReleased === 'boolean'
+      ? incomingRoom.resultsReleased
+      : typeof existingRoom.resultsReleased === 'boolean'
+      ? existingRoom.resultsReleased
+      : Boolean(incomingRoom.resultsReleased || existingRoom.resultsReleased);
+
+  const effDuration = Number(
+    (isIncomingNewer ? incomingRoom.durationMinutes : existingRoom.durationMinutes) ??
+      incomingRoom.durationMinutes ??
+      existingRoom.durationMinutes ??
+      15
+  );
+  const isUnlimited =
+    Boolean(incomingRoom.unlimitedTime ?? existingRoom.unlimitedTime) ||
+    effDuration <= 0 ||
+    effDuration >= 9999;
+  const manuallyFinished = Boolean(
+    incomingRoom.manuallyFinished || existingRoom.manuallyFinished || resultsReleased
+  );
+
+  let status =
     existingRoom.status === 'FINISHED' || incomingRoom.status === 'FINISHED'
       ? 'FINISHED'
       : existingRoom.status === 'ACTIVE' || incomingRoom.status === 'ACTIVE'
       ? 'ACTIVE'
       : incomingRoom.status || existingRoom.status || 'WAITING';
 
+  if (isUnlimited && status === 'FINISHED' && !manuallyFinished) {
+    status =
+      existingRoom.status === 'ACTIVE' || incomingRoom.status === 'ACTIVE' || existingRoom.startedAt || incomingRoom.startedAt
+        ? 'ACTIVE'
+        : 'WAITING';
+  }
+
   return {
     ...existingRoom,
     ...incomingRoom,
+    durationMinutes: isUnlimited ? 9999 : effDuration,
+    unlimitedTime: isUnlimited,
+    manuallyFinished,
     status,
-    resultsReleased: Boolean(incomingRoom.resultsReleased || existingRoom.resultsReleased),
+    resultsReleased,
     startedAt: incomingRoom.startedAt || existingRoom.startedAt || null,
     extraSecondsAdded: Math.max(
       Number(existingRoom.extraSecondsAdded || 0),
@@ -454,6 +489,11 @@ export default async function handler(
           const existing = globalRooms.get(String(pin));
           if (existing) {
             const prevP = existing.participants?.[participant.id];
+            if (existing.status === 'FINISHED' && !prevP) {
+              res.statusCode = 200;
+              res.end(JSON.stringify({ ok: true, room: existing }));
+              return;
+            }
             const mergedP = mergeParticipantRecords(prevP, participant, true);
             existing.participants = {
               ...(existing.participants || {}),
@@ -474,6 +514,11 @@ export default async function handler(
           const existing = globalRooms.get(String(pin));
           if (existing) {
             const prevP = existing.participants?.[participant.id];
+            if (existing.status === 'FINISHED' && !prevP) {
+              res.statusCode = 200;
+              res.end(JSON.stringify({ ok: true, room: existing }));
+              return;
+            }
             const maxCheat = Math.max(Number(prevP?.cheatCount || 0), Number(participant.cheatCount || 0));
             const maxUnlocked = Math.max(
               Number(prevP?.unlockedCheatCount || 0),

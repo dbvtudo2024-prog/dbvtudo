@@ -5,7 +5,7 @@ import { ClubType, Especialidade, UserProfile, Conquista } from '../types';
 import { MASTERY_RULES } from '../masteryRules';
 import { 
   fetchEspecialidades, getCachedEspecialidades,
-  fetchUserProfile, fetchUserProfileByEmail, updateUserProfile, supabase,
+  fetchUserProfile, fetchUserProfileByEmail, updateUserProfile, supabase, getSafeAuthUser,
   fetchConquistas, fetchUserAchievements, updateUserAchievements,
   fetchFuncoes, DEFAULT_CARGOS, getCachedFuncoes,
   getLocalFaixaSpecialties, saveLocalFaixaSpecialties, clearLocalFaixaSpecialties,
@@ -753,9 +753,8 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   useEffect(() => {
     const checkUser = async () => {
       try {
-        const { data, error } = await supabase.auth.getUser();
-        if (!error && data?.user) {
-          const user = data.user;
+        const user = await getSafeAuthUser();
+        if (user) {
           setUserId(user.id);
           let profile = await fetchUserProfile(user.id);
           

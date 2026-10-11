@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { QFPY_URL, QFPY_KEY, supabaseQfpy, supabase } from './supabaseService';
+import { QFPY_URL, QFPY_KEY, supabaseQfpy, supabase, safeSupabaseFetch } from './supabaseService';
 
 export interface SyncedKeyEntry {
   value: string;
@@ -115,6 +115,9 @@ const supabaseCloudSyncRealtime = createClient(QFPY_URL, QFPY_KEY, {
     persistSession: false,
     autoRefreshToken: false,
     detectSessionInUrl: false
+  },
+  global: {
+    fetch: safeSupabaseFetch
   }
 });
 
