@@ -1,9 +1,9 @@
 {
-  "version": 1760211600000,
-  "versionName": "3.0.99",
-  "buildDate": "2026-10-11T19:25:00.000Z",
-  "timestamp": 1760211600000,
+  "version": 1760266800000,
+  "versionName": "3.1.0",
+  "buildDate": "2026-10-12T12:00:00.000Z",
+  "timestamp": 1760266800000,
   "highlights": [
-    "Prova Ao Vivo: Opção Sem Tempo Limite, Tempo Acima de 25m (30m, 45m, 60m, 90m ou personalizado) e Mais de 15 Questões (20, 25, 30, 40, 50 ou personalizado)"
+    "Prova Ao Vivo: Categorias do livro Nisto Cremos (Capítulos 1 a 10, 11 a 20 e 21 a 28), Manuais adicionados junto da Prova dos Livros e Projeção da Sala com Círculo Giratório de Participantes"
   ]
 }

@@ -1,4 +1,4 @@
-import { DesbravaMais } from './supabaseService';
+import { DesbravaMais } from '../types';
 
 export interface DesbravaMaisChecklistItem {
   id: string;

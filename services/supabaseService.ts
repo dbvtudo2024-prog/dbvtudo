@@ -132,7 +132,7 @@ export const supabaseQfpy = createClient(QFPY_URL, QFPY_KEY, {
 
 export const supabaseDemb = supabaseQfpy;
 
-let _activeAuthProject: 'qfpy' | 'demb' = (() => {
+let _activeAuthProject: 'qfpy' | 'demb' = ((): 'qfpy' | 'demb' => {
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.removeItem('sb-dembhtmryutggifbpuka-auth-token');

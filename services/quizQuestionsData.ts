@@ -593,3 +593,283 @@ export const MANUAL_ADMINISTRATIVO_DBV_QUESTIONS: Omit<QuizQuestionItem, 'id'>[]
     hint: 'A disciplina adventista é sempre redentora e proíbe castigos físicos ou constrangimento.'
   }
 ];
+
+// ============================================================================
+// HISTÓRIA, IDEAIS, EMBLEMAS E MANUAL — DESBRAVADORES E AVENTUREIROS
+// ============================================================================
+export const DESBRAVADORES_IDEALS_MANUAL_QUESTIONS: Omit<QuizQuestionItem, 'id'>[] = [
+  {
+    category: 'HISTORIA_MANUAL',
+    subCategory: 'Hino e Ideais',
+    question: 'Quem compôs a letra e a música do Hino Oficial dos Desbravadores e em que ano ele foi escrito?',
+    options: [
+      'Henry T. Bergh, em 1949',
+      'John Hancock, em 1946',
+      'Lawrence Skinner, em 1950',
+      'Arthur W. Spalding, em 1921'
+    ],
+    correctIndex: 0,
+    explanation: 'O pastor Henry T. Bergh compôs o Hino dos Desbravadores em maio de 1949, enquanto dirigia rumo a uma reunião na Califórnia.',
+    reference: 'Manual Administrativo do Clube de Desbravadores',
+    hint: 'Foi escrito um ano antes do reconhecimento mundial oficial de 1950.'
+  },
+  {
+    category: 'HISTORIA_MANUAL',
+    subCategory: 'História Mundial',
+    question: 'Em que ano a Associação Geral da Igreja Adventista do Sétimo Dia oficializou mundialmente o Clube de Desbravadores?',
+    options: [
+      '1950',
+      '1946',
+      '1929',
+      '1959'
+    ],
+    correctIndex: 0,
+    explanation: 'Em 24 de agosto de 1950, a Associação Geral reconheceu oficialmente o programa do Clube de Desbravadores em âmbito mundial, tendo Lawrence Skinner como primeiro diretor mundial.',
+    reference: 'História Mundial dos Desbravadores',
+    hint: 'Meados do século XX, logo após a composição do hino em 1949.'
+  },
+  {
+    category: 'HISTORIA_MANUAL',
+    subCategory: 'Emblemas e RUD',
+    question: 'Quem desenhou o emblema triangular oficial do Clube de Desbravadores em 1946?',
+    options: [
+      'John Hancock',
+      'C. Lester Bond',
+      'J. H. N. Tindall',
+      'Malcolm Allen'
+    ],
+    correctIndex: 0,
+    explanation: 'O pastor John Hancock, então diretor de jovens da Associação do Sudeste da Califórnia, desenhou o triângulo dos Desbravadores em 1946.',
+    reference: 'Manual Administrativo • Emblemas Oficiais',
+    hint: 'Era conhecido por tocar acordeão e desenhar cartazes para os jovens.'
+  },
+  {
+    category: 'HISTORIA_MANUAL',
+    subCategory: 'Emblemas e RUD',
+    question: 'No emblema oficial D1 dos Desbravadores, o que simbolizam o Escudo e a Espada?',
+    options: [
+      'O Escudo da Fé (Gênesis 15:1 / Efésios 6:16) e a Espada do Espírito, que é a Palavra de Deus (Efésios 6:17)',
+      'A proteção do acampamento e a coragem física nas atividades de campo',
+      'A justiça dos reis de Israel e a força militar de Davi',
+      'A honra da liderança e a disciplina da ordem unida'
+    ],
+    correctIndex: 0,
+    explanation: 'O escudo representa a fé que protege o cristão e a espada simboliza a Bíblia Sagrada, a Palavra de Deus, em uma guerra espiritual contra o pecado.',
+    reference: 'Efésios 6:16-17 • Regulamento de Uniformes (RUD)',
+    hint: 'Baseia-se na armadura do cristão descrita pelo apóstolo Paulo.'
+  },
+  {
+    category: 'HISTORIA_MANUAL',
+    subCategory: 'Emblemas e RUD',
+    question: 'Qual é o significado oficial das 4 cores presentes no emblema dos Desbravadores (Vermelho, Amarelo/Ouro, Branco e Azul)?',
+    options: [
+      'Vermelho: Sacrifício de Cristo; Amarelo: Excelência; Branco: Pureza; Azul: Lealdade',
+      'Vermelho: Coragem; Amarelo: Riqueza; Branco: Paz; Azul: Céu',
+      'Vermelho: Fogo do Espírito; Amarelo: Sol da Justiça; Branco: Santidade; Azul: Verdade',
+      'Vermelho: Sangue; Amarelo: Luz; Branco: Fé; Azul: Esperança'
+    ],
+    correctIndex: 0,
+    explanation: 'Vermelho lembra o sangue e sacrifício de Cristo (João 3:16); Amarelo/Ouro representa a excelência dos ideais; Branco a pureza (Apoc. 3:5); e Azul a lealdade ao Senhor, à família e ao clube.',
+    reference: 'Manual Administrativo • Significado dos Emblemas',
+    hint: 'Pense em Sacrifício, Excelência, Pureza e Lealdade.'
+  },
+  {
+    category: 'HISTORIA_MANUAL',
+    subCategory: 'História na América do Sul',
+    question: 'Qual foi o primeiro Clube de Desbravadores oficializado na América do Sul (em 1955) e em que país surgiu?',
+    options: [
+      'Clube "Conquistadores de Miraflores", em Lima, Peru',
+      'Clube "Pioneiros do Catetinho", em Brasília, Brasil',
+      'Clube "Cruzeiro do Sul", em Buenos Aires, Argentina',
+      'Clube "Vigia do Pacífico", em Santiago, Chile'
+    ],
+    correctIndex: 0,
+    explanation: 'Em 1955, na igreja de Miraflores (Lima, Peru), foi organizado o primeiro clube sul-americano sob a liderança do casal Nercida e Armando Ruiz, após visita do Pr. Jairo Tavares de Araújo.',
+    reference: 'História dos Desbravadores na Divisão Sul-Americana',
+    hint: 'Surgiu no bairro de Miraflores, capital peruana.'
+  },
+  {
+    category: 'HISTORIA_MANUAL',
+    subCategory: 'História no Brasil',
+    question: 'Em qual cidade brasileira foi organizado o primeiro Clube de Desbravadores do Brasil em 1959, com apoio do Pr. Wilson Sarli?',
+    options: [
+      'Ribeirão Preto (SP)',
+      'Curitiba (PR)',
+      'Santo André (SP)',
+      'Lajeado (RS)'
+    ],
+    correctIndex: 0,
+    explanation: 'Em 1959, na cidade de Ribeirão Preto (interior de São Paulo), foi organizado o primeiro clube brasileiro sob a direção de Edgar Turcato e apoio do Pr. Wilson Sarli.',
+    reference: 'História dos Desbravadores no Brasil',
+    hint: 'Importante cidade do interior do estado de São Paulo.'
+  },
+  {
+    category: 'HISTORIA_MANUAL',
+    subCategory: 'História na América do Sul',
+    question: 'Onde e quando foi realizado o 1º Campori Sul-Americano de Desbravadores?',
+    options: [
+      'Foz do Iguaçu (PR), em dezembro de 1983 / janeiro de 1984',
+      'Ponta Grossa (PR), em janeiro de 1994',
+      'Barretos (SP), em janeiro de 2005',
+      'Santa Helena (PR), em janeiro de 2014'
+    ],
+    correctIndex: 0,
+    explanation: 'O 1º Campori Sul-Americano ("Da Natureza ao Criador") aconteceu em Foz do Iguaçu (PR), de 28 de dezembro de 1983 a 4 de janeiro de 1984, dirigido pelo Pr. Cláudio Belz.',
+    reference: 'História dos Camporis da DSA',
+    hint: 'Realizado na cidade das Cataratas do Iguaçu.'
+  },
+  {
+    category: 'HISTORIA_MANUAL',
+    subCategory: 'Manual Administrativo',
+    question: 'Qual é a sequência correta das 6 Classes Regulares dos Desbravadores e suas respectivas idades iniciais?',
+    options: [
+      'Amigo (10), Companheiro (11), Pesquisador (12), Pioneiro (13), Excursionista (14) e Guia (15)',
+      'Amigo (10), Pesquisador (11), Companheiro (12), Pioneiro (13), Guia (14) e Excursionista (15)',
+      'Companheiro (10), Amigo (11), Pioneiro (12), Pesquisador (13), Excursionista (14) e Guia (15)',
+      'Amigo (9), Companheiro (10), Pesquisador (11), Pioneiro (12), Excursionista (13) e Guia (14)'
+    ],
+    correctIndex: 0,
+    explanation: 'As classes regulares atendem juvenis de 10 a 15 anos na ordem: Amigo (Azul, 10), Companheiro (Vermelho, 11), Pesquisador (Verde, 12), Pioneiro (Cinza, 13), Excursionista (Vinho, 14) e Guia (Amarelo, 15).',
+    reference: 'Manual Administrativo • Currículo das Classes',
+    hint: 'Começa em Amigo aos 10 anos e encerra em Guia aos 15 anos.'
+  },
+  {
+    category: 'HISTORIA_MANUAL',
+    subCategory: 'Ideais',
+    question: 'Qual item abaixo faz parte dos 8 pontos da Lei do Desbravador ("A Lei do Desbravador ordena-me...")?',
+    options: [
+      'Cumprir fielmente a parte que me corresponde',
+      'Ser sempre obediente e ajudar em casa',
+      'Prometer fidelidade à Bíblia Sagrada',
+      'Levar a mensagem do advento a todo o mundo'
+    ],
+    correctIndex: 0,
+    explanation: 'Os 8 itens da Lei do Desbravador são: 1) Observar a devoção matinal; 2) Cumprir fielmente a parte que me corresponde; 3) Cuidar de meu corpo; 4) Manter a consciência limpa; 5) Ser cortês e obediente; 6) Andar com reverência na casa de Deus; 7) Ter sempre um cântico no coração; 8) Ir aonde Deus mandar.',
+    reference: 'Ideais Oficiais dos Desbravadores',
+    hint: 'É o segundo item da Lei do Desbravador.'
+  },
+  {
+    category: 'HISTORIA_MANUAL',
+    subCategory: 'Ideais',
+    question: 'Qual é o texto oficial do LEMA e do OBJETIVO do Ministério de Desbravadores / Jovens?',
+    options: [
+      'Lema: "O amor de Cristo me motiva" • Objetivo: "Salvar do pecado e guiar no serviço"',
+      'Lema: "A mensagem do advento a todo o mundo" • Objetivo: "Pela graça de Deus serei puro"',
+      'Lema: "Servir a Deus e à pátria" • Objetivo: "Amar ao próximo como a mim mesmo"',
+      'Lema: "Sempre alerta para servir" • Objetivo: "Guardar a lei dos Desbravadores"'
+    ],
+    correctIndex: 0,
+    explanation: 'O Alvo é "A mensagem do advento a todo o mundo em minha geração"; o Lema é "O amor de Cristo me motiva" (2 Coríntios 5:14); e o Objetivo é "Salvar do pecado e guiar no serviço".',
+    reference: 'Manual Administrativo • Ideais do Clube',
+    hint: 'Inspirado em 2 Coríntios 5:14.'
+  },
+  {
+    category: 'HISTORIA_MANUAL',
+    subCategory: 'Manual Administrativo',
+    question: 'No sistema de unidades do Clube de Desbravadores, qual é a composição ideal de uma unidade?',
+    options: [
+      'De 6 a 8 desbravadores do mesmo sexo, liderados por um Conselheiro(a), com Capitão e Secretário escolhidos entre os membros',
+      'De 12 a 15 desbravadores mistos, liderados diretamente pelo Diretor Associado',
+      'De 4 a 5 desbravadores de todas as idades sem cargos internos',
+      'Até 20 desbravadores divididos apenas por ordem alfabética'
+    ],
+    correctIndex: 0,
+    explanation: 'A unidade é o coração do clube: composta por 6 a 8 membros (separados por sexo e faixa etária próxima), acompanhados por um Conselheiro(a) maior de 16/18 anos, tendo um Capitão e um Secretário.',
+    reference: 'Manual Administrativo • Sistema de Unidades',
+    hint: 'A unidade é um pequeno grupo de 6 a 8 membros.'
+  }
+];
+
+export const AVENTUREIROS_IDEALS_MANUAL_QUESTIONS: Omit<QuizQuestionItem, 'id'>[] = [
+  {
+    category: 'HISTORIA_MANUAL',
+    subCategory: 'Classes dos Aventureiros',
+    question: 'Qual é a sequência correta das 4 Classes dos Aventureiros e suas respectivas idades e cores?',
+    options: [
+      'Abelhinhas Laboriosas (6 anos, Azul Claro), Luminares (7 anos, Laranja), Edificadores (8 anos, Azul Escuro) e Mãos Ajudadoras (9 anos, Vinho/Bordô)',
+      'Luminares (6 anos), Abelhinhas Laboriosas (7 anos), Edificadores (8 anos) e Mãos Ajudadoras (9 anos)',
+      'Abelhinhas Laboriosas (5 anos), Edificadores (6 anos), Luminares (7 anos) e Mãos Ajudadoras (8 anos)',
+      'Pequenos Amigos (6 anos), Luminares (7 anos), Construtores (8 anos) e Ajudantes (9 anos)'
+    ],
+    correctIndex: 0,
+    explanation: 'O currículo oficial dos Aventureiros atende crianças de 6 a 9 anos: Abelhinhas Laboriosas (6), Luminares (7), Edificadores (8) e Mãos Ajudadoras (9).',
+    reference: 'Manual Administrativo do Clube de Aventureiros',
+    hint: 'Começa aos 6 anos com as Abelhinhas Laboriosas.'
+  },
+  {
+    category: 'HISTORIA_MANUAL',
+    subCategory: 'Ideais dos Aventureiros',
+    question: 'Qual é o texto oficial do VOTO do Clube de Aventureiros?',
+    options: [
+      '"Por amor a Jesus, farei sempre o meu melhor."',
+      '"Pela graça de Deus, serei puro, bondoso e leal."',
+      '"Prometo ajudar em casa e ser amigo de todos."',
+      '"O amor de Cristo me motiva a fazer o bem."'
+    ],
+    correctIndex: 0,
+    explanation: 'O Voto dos Aventureiros é curto, significativo e adaptado à faixa etária infantil: "Por amor a Jesus, farei sempre o meu melhor."',
+    reference: 'Ideais Oficiais dos Aventureiros',
+    hint: 'Tem apenas 9 palavras e começa com "Por amor a Jesus...".'
+  },
+  {
+    category: 'HISTORIA_MANUAL',
+    subCategory: 'Ideais dos Aventureiros',
+    question: 'Quantos itens compõem a Lei do Aventureiro ("Jesus me ajuda a ser...") e quais são eles?',
+    options: [
+      '5 itens: Obediente, Puro, Reverente, Bondoso e Colaborador',
+      '8 itens: Devoção matinal, Fiel, Cuidar do corpo, Consciência limpa, Cortês, Reverente, Cântico e Ir aonde Deus mandar',
+      '3 itens: Obediente aos pais, Amigo da natureza e Fiel a Jesus',
+      '4 itens: Puro, Bondoso, Leal e Servo de Deus'
+    ],
+    correctIndex: 0,
+    explanation: 'A Lei do Aventureiro declara: "Jesus me ajuda a ser: obediente, puro, reverente, bondoso e colaborador."',
+    reference: 'Manual Administrativo • Ideais dos Aventureiros',
+    hint: 'São 5 qualidades começando com "Obediente".'
+  },
+  {
+    category: 'HISTORIA_MANUAL',
+    subCategory: 'Hino dos Aventureiros',
+    question: 'Quem é o autor do Hino Oficial dos Aventureiros ("Somos Aventureiros alegres, confiantes no amigo Jesus...")?',
+    options: [
+      'Pr. Wanderson Paiva (em 1995)',
+      'Pr. Henry T. Bergh (em 1949)',
+      'Pr. John Hancock (em 1972)',
+      'Pr. Erton Köhler (em 1998)'
+    ],
+    correctIndex: 0,
+    explanation: 'O Hino Oficial dos Aventureiros na Divisão Sul-Americana foi composto pelo Pr. Wanderson Paiva em 1995.',
+    reference: 'Manual Administrativo dos Aventureiros',
+    hint: 'Foi composto no Brasil na década de 1990.'
+  },
+  {
+    category: 'HISTORIA_MANUAL',
+    subCategory: 'História dos Aventureiros',
+    question: 'Em que ano a Associação Geral oficializou mundialmente o Ministério do Clube de Aventureiros como departamento próprio?',
+    options: [
+      '1989 / 1990 (com Teresa Reeve no desenvolvimento do currículo)',
+      '1950 (junto com os Desbravadores)',
+      '2002',
+      '1965'
+    ],
+    correctIndex: 0,
+    explanation: 'Após experiências pioneiras desde 1972, em 1989/1990 a Associação Geral aprovou o currículo mundial oficial do Clube de Aventureiros e a criação da Rede Familiar dos Aventureiros (RFA).',
+    reference: 'História Mundial dos Aventureiros',
+    hint: 'Final da década de 1980 e início de 1990.'
+  },
+  {
+    category: 'HISTORIA_MANUAL',
+    subCategory: 'Rede Familiar (RFA)',
+    question: 'Qual é o papel fundamental da Rede Familiar dos Aventureiros (RFA) no clube?',
+    options: [
+      'Integrar e capacitar os pais/responsáveis para participarem ativamente do desenvolvimento espiritual, físico e social dos filhos junto ao clube',
+      'Substituir os pais nas responsabilidades escolares das crianças',
+      'Organizar apenas acampamentos de sobrevivência na selva',
+      'Realizar cobrança financeira mensal sem participação pedagógica'
+    ],
+    correctIndex: 0,
+    explanation: 'O Clube de Aventureiros existe para apoiar os pais na missão de educar os filhos para Jesus; por isso, a Rede Familiar (RFA) envolve diretamente a família nas atividades e classes.',
+    reference: 'Manual Administrativo dos Aventureiros • RFA',
+    hint: 'O clube de Aventureiros trabalha em parceria direta com o lar.'
+  }
+];
+

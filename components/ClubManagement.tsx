@@ -211,6 +211,16 @@ const CultureAdmin: React.FC<CultureAdminProps> = ({
     historia_equador: culturaData?.historia_equador || '',
     historia_peru: culturaData?.historia_peru || '',
     historia_uruguai: culturaData?.historia_uruguai || '',
+    historia_mundial_img: culturaData?.historia_mundial_img || '',
+    historia_america_sul_img: culturaData?.historia_america_sul_img || '',
+    historia_argentina_img: culturaData?.historia_argentina_img || '',
+    historia_bolivia_img: culturaData?.historia_bolivia_img || '',
+    historia_brasil_img: culturaData?.historia_brasil_img || '',
+    historia_chile_img: culturaData?.historia_chile_img || '',
+    historia_colombia_img: culturaData?.historia_colombia_img || '',
+    historia_equador_img: culturaData?.historia_equador_img || '',
+    historia_peru_img: culturaData?.historia_peru_img || '',
+    historia_uruguai_img: culturaData?.historia_uruguai_img || '',
     uniformes_list: normalizeCulturaList(culturaData?.uniformes_list),
     emblemas_list: normalizeCulturaList(culturaData?.emblemas_list)
   });
@@ -10621,7 +10631,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       }
       setActiveSubView('FIELD_TRAINING');
     } else if (activeSubView === 'LIVE_EXAM') {
-      setActiveSubView('FIELD_TRAINING');
+      setActiveSubView('MAIN');
     } else if (activeSubView === 'UNIT_CORNER') {
       setActiveSubView('FIELD_TRAINING');
     } else if (activeSubView === 'FIELD_MANUAL') {
@@ -10666,18 +10676,6 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   }, [handleClubBackNavigation]);
 
   const fieldAndPracticeButtons = [
-    { 
-      label: 'Prova Ao Vivo (QR Code)', 
-      subtitle: canGenerateSpecialtyPptx ? 'Conselheiro+ (Criar Sala) • Anti-Cola' : 'Área da Prova • PIN / QR Code no Celular',
-      description: canGenerateSpecialtyPptx
-        ? 'Crie uma prova de especialidade com QR Code, tempo limite e anti-cola (liberado de Conselheiro para cima) ou escaneie o QR Code pelo celular.'
-        : 'Escaneie o QR Code da sala pelo celular ou digite o PIN de 6 dígitos para fazer sua prova (criação exclusiva de Conselheiro acima).',
-      badge: 'Anti-Cola',
-      icon: QrCode, 
-      gradient: 'from-[#be123c] via-[#e11d48] to-[#f43f5e]', 
-      view: 'LIVE_EXAM', 
-      show: true 
-    },
     { 
       label: 'Quiz e Simulado', 
       subtitle: isPathfinder ? 'Bom de Bíblia, Classes e Desafios' : 'Desafios, Bíblia e Concursos',
@@ -10815,6 +10813,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   const renderDashboard = () => {
     const quickAccessButtons = [
       { 
+        label: 'Prova Ao Vivo', 
+        subtitle: 'QR Code e Salas', 
+        icon: QrCode, 
+        gradient: 'from-[#be123c] via-[#e11d48] to-[#f43f5e]', 
+        view: 'LIVE_EXAM', 
+        show: true 
+      },
+      { 
         label: 'Cultura', 
         subtitle: 'História e Ideais', 
         icon: Info, 
@@ -10866,7 +10872,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
     return (
       <div className="space-y-5 md:space-y-4 lg:space-y-5 animate-slide-up pt-2 md:pt-1 pb-24 md:pb-6 landscape:pb-16">
-        {/* Visualização para Mobile: Botões na horizontal compactos (sem a palavra Acessar) */}
+        {/* Visualização para Mobile: Botões na horizontal compactos + Lado a Lado Treinamento e Prova Ao Vivo */}
         <div className="md:hidden space-y-2.5 px-1">
           {/* Cartão Mobile Horizontal: Bíblia Sagrada */}
           <button 
@@ -10937,6 +10943,66 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               <ChevronRight size={16} strokeWidth={2.6} />
             </div>
           </button>
+
+          {/* Seção Lado a Lado no Celular: Treinamento em Campo e Prova Ao Vivo */}
+          <div className="grid grid-cols-2 gap-2.5 pt-0.5">
+            {/* Treinamento em Campo */}
+            <button
+              type="button"
+              onClick={() => setActiveSubView('FIELD_TRAINING')}
+              className="relative overflow-hidden bg-gradient-to-br from-[#0f766e] via-[#0284c7] to-[#1e40af] rounded-[22px] p-3.5 flex flex-col justify-between text-left text-white shadow-md active:scale-[0.98] transition-all group border border-white/20 min-h-[118px]"
+            >
+              <div className="absolute -bottom-3 -right-3 text-white/15 pointer-events-none group-hover:scale-110 transition-transform">
+                <Compass className="w-16 h-16 stroke-[1.4]" />
+              </div>
+              <div className="flex items-center justify-between w-full relative z-10">
+                <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shadow-xs shrink-0">
+                  <Compass size={18} strokeWidth={2.4} />
+                </div>
+                <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                  <ChevronRight size={13} strokeWidth={2.8} />
+                </div>
+              </div>
+              <div className="relative z-10 mt-auto pt-2">
+                <h4 className="text-xs font-black uppercase tracking-tight leading-tight truncate">
+                  Treinamento
+                </h4>
+                <p className="text-[9px] font-bold text-white/85 uppercase tracking-wider mt-0.5 truncate">
+                  Prática & Quiz
+                </p>
+              </div>
+            </button>
+
+            {/* Prova Ao Vivo */}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedSpecialty(null);
+                setActiveSubView('LIVE_EXAM');
+              }}
+              className="relative overflow-hidden bg-gradient-to-br from-[#be123c] via-[#e11d48] to-[#f43f5e] rounded-[22px] p-3.5 flex flex-col justify-between text-left text-white shadow-md active:scale-[0.98] transition-all group border border-white/20 min-h-[118px]"
+            >
+              <div className="absolute -bottom-3 -right-3 text-white/15 pointer-events-none group-hover:scale-110 transition-transform">
+                <QrCode className="w-16 h-16 stroke-[1.4]" />
+              </div>
+              <div className="flex items-center justify-between w-full relative z-10">
+                <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center text-white shadow-xs shrink-0">
+                  <QrCode size={18} strokeWidth={2.4} />
+                </div>
+                <span className="px-1.5 py-0.5 rounded-full bg-white/25 text-[7.5px] font-black uppercase tracking-wider text-white">
+                  Anti-Cola
+                </span>
+              </div>
+              <div className="relative z-10 mt-auto pt-2">
+                <h4 className="text-xs font-black uppercase tracking-tight leading-tight truncate">
+                  Prova Ao Vivo
+                </h4>
+                <p className="text-[9px] font-bold text-white/85 uppercase tracking-wider mt-0.5 truncate">
+                  QR Code & Salas
+                </p>
+              </div>
+            </button>
+          </div>
         </div>
 
         {/* Visualização para PC / Desktop: Lado a lado horizontalmente com retângulos estilizados */}
@@ -11076,9 +11142,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         </div>
 
         {/* ========================================================
-            BOTÃO ÚNICO COMPACTO: TREINAMENTO EM CAMPO (AGRUPA AS NOVAS ÁREAS)
+            BOTÃO ÚNICO COMPACTO: TREINAMENTO EM CAMPO (AGRUPA AS NOVAS ÁREAS NO PC)
            ======================================================== */}
-        <div className="w-full max-w-5xl lg:max-w-6xl mx-auto px-4">
+        <div className="hidden md:block w-full max-w-5xl lg:max-w-6xl mx-auto px-4">
           <button
             type="button"
             onClick={() => setActiveSubView('FIELD_TRAINING')}
@@ -11331,6 +11397,35 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
                 <span className="relative z-10 truncate">Aventureiros</span>
               </button>
+
+              {/* Botão Prova Ao Vivo no Menu Principal do PC (afastado dos outros 3 botões) */}
+              <div className="pt-4 mt-4 border-t border-slate-200/60 dark:border-slate-800/70">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSpecialty(null);
+                    setActiveSubView('LIVE_EXAM');
+                  }}
+                  className={`w-full relative overflow-hidden flex items-center justify-between px-5 py-3.5 rounded-2xl font-black text-xs lg:text-sm uppercase tracking-wider transition-all text-left group active:scale-[0.98] cursor-pointer ${
+                    activeSubView === 'LIVE_EXAM'
+                      ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/35 border border-rose-400/40 scale-[1.02]'
+                      : 'bg-rose-50/70 hover:bg-rose-100/80 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 border border-rose-200/60 dark:border-rose-800/50'
+                  }`}
+                  title="Prova Ao Vivo (Salas, QR Code e Anti-Cola)"
+                >
+                  <div className="flex items-center gap-3 relative z-10 min-w-0">
+                    <QrCode className="w-5 h-5 shrink-0 stroke-[2.2]" />
+                    <span className="truncate">Prova Ao Vivo</span>
+                  </div>
+                  <span className={`relative z-10 text-[8.5px] font-black uppercase px-2 py-0.5 rounded-full ${
+                    activeSubView === 'LIVE_EXAM'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-rose-600/15 text-rose-700 dark:text-rose-200'
+                  }`}>
+                    Ao Vivo
+                  </span>
+                </button>
+              </div>
             </nav>
           </div>
         ) : (
@@ -11472,11 +11567,37 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                   AVT
                 </span>
               </button>
+
+              {/* Botão Prova Ao Vivo Compacto no Menu Principal (afastado dos outros 3 botões) */}
+              <div className="pt-3 mt-3 border-t border-slate-200/50 dark:border-slate-800/60 w-full flex flex-col items-center">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedSpecialty(null);
+                    setActiveSubView('LIVE_EXAM');
+                  }}
+                  className={`w-12 h-12 lg:w-13 lg:h-13 overflow-hidden rounded-2xl flex flex-col items-center justify-center transition-all relative group active:scale-90 cursor-pointer ${
+                    activeSubView === 'LIVE_EXAM'
+                      ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/40 border border-rose-400/35 scale-105'
+                      : 'bg-rose-50/80 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 border border-rose-200/60 dark:border-rose-800/50'
+                  }`}
+                  title="Prova Ao Vivo (QR Code e Anti-Cola)"
+                  aria-label="Prova Ao Vivo"
+                >
+                  <QrCode size={18} strokeWidth={2.4} className="group-hover:scale-110 transition-transform" />
+                  <span className={`text-[7.5px] font-black uppercase leading-none mt-1 ${
+                    activeSubView === 'LIVE_EXAM' ? 'text-white' : 'text-rose-600 dark:text-rose-400'
+                  }`}>
+                    Ao Vivo
+                  </span>
+                </button>
+              </div>
             </nav>
           </div>
         )}
 
-        {/* Rodapé da Barra Lateral: Botão de Ajustes + Versão e Ano */}
+        {/* Rodapé da Barra Lateral: Ajustes + Versão e Ano */}
         <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex flex-col items-center w-full">
           {isSidebarOpen ? (
             <>
@@ -11725,7 +11846,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     if (liveExamBackHandlerRef.current && liveExamBackHandlerRef.current()) {
                       return;
                     }
-                    setActiveSubView('FIELD_TRAINING');
+                    setActiveSubView('MAIN');
                   } else if (activeSubView === 'UNIT_CORNER') {
                     setActiveSubView('FIELD_TRAINING');
                   } else if (activeSubView === 'FIELD_MANUAL') {

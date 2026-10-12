@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const buildTime = Date.now();
-const appVersion = '3.0.99';
+const appVersion = '3.1.0';
 const liveExamRooms = new Map<string, any>();
 const userCloudSyncBundles = new Map<string, any>();
 const liveExamInstructorSessions = new Map<
@@ -292,9 +292,22 @@ function versionPlugin(): Plugin {
                   };
                 };
 
-                const mergeRoomSrv = (existingRoom: any, incomingRoom: any): any => {
+                const mergeRoomSrv = (existingRoom: any, incomingRoom: any, replaceParticipants?: boolean): any => {
                   if (!existingRoom) return incomingRoom;
                   if (!incomingRoom) return existingRoom;
+                  if (replaceParticipants) {
+                    const effDuration = Number(incomingRoom.durationMinutes ?? 15);
+                    const isUnlimited =
+                      Boolean(incomingRoom.unlimitedTime) || effDuration <= 0 || effDuration > 300;
+                    return {
+                      ...incomingRoom,
+                      durationMinutes: isUnlimited ? 0 : effDuration,
+                      unlimitedTime: isUnlimited,
+                      participants: incomingRoom.participants || {},
+                      alerts: incomingRoom.alerts || [],
+                      updatedAt: Number(incomingRoom.updatedAt || Date.now())
+                    };
+                  }
 
                   const mergedParticipants: Record<string, any> = {
                     ...(existingRoom.participants || {}),
@@ -331,7 +344,7 @@ function versionPlugin(): Plugin {
                   const isUnlimited =
                     Boolean(incomingRoom.unlimitedTime ?? existingRoom.unlimitedTime) ||
                     effDuration <= 0 ||
-                    effDuration >= 9999;
+                    effDuration > 300;
                   const manuallyFinished = Boolean(
                     incomingRoom.manuallyFinished || existingRoom.manuallyFinished || resultsReleased
                   );
@@ -353,7 +366,7 @@ function versionPlugin(): Plugin {
                   return {
                     ...existingRoom,
                     ...incomingRoom,
-                    durationMinutes: isUnlimited ? 9999 : effDuration,
+                    durationMinutes: isUnlimited ? 0 : effDuration,
                     unlimitedTime: isUnlimited,
                     manuallyFinished,
                     status,
@@ -405,15 +418,16 @@ function versionPlugin(): Plugin {
                   return;
                 }
 
-                if (action === 'SYNC_STUDENT_HISTORY' && Array.isArray(payload?.keys) && Array.isArray(payload?.entries)) {
-                  const keys = payload.keys.map((k: any) => String(k || '').trim()).filter(Boolean);
-                  const replaceMode = Boolean(payload?.replace);
+                const syncHistData = action === 'SYNC_STUDENT_HISTORY' ? (payload?.payload || payload) : null;
+                if (action === 'SYNC_STUDENT_HISTORY' && Array.isArray(syncHistData?.keys) && Array.isArray(syncHistData?.entries)) {
+                  const keys = syncHistData.keys.map((k: any) => String(k || '').trim()).filter(Boolean);
+                  const replaceMode = Boolean(syncHistData?.replace);
                   const deletedPinsSet = new Set<string>(
-                    Array.isArray(payload?.deletedPins)
-                      ? payload.deletedPins.map((p: any) => String(p || '').trim()).filter(Boolean)
+                    Array.isArray(syncHistData?.deletedPins)
+                      ? syncHistData.deletedPins.map((p: any) => String(p || '').trim()).filter(Boolean)
                       : []
                   );
-                  let combined = payload.entries.filter(
+                  let combined = syncHistData.entries.filter(
                     (e: any) => e?.pin && !deletedPinsSet.has(String(e.pin).trim())
                   );
                   if (!replaceMode) {
@@ -432,8 +446,8 @@ function versionPlugin(): Plugin {
                   return;
                 }
 
-                if (action === 'DELETE_APPLIED_EXAM' && roomPin) {
-                  const rPin = String(roomPin).trim();
+                if (action === 'DELETE_APPLIED_EXAM' && (pin || payload?.roomPin)) {
+                  const rPin = String(pin || payload?.roomPin).replace(/\D/g, '').trim();
                   liveExamRooms.delete(rPin);
                   const cKey = String(instructorKey || payload?.instructorKey || '').trim();
                   if (cKey) {
@@ -458,8 +472,15 @@ function versionPlugin(): Plugin {
 
                 if (action === 'UPSERT_ROOM' && room?.pin) {
                   const rPin = String(room.pin);
-                  const existingRoom = liveExamRooms.get(rPin);
-                  const savedRoom = mergeRoomSrv(existingRoom, room);
+                  const existingRoom = payload?.isNewRoom ? null : liveExamRooms.get(rPin);
+                  const savedRoom = payload?.isNewRoom
+                    ? {
+                        ...room,
+                        participants: {},
+                        alerts: [],
+                        updatedAt: Date.now()
+                      }
+                    : mergeRoomSrv(existingRoom, room, Boolean(payload?.replaceParticipants));
                   liveExamRooms.set(rPin, savedRoom);
                   const cKey = String(room.creatorKey || instructorKey || existingRoom?.creatorKey || '').trim();
                   if (cKey) {
@@ -581,7 +602,28 @@ function versionPlugin(): Plugin {
                   const existing = liveExamRooms.get(String(pin));
                   if (existing) {
                     const prevP = existing.participants?.[participant.id];
-                    const mergedP = mergeParticipantSrv(prevP, participant, true);
+                    const isFinishedRoom =
+                      existing.status === 'FINISHED' &&
+                      (!existing.unlimitedTime || existing.manuallyFinished || existing.resultsReleased);
+                    if (isFinishedRoom && !prevP) {
+                      res.setHeader('Content-Type', 'application/json');
+                      res.end(JSON.stringify({ ok: true, room: existing }));
+                      return;
+                    }
+                    const isInitialJoin =
+                      Boolean(payload?.isInitialJoin) &&
+                      Number(participant.answeredCount || 0) === 0 &&
+                      Object.keys(participant.answers || {}).length === 0;
+                    const mergedP = isInitialJoin
+                      ? {
+                          ...participant,
+                          answers: {},
+                          answeredCount: 0,
+                          correctCount: 0,
+                          scorePercent: 0,
+                          grade10: 0
+                        }
+                      : mergeParticipantSrv(prevP, participant, true);
                     existing.participants = {
                       ...(existing.participants || {}),
                       [participant.id]: mergedP

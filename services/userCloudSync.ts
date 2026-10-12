@@ -56,9 +56,7 @@ const EXACT_TRACKED_KEYS = new Set<string>([
   'dbv_quiz_scores_PATHFINDER',
   'dbv_quiz_scores_ADVENTURER',
   'dbv_quiz_auto_advance',
-  // Provas Ao Vivo e Histórico de Provas (isolados por conta do usuário)
-  'dbv_instructor_active_exam_rooms',
-  'dbv_instructor_active_exam_room',
+  // Provas Ao Vivo (rascunhos e exclusões isolados por conta do usuário)
   'dbv_exam_draft_specialty_PATHFINDER',
   'dbv_exam_draft_specialty_ADVENTURER',
   'dbv_exam_draft_custom_PATHFINDER',
@@ -75,8 +73,6 @@ const TRACKED_KEY_PREFIXES = [
   'dbv_tudo_faixa_ADVENTURER_',
   'dbv_tudo_catalog_favs_PATHFINDER_',
   'dbv_tudo_catalog_favs_ADVENTURER_',
-  'dbv_student_exam_history_',
-  'dbv_applied_exams_history_',
   'dbv_deleted_applied_exams_',
   'dbv_deleted_student_history_',
   'dbv_exam_draft_'

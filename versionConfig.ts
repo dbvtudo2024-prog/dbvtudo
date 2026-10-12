@@ -6,14 +6,26 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.0.99';
-export const APP_BUILD_DATE = '11 de Outubro de 2026';
+export const APP_VERSION = '3.1.0';
+export const APP_BUILD_DATE = '12 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '3.1.0',
+    date: '12/10/2026',
+    tag: 'NOVO',
+    title: 'Nisto Cremos (Cap. 1-10, 11-20 e 21-28), Manuais na Prova dos Livros e Círculo Giratório de Participantes no Telão',
+    changes: [
+      'Categorias do Livro "Nisto Cremos" na Prova Ao Vivo: Ao selecionar o livro Nisto Cremos, escolha entre Capítulos 1 a 10, Capítulos 11 a 20, Capítulos 21 a 28 ou Todos os Capítulos (1 a 28), com banco oficial de questões específico para cada faixa de capítulos.',
+      'Manuais Integrados à Prova dos Livros: Adicionadas as categorias "Manuais DBV" e "Manuais Aventureiros" junto à Prova dos Livros e Manuais (incluindo o Manual Administrativo do Clube de Desbravadores e de Aventureiros).',
+      'Projeção da Sala e Círculo Giratório de Participantes: Ao abrir uma sala aguardando os alunos, a projeção exibe o Nome da Prova, QR Code e Código da Sala, e os participantes aparecem com Nome e Clube/Unidade em tamanhos aleatórios dentro de um círculo, onde o último a entrar fica em destaque no centro e os anteriores ficam mais apagados girando lentamente dentro do círculo.',
+      'Correções na Prova Ao Vivo: Sanitização de respostas e cronômetros ao trocar de sala, prevenção de reabertura de salas fechadas/excluídas e validação de tempo gasto.'
+    ]
+  },
+  {
     version: '3.0.99',
     date: '11/10/2026',
-    tag: 'NOVO',
+    tag: 'ATUAL',
     title: 'Prova Ao Vivo Sem Tempo Limite, Tempo Acima de 25 Minutos e Mais de 15 Questões',
     changes: [
       'Opção "∞ Sem Limite" de Tempo na Prova Ao Vivo: Agora é possível criar provas sem tempo limite (tempo livre) ou converter uma sala em andamento para tempo ilimitado a qualquer momento.',

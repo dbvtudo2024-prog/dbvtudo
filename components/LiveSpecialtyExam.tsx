@@ -14,8 +14,18 @@ import {
   fetchLivrosAno,
   fetchOutrosLivros,
   fetchLivrosAVT,
+  fetchManuaisDBV,
+  fetchManuaisAVT,
   resolveGeminiApiKey
 } from '../services/supabaseService';
+import {
+  NISTO_CREMOS_1_10_QUESTIONS,
+  NISTO_CREMOS_11_20_QUESTIONS,
+  NISTO_CREMOS_21_28_QUESTIONS,
+  MANUAL_ADMINISTRATIVO_DBV_QUESTIONS,
+  DESBRAVADORES_IDEALS_MANUAL_QUESTIONS,
+  AVENTUREIROS_IDEALS_MANUAL_QUESTIONS
+} from '../services/quizQuestionsData';
 
 export interface LiveExamBookItem {
   uid: string;
@@ -24,7 +34,7 @@ export interface LiveExamBookItem {
   cover: string;
   summary: string;
   content: string;
-  category: 'CLASSES' | 'ANO_DBV' | 'OUTROS_DBV' | 'AVT';
+  category: 'CLASSES' | 'ANO_DBV' | 'OUTROS_DBV' | 'MANUAIS_DBV' | 'AVT' | 'MANUAIS_AVT';
   categoryLabel: string;
   badgeText: string;
   club: ClubType;
@@ -137,6 +147,7 @@ export interface LiveExamParticipant {
   unit: string;
   status: 'WAITING' | 'PLAYING' | 'LOCKED_CHEAT' | 'FINISHED' | 'DISQUALIFIED';
   joinedAt: string;
+  joinedAtMs?: number;
   currentQuestionIdx: number;
   answeredCount: number;
   correctCount: number;
@@ -150,6 +161,30 @@ export interface LiveExamParticipant {
   answers: Record<number, number>;
   finishedAt?: string;
   timeSpentSeconds?: number;
+}
+
+function parseParticipantJoinScore(p: LiveExamParticipant, fallbackIdx: number): number {
+  if (typeof p.joinedAtMs === 'number' && Number.isFinite(p.joinedAtMs) && p.joinedAtMs > 0) {
+    return p.joinedAtMs;
+  }
+  if (typeof p.joinedAt === 'string' && p.joinedAt.includes(':')) {
+    const parts = p.joinedAt.split(':').map((n) => parseInt(n, 10));
+    if (parts.length >= 2 && !Number.isNaN(parts[0]) && !Number.isNaN(parts[1])) {
+      const sec = parts[2] && !Number.isNaN(parts[2]) ? parts[2] : 0;
+      return parts[0] * 3600 + parts[1] * 60 + sec;
+    }
+  }
+  return fallbackIdx + 1;
+}
+
+function getParticipantDeterministicScale(seedStr: string): number {
+  let hash = 0;
+  for (let i = 0; i < seedStr.length; i++) {
+    hash = (hash * 31 + seedStr.charCodeAt(i)) % 1000;
+  }
+  // Tamanhos aleatórios entre 0.80 e 1.18
+  const scales = [0.8, 0.88, 0.95, 1.04, 1.12, 1.18, 0.84, 1.08];
+  return scales[Math.abs(hash) % scales.length];
 }
 
 export interface LiveExamRoomState {
@@ -179,7 +214,7 @@ export interface LiveExamRoomState {
   creatorName?: string;
 }
 
-const UNLIMITED_DURATION_MINUTES = 9999;
+const UNLIMITED_DURATION_MINUTES = 0;
 
 export function isUnlimitedRoomDuration(
   durationMinutes?: number | null,
@@ -187,7 +222,7 @@ export function isUnlimitedRoomDuration(
 ): boolean {
   if (unlimitedTime === true) return true;
   const n = Number(durationMinutes);
-  return Number.isNaN(n) || n <= 0 || n >= UNLIMITED_DURATION_MINUTES;
+  return Number.isNaN(n) || n <= 0 || n > 300;
 }
 
 export interface LiveExamStudentHistoryEntry {
@@ -758,10 +793,10 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   const [isGeneratingCustomQuestions, setIsGeneratingCustomQuestions] = useState<boolean>(false);
   const [customEditingQuestionIdx, setCustomEditingQuestionIdx] = useState<number | null>(null);
 
-  // Estados independentes para "Prova dos Livros" (BOOKS)
+  // Estados independentes para "Prova dos Livros e Manuais" (BOOKS)
   const [booksCatalog, setBooksCatalog] = useState<LiveExamBookItem[]>(() => {
     try {
-      const cached = localStorage.getItem('dbv_cached_all_exam_books_v1');
+      const cached = localStorage.getItem('dbv_cached_all_exam_books_v2');
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -771,10 +806,11 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   });
   const [isLoadingBooksCatalog, setIsLoadingBooksCatalog] = useState<boolean>(false);
   const [bookCategoryFilter, setBookCategoryFilter] = useState<
-    'TODOS' | 'CLASSES' | 'ANO_DBV' | 'OUTROS_DBV' | 'AVT'
+    'TODOS' | 'CLASSES' | 'ANO_DBV' | 'OUTROS_DBV' | 'MANUAIS_DBV' | 'AVT' | 'MANUAIS_AVT'
   >('TODOS');
   const [bookSearchQuery, setBookSearchQuery] = useState<string>('');
   const [selectedBookForExam, setSelectedBookForExam] = useState<LiveExamBookItem | null>(null);
+  const [nistoCremosCategory, setNistoCremosCategory] = useState<'ALL' | '1_10' | '11_20' | '21_28'>('1_10');
   const [bookChapterFocus, setBookChapterFocus] = useState<string>('');
   const [bookExamNotice, setBookExamNotice] = useState<string | null>(null);
   const [bookQuestionCount, setBookQuestionCount] = useState<number>(10);
@@ -1078,6 +1114,10 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
         return true;
       }
       if (roleMode === 'STUDENT' && studentPhase === 'FINISHED') {
+        studentAnswersPinRef.current = '';
+        setStudentAnswers({});
+        setStudentStartTime(null);
+        setStudentFinalTimeSpentSec(0);
         setStudentPhase('ENTER_PIN');
         setStudentRoom(null);
         setStudentExamAlreadyClosed(false);
@@ -1135,6 +1175,9 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   studentRoomRef.current = studentRoom;
   const studentPhaseRef = useRef(studentPhase);
   studentPhaseRef.current = studentPhase;
+  const studentAnswersRef = useRef<Record<number, number>>(studentAnswers);
+  studentAnswersRef.current = studentAnswers;
+  const studentAnswersPinRef = useRef<string>('');
   const studentExamAlreadyClosedRef = useRef<boolean>(studentExamAlreadyClosed);
   studentExamAlreadyClosedRef.current = studentExamAlreadyClosed;
   const studentCheatCountRef = useRef<number>(studentCheatCount);
@@ -1514,7 +1557,7 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   const persistHostRoom = useCallback(
     (
       room: LiveExamRoomState | null,
-      options?: { closePin?: string; selectRoom?: boolean }
+      options?: { closePin?: string; selectRoom?: boolean; isNewRoom?: boolean }
     ) => {
       const iKey = instructorKeyRef.current;
       if (room) {
@@ -1562,6 +1605,7 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
               action: 'UPSERT_ROOM',
               instructorKey: iKey,
               selectedRoomPin: nextSelectedPin,
+              isNewRoom: Boolean(options?.isNewRoom),
               room: enrichedRoom
             })
           }).catch(() => {});
@@ -1760,7 +1804,7 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
             const manuallyFinished = Boolean(
               locRoom.manuallyFinished || extRoom.manuallyFinished || nextResultsReleased
             );
-            let nextStatus =
+            let nextStatus: LiveExamRoomState['status'] =
               locRoom.status === 'FINISHED' || extRoom.status === 'FINISHED'
                 ? 'FINISHED'
                 : locRoom.status === 'ACTIVE' || extRoom.status === 'ACTIVE'
@@ -2440,9 +2484,7 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
             const formatted = isFinishedRoom
               ? 'PROVA ENCERRADA'
               : isUnlimitedSelected
-              ? currentSelected.status === 'ACTIVE'
-                ? `∞ LIVRE (${mmss})`
-                : '∞ SEM LIMITE'
+              ? '∞ SEM LIMITE'
               : mmss;
             const timerEl = doc.getElementById('telao-v3-timer');
             if (timerEl) {
@@ -2861,8 +2903,17 @@ REGRAS OBRIGATÓRIAS:
   };
 
   // ============================================================================
-  // PROVA DOS LIVROS: CARREGAMENTO DO CATÁLOGO DE LIVROS E GERAÇÃO DE QUESTÕES
+  // PROVA DOS LIVROS E MANUAIS: CARREGAMENTO DO CATÁLOGO E GERAÇÃO DE QUESTÕES
   // ============================================================================
+  const isNistoCremosBook = useCallback((book: LiveExamBookItem | null | undefined): boolean => {
+    if (!book?.title) return false;
+    const norm = book.title
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+    return norm.includes('nisto cremos');
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     const loadAllBooksForExam = async () => {
@@ -2870,12 +2921,15 @@ REGRAS OBRIGATÓRIAS:
         setIsLoadingBooksCatalog(true);
       }
       try {
-        const [classesList, anoList, outrosList, avtList] = await Promise.all([
-          fetchLivrosClasses().catch(() => []),
-          fetchLivrosAno().catch(() => []),
-          fetchOutrosLivros().catch(() => []),
-          fetchLivrosAVT().catch(() => [])
-        ]);
+        const [classesList, anoList, outrosList, avtList, manuaisDbvList, manuaisAvtList] =
+          await Promise.all([
+            fetchLivrosClasses().catch(() => []),
+            fetchLivrosAno().catch(() => []),
+            fetchOutrosLivros().catch(() => []),
+            fetchLivrosAVT().catch(() => []),
+            fetchManuaisDBV().catch(() => []),
+            fetchManuaisAVT().catch(() => [])
+          ]);
 
         if (cancelled) return;
 
@@ -2915,9 +2969,19 @@ REGRAS OBRIGATÓRIAS:
           });
         });
 
+        let hasNistoCremos = false;
         (outrosList || []).forEach((b: any) => {
           const title = String(b?.Nome || b?.nome || '').trim();
           if (!title) return;
+          if (
+            title
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .toLowerCase()
+              .includes('nisto cremos')
+          ) {
+            hasNistoCremos = true;
+          }
           unified.push({
             uid: `outros_dbv_${b.id || title}`,
             id: Number(b.id) || unified.length + 200,
@@ -2931,6 +2995,65 @@ REGRAS OBRIGATÓRIAS:
             club: ClubType.PATHFINDER
           });
         });
+
+        if (!hasNistoCremos) {
+          unified.push({
+            uid: 'outros_dbv_nisto_cremos',
+            id: 299,
+            title: 'Nisto Cremos (28 Crenças Fundamentais da IASD)',
+            cover: '',
+            summary:
+              'As 28 Crenças Fundamentais da Igreja Adventista do Sétimo Dia organizadas nos Capítulos 1 a 10, 11 a 20 e 21 a 28.',
+            content: '',
+            category: 'OUTROS_DBV',
+            categoryLabel: 'Outros Livros',
+            badgeText: 'Doutrinas IASD (Cap. 1-28)',
+            club: ClubType.PATHFINDER
+          });
+        }
+
+        let hasManualAdminDbv = false;
+        (manuaisDbvList || []).forEach((m: any) => {
+          const title = String(m?.Nome || m?.nome || '').trim();
+          if (!title) return;
+          if (
+            title
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .toLowerCase()
+              .includes('administrativo')
+          ) {
+            hasManualAdminDbv = true;
+          }
+          unified.push({
+            uid: `manuais_dbv_${m.id || title}`,
+            id: Number(m.id) || unified.length + 400,
+            title,
+            cover: getImageUrl(m.Capa || m.capa || ''),
+            summary: String(m.Resumo || m.resumo || 'Manual Oficial do Clube de Desbravadores (DSA).'),
+            content: String(m.Conteudo || m.conteudo || m.Link || m.link || ''),
+            category: 'MANUAIS_DBV',
+            categoryLabel: 'Manuais DBV',
+            badgeText: 'Manual Oficial DBV',
+            club: ClubType.PATHFINDER
+          });
+        });
+
+        if (!hasManualAdminDbv) {
+          unified.push({
+            uid: 'manuais_dbv_manual_administrativo',
+            id: 499,
+            title: 'Manual Administrativo do Clube de Desbravadores',
+            cover: '',
+            summary:
+              'Filosofia, Faixa Etária (10 a 15 anos), Eleição da Diretoria, Comissões, Sistema de Unidades, Cerimônias, Finanças, Seguro Anual/SGC, Bandeira, Banderim e Disciplina Redentiva.',
+            content: '',
+            category: 'MANUAIS_DBV',
+            categoryLabel: 'Manuais DBV',
+            badgeText: 'Manual Oficial DSA',
+            club: ClubType.PATHFINDER
+          });
+        }
 
         (avtList || []).forEach((b: any) => {
           const title = String(b?.Nome || b?.nome || '').trim();
@@ -2949,10 +3072,53 @@ REGRAS OBRIGATÓRIAS:
           });
         });
 
+        let hasManualAdminAvt = false;
+        (manuaisAvtList || []).forEach((m: any) => {
+          const title = String(m?.Nome || m?.nome || '').trim();
+          if (!title) return;
+          if (
+            title
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .toLowerCase()
+              .includes('administrativo')
+          ) {
+            hasManualAdminAvt = true;
+          }
+          unified.push({
+            uid: `manuais_avt_${m.id || title}`,
+            id: Number(m.id) || unified.length + 500,
+            title,
+            cover: getImageUrl(m.Capa || m.capa || ''),
+            summary: String(m.Resumo || m.resumo || 'Manual Oficial do Clube de Aventureiros (DSA).'),
+            content: String(m.Conteudo || m.conteudo || m.Link || m.link || ''),
+            category: 'MANUAIS_AVT',
+            categoryLabel: 'Manuais Aventureiros',
+            badgeText: 'Manual Oficial AVT',
+            club: ClubType.ADVENTURER
+          });
+        });
+
+        if (!hasManualAdminAvt) {
+          unified.push({
+            uid: 'manuais_avt_manual_administrativo',
+            id: 599,
+            title: 'Manual Administrativo do Clube de Aventureiros',
+            cover: '',
+            summary:
+              'Ideais dos Aventureiros, Classes (Abelhinhas Laboriosas, Luminares, Edificadores e Mãos Ajudadoras), Rede Familiar, Diretoria, Unidades e Cerimônias.',
+            content: '',
+            category: 'MANUAIS_AVT',
+            categoryLabel: 'Manuais Aventureiros',
+            badgeText: 'Manual Oficial AVT',
+            club: ClubType.ADVENTURER
+          });
+        }
+
         if (unified.length > 0) {
           setBooksCatalog(unified);
           try {
-            localStorage.setItem('dbv_cached_all_exam_books_v1', JSON.stringify(unified));
+            localStorage.setItem('dbv_cached_all_exam_books_v2', JSON.stringify(unified));
           } catch {}
         }
       } catch {}
@@ -2987,6 +3153,44 @@ REGRAS OBRIGATÓRIAS:
     });
   }, [booksCatalog, bookCategoryFilter, bookSearchQuery]);
 
+  const convertCuratedPoolToLiveExamQuestions = (
+    pool: Array<{
+      question: string;
+      options: string[];
+      correctIndex: number;
+      explanation?: string;
+      reference?: string;
+    }>,
+    prefix: string
+  ): LiveExamQuestion[] => {
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    return shuffled.map((q, idx) => {
+      const rawOpts =
+        Array.isArray(q.options) && q.options.length >= 4
+          ? q.options.slice(0, 4).map((o) => String(o).trim())
+          : ['Opção A', 'Opção B', 'Opção C', 'Opção D'];
+      const safeCorrect =
+        typeof q.correctIndex === 'number' && q.correctIndex >= 0 && q.correctIndex < 4
+          ? q.correctIndex
+          : 0;
+      const targetSlot = idx % 4;
+      const reordered = [...rawOpts];
+      const correctText = reordered[safeCorrect];
+      reordered[safeCorrect] = reordered[targetSlot];
+      reordered[targetSlot] = correctText;
+      const expParts = [q.explanation, q.reference ? `Ref.: ${q.reference}` : '']
+        .map((s) => (s || '').trim())
+        .filter(Boolean);
+      return {
+        id: `${prefix}_${Date.now()}_${idx}`,
+        question: String(q.question),
+        options: reordered,
+        correctIndex: targetSlot,
+        explanation: expParts.join(' • ')
+      };
+    });
+  };
+
   const buildFallbackBookQuestions = (
     book: LiveExamBookItem,
     count: number,
@@ -3000,27 +3204,27 @@ REGRAS OBRIGATÓRIAS:
 
     generated.push({
       id: `q_book_${Date.now()}_0`,
-      question: `A qual categoria da Biblioteca Oficial pertence o livro "${book.title}"?`,
+      question: `A qual categoria da Biblioteca Oficial pertence a obra "${book.title}"?`,
       options: [
         `${book.categoryLabel} (${book.badgeText})`,
-        'Manual Técnico de Ordem Unida Militar',
         'Catálogo Exclusivo de Insígnias Náuticas',
-        'Regulamento Financeiro de Tesouraria'
+        'Tabela Externa de Campeonatos Esportivos',
+        'Dicionário de Termos Estrangeiros'
       ],
       correctIndex: 0,
-      explanation: `O livro "${book.title}" faz parte de ${book.categoryLabel} (${book.badgeText}).`
+      explanation: `A obra "${book.title}" faz parte de ${book.categoryLabel} (${book.badgeText}).`
     });
 
     if (cleanSummary.length > 20) {
       const shortSum = cleanSummary.length > 165 ? cleanSummary.slice(0, 162) + '...' : cleanSummary;
       generated.push({
         id: `q_book_${Date.now()}_1`,
-        question: `Qual das alternativas abaixo descreve corretamente o tema/resumo do livro "${book.title}"?`,
+        question: `Qual das alternativas abaixo descreve corretamente o tema/resumo de "${book.title}"?`,
         options: [
-          'Trata apenas de tabelas matemáticas sem história ou lições práticas.',
+          'Trata apenas de tabelas matemáticas sem história ou diretrizes práticas.',
           shortSum,
           'Aborda exclusivamente regras esportivas de campeonatos.',
-          'É um dicionário de termos técnicos sem narrativa.'
+          'É um dicionário de termos técnicos sem aplicação no clube.'
         ],
         correctIndex: 1,
         explanation: `Resumo oficial da obra "${book.title}": ${shortSum}`
@@ -3031,10 +3235,10 @@ REGRAS OBRIGATÓRIAS:
       const n = generated.length + 1;
       const targetSlot = n % 4;
       const baseOptions = [
-        `Compreender os capítulos, personagens e aplicar as lições cristãs e morais apresentadas na leitura de "${book.title}"${chapterFocus ? ` (${chapterFocus})` : ''}.`,
-        'Decorar apenas o número de páginas da capa sem ler os capítulos do livro.',
+        `Compreender o conteúdo, diretrizes e aplicar os ensinamentos cristãos e práticos apresentados em "${book.title}"${chapterFocus ? ` (${chapterFocus})` : ''}.`,
+        'Decorar apenas o número de páginas da capa sem ler os capítulos da obra.',
         'Ignorar a mensagem central da obra e substituir a leitura por outra atividade.',
-        'Ler apenas o índice sem conhecer o desenvolvimento da história.'
+        'Ler apenas o índice sem conhecer o desenvolvimento do conteúdo.'
       ];
       const reordered = [...baseOptions];
       const temp = reordered[targetSlot];
@@ -3043,10 +3247,10 @@ REGRAS OBRIGATÓRIAS:
 
       generated.push({
         id: `q_book_${Date.now()}_${n}`,
-        question: `Sobre a leitura e avaliação do livro "${book.title}" (${book.badgeText})${chapterFocus ? ` — ${chapterFocus}` : ''}, qual é o objetivo principal de aprendizado para o membro do clube?`,
+        question: `Sobre o estudo e avaliação de "${book.title}" (${book.badgeText})${chapterFocus ? ` — ${chapterFocus}` : ''}, qual é o objetivo principal de aprendizado para o membro do clube?`,
         options: reordered,
         correctIndex: targetSlot,
-        explanation: `A leitura do livro "${book.title}" visa o crescimento espiritual, mental e o cumprimento do requisito oficial de leitura.`
+        explanation: `O estudo de "${book.title}" visa o crescimento espiritual, mental e técnico no clube.`
       });
     }
 
@@ -3056,16 +3260,84 @@ REGRAS OBRIGATÓRIAS:
   const handleSelectBookForExam = async (
     book: LiveExamBookItem,
     customFocusOverride?: string,
-    customCountOverride?: number
+    customCountOverride?: number,
+    customNistoCategoryOverride?: 'ALL' | '1_10' | '11_20' | '21_28'
   ) => {
     setSelectedBookForExam(book);
     setBookExamNotice(null);
     setBookEditingQuestionIdx(null);
     setIsGeneratingBookQuestions(true);
     const targetCount = Math.max(1, Math.min(100, Number(customCountOverride ?? bookQuestionCount) || 10));
-    const focusStr = (customFocusOverride !== undefined ? customFocusOverride : bookChapterFocus).trim();
+
+    const isNisto = isNistoCremosBook(book);
+    const activeNistoCat = customNistoCategoryOverride ?? nistoCremosCategory;
+    if (customNistoCategoryOverride) {
+      setNistoCremosCategory(customNistoCategoryOverride);
+    }
+
+    const nistoLabelMap: Record<'ALL' | '1_10' | '11_20' | '21_28', string> = {
+      '1_10': 'Capítulos 1 a 10 (Doutrinas de Deus, Criação, Humanidade e Salvação)',
+      '11_20': 'Capítulos 11 a 20 (A Igreja, Batismo, Dons, Lei de Deus e Sábado)',
+      '21_28': 'Capítulos 21 a 28 (Mordomia, Conduta, Santuário, Segunda Vinda e Nova Terra)',
+      ALL: 'Capítulos 1 a 28 (Todas as 28 Crenças Fundamentais)'
+    };
+
+    const focusStr = isNisto
+      ? customFocusOverride !== undefined && customFocusOverride.trim()
+        ? `${nistoLabelMap[activeNistoCat]} • ${customFocusOverride.trim()}`
+        : nistoLabelMap[activeNistoCat]
+      : (customFocusOverride !== undefined ? customFocusOverride : bookChapterFocus).trim();
 
     try {
+      // Banco oficial pré-cadastrado para Nisto Cremos (Cap. 1 a 10, 11 a 20, 21 a 28) e Manuais Oficiais
+      let curatedBase: LiveExamQuestion[] = [];
+      if (isNisto) {
+        const pool =
+          activeNistoCat === '1_10'
+            ? NISTO_CREMOS_1_10_QUESTIONS
+            : activeNistoCat === '11_20'
+            ? NISTO_CREMOS_11_20_QUESTIONS
+            : activeNistoCat === '21_28'
+            ? NISTO_CREMOS_21_28_QUESTIONS
+            : [
+                ...NISTO_CREMOS_1_10_QUESTIONS,
+                ...NISTO_CREMOS_11_20_QUESTIONS,
+                ...NISTO_CREMOS_21_28_QUESTIONS
+              ];
+        curatedBase = convertCuratedPoolToLiveExamQuestions(pool, `nisto_${activeNistoCat}`);
+        if (curatedBase.length >= targetCount && !customFocusOverride?.trim()) {
+          setBookQuestions(curatedBase.slice(0, targetCount));
+          setIsGeneratingBookQuestions(false);
+          return;
+        }
+      } else if (book.category === 'MANUAIS_DBV' || book.category === 'MANUAIS_AVT') {
+        const normTitle = book.title
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase();
+        if (book.category === 'MANUAIS_DBV' && normTitle.includes('administrativo')) {
+          curatedBase = convertCuratedPoolToLiveExamQuestions(
+            [...MANUAL_ADMINISTRATIVO_DBV_QUESTIONS, ...DESBRAVADORES_IDEALS_MANUAL_QUESTIONS],
+            'manual_adm_dbv'
+          );
+          if (curatedBase.length >= targetCount && !focusStr) {
+            setBookQuestions(curatedBase.slice(0, targetCount));
+            setIsGeneratingBookQuestions(false);
+            return;
+          }
+        } else if (book.category === 'MANUAIS_AVT' && normTitle.includes('administrativo')) {
+          curatedBase = convertCuratedPoolToLiveExamQuestions(
+            AVENTUREIROS_IDEALS_MANUAL_QUESTIONS,
+            'manual_adm_avt'
+          );
+          if (curatedBase.length >= targetCount && !focusStr) {
+            setBookQuestions(curatedBase.slice(0, targetCount));
+            setIsGeneratingBookQuestions(false);
+            return;
+          }
+        }
+      }
+
       const cleanSummary = (book.summary || '')
         .replace(/<[^>]+>/g, ' ')
         .replace(/\s+/g, ' ')
@@ -3082,25 +3354,27 @@ REGRAS OBRIGATÓRIAS:
 
       const clubLabel =
         book.club === ClubType.ADVENTURER ? 'Clube de Aventureiros' : 'Clube de Desbravadores';
+      const itemTypeLabel =
+        book.category === 'MANUAIS_DBV' || book.category === 'MANUAIS_AVT' ? 'manual oficial' : 'livro oficial';
 
       const prompt = `Você é um Instrutor Oficial do ${clubLabel} (Divisão Sul-Americana da IASD).
-Elabore uma prova oficial com exatamente ${targetCount} questões de múltipla escolha sobre o livro oficial:
-- Título do Livro: "${book.title}"
-- Categoria / Classe / Ano: ${book.categoryLabel} (${book.badgeText})
-${cleanSummary ? `- Resumo / Sinopse do Livro: ${cleanSummary}` : ''}
-${textContentExcerpt ? `- Trecho do Conteúdo do Livro:\n${textContentExcerpt}` : ''}
-${focusStr ? `- Foco / Capítulos solicitados pelo instrutor: ${focusStr}` : ''}
+Elabore uma prova oficial com exatamente ${targetCount} questões de múltipla escolha sobre o ${itemTypeLabel}:
+- Título: "${book.title}"
+- Categoria: ${book.categoryLabel} (${book.badgeText})
+${cleanSummary ? `- Resumo / Sinopse: ${cleanSummary}` : ''}
+${textContentExcerpt ? `- Trecho do Conteúdo Oficial:\n${textContentExcerpt}` : ''}
+${focusStr ? `- Recorte / Capítulos obrigatórios: ${focusStr}` : ''}
 
 REGRAS OBRIGATÓRIAS:
-1. Elabore perguntas específicas e fiéis à história, personagens, acontecimentos, ensinamentos e contexto do livro "${book.title}"${focusStr ? ` (focando em: ${focusStr})` : ''}.
+1. Elabore perguntas específicas e fiéis ao conteúdo, capítulos, regras ou história de "${book.title}"${focusStr ? ` (focando estritamente em: ${focusStr})` : ''}.
 2. Cada questão deve conter exatamente 4 alternativas ("options": array de 4 strings sem letras A/B/C/D no início) e apenas 1 correta ("correctIndex": 0, 1, 2 ou 3).
 3. Retorne EXCLUSIVAMENTE um JSON array válido no formato:
 [
   {
-    "question": "Pergunta clara e objetiva sobre o livro?",
+    "question": "Pergunta clara e objetiva?",
     "options": ["Alternativa 1", "Alternativa 2", "Alternativa 3", "Alternativa 4"],
     "correctIndex": 0,
-    "explanation": "Resumo curto explicando a resposta correta com base no livro."
+    "explanation": "Resumo curto explicando a resposta correta com base na obra."
   }
 ]`;
 
@@ -3182,11 +3456,19 @@ REGRAS OBRIGATÓRIAS:
             explanation: String(q.explanation || '')
           };
         });
-        if (formatted.length < targetCount) {
-          const topUp = buildFallbackBookQuestions(book, targetCount, focusStr).slice(formatted.length);
-          setBookQuestions([...formatted, ...topUp]);
+        const mergedWithCurated = curatedBase.length > 0 ? [...curatedBase, ...formatted] : formatted;
+        if (mergedWithCurated.length < targetCount) {
+          const topUp = buildFallbackBookQuestions(book, targetCount, focusStr).slice(mergedWithCurated.length);
+          setBookQuestions([...mergedWithCurated, ...topUp].slice(0, targetCount));
         } else {
-          setBookQuestions(formatted);
+          setBookQuestions(mergedWithCurated.slice(0, targetCount));
+        }
+      } else if (curatedBase.length > 0) {
+        if (curatedBase.length < targetCount) {
+          const topUp = buildFallbackBookQuestions(book, targetCount, focusStr).slice(curatedBase.length);
+          setBookQuestions([...curatedBase, ...topUp].slice(0, targetCount));
+        } else {
+          setBookQuestions(curatedBase.slice(0, targetCount));
         }
       } else {
         setBookQuestions(buildFallbackBookQuestions(book, targetCount, focusStr));
@@ -3198,6 +3480,39 @@ REGRAS OBRIGATÓRIAS:
     }
   };
 
+  const resetStudentExamSessionState = useCallback((nextPinInput?: string) => {
+    if (studentChannelRef.current) {
+      try {
+        supabaseStudentRealtime.removeChannel(studentChannelRef.current);
+      } catch {}
+      studentChannelRef.current = null;
+    }
+    studentAnswersPinRef.current = '';
+    studentAnswersRef.current = {};
+    setStudentAnswers({});
+    setStudentCurrentQ(0);
+    setStudentFinalTimeSpentSec(0);
+    setStudentStartTime(null);
+    setStudentRemainingSeconds(0);
+    setStudentCheatCount(0);
+    studentCheatCountRef.current = 0;
+    studentUnlockedCheatCountRef.current = 0;
+    studentLockedRef.current = false;
+    setStudentLocked(false);
+    setStudentWarningModal(null);
+    studentPendingAlertsRef.current = [];
+    setStudentExamAlreadyClosed(false);
+    studentExamAlreadyClosedRef.current = false;
+    setStudentRoom(null);
+    studentRoomRef.current = null;
+    setStudentPhase('ENTER_PIN');
+    studentPhaseRef.current = 'ENTER_PIN';
+    setStudentError(null);
+    if (nextPinInput !== undefined) {
+      setStudentPinInput(nextPinInput);
+    }
+  }, []);
+
   // Cria a Sala da Prova com PIN de 6 dígitos único e QR Code (suporta Prova de Especialidade, Prova dos Livros e Prova Personalizada Manual/IA)
   const handleCreateLiveExamRoom = () => {
     if (questions.length === 0) return;
@@ -3205,7 +3520,13 @@ REGRAS OBRIGATÓRIAS:
     if (examCreationMode === 'BOOKS' && !selectedBookForExam) return;
 
     let pin = String(Math.floor(100000 + Math.random() * 900000));
-    const existingPins = new Set(hostRoomsRef.current.map((r) => r.pin));
+    const existingPins = new Set<string>([
+      ...hostRoomsRef.current.map((r) => String(r.pin)),
+      ...appliedExamsHistoryRef.current.map((r) => String(r.pin)),
+      ...Array.from(deletedAppliedExamPinsRef.current),
+      ...Array.from(deletedStudentHistoryPinsRef.current),
+      ...Array.from(closedRoomPinsRef.current)
+    ]);
     while (existingPins.has(pin)) {
       pin = String(Math.floor(100000 + Math.random() * 900000));
     }
@@ -3276,7 +3597,8 @@ REGRAS OBRIGATÓRIAS:
       updatedAt: Date.now(),
       createdAt: Date.now()
     };
-    persistHostRoom(newRoom, { selectRoom: true });
+    resetStudentExamSessionState(pin);
+    persistHostRoom(newRoom, { selectRoom: true, isNewRoom: true });
     scrollToQrCodeSection();
   };
 
@@ -3578,7 +3900,11 @@ REGRAS OBRIGATÓRIAS:
   };
 
   const handleCloseAndResetRoom = (pinToClose?: string) => {
-    persistHostRoom(null, { closePin: pinToClose || activeRoom?.pin });
+    const closingPin = pinToClose || activeRoom?.pin;
+    if (closingPin && String(studentRoomRef.current?.pin) === String(closingPin)) {
+      resetStudentExamSessionState('');
+    }
+    persistHostRoom(null, { closePin: closingPin });
     setIsQrFullscreenModalOpen(false);
     setInspectingStudent(null);
   };
@@ -3611,7 +3937,11 @@ REGRAS OBRIGATÓRIAS:
       customRoom?: LiveExamRoomState | null
     ): LiveExamParticipant => {
       const roomObj = customRoom || studentRoom;
-      const ans = customAnswers || studentAnswers;
+      const scopedStudentAnswers =
+        roomObj?.pin && studentAnswersPinRef.current === String(roomObj.pin)
+          ? studentAnswers
+          : {};
+      const ans = customAnswers ?? scopedStudentAnswers;
       const qList = roomObj?.questions || [];
       const totalQ = qList.length || 1;
       let correct = 0;
@@ -3639,6 +3969,8 @@ REGRAS OBRIGATÓRIAS:
           : Boolean(studentLocked || studentLockedRef.current);
       const effectiveCheatReason = studentLastCheatReason || studentLastCheatReasonRef.current;
 
+      const existingMe = roomObj?.participants?.[studentId];
+
       return {
         id: studentId,
         name: studentName.trim() || 'Desbravador',
@@ -3650,7 +3982,10 @@ REGRAS OBRIGATÓRIAS:
           : studentPhase === 'WAITING_HOST'
           ? 'WAITING'
           : 'PLAYING',
-        joinedAt: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        joinedAt:
+          existingMe?.joinedAt ||
+          new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        joinedAtMs: existingMe?.joinedAtMs || Date.now(),
         currentQuestionIdx: studentCurrentQ,
         answeredCount,
         correctCount: correct,
@@ -3684,7 +4019,8 @@ REGRAS OBRIGATÓRIAS:
       pin: string,
       participant: LiveExamParticipant,
       newAlert?: LiveExamCheatAlert,
-      fallbackRoom?: LiveExamRoomState | null
+      fallbackRoom?: LiveExamRoomState | null,
+      isInitialJoin = false
     ) => {
       try {
         let cloudRoom = await downloadCloudExamJson<LiveExamRoomState>(`provas/room_${pin}.json`);
@@ -3709,40 +4045,57 @@ REGRAS OBRIGATÓRIAS:
         if (cloudRoom.status === 'FINISHED' && !prevP) {
           return;
         }
-        const maxCheat = Math.max(Number(prevP?.cheatCount || 0), Number(participant.cheatCount || 0));
-        const maxUnlocked = Math.max(
-          Number(prevP?.unlockedCheatCount || 0),
-          Number(participant.unlockedCheatCount || 0)
-        );
-        const alreadyUnlocked = maxUnlocked >= maxCheat && maxUnlocked > 0;
-        const isLocked =
-          prevP?.status === 'DISQUALIFIED'
-            ? true
-            : alreadyUnlocked
-            ? false
-            : newAlert && cloudRoom.lockOnCheat
-            ? true
-            : participant.isLocked;
-        const nextStatus =
-          prevP?.status === 'DISQUALIFIED'
-            ? 'DISQUALIFIED'
-            : isLocked
-            ? 'LOCKED_CHEAT'
-            : participant.status === 'LOCKED_CHEAT'
-            ? 'PLAYING'
-            : participant.status;
 
-        cloudRoom.participants = {
-          ...(cloudRoom.participants || {}),
-          [participant.id]: {
-            ...prevP,
-            ...participant,
-            cheatCount: maxCheat,
-            unlockedCheatCount: maxUnlocked,
-            isLocked,
-            status: nextStatus
-          }
-        };
+        if (isInitialJoin && cloudRoom.status !== 'FINISHED') {
+          cloudRoom.participants = {
+            ...(cloudRoom.participants || {}),
+            [participant.id]: {
+              ...participant,
+              answeredCount: 0,
+              correctCount: 0,
+              scorePercent: 0,
+              grade10: 0,
+              cheatCount: 0,
+              isLocked: false,
+              answers: {}
+            }
+          };
+        } else {
+          const maxCheat = Math.max(Number(prevP?.cheatCount || 0), Number(participant.cheatCount || 0));
+          const maxUnlocked = Math.max(
+            Number(prevP?.unlockedCheatCount || 0),
+            Number(participant.unlockedCheatCount || 0)
+          );
+          const alreadyUnlocked = maxUnlocked >= maxCheat && maxUnlocked > 0;
+          const isLocked =
+            prevP?.status === 'DISQUALIFIED'
+              ? true
+              : alreadyUnlocked
+              ? false
+              : newAlert && cloudRoom.lockOnCheat
+              ? true
+              : participant.isLocked;
+          const nextStatus =
+            prevP?.status === 'DISQUALIFIED'
+              ? 'DISQUALIFIED'
+              : isLocked
+              ? 'LOCKED_CHEAT'
+              : participant.status === 'LOCKED_CHEAT'
+              ? 'PLAYING'
+              : participant.status;
+
+          cloudRoom.participants = {
+            ...(cloudRoom.participants || {}),
+            [participant.id]: {
+              ...prevP,
+              ...participant,
+              cheatCount: maxCheat,
+              unlockedCheatCount: maxUnlocked,
+              isLocked,
+              status: nextStatus
+            }
+          };
+        }
 
         if (newAlert) {
           const alertsList = Array.isArray(cloudRoom.alerts) ? cloudRoom.alerts : [];
@@ -3817,7 +4170,11 @@ REGRAS OBRIGATÓRIAS:
     studentExamAlreadyClosedRef.current = false;
     setIsConnectingRoom(true);
     setStudentCurrentQ(0);
+    studentAnswersPinRef.current = cleanPin;
+    studentAnswersRef.current = {};
     setStudentAnswers({});
+    setStudentStartTime(null);
+    setStudentRemainingSeconds(0);
     setStudentFinalTimeSpentSec(0);
     setStudentCheatCount(0);
     studentCheatCountRef.current = 0;
@@ -3922,6 +4279,8 @@ REGRAS OBRIGATÓRIAS:
         }
 
         if (existingMe?.answers && Object.keys(existingMe.answers).length > 0) {
+          studentAnswersPinRef.current = cleanPin;
+          studentAnswersRef.current = existingMe.answers;
           setStudentAnswers(existingMe.answers);
         }
         if (existingMe?.timeSpentSeconds && existingMe.timeSpentSeconds > 0) {
@@ -3940,6 +4299,7 @@ REGRAS OBRIGATÓRIAS:
       unit: studentUnit.trim() || 'Sem Unidade',
       status: resolvedRoom?.status === 'ACTIVE' ? 'PLAYING' : 'WAITING',
       joinedAt: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      joinedAtMs: Date.now(),
       currentQuestionIdx: 0,
       answeredCount: 0,
       correctCount: 0,
@@ -3957,11 +4317,12 @@ REGRAS OBRIGATÓRIAS:
       body: JSON.stringify({
         action: 'STUDENT_UPDATE',
         pin: cleanPin,
+        isInitialJoin: true,
         participant: initialParticipant
       })
     }).catch(() => {});
 
-    syncStudentToCloudRoom(cleanPin, initialParticipant, undefined, resolvedRoom);
+    syncStudentToCloudRoom(cleanPin, initialParticipant, undefined, resolvedRoom, true);
 
     const matchingLocalHostRoom = hostRoomsRef.current.find((r) => String(r.pin) === cleanPin);
     if (matchingLocalHostRoom) {
@@ -4085,12 +4446,6 @@ REGRAS OBRIGATÓRIAS:
             studentLockedRef.current = true;
             setStudentLocked(true);
           }
-
-          if (myRecord.answers && Object.keys(myRecord.answers).length > 0) {
-            setStudentAnswers((prev) =>
-              Object.keys(prev).length >= Object.keys(myRecord.answers).length ? prev : myRecord.answers
-            );
-          }
         }
 
         if (incomingRoom.status === 'ACTIVE' && !incomingRoom.resultsReleased) {
@@ -4105,8 +4460,7 @@ REGRAS OBRIGATÓRIAS:
             if (prev > 0) return prev;
             const recSpent = myRecord?.timeSpentSeconds;
             if (recSpent && recSpent > 0) return recSpent;
-            const base = studentStartTime || incomingRoom.startedAt || Date.now();
-            return Math.max(1, Math.floor((Date.now() - base) / 1000));
+            return computeSafeElapsedSeconds(studentStartTime, incomingRoom.startedAt);
           });
           setStudentPhase('FINISHED');
         } else {
@@ -4132,11 +4486,6 @@ REGRAS OBRIGATÓRIAS:
           Object.values(incomingRoom.participants || {}).find(
             (p) => p.name?.trim().toLowerCase() === studentName.trim().toLowerCase()
           );
-        if (myRecord?.answers && Object.keys(myRecord.answers).length > 0) {
-          setStudentAnswers((prev) =>
-            Object.keys(prev).length >= Object.keys(myRecord.answers).length ? prev : myRecord.answers
-          );
-        }
         if (myRecord?.timeSpentSeconds && myRecord.timeSpentSeconds > 0) {
           setStudentFinalTimeSpentSec((prev) => prev || myRecord.timeSpentSeconds || 1);
         }
@@ -4479,10 +4828,6 @@ REGRAS OBRIGATÓRIAS:
 
             if (!me || me.answeredCount < currentParticipant.answeredCount) {
               syncStudentToCloudRoom(pin, currentParticipant, undefined, srv);
-            } else if (me.answers && Object.keys(me.answers).length > 0) {
-              setStudentAnswers((prev) =>
-                Object.keys(prev).length >= Object.keys(me.answers).length ? prev : me.answers
-              );
             }
           }
 
@@ -4500,8 +4845,7 @@ REGRAS OBRIGATÓRIAS:
               if (prev > 0) return prev;
               const recSpent = me?.timeSpentSeconds;
               if (recSpent && recSpent > 0) return recSpent;
-              const base = studentStartTime || srv.startedAt || Date.now();
-              return Math.max(1, Math.floor((Date.now() - base) / 1000));
+              return computeSafeElapsedSeconds(studentStartTime, srv.startedAt);
             });
             setStudentPhase('FINISHED');
           }
@@ -4757,11 +5101,24 @@ REGRAS OBRIGATÓRIAS:
     };
   }, [roleMode, studentPhase, studentRoom, triggerStudentCheatViolation, flushPendingStudentCheatAlerts]);
 
+  const computeSafeElapsedSeconds = useCallback(
+    (localStart?: number | null, roomStart?: number | null): number => {
+      const now = Date.now();
+      const sLocal = Number(localStart || 0);
+      const sRoom = Number(roomStart || 0);
+      const validLocal = sLocal > 1700000000000 && sLocal <= now + 60000 ? sLocal : 0;
+      const validRoom = sRoom > 1700000000000 && sRoom <= now + 60000 ? sRoom : 0;
+      const base = validLocal || validRoom || now;
+      const diffSec = Math.max(1, Math.floor((now - base) / 1000));
+      return diffSec > 18000 ? 1 : diffSec;
+    },
+    []
+  );
+
   // Cronômetro regressivo do Aluno durante a Prova
   const handleStudentSubmitExam = useCallback(() => {
     if (!studentRoom) return;
-    const baseStart = studentStartTime || studentRoom.startedAt || Date.now();
-    const spent = Math.max(1, Math.floor((Date.now() - baseStart) / 1000));
+    const spent = computeSafeElapsedSeconds(studentStartTime, studentRoom.startedAt);
     setStudentFinalTimeSpentSec(spent);
     const finalParticipant = buildCurrentParticipantPayload({
       status: 'FINISHED',
@@ -5266,6 +5623,9 @@ REGRAS OBRIGATÓRIAS:
       if (hostRoomsRef.current.some((r) => String(r.pin) === cleanPin)) {
         persistHostRoom(null, { closePin: cleanPin });
       }
+      if (String(studentRoomRef.current?.pin) === cleanPin || studentAnswersPinRef.current === cleanPin) {
+        resetStudentExamSessionState('');
+      }
 
       const remaining = appliedExamsHistoryRef.current.filter((r) => String(r.pin) !== cleanPin);
       persistAppliedExamsList(remaining, true);
@@ -5316,6 +5676,10 @@ REGRAS OBRIGATÓRIAS:
 
       const remaining = studentExamHistory.filter((item) => String(item.pin) !== cleanPin);
       persistStudentHistoryList(remaining, true);
+
+      if (String(studentRoomRef.current?.pin) === cleanPin || studentAnswersPinRef.current === cleanPin) {
+        resetStudentExamSessionState('');
+      }
 
       setConfirmDeleteHistoryPin(null);
       if (selectedHistoryExam?.pin === cleanPin) {
@@ -5496,10 +5860,10 @@ REGRAS OBRIGATÓRIAS:
               updatedAny = true;
               const idx = updatedList.findIndex((item) => String(item.pin) === String(pending.pin));
               if (idx >= 0) {
-                const myP =
+                const myP: any =
                   roomData.participants?.[studentId] ||
                   Object.values(roomData.participants || {}).find(
-                    (p) =>
+                    (p: any) =>
                       p.name?.trim().toLowerCase() ===
                       (pending.studentName || studentName || '').trim().toLowerCase()
                   );
@@ -5652,10 +6016,10 @@ REGRAS OBRIGATÓRIAS:
           : cloudRoom || apiRoom;
       if (roomData) {
         const released = Boolean(roomData.resultsReleased);
-        const myP =
+        const myP: any =
           roomData.participants?.[studentId] ||
           Object.values(roomData.participants || {}).find(
-            (p) =>
+            (p: any) =>
               p.name?.trim().toLowerCase() === (entry.studentName || studentName || '').trim().toLowerCase()
           );
         const updatedEntry: LiveExamStudentHistoryEntry = {
@@ -5680,13 +6044,23 @@ REGRAS OBRIGATÓRIAS:
     if (roleMode !== 'STUDENT' || studentPhase !== 'PLAYING' || !studentRoom) return;
 
     const updateStudentTimer = () => {
-      const baseStart = studentRoom.startedAt || studentStartTime || Date.now();
-      const elapsed = Math.max(0, Math.floor((Date.now() - baseStart) / 1000));
       if (isUnlimitedRoomDuration(studentRoom.durationMinutes, studentRoom.unlimitedTime)) {
-        setStudentRemainingSeconds(elapsed);
+        setStudentRemainingSeconds(0);
         return;
       }
-      const totalAllowed = studentRoom.durationMinutes * 60 + (studentRoom.extraSecondsAdded || 0);
+      const now = Date.now();
+      const rawRoomStart = Number(studentRoom.startedAt || 0);
+      const validRoomStart =
+        rawRoomStart > 1700000000000 && rawRoomStart <= now + 60000 ? rawRoomStart : 0;
+      const validLocalStart =
+        studentStartTime && studentStartTime > 1700000000000 && studentStartTime <= now + 60000
+          ? studentStartTime
+          : 0;
+      const baseStart = validRoomStart || validLocalStart || now;
+      const elapsed = Math.max(0, Math.floor((now - baseStart) / 1000));
+      const safeDurationMins = Math.max(1, Math.min(300, Number(studentRoom.durationMinutes) || 15));
+      const totalAllowed =
+        safeDurationMins * 60 + Math.max(0, Math.floor(Number(studentRoom.extraSecondsAdded) || 0));
       const remaining = Math.max(0, totalAllowed - elapsed);
       setStudentRemainingSeconds(remaining);
 
@@ -5703,10 +6077,12 @@ REGRAS OBRIGATÓRIAS:
   // Quando o Aluno seleciona uma alternativa na prova
   const handleStudentSelectOption = (questionIndex: number, optionIndex: number) => {
     if (studentLocked || studentPhase !== 'PLAYING' || !studentRoom) return;
+    studentAnswersPinRef.current = String(studentRoom.pin);
     const nextAnswers = {
-      ...studentAnswers,
+      ...(studentAnswersPinRef.current === String(studentRoom.pin) ? studentAnswers : {}),
       [questionIndex]: optionIndex
     };
+    studentAnswersRef.current = nextAnswers;
     setStudentAnswers(nextAnswers);
 
     const updatedParticipant = buildCurrentParticipantPayload(
@@ -5738,14 +6114,23 @@ REGRAS OBRIGATÓRIAS:
     syncStudentToCloudRoom(studentRoom.pin, updatedParticipant);
   };
 
+  const sanitizeSecondsValue = (rawSec: number, fallback = 0) => {
+    const n = Number(rawSec);
+    if (!Number.isFinite(n) || n <= 0) return fallback;
+    // Qualquer valor acima de 24h (86400s) é resquício de timestamp bruto (Date.now()/1000)
+    if (n > 86400) return fallback;
+    return Math.floor(n);
+  };
+
   const formatTimeMMSS = (totalSec: number) => {
-    const mins = Math.floor(totalSec / 60);
-    const secs = totalSec % 60;
+    const safeSec = sanitizeSecondsValue(totalSec, 0);
+    const mins = Math.floor(safeSec / 60);
+    const secs = safeSec % 60;
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
   const formatDurationDetailed = (totalSec: number) => {
-    const safe = Math.max(1, Math.floor(totalSec || 0));
+    const safe = Math.max(1, sanitizeSecondsValue(totalSec, 1));
     const mins = Math.floor(safe / 60);
     const secs = safe % 60;
     if (mins <= 0) return `${secs} seg`;
@@ -5873,6 +6258,167 @@ REGRAS OBRIGATÓRIAS:
     [findMatchingBookForRoom]
   );
 
+  const buildParticipantsCircleHtmlString = useCallback((rawList: LiveExamParticipant[]) => {
+    const ordered = (rawList || [])
+      .map((p, idx) => ({ p, score: parseParticipantJoinScore(p, idx) }))
+      .sort((a, b) => a.score - b.score)
+      .map((item) => item.p);
+
+    if (ordered.length === 0) {
+      return `
+        <div class="kahoot-empty-box">
+          <div class="kahoot-empty-icon">👥</div>
+          <div class="kahoot-empty-title">Aguardando os desbravadores entrarem...</div>
+          <div class="kahoot-empty-desc">Aponte a câmera para o QR Code ou digite o PIN ao lado para entrar na sala!</div>
+        </div>
+      `;
+    }
+
+    const latest = ordered[ordered.length - 1];
+
+    const kahootColors = [
+      { bg: 'linear-gradient(135deg, #e21b3c 0%, #991b1b 100%)', border: '#f87171' },
+      { bg: 'linear-gradient(135deg, #1368ce 0%, #1e40af 100%)', border: '#60a5fa' },
+      { bg: 'linear-gradient(135deg, #d97706 0%, #92400e 100%)', border: '#fcd34d' },
+      { bg: 'linear-gradient(135deg, #15803d 0%, #14532d 100%)', border: '#4ade80' },
+      { bg: 'linear-gradient(135deg, #7e22ce 0%, #581c87 100%)', border: '#c084fc' },
+      { bg: 'linear-gradient(135deg, #0e7490 0%, #155e75 100%)', border: '#22d3ee' },
+      { bg: 'linear-gradient(135deg, #c2410c 0%, #7c2d12 100%)', border: '#fb923c' },
+      { bg: 'linear-gradient(135deg, #be185d 0%, #831843 100%)', border: '#f472b6' }
+    ];
+
+    const cardsHtml = ordered.map((p, idx) => {
+      const isLatest = latest && p.id === latest.id;
+      let hash = 0;
+      const str = String(p.id || p.name || idx);
+      for (let i = 0; i < str.length; i++) {
+        hash = (hash * 31 + str.charCodeAt(i)) % 1000;
+      }
+      const col = kahootColors[Math.abs(hash) % kahootColors.length];
+
+      const parts = String(p.name || '').trim().split(/\s+/);
+      const initials = parts.length > 1
+        ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+        : (parts[0] || 'D').slice(0, 2).toUpperCase();
+
+      const safeName = String(p.name || 'Desbravador')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      const safeUnit = String(p.unit || 'Clube')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+      return `
+        <div class="kahoot-card ${isLatest ? 'is-latest' : ''}" style="background: ${col.bg}; border-color: ${isLatest ? '#fbbf24' : col.border};">
+          ${isLatest ? '<span class="kahoot-new-tag">✨ NOVO!</span>' : ''}
+          <div class="kahoot-card-inner">
+            <div class="kahoot-avatar">${initials}</div>
+            <div class="kahoot-info">
+              <span class="kahoot-name">${safeName}</span>
+              <span class="kahoot-unit">${safeUnit}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return `<div class="kahoot-grid">${cardsHtml}</div>`;
+  }, []);
+
+  const renderWaitingParticipantsCircle = useCallback(
+    (rawList: LiveExamParticipant[], isExpanded = false) => {
+      const ordered = (rawList || [])
+        .map((p, idx) => ({ p, score: parseParticipantJoinScore(p, idx) }))
+        .sort((a, b) => a.score - b.score)
+        .map((item) => item.p);
+
+      const latest = ordered.length > 0 ? ordered[ordered.length - 1] : null;
+
+      const kahootColors = [
+        { bg: 'from-rose-600 to-red-800', border: 'border-rose-400/60', text: 'text-white' },
+        { bg: 'from-blue-600 to-indigo-800', border: 'border-blue-400/60', text: 'text-white' },
+        { bg: 'from-amber-500 to-amber-700', border: 'border-amber-300/60', text: 'text-white' },
+        { bg: 'from-emerald-600 to-green-800', border: 'border-emerald-400/60', text: 'text-white' },
+        { bg: 'from-purple-600 to-violet-800', border: 'border-purple-400/60', text: 'text-white' },
+        { bg: 'from-cyan-600 to-teal-800', border: 'border-cyan-400/60', text: 'text-white' },
+        { bg: 'from-orange-600 to-orange-800', border: 'border-orange-400/60', text: 'text-white' },
+        { bg: 'from-pink-600 to-rose-800', border: 'border-pink-400/60', text: 'text-white' }
+      ];
+
+      if (ordered.length === 0) {
+        return (
+          <div className="w-full flex-1 flex flex-col items-center justify-center text-center p-6 bg-slate-900/60 border border-dashed border-indigo-400/25 rounded-3xl min-h-[220px] space-y-2">
+            <Users className="w-10 h-10 text-indigo-400/70 animate-pulse" />
+            <h4 className="text-sm sm:text-base font-black text-white">Aguardando os desbravadores entrarem...</h4>
+            <p className="text-xs text-slate-400 max-w-sm">
+              Aponte a câmera para o QR Code ou digite o PIN ao lado para aparecer aqui na tela estilo Kahoot!
+            </p>
+          </div>
+        );
+      }
+
+      return (
+        <div className="w-full flex-1 overflow-y-auto pr-1 scrollbar-hide py-1">
+          <style>{`
+            @keyframes kahootPopIn {
+              0% { opacity: 0; transform: scale(0.65) translateY(12px); }
+              60% { opacity: 1; transform: scale(1.04) translateY(-2px); }
+              100% { opacity: 1; transform: scale(1) translateY(0); }
+            }
+          `}</style>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {ordered.map((p, idx) => {
+              const isLatest = latest && p.id === latest.id;
+              let hash = 0;
+              const str = String(p.id || p.name || idx);
+              for (let i = 0; i < str.length; i++) {
+                hash = (hash * 31 + str.charCodeAt(i)) % 1000;
+              }
+              const col = kahootColors[Math.abs(hash) % kahootColors.length];
+
+              const parts = String(p.name || '').trim().split(/\s+/);
+              const initials = parts.length > 1
+                ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+                : (parts[0] || 'D').slice(0, 2).toUpperCase();
+
+              return (
+                <div
+                  key={p.id || idx}
+                  style={{ animation: 'kahootPopIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards' }}
+                  className={`relative p-3.5 rounded-2xl bg-gradient-to-br ${col.bg} border-2 ${
+                    isLatest
+                      ? 'border-amber-300 ring-4 ring-amber-400/40 shadow-[0_0_25px_rgba(251,191,36,0.5)] scale-[1.02]'
+                      : `${col.border} shadow-lg shadow-black/30 hover:scale-[1.02]`
+                  } transition-all duration-200 flex items-center gap-3 overflow-hidden`}
+                >
+                  {isLatest && (
+                    <span className="absolute top-1.5 right-2 px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black text-[9px] uppercase tracking-wider shadow-md animate-pulse">
+                      ✨ NOVO!
+                    </span>
+                  )}
+                  <div className="w-10 h-10 rounded-full bg-white/20 border border-white/30 flex items-center justify-center font-black text-white text-sm shrink-0 shadow-inner">
+                    {initials}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <span className="block font-black text-white text-sm sm:text-base leading-tight truncate">
+                      {p.name}
+                    </span>
+                    <span className="inline-block mt-0.5 px-2 py-0.5 rounded-md bg-black/25 text-white/90 text-[10px] font-extrabold uppercase tracking-wide truncate max-w-full">
+                      {p.unit}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    },
+    []
+  );
+
   const handleCloseProjectionWindow = useCallback(() => {
     try {
       if (projectorWindowRef.current && !projectorWindowRef.current.closed) {
@@ -5946,7 +6492,7 @@ REGRAS OBRIGATÓRIAS:
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: 28px 40px;
+      padding: 24px 36px;
       user-select: none;
     }
     .top-bar {
@@ -5954,8 +6500,13 @@ REGRAS OBRIGATÓRIAS:
       align-items: center;
       justify-content: space-between;
       gap: 16px;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
+      border-bottom: 1px solid rgba(255,255,255,0.12);
       padding-bottom: 16px;
+    }
+    .top-left-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
     }
     .badge {
       display: inline-flex;
@@ -5971,22 +6522,49 @@ REGRAS OBRIGATÓRIAS:
       letter-spacing: 0.14em;
       text-transform: uppercase;
     }
+    .top-spec-logo {
+      width: 50px;
+      height: 50px;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5));
+    }
+    .top-header-center {
+      text-align: center;
+      flex: 1;
+      padding: 0 16px;
+    }
+    .top-eval-type {
+      display: block;
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.22em;
+      margin-bottom: 2px;
+    }
+    .top-spec-title {
+      font-size: clamp(18px, 2.3vw, 36px);
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: -0.01em;
+      line-height: 1.15;
+      color: #ffffff;
+      text-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
     .top-actions {
       display: flex;
       align-items: center;
       gap: 12px;
     }
-    .hint-text {
-      font-size: 12px;
-      font-weight: 700;
-      color: #94a3b8;
-    }
     .fs-btn {
       background: #4f46e5;
       color: #ffffff;
       border: 1px solid rgba(255,255,255,0.2);
-      width: 40px;
-      height: 40px;
+      width: 44px;
+      height: 44px;
       border-radius: 12px;
       font-weight: 900;
       font-size: 18px;
@@ -5995,224 +6573,161 @@ REGRAS OBRIGATÓRIAS:
       justify-content: center;
       cursor: pointer;
       box-shadow: 0 10px 25px rgba(79, 70, 229, 0.35);
+      transition: all 0.2s ease;
     }
-    .fs-btn:hover { background: #6366f1; }
+    .fs-btn:hover { background: #6366f1; transform: scale(1.05); }
     .main-grid {
       flex: 1;
       display: grid;
-      grid-template-columns: 0.95fr 1.25fr 0.85fr;
-      gap: 28px;
+      grid-template-columns: minmax(380px, 480px) 1fr;
+      gap: 24px;
       align-items: stretch;
-      max-width: 1680px;
+      max-width: 1760px;
       width: 100%;
-      margin: 18px auto 0;
+      margin: 16px auto 0;
       min-height: 0;
     }
     .main-grid.exam-started {
-      grid-template-columns: 1.45fr 0.85fr;
-      max-width: 1520px;
+      grid-template-columns: minmax(420px, 520px) 1fr;
+    }
+    @media (min-width: 1400px) {
+      .main-grid {
+        max-width: 1960px;
+        grid-template-columns: minmax(430px, 540px) 1fr;
+        gap: 30px;
+      }
+      .qr-box img {
+        width: min(45vh, 340px) !important;
+        height: min(45vh, 340px) !important;
+      }
+    }
+    @media (min-width: 1800px) {
+      .main-grid {
+        max-width: 2400px;
+        grid-template-columns: minmax(480px, 600px) 1fr;
+        gap: 36px;
+      }
+      .qr-box img {
+        width: min(48vh, 380px) !important;
+        height: min(48vh, 380px) !important;
+      }
     }
     .qr-column {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      background: rgba(15, 23, 42, 0.75);
+      background: rgba(15, 23, 42, 0.85);
       border: 2px solid rgba(99, 102, 241, 0.35);
-      border-radius: 36px;
-      padding: 28px;
+      border-radius: 32px;
+      padding: 24px 20px;
       box-shadow: 0 25px 60px rgba(0,0,0,0.5);
       text-align: center;
+      gap: 14px;
+    }
+    .pin-card-wrapper {
+      width: 100%;
+      background: rgba(30, 27, 75, 0.65);
+      border: 1px solid rgba(251, 191, 36, 0.35);
+      border-radius: 20px;
+      padding: 12px 18px;
+      text-align: center;
+    }
+    .stat-label {
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: #94a3b8;
+      margin-bottom: 4px;
+      display: block;
+    }
+    .pin-value {
+      font-size: clamp(34px, 4.4vw, 54px);
+      font-weight: 900;
+      color: #fbbf24;
+      letter-spacing: 0.16em;
+      line-height: 1.05;
+      text-shadow: 0 4px 20px rgba(251, 191, 36, 0.3);
     }
     .qr-box {
       position: relative;
       overflow: hidden;
       background: #ffffff;
-      padding: 18px;
-      border-radius: 28px;
+      padding: 14px;
+      border-radius: 24px;
       box-shadow: 0 15px 35px rgba(0,0,0,0.35);
-      margin-bottom: 16px;
     }
     .qr-box img {
-      width: min(42vh, 330px);
-      height: min(42vh, 330px);
+      width: min(38vh, 310px);
+      height: min(38vh, 310px);
       display: block;
     }
-    .qr-finished-overlay {
-      position: absolute;
-      inset: 0;
-      z-index: 10;
-      background: rgba(9, 13, 22, 0.9);
-      backdrop-filter: blur(4px);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      text-align: center;
-    }
-    .qr-finished-overlay .flag {
-      font-size: clamp(36px, 5vw, 56px);
-      line-height: 1;
-      margin-bottom: 10px;
-    }
-    .qr-finished-overlay .txt {
-      font-size: clamp(28px, 4vw, 46px);
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #f87171;
-      line-height: 1.08;
-      text-shadow: 0 6px 20px rgba(0,0,0,0.6);
-    }
     .qr-caption {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 800;
       color: #cbd5e1;
       text-transform: uppercase;
       letter-spacing: 0.08em;
+      max-width: 300px;
+      line-height: 1.35;
     }
-    .info-column {
+    .timer-card-wrapper {
+      width: 100%;
       display: flex;
       flex-direction: column;
-      justify-content: center;
-      gap: 24px;
-      min-width: 0;
-    }
-    .spec-header {
-      display: flex;
       align-items: center;
-      gap: 20px;
-    }
-    .main-grid.exam-started .spec-header {
       justify-content: center;
-      text-align: center;
-    }
-    .spec-header img {
-      width: 84px;
-      height: 84px;
-      object-fit: contain;
-      filter: drop-shadow(0 8px 16px rgba(0,0,0,0.4));
-    }
-    .spec-title {
-      font-size: clamp(26px, 3.6vw, 48px);
-      font-weight: 900;
-      text-transform: uppercase;
-      line-height: 1.08;
-      letter-spacing: -0.02em;
-    }
-    .cards-row {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 16px;
-    }
-    .cards-row.single-timer {
-      grid-template-columns: 1fr;
-    }
-    .stat-card {
       background: rgba(15, 23, 42, 0.85);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 28px;
-      padding: 20px 26px;
-      overflow: hidden;
-      min-width: 0;
-    }
-    .stat-card.timer-featured {
-      text-align: center;
-      padding: 42px 40px;
-      background: linear-gradient(135deg, rgba(15, 23, 42, 0.92) 0%, rgba(30, 27, 75, 0.88) 100%);
       border: 2px solid rgba(56, 189, 248, 0.45);
-      box-shadow: 0 25px 60px rgba(2, 132, 199, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-      border-radius: 36px;
+      border-radius: 32px;
+      padding: 32px 24px;
+      text-align: center;
+      box-shadow: 0 25px 60px rgba(2, 132, 199, 0.22);
     }
-    .stat-card.timer-featured.timer-urgent {
+    .timer-card-wrapper.timer-urgent {
       border-color: rgba(248, 113, 113, 0.65);
-      box-shadow: 0 25px 60px rgba(239, 68, 68, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-    }
-    .stat-label {
-      font-size: 12px;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: 0.16em;
-      color: #94a3b8;
-      margin-bottom: 6px;
-      display: block;
-    }
-    .stat-card.timer-featured .stat-label {
-      font-size: 15px;
-      color: #7dd3fc;
-      letter-spacing: 0.22em;
-      margin-bottom: 12px;
-    }
-    .stat-card.timer-featured.timer-urgent .stat-label {
-      color: #fca5a5;
-    }
-    .pin-value {
-      font-size: clamp(28px, 3.4vw, 48px);
-      font-weight: 900;
-      color: #fbbf24;
-      letter-spacing: 0.14em;
-      line-height: 1.1;
-      word-break: break-all;
+      box-shadow: 0 25px 60px rgba(239, 68, 68, 0.28);
     }
     .timer-value {
-      font-size: clamp(28px, 3.4vw, 48px);
+      font-size: clamp(56px, 8.5vw, 108px);
       font-weight: 900;
       color: #38bdf8;
       font-variant-numeric: tabular-nums;
-      line-height: 1.1;
-    }
-    .stat-card.timer-featured .timer-value {
-      font-size: clamp(76px, 11vw, 152px);
       line-height: 1;
       letter-spacing: 0.06em;
-      text-shadow: 0 0 40px rgba(56, 189, 248, 0.35);
+      text-shadow: 0 0 35px rgba(56, 189, 248, 0.35);
+      margin: 12px 0;
     }
-    .stat-card.timer-featured.timer-urgent .timer-value {
+    .timer-card-wrapper.timer-urgent .timer-value {
       color: #f87171;
-      text-shadow: 0 0 40px rgba(248, 113, 113, 0.45);
+      text-shadow: 0 0 35px rgba(248, 113, 113, 0.45);
     }
-    .stat-card.timer-featured .timer-value.timer-finished-text,
     .timer-value.timer-finished-text {
-      font-size: clamp(32px, 5.2vw, 76px);
-      line-height: 1.08;
-      letter-spacing: 0.05em;
+      font-size: clamp(28px, 4.4vw, 56px);
       color: #f87171;
-      text-shadow: 0 0 36px rgba(248, 113, 113, 0.45);
     }
-    .status-banner {
-      background: rgba(16, 185, 129, 0.14);
-      border: 1px solid rgba(16, 185, 129, 0.35);
-      border-radius: 22px;
-      padding: 16px 24px;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      justify-content: center;
-      gap: 6px;
-    }
-    .status-text {
-      font-size: 14px;
+    .status-badge-live {
+      background: rgba(16, 185, 129, 0.16);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #6ee7b7;
+      padding: 6px 16px;
+      border-radius: 999px;
+      font-size: 13px;
       font-weight: 900;
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      color: #6ee7b7;
-    }
-    .count-text {
-      font-size: 17px;
-      font-weight: 900;
-      color: #ffffff;
     }
     .participants-sidebar {
-      background: rgba(15, 23, 42, 0.8);
-      border: 1px solid rgba(99, 102, 241, 0.3);
+      background: rgba(15, 23, 42, 0.82);
+      border: 1.5px solid rgba(99, 102, 241, 0.3);
       border-radius: 32px;
-      padding: 22px;
+      padding: 20px 22px;
       display: flex;
       flex-direction: column;
       height: 100%;
       min-height: 0;
-      max-height: calc(100vh - 125px);
+      max-height: calc(100vh - 120px);
       box-shadow: 0 20px 50px rgba(0,0,0,0.4);
     }
     .sidebar-header {
@@ -6220,7 +6735,7 @@ REGRAS OBRIGATÓRIAS:
       align-items: center;
       justify-content: space-between;
       gap: 10px;
-      padding-bottom: 14px;
+      padding-bottom: 12px;
       border-bottom: 1px solid rgba(255,255,255,0.1);
       margin-bottom: 14px;
       flex-shrink: 0;
@@ -6229,62 +6744,160 @@ REGRAS OBRIGATÓRIAS:
       background: rgba(99, 102, 241, 0.25);
       border: 1px solid rgba(129, 140, 248, 0.45);
       color: #c7d2fe;
-      padding: 4px 12px;
+      padding: 4px 14px;
       border-radius: 999px;
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 900;
     }
     .chips {
       flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
       overflow-y: auto;
+      min-height: 0;
       padding-right: 4px;
     }
-    .chips::-webkit-scrollbar { width: 5px; }
-    .chips::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 999px; }
-    .empty-chips {
-      flex: 1;
+    .chips::-webkit-scrollbar { width: 6px; }
+    .chips::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.3); border-radius: 10px; }
+    @keyframes kahootPopIn {
+      0% { opacity: 0; transform: scale(0.65) translateY(12px); }
+      60% { opacity: 1; transform: scale(1.04) translateY(-2px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .kahoot-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 12px;
+      width: 100%;
+      align-content: start;
+    }
+    .kahoot-card {
+      position: relative;
+      border-radius: 20px;
+      padding: 12px 14px;
+      border: 2px solid;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+      animation: kahootPopIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      overflow: hidden;
+      transition: transform 0.2s ease;
+    }
+    .kahoot-card.is-latest {
+      box-shadow: 0 0 28px rgba(251, 191, 36, 0.55), 0 10px 25px rgba(0, 0, 0, 0.35);
+      transform: scale(1.02);
+    }
+    .kahoot-new-tag {
+      position: absolute;
+      top: 5px;
+      right: 7px;
+      background: #fbbf24;
+      color: #0f172a;
+      font-size: 8px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 999px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .kahoot-card-inner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      min-width: 0;
+    }
+    .kahoot-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.22);
+      border: 1px solid rgba(255, 255, 255, 0.35);
       display: flex;
       align-items: center;
       justify-content: center;
-      text-align: center;
-      color: #64748b;
-      font-size: 14px;
-      font-weight: 700;
-      padding: 24px 12px;
-      min-height: 160px;
+      font-size: 13px;
+      font-weight: 900;
+      color: #ffffff;
+      flex-shrink: 0;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
     }
-    .chip {
-      background: rgba(30, 41, 59, 0.85);
-      border: 1px solid rgba(129, 140, 248, 0.3);
-      color: #f8fafc;
-      padding: 12px 16px;
-      border-radius: 18px;
-      font-size: 14px;
-      font-weight: 800;
+    .kahoot-info {
+      flex: 1;
+      min-width: 0;
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
+      flex-direction: column;
     }
-    .chip-unit {
-      font-size: 11px;
-      font-weight: 800;
-      color: #a5b4fc;
-      background: rgba(99, 102, 241, 0.2);
-      padding: 4px 10px;
-      border-radius: 999px;
-      text-transform: uppercase;
+    .kahoot-name {
+      font-size: 14px;
+      font-weight: 900;
+      color: #ffffff;
+      line-height: 1.15;
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .kahoot-unit {
+      margin-top: 3px;
+      display: inline-block;
+      align-self: flex-start;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: rgba(255, 255, 255, 0.95);
+      background: rgba(0, 0, 0, 0.25);
+      padding: 2px 6px;
+      border-radius: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+    .kahoot-empty-box {
+      width: 100%;
+      min-height: 240px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 30px;
+      background: rgba(15, 23, 42, 0.45);
+      border: 2px dashed rgba(99, 102, 241, 0.25);
+      border-radius: 24px;
+    }
+    .kahoot-empty-icon {
+      font-size: 42px;
+      margin-bottom: 10px;
+      opacity: 0.75;
+    }
+    .kahoot-empty-title {
+      font-size: 16px;
+      font-weight: 900;
+      color: #ffffff;
+      margin-bottom: 5px;
+    }
+    .kahoot-empty-desc {
+      font-size: 12px;
+      font-weight: 600;
+      color: #94a3b8;
+      max-width: 320px;
+      line-height: 1.4;
     }
     :fullscreen .top-actions .hint-text { display: none; }
   </style>
 </head>
 <body>
   <div class="top-bar">
-    <div class="badge">PROVA EM ANDAMENTO</div>
+    <div class="top-left-group">
+      <div id="telao-v3-top-badge" class="badge">${activeRoom.status === 'WAITING' ? 'SALA ABERTA • AGUARDANDO ALUNOS' : 'PROVA EM ANDAMENTO'}</div>
+      ${resolvedRoomLogo ? `<img id="telao-v3-logo" src="${resolvedRoomLogo}" class="top-spec-logo" referrerpolicy="no-referrer" />` : ''}
+    </div>
+    <div class="top-header-center">
+      <span id="telao-v3-eval-type" class="top-eval-type" style="color:${evalType === 'BOOK' ? '#fbbf24' : evalType === 'CUSTOM' ? '#c084fc' : '#818cf8'};">${evalHeaderLabel}</span>
+      <h1 id="telao-v3-title" class="top-spec-title">${cleanRoomTitle}</h1>
+    </div>
     <div class="top-actions">
       <button class="fs-btn" title="Tela Cheia (F11)" aria-label="Tela Cheia (F11)" onclick="if(!document.fullscreenElement){document.documentElement.requestFullscreen().catch(()=>{});}else{document.exitFullscreen().catch(()=>{});}">
         ⛶
@@ -6292,63 +6905,40 @@ REGRAS OBRIGATÓRIAS:
     </div>
   </div>
   <div id="telao-v3-grid" class="main-grid ${activeRoom.status !== 'WAITING' ? 'exam-started' : ''}">
-    <div id="telao-v3-qr-col" class="qr-column" style="display:${activeRoom.status !== 'WAITING' ? 'none' : 'flex'};">
-      <div class="qr-box">
-        <img id="telao-v3-qr" src="${qrCodeDataUrl}" alt="QR Code da Prova" />
-        <div id="telao-v3-qr-finished" class="qr-finished-overlay" style="display:${activeRoom.status === 'FINISHED' ? 'flex' : 'none'};">
-          <div class="flag">🏁</div>
-          <div class="txt">PROVA ENCERRADA</div>
-        </div>
-      </div>
-      <div class="qr-caption">Aponte a Câmera do Celular para Entrar na Prova</div>
-    </div>
-    <div class="info-column">
-      <div class="spec-header">
-        ${resolvedRoomLogo ? `<img id="telao-v3-logo" src="${resolvedRoomLogo}" referrerpolicy="no-referrer" />` : ''}
-        <div>
-          <span id="telao-v3-eval-type" class="stat-label" style="color:${evalType === 'BOOK' ? '#fbbf24' : evalType === 'CUSTOM' ? '#c084fc' : '#818cf8'};">${evalHeaderLabel}</span>
-          <h1 id="telao-v3-title" class="spec-title">${cleanRoomTitle}</h1>
-        </div>
-      </div>
-      <div id="telao-v3-cards-row" class="cards-row ${activeRoom.status !== 'WAITING' ? 'single-timer' : ''}">
-        <div id="telao-v3-pin-card" class="stat-card" style="display:${activeRoom.status !== 'WAITING' ? 'none' : 'block'};">
-          <span class="stat-label">CÓDIGO PIN DA SALA</span>
+    <div id="telao-v3-left-col" class="left-column">
+      <div id="telao-v3-qr-col" class="qr-column" style="display:${activeRoom.status !== 'WAITING' ? 'none' : 'flex'};">
+        <div class="pin-card-wrapper">
+          <span class="stat-label">CÓDIGO DA SALA (PIN)</span>
           <div id="telao-v3-pin" class="pin-value">${activeRoom.pin}</div>
         </div>
-        <div id="telao-v3-timer-card" class="stat-card ${activeRoom.status !== 'WAITING' ? 'timer-featured' : ''} ${activeRoom.status === 'FINISHED' || (!isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime) && activeRoom.status === 'ACTIVE' && hostRemainingSeconds <= 60) ? 'timer-urgent' : ''}">
-          <span id="telao-v3-timer-label" class="stat-label">${activeRoom.status === 'FINISHED' ? 'STATUS DA AVALIAÇÃO' : isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime) ? 'TEMPO DE PROVA' : 'TEMPO RESTANTE'}</span>
-          <div id="telao-v3-timer" class="timer-value ${activeRoom.status === 'FINISHED' ? 'timer-finished-text' : ''}">${
-            activeRoom.status === 'FINISHED'
-              ? 'PROVA ENCERRADA'
-              : isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime)
-              ? activeRoom.status === 'ACTIVE'
-                ? `∞ LIVRE (${formatTimeMMSS(hostRemainingSeconds)})`
-                : '∞ SEM LIMITE'
-              : formatTimeMMSS(hostRemainingSeconds)
-          }</div>
+        <div class="qr-box">
+          <img id="telao-v3-qr" src="${qrCodeDataUrl}" alt="QR Code da Prova" />
         </div>
+        <div class="qr-caption">Aponte a Câmera do Celular para Entrar na Prova</div>
       </div>
-      <div class="status-banner">
-        <span id="telao-v3-status" class="status-text">${statusLabel}</span>
-        <span id="telao-v3-count" class="count-text">${pList.length} participante(s) na sala</span>
+
+      <div id="telao-v3-timer-card" class="timer-card-wrapper ${activeRoom.status === 'FINISHED' || (!isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime) && activeRoom.status === 'ACTIVE' && hostRemainingSeconds <= 60) ? 'timer-urgent' : ''}" style="display:${activeRoom.status === 'WAITING' ? 'none' : 'flex'};">
+        <span id="telao-v3-timer-label" class="stat-label">${activeRoom.status === 'FINISHED' ? 'STATUS DA AVALIAÇÃO' : isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime) ? 'TEMPO DE PROVA' : 'TEMPO RESTANTE'}</span>
+        <div id="telao-v3-timer" class="timer-value ${activeRoom.status === 'FINISHED' ? 'timer-finished-text' : ''}">${
+          activeRoom.status === 'FINISHED'
+            ? 'PROVA ENCERRADA'
+            : isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime)
+            ? activeRoom.status === 'ACTIVE'
+              ? `∞ LIVRE (${formatTimeMMSS(hostRemainingSeconds)})`
+              : '∞ SEM LIMITE'
+            : formatTimeMMSS(hostRemainingSeconds)
+        }</div>
+        <span id="telao-v3-status" class="status-badge-live">${statusLabel}</span>
       </div>
     </div>
+
     <div class="participants-sidebar">
       <div class="sidebar-header">
-        <span class="stat-label" style="margin-bottom:0;color:#a5b4fc;">PARTICIPANTES NA SALA</span>
+        <span class="stat-label" style="margin-bottom:0;color:#c7d2fe;font-size:13px;">PARTICIPANTES NA SALA</span>
         <span id="telao-v3-sidebar-count" class="sidebar-badge">${pList.length}</span>
       </div>
-      <div id="telao-v3-chips" class="chips" data-sig="${pList.length === 0 ? 'empty' : pList.map((p) => `${p.id}:${p.name}:${p.unit}`).join('|')}">
-        ${
-          pList.length === 0
-            ? '<div class="empty-chips">Aguardando os alunos entrarem na sala...</div>'
-            : pList
-                .map(
-                  (p) =>
-                    `<div class="chip"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name}</span><span class="chip-unit">${p.unit}</span></div>`
-                )
-                .join('')
-        }
+      <div id="telao-v3-chips" class="chips" data-sig="${pList.length === 0 ? 'empty' : pList.map((p) => `${p.id}:${p.name}:${p.unit}:${p.joinedAtMs || p.joinedAt || ''}`).join('|')}">
+        ${buildParticipantsCircleHtmlString(pList)}
       </div>
     </div>
   </div>
@@ -6365,7 +6955,7 @@ REGRAS OBRIGATÓRIAS:
         }
       } catch (e) {}
 
-      window.__telaoLayoutVersion = 3;
+      window.__telaoLayoutVersion = 5;
       window.__telaoRoomState = ${JSON.stringify({
         pin: activeRoom.pin,
         status: activeRoom.status,
@@ -6393,7 +6983,7 @@ REGRAS OBRIGATÓRIAS:
           status: nextStatus,
           startedAt: incoming.startedAt || prev.startedAt,
           durationMinutes: incoming.durationMinutes !== undefined ? incoming.durationMinutes : prev.durationMinutes,
-          unlimitedTime: Boolean(incoming.unlimitedTime || prev.unlimitedTime || Number(incoming.durationMinutes) <= 0 || Number(incoming.durationMinutes) >= 9999),
+          unlimitedTime: Boolean(incoming.unlimitedTime || prev.unlimitedTime || Number(incoming.durationMinutes) <= 0 || Number(incoming.durationMinutes) > 300),
           manuallyFinished: Boolean(incoming.manuallyFinished || prev.manuallyFinished),
           extraSecondsAdded: Math.max(Number(incoming.extraSecondsAdded || 0), Number(prev.extraSecondsAdded || 0)),
           specialtyName: incoming.specialtyName || prev.specialtyName,
@@ -6404,10 +6994,83 @@ REGRAS OBRIGATÓRIAS:
       }
 
       function formatMMSS(totalSec) {
-        var safe = Math.max(0, Math.floor(Number(totalSec) || 0));
+        var n = Number(totalSec) || 0;
+        if (!isFinite(n) || n <= 0 || n > 86400) n = 0;
+        var safe = Math.max(0, Math.floor(n));
         var mins = Math.floor(safe / 60);
         var secs = safe % 60;
         return String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+      }
+
+      function escapeHtml(str) {
+        return String(str || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      }
+
+      function parseJoinScore(p, idx) {
+        if (typeof p.joinedAtMs === 'number' && isFinite(p.joinedAtMs) && p.joinedAtMs > 0) {
+          return p.joinedAtMs;
+        }
+        if (typeof p.joinedAt === 'string' && p.joinedAt.indexOf(':') !== -1) {
+          var parts = p.joinedAt.split(':');
+          var h = parseInt(parts[0], 10) || 0;
+          var m = parseInt(parts[1], 10) || 0;
+          var s = parseInt(parts[2], 10) || 0;
+          return h * 3600 + m * 60 + s;
+        }
+        return idx + 1;
+      }
+
+      var kahootColors = [
+        { bg: 'linear-gradient(135deg, #e21b3c 0%, #991b1b 100%)', border: '#f87171' },
+        { bg: 'linear-gradient(135deg, #1368ce 0%, #1e40af 100%)', border: '#60a5fa' },
+        { bg: 'linear-gradient(135deg, #d97706 0%, #92400e 100%)', border: '#fcd34d' },
+        { bg: 'linear-gradient(135deg, #15803d 0%, #14532d 100%)', border: '#4ade80' },
+        { bg: 'linear-gradient(135deg, #7e22ce 0%, #581c87 100%)', border: '#c084fc' },
+        { bg: 'linear-gradient(135deg, #0e7490 0%, #155e75 100%)', border: '#22d3ee' },
+        { bg: 'linear-gradient(135deg, #c2410c 0%, #7c2d12 100%)', border: '#fb923c' },
+        { bg: 'linear-gradient(135deg, #be185d 0%, #831843 100%)', border: '#f472b6' }
+      ];
+
+      function renderCircleHtml(pList) {
+        if (!pList || pList.length === 0) {
+          return '<div class="kahoot-empty-box"><div class="kahoot-empty-icon">👥</div><div class="kahoot-empty-title">Aguardando os desbravadores entrarem...</div><div class="kahoot-empty-desc">Aponte a câmera para o QR Code ou digite o PIN ao lado para entrar na sala!</div></div>';
+        }
+        var ordered = pList
+          .map(function(p, idx) { return { p: p, score: parseJoinScore(p, idx) }; })
+          .sort(function(a, b) { return a.score - b.score; })
+          .map(function(item) { return item.p; });
+
+        var latest = ordered[ordered.length - 1];
+
+        var cards = ordered.map(function(p, idx) {
+          var isLatest = latest && p.id === latest.id;
+          var hash = 0;
+          var str = String(p.id || p.name || idx);
+          for (var i = 0; i < str.length; i++) {
+            hash = (hash * 31 + str.charCodeAt(i)) % 1000;
+          }
+          var col = kahootColors[Math.abs(hash) % kahootColors.length];
+          var parts = String(p.name || '').trim().split(/\\s+/);
+          var initials = parts.length > 1
+            ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+            : (parts[0] || 'D').slice(0, 2).toUpperCase();
+
+          return '<div class="kahoot-card ' + (isLatest ? 'is-latest' : '') + '" style="background:' + col.bg + ';border-color:' + (isLatest ? '#fbbf24' : col.border) + ';">' +
+            (isLatest ? '<span class="kahoot-new-tag">✨ NOVO!</span>' : '') +
+            '<div class="kahoot-card-inner">' +
+              '<div class="kahoot-avatar">' + initials + '</div>' +
+              '<div class="kahoot-info">' +
+                '<span class="kahoot-name">' + escapeHtml(p.name || 'Desbravador') + '</span>' +
+                '<span class="kahoot-unit">' + escapeHtml(p.unit || 'Clube') + '</span>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+
+        return '<div class="kahoot-grid">' + cards + '</div>';
       }
 
       function readLatestFromLocalStorage() {
@@ -6442,7 +7105,7 @@ REGRAS OBRIGATÓRIAS:
         var st = window.__telaoRoomState;
         if (!st) return;
 
-        var isUnlimited = Boolean(st.unlimitedTime) || Number(st.durationMinutes) <= 0 || Number(st.durationMinutes) >= 9999;
+        var isUnlimited = Boolean(st.unlimitedTime) || Number(st.durationMinutes) <= 0 || Number(st.durationMinutes) > 300;
         var totalAllowed = isUnlimited ? 0 : (Number(st.durationMinutes) || 15) * 60 + (Number(st.extraSecondsAdded) || 0);
         var remaining = totalAllowed;
         if (st.status === 'FINISHED') {
@@ -6461,21 +7124,21 @@ REGRAS OBRIGATÓRIAS:
         }
 
         var isStarted = st.status !== 'WAITING';
+        var topBadgeEl = document.getElementById('telao-v3-top-badge');
+        if (topBadgeEl) {
+          var nextTopBadge = isStarted ? 'PROVA EM ANDAMENTO' : 'SALA ABERTA • AGUARDANDO ALUNOS';
+          if (topBadgeEl.textContent !== nextTopBadge) topBadgeEl.textContent = nextTopBadge;
+        }
+
         var mainGridEl = document.getElementById('telao-v3-grid');
         if (mainGridEl) mainGridEl.classList.toggle('exam-started', isStarted);
 
         var qrColEl = document.getElementById('telao-v3-qr-col');
         if (qrColEl) qrColEl.style.display = isStarted ? 'none' : 'flex';
 
-        var cardsRowEl = document.getElementById('telao-v3-cards-row');
-        if (cardsRowEl) cardsRowEl.classList.toggle('single-timer', isStarted);
-
-        var pinCardEl = document.getElementById('telao-v3-pin-card');
-        if (pinCardEl) pinCardEl.style.display = isStarted ? 'none' : 'block';
-
         var timerCardEl = document.getElementById('telao-v3-timer-card');
         if (timerCardEl) {
-          timerCardEl.classList.toggle('timer-featured', isStarted);
+          timerCardEl.style.display = isStarted ? 'flex' : 'none';
           timerCardEl.classList.toggle('timer-urgent', st.status === 'FINISHED' || (!isUnlimited && st.status === 'ACTIVE' && remaining <= 60));
         }
 
@@ -6495,7 +7158,7 @@ REGRAS OBRIGATÓRIAS:
         var formatted = st.status === 'FINISHED'
           ? 'PROVA ENCERRADA'
           : isUnlimited
-          ? (st.status === 'ACTIVE' ? '∞ LIVRE (' + formatMMSS(remaining) + ')' : '∞ SEM LIMITE')
+          ? '∞ SEM LIMITE'
           : formatMMSS(remaining);
         if (timerEl) {
           if (timerEl.textContent !== formatted) {
@@ -6517,15 +7180,10 @@ REGRAS OBRIGATÓRIAS:
           }
         }
 
-        var qrFinishedEl = document.getElementById('telao-v3-qr-finished');
-        if (qrFinishedEl) {
-          qrFinishedEl.style.display = st.status === 'FINISHED' ? 'flex' : 'none';
-        }
-
         var pObj = st.participants || {};
         var pList = Object.keys(pObj).map(function(k) { return pObj[k]; }).filter(Boolean);
         var countEl = document.getElementById('telao-v3-count');
-        var countTxt = pList.length + ' participante(s) na sala';
+        var countTxt = String(pList.length);
         if (countEl && countEl.textContent !== countTxt) {
           countEl.textContent = countTxt;
         }
@@ -6538,14 +7196,10 @@ REGRAS OBRIGATÓRIAS:
         if (chipsEl) {
           var nextSig = pList.length === 0
             ? 'empty'
-            : pList.map(function(p) { return (p.id || '') + ':' + (p.name || '') + ':' + (p.unit || ''); }).join('|');
+            : pList.map(function(p) { return (p.id || '') + ':' + (p.name || '') + ':' + (p.unit || '') + ':' + (p.joinedAtMs || p.joinedAt || ''); }).join('|');
           if (chipsEl.getAttribute('data-sig') !== nextSig) {
             chipsEl.setAttribute('data-sig', nextSig);
-            chipsEl.innerHTML = pList.length === 0
-              ? '<div class="empty-chips">Aguardando os alunos entrarem na sala...</div>'
-              : pList.map(function(p) {
-                  return '<div class="chip"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (p.name || 'Aluno') + '</span><span class="chip-unit">' + (p.unit || 'Geral') + '</span></div>';
-                }).join('');
+            chipsEl.innerHTML = renderCircleHtml(pList);
           }
         }
       }
@@ -6607,7 +7261,7 @@ REGRAS OBRIGATÓRIAS:
         clearInterval(checkClosed);
       }
     }, 1500);
-  }, [activeRoom, qrCodeDataUrl, hostRemainingSeconds]);
+  }, [activeRoom, qrCodeDataUrl, hostRemainingSeconds, buildParticipantsCircleHtmlString, getRoomEvaluationType, getRoomEvaluationHeaderLabel, getRoomResolvedLogo]);
 
   // Atualiza automaticamente os dados na janela projetada no Telão em tempo real
   useEffect(() => {
@@ -6615,13 +7269,20 @@ REGRAS OBRIGATÓRIAS:
     if (!projWin || projWin.closed || !activeRoom) return;
     try {
       const doc = projWin.document;
-      if (projWin.__telaoLayoutVersion !== 3 || !doc.getElementById('telao-v3-grid')) {
+      if (projWin.__telaoLayoutVersion !== 5 || !doc.getElementById('telao-v3-grid')) {
         handleProjectQrToAnotherScreen();
         return;
       }
       projWin.__telaoRoomState = activeRoom;
       const isStarted = activeRoom.status !== 'WAITING';
       const effectiveRem = activeRoom.status === 'FINISHED' ? 0 : hostRemainingSeconds;
+
+      const topBadgeEl = doc.getElementById('telao-v3-top-badge');
+      if (topBadgeEl) {
+        topBadgeEl.textContent = isStarted
+          ? 'PROVA EM ANDAMENTO'
+          : 'SALA ABERTA • AGUARDANDO ALUNOS';
+      }
 
       const mainGridEl = doc.getElementById('telao-v3-grid');
       if (mainGridEl) {
@@ -6647,6 +7308,7 @@ REGRAS OBRIGATÓRIAS:
       const isUnlimitedRoom = isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime);
       const isFinishedRoom = activeRoom.status === 'FINISHED';
       if (timerCardEl) {
+        timerCardEl.style.display = isStarted ? 'block' : 'none';
         timerCardEl.classList.toggle('timer-featured', isStarted);
         timerCardEl.classList.toggle(
           'timer-urgent',
@@ -6696,9 +7358,7 @@ REGRAS OBRIGATÓRIAS:
       const formattedTimer = isFinishedRoom
         ? 'PROVA ENCERRADA'
         : isUnlimitedRoom
-        ? activeRoom.status === 'ACTIVE'
-          ? `∞ LIVRE (${formatTimeMMSS(effectiveRem)})`
-          : '∞ SEM LIMITE'
+        ? '∞ SEM LIMITE'
         : formatTimeMMSS(effectiveRem);
       if (timerEl) {
         if (timerEl.textContent !== formattedTimer) {
@@ -6741,22 +7401,16 @@ REGRAS OBRIGATÓRIAS:
         const nextSig =
           pList.length === 0
             ? 'empty'
-            : pList.map((p) => `${p.id || ''}:${p.name || ''}:${p.unit || ''}`).join('|');
+            : pList
+                .map((p) => `${p.id || ''}:${p.name || ''}:${p.unit || ''}:${p.joinedAtMs || p.joinedAt || ''}`)
+                .join('|');
         if (chipsEl.getAttribute('data-sig') !== nextSig) {
           chipsEl.setAttribute('data-sig', nextSig);
-          chipsEl.innerHTML =
-            pList.length === 0
-              ? '<div class="empty-chips">Aguardando os alunos entrarem na sala...</div>'
-              : pList
-                  .map(
-                    (p) =>
-                      `<div class="chip"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name}</span><span class="chip-unit">${p.unit}</span></div>`
-                  )
-                  .join('');
+          chipsEl.innerHTML = buildParticipantsCircleHtmlString(pList);
         }
       }
     } catch {}
-  }, [activeRoom, qrCodeDataUrl, hostRemainingSeconds, handleProjectQrToAnotherScreen]);
+  }, [activeRoom, qrCodeDataUrl, hostRemainingSeconds, handleProjectQrToAnotherScreen, buildParticipantsCircleHtmlString, getRoomEvaluationHeaderLabel, getRoomResolvedLogo]);
 
   // ============================================================================
   // LEITOR DE QR CODE COM A CÂMERA DENTRO DO APP
@@ -6772,6 +7426,9 @@ REGRAS OBRIGATÓRIAS:
       }
     } catch {}
   }, []);
+
+  const handleStudentJoinRoomRef = useRef(handleStudentJoinRoom);
+  handleStudentJoinRoomRef.current = handleStudentJoinRoom;
 
   const handleQrCodeDecoded = useCallback(
     (rawText: string) => {
@@ -6790,17 +7447,15 @@ REGRAS OBRIGATÓRIAS:
       setQrScannerError(null);
       setEntryScreenConfirmed(true);
       setRoleMode('STUDENT');
-      setStudentPhase('ENTER_PIN');
-      setStudentPinInput(pinFound);
-      setStudentError(null);
+      resetStudentExamSessionState(pinFound);
       setQrScannedSuccessMsg(`✅ QR Code lido! Sala #${pinFound} identificada.`);
       if (studentName.trim().length >= 2) {
         setTimeout(() => {
-          handleStudentJoinRoom(pinFound);
+          handleStudentJoinRoomRef.current(pinFound);
         }, 120);
       }
     },
-    [stopQrScannerStream, studentName]
+    [stopQrScannerStream, studentName, resetStudentExamSessionState]
   );
 
   useEffect(() => {
@@ -7069,9 +7724,9 @@ REGRAS OBRIGATÓRIAS:
                 <div
                   key={roomItem.pin}
                   onClick={() => setSelectedAppliedExam(roomItem)}
-                  className="p-3 sm:p-3.5 rounded-2xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-950/90 dark:hover:bg-slate-800/80 border border-slate-200/80 dark:border-slate-800 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer"
+                  className="p-3 sm:p-3.5 rounded-2xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-950/90 dark:hover:bg-slate-800/80 border border-slate-200/80 dark:border-slate-800 transition-all flex flex-col gap-3 cursor-pointer"
                 >
-                  <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
+                  <div className="flex items-start sm:items-center gap-2.5 min-w-0 w-full">
                     {roomItem.specialtyLogo ? (
                       <img
                         src={roomItem.specialtyLogo}
@@ -7087,7 +7742,7 @@ REGRAS OBRIGATÓRIAS:
 
                     <div className="min-w-0 flex-1 space-y-0.5">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <h4 className="text-xs font-black uppercase text-slate-900 dark:text-white truncate">
+                        <h4 className="text-xs sm:text-sm font-black uppercase text-slate-900 dark:text-white break-words">
                           {roomItem.specialtyName}
                         </h4>
                         <span className="px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-slate-800 text-amber-800 dark:text-amber-300 text-[9px] font-black">
@@ -7110,7 +7765,7 @@ REGRAS OBRIGATÓRIAS:
                         </span>
                       </div>
 
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
                         {dateFormatted} • {roomItem.questions?.length || 0} questões •{' '}
                         <strong className="text-indigo-600 dark:text-indigo-400">
                           {pList.length} participante(s)
@@ -7123,7 +7778,7 @@ REGRAS OBRIGATÓRIAS:
                           {pList.slice(0, 4).map((p) => (
                             <span
                               key={p.id || p.name}
-                              className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[9px] font-bold text-slate-700 dark:text-slate-300 truncate max-w-[180px]"
+                              className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[9px] font-bold text-slate-700 dark:text-slate-300 truncate max-w-[200px]"
                             >
                               👤 {p.name}: <strong className="text-emerald-600 dark:text-emerald-400">{Number(p.grade10 || 0).toFixed(1).replace('.', ',')}</strong> ({p.scorePercent || 0}%)
                             </span>
@@ -7138,7 +7793,7 @@ REGRAS OBRIGATÓRIAS:
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center justify-end gap-1.5 w-full sm:w-auto shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200/60 dark:border-slate-800/60">
+                  <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center justify-end gap-1.5 w-full pt-2 border-t border-slate-200/60 dark:border-slate-800/60">
                     <button
                       type="button"
                       onClick={(e) => {
@@ -7763,6 +8418,7 @@ REGRAS OBRIGATÓRIAS:
                 type="button"
                 onClick={() => {
                   setEntryPermissionNotice(null);
+                  resetStudentExamSessionState('');
                   setRoleMode('STUDENT');
                   setEntryScreenConfirmed(true);
                   setIsQrScannerOpen(true);
@@ -7804,6 +8460,7 @@ REGRAS OBRIGATÓRIAS:
                 type="button"
                 onClick={() => {
                   setEntryPermissionNotice(null);
+                  resetStudentExamSessionState('');
                   setRoleMode('STUDENT');
                   setEntryScreenConfirmed(true);
                 }}
@@ -8132,12 +8789,18 @@ REGRAS OBRIGATÓRIAS:
         ) ||
         null
       : null;
-    const effectiveStudentAnswers =
-      Object.keys(studentAnswers).length > 0
+    const scopedLocalAnswers =
+      studentRoom?.pin && studentAnswersPinRef.current === String(studentRoom.pin)
         ? studentAnswers
-        : myServerRecord?.answers && Object.keys(myServerRecord.answers).length > 0
+        : {};
+    const effectiveStudentAnswers =
+      Object.keys(scopedLocalAnswers).length > 0
+        ? scopedLocalAnswers
+        : studentPhase === 'FINISHED' &&
+          myServerRecord?.answers &&
+          Object.keys(myServerRecord.answers).length > 0
         ? myServerRecord.answers
-        : studentAnswers;
+        : scopedLocalAnswers;
     const effectiveStudentCheatCount = Math.max(
       studentCheatCount,
       Number(myServerRecord?.cheatCount || 0)
@@ -8211,7 +8874,7 @@ REGRAS OBRIGATÓRIAS:
                 <Timer size={14} />
                 <span>
                   {isUnlimitedRoomDuration(studentRoom?.durationMinutes, studentRoom?.unlimitedTime)
-                    ? `∞ Livre (${formatTimeMMSS(studentRemainingSeconds)})`
+                    ? '∞ Sem Limite'
                     : formatTimeMMSS(studentRemainingSeconds)}
                 </span>
               </div>
@@ -8221,6 +8884,7 @@ REGRAS OBRIGATÓRIAS:
               <button
                 type="button"
                 onClick={() => {
+                  resetStudentExamSessionState('');
                   if (onExitIsolatedMode) {
                     onExitIsolatedMode();
                   } else if (hasHostPermission) {
@@ -8433,15 +9097,26 @@ REGRAS OBRIGATÓRIAS:
                 </div>
               </div>
 
-              {/* Aviso das Regras Anti-Cola */}
-              <div className="bg-red-50/80 dark:bg-red-950/40 border border-red-200 dark:border-red-500/30 rounded-2xl p-3.5 space-y-1.5">
-                <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-black text-[11px] uppercase tracking-wider">
-                  <ShieldAlert size={16} className="shrink-0" />
-                  <span>Sistema Anti-Cola Ativado</span>
+              {/* Alerta de Penalidades ao Sair da Tela da Prova */}
+              <div className="bg-red-50 dark:bg-red-950/50 border-2 border-red-500/40 rounded-2xl p-4 space-y-2 text-left">
+                <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-black text-xs uppercase tracking-wider">
+                  <ShieldAlert size={18} className="shrink-0" />
+                  <span>Alerta de Penalidades ao Sair da Tela</span>
                 </div>
-                <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
-                  Durante a prova, <strong>não minimize a tela</strong>, não troque de aba e não abra outros aplicativos. Caso a tela seja minimizada, <strong>o instrutor recebe um alerta imediato</strong>, sua prova é bloqueada e há <strong>penalidade de -0,1 ponto na nota para cada saída registrada</strong>.
-                </p>
+                <div className="text-[11px] sm:text-xs text-slate-700 dark:text-slate-200 leading-relaxed font-medium space-y-1">
+                  <p>
+                    ⚠️ <strong>ATENÇÃO:</strong> Durante a realização da avaliação, <strong>NÃO saia desta tela</strong>, não minimize o navegador/app, não abra outros aplicativos e não troque de aba.
+                  </p>
+                  <p className="text-red-600 dark:text-red-300 font-bold">
+                    • Cada saída de tela gera um <strong>alerta imediato no painel do instrutor</strong>.
+                  </p>
+                  <p className="text-red-600 dark:text-red-300 font-bold">
+                    • Penalidade automática de <strong>-0,1 ponto na nota final</strong> para cada saída registrada.
+                  </p>
+                  <p className="text-slate-600 dark:text-slate-300 text-[10.5px]">
+                    • A prova poderá ser bloqueada até que o instrutor autorize seu retorno.
+                  </p>
+                </div>
               </div>
 
               {studentError && (
@@ -8509,7 +9184,18 @@ REGRAS OBRIGATÓRIAS:
                   Participante: {studentName} ({studentUnit || 'Geral'})
                 </p>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                  Aguarde o instrutor clicar em <strong>"Iniciar Prova"</strong>. Não minimize esta tela!
+                  Aguarde o instrutor clicar em <strong>"Iniciar Prova"</strong>.
+                </p>
+              </div>
+
+              {/* Card Anti-Cola Idêntico à Imagem 2 */}
+              <div className="bg-white dark:bg-slate-900 border border-red-200 dark:border-red-500/40 rounded-[22px] p-4 sm:p-5 text-left shadow-sm space-y-2">
+                <div className="flex items-center gap-2 text-[#c2410c] dark:text-amber-400 font-black text-xs sm:text-sm uppercase tracking-wider">
+                  <ShieldAlert size={18} className="shrink-0 text-[#c2410c] dark:text-amber-400" />
+                  <span>SISTEMA ANTI-COLA ATIVADO</span>
+                </div>
+                <p className="text-xs sm:text-[13px] text-slate-700 dark:text-slate-200 leading-relaxed font-normal">
+                  Durante a prova, <strong>não minimize a tela</strong>, não troque de aba e não abra outros aplicativos. Caso a tela seja minimizada, <strong>o instrutor recebe um alerta imediato</strong>, sua prova é bloqueada e há <strong>penalidade de -0,1 ponto na nota para cada saída registrada</strong>.
                 </p>
               </div>
             </div>
@@ -9170,11 +9856,13 @@ REGRAS OBRIGATÓRIAS:
     <div className="w-full max-w-6xl mx-auto space-y-2.5 pb-4 animate-fade-in">
       {renderQrScannerModal()}
       {renderAppliedExamModals()}
-      {/* Barra Superior Compacta + Alternador de Múltiplas Provas */}
-      <div className="bg-white dark:bg-slate-900 rounded-[20px] p-3 sm:px-4 sm:py-3 text-slate-900 dark:text-white shadow-sm border border-slate-200/80 dark:border-white/10 space-y-2.5 overflow-hidden">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <h3 className="text-xs sm:text-base font-black uppercase tracking-tight leading-snug break-words sm:truncate text-slate-900 dark:text-white">
+      {/* Barra Superior Compacta + Alternador de Múltiplas Provas (Imagem 1) */}
+      <div className="bg-white dark:bg-slate-900 rounded-[22px] p-4 sm:p-4.5 text-slate-900 dark:text-white shadow-sm border border-slate-200/80 dark:border-white/10 space-y-3 overflow-hidden">
+        {/* Linha 1: Título da Sala Amplo e sem cortes (Imagem 1) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 min-w-0 w-full pb-1 border-b border-slate-100 dark:border-white/10">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+            <h3 className="text-sm sm:text-base md:text-lg font-black uppercase tracking-tight leading-snug break-words text-slate-900 dark:text-white">
               {activeRoom
                 ? `Sala #${activeRoom.pin} — ${activeRoom.specialtyName}`
                 : examCreationMode === 'BOOKS'
@@ -9185,7 +9873,22 @@ REGRAS OBRIGATÓRIAS:
             </h3>
           </div>
 
-          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-1.5 w-full lg:w-auto shrink-0">
+          {activeRoom && (
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30">
+                {activeRoom.status === 'ACTIVE'
+                  ? '🟢 Em Andamento'
+                  : activeRoom.status === 'FINISHED'
+                  ? '🏁 Encerrada'
+                  : '⏳ Aguardando Alunos'}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Linha 2: Botões de Adicionar Nova Prova posicionados abaixo do título da sala (Imagem 1) */}
+        <div className="flex flex-wrap items-center justify-between gap-2 w-full pt-0.5">
+          <div className="flex flex-wrap items-center gap-2">
             {hostRooms.length > 0 && !isCreatingNewRoom && (
               <>
                 <button
@@ -9194,11 +9897,11 @@ REGRAS OBRIGATÓRIAS:
                     setExamCreationMode('SPECIALTY');
                     setIsCreatingNewRoom(true);
                   }}
-                  className="justify-center px-2.5 py-2 sm:py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer shadow-sm transition-all whitespace-nowrap"
+                  className="justify-center px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-sm hover:shadow-indigo-600/20 transition-all whitespace-nowrap active:scale-[0.98]"
                   title="Criar uma nova prova de especialidade"
                 >
-                  <Plus size={13} className="shrink-0" />
-                  <span>Especialidade</span>
+                  <Plus size={14} className="shrink-0" />
+                  <span>+ Especialidade</span>
                 </button>
                 <button
                   type="button"
@@ -9206,10 +9909,10 @@ REGRAS OBRIGATÓRIAS:
                     setExamCreationMode('BOOKS');
                     setIsCreatingNewRoom(true);
                   }}
-                  className="justify-center px-2.5 py-2 sm:py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer shadow-sm transition-all whitespace-nowrap"
+                  className="justify-center px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-sm hover:shadow-amber-600/20 transition-all whitespace-nowrap active:scale-[0.98]"
                   title="Criar uma prova baseada nos livros"
                 >
-                  <BookOpen size={12} className="shrink-0" />
+                  <BookOpen size={13} className="shrink-0" />
                   <span>Prova dos Livros</span>
                 </button>
                 <button
@@ -9218,10 +9921,10 @@ REGRAS OBRIGATÓRIAS:
                     setExamCreationMode('CUSTOM');
                     setIsCreatingNewRoom(true);
                   }}
-                  className="justify-center px-2.5 py-2 sm:py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer shadow-sm transition-all whitespace-nowrap"
+                  className="justify-center px-3.5 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-sm hover:shadow-violet-600/20 transition-all whitespace-nowrap active:scale-[0.98]"
                   title="Criar prova adicionando questões manualmente ou pelo tema com IA"
                 >
-                  <Sparkles size={12} className="shrink-0" />
+                  <Sparkles size={13} className="shrink-0" />
                   <span>Manual / IA</span>
                 </button>
               </>
@@ -9234,25 +9937,28 @@ REGRAS OBRIGATÓRIAS:
                   setIsCreatingNewRoom(false);
                   scrollToQrCodeSection();
                 }}
-                className="justify-center px-2.5 py-2 sm:py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all whitespace-nowrap"
+                className="justify-center px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all whitespace-nowrap"
               >
-                <ChevronLeft size={13} className="shrink-0" />
+                <ChevronLeft size={14} className="shrink-0" />
                 <span>Voltar às Provas ({hostRooms.length})</span>
               </button>
             )}
+          </div>
 
+          <div className="flex items-center gap-2 ml-auto">
             {isMobileDevice && (
               <button
                 type="button"
                 onClick={() => {
+                  resetStudentExamSessionState('');
                   setRoleMode('STUDENT');
                   setEntryScreenConfirmed(true);
                   setIsQrScannerOpen(true);
                 }}
-                className="md:hidden justify-center px-2.5 py-2 sm:py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/20 dark:hover:bg-amber-500/30 border border-amber-300 dark:border-amber-400/40 text-amber-800 dark:text-amber-200 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                className="md:hidden justify-center px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/20 dark:hover:bg-amber-500/30 border border-amber-300 dark:border-amber-400/40 text-amber-800 dark:text-amber-200 text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                 title="Escanear QR Code de uma sala de prova com a câmera do celular"
               >
-                <Camera size={12} className="shrink-0" />
+                <Camera size={13} className="shrink-0" />
                 <span>Escanear QR Code</span>
               </button>
             )}
@@ -9260,14 +9966,12 @@ REGRAS OBRIGATÓRIAS:
             <button
               type="button"
               onClick={() => {
-                if (activeRoom?.pin) {
-                  setStudentPinInput(activeRoom.pin);
-                }
+                resetStudentExamSessionState(activeRoom?.pin || '');
                 setRoleMode('STUDENT');
               }}
-              className="justify-center px-2.5 py-2 sm:py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/15 dark:hover:bg-white/25 border border-slate-200 dark:border-white/20 text-slate-700 dark:text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              className="justify-center px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/15 dark:hover:bg-white/25 border border-slate-200 dark:border-white/20 text-slate-700 dark:text-white text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
             >
-              <QrCode size={12} className="shrink-0" />
+              <QrCode size={13} className="shrink-0" />
               <span>{activeRoom ? 'Testar como Aluno' : 'Entrar como Aluno'}</span>
             </button>
           </div>
@@ -10385,9 +11089,7 @@ REGRAS OBRIGATÓRIAS:
                             {activeRoom.status === 'FINISHED'
                               ? 'Prova Encerrada'
                               : isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime)
-                              ? activeRoom.status === 'ACTIVE'
-                                ? `∞ Livre (${formatTimeMMSS(hostRemainingSeconds)})`
-                                : '∞ Sem Limite'
+                              ? '∞ Sem Limite'
                               : formatTimeMMSS(hostRemainingSeconds)}
                           </span>
                         </div>
@@ -10649,7 +11351,7 @@ REGRAS OBRIGATÓRIAS:
             </div>
 
             {participantsList.length === 0 ? (
-              <div className="py-8 flex flex-col items-center justify-center text-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-4 space-y-1.5">
+              <div className="py-6 flex flex-col items-center justify-center text-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-4 space-y-1.5">
                 <QrCode size={26} className="text-slate-400 mx-auto" />
                 <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
                   Aguardando os alunos escanearem o QR Code ou digitarem o PIN{' '}
@@ -10660,8 +11362,6 @@ REGRAS OBRIGATÓRIAS:
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[360px] overflow-y-auto pr-1 scrollbar-hide content-start">
                 {participantsList.map((p) => {
                   const totalQ = activeRoom.questions.length || 1;
-                  const progressPct = Math.round((p.answeredCount / totalQ) * 100);
-                  const isApproved = p.scorePercent >= activeRoom.passingScorePercent;
                   const canViewStudentResult = activeRoom.status !== 'WAITING';
 
                   return (
@@ -10671,7 +11371,7 @@ REGRAS OBRIGATÓRIAS:
                         if (canViewStudentResult) setInspectingStudent(p);
                       }}
                       title={canViewStudentResult ? 'Clique para abrir o resultado da prova' : undefined}
-                      className={`p-3 rounded-2xl border transition-all space-y-2 ${
+                      className={`px-3 py-2 rounded-xl border transition-all flex items-center justify-between gap-2.5 ${
                         canViewStudentResult ? 'cursor-pointer hover:brightness-105 active:scale-[0.99]' : ''
                       } ${
                         p.status === 'LOCKED_CHEAT'
@@ -10681,23 +11381,30 @@ REGRAS OBRIGATÓRIAS:
                           : 'bg-slate-50 dark:bg-slate-900/70 border-slate-200/80 dark:border-slate-700'
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <h5 className="text-xs font-black text-slate-900 dark:text-white truncate">
-                              {p.name}
-                            </h5>
-                            <span className="px-1.5 py-0.5 rounded-full bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[8px] font-black uppercase">
-                              {p.unit}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h5 className="text-xs font-black text-slate-900 dark:text-white truncate">
+                            {p.name}
+                          </h5>
+                          <span className="px-1.5 py-0.5 rounded-md bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[8px] font-black uppercase shrink-0">
+                            {p.unit}
+                          </span>
+                          {p.cheatCount > 0 && (
+                            <span className="px-1.5 py-0.2 rounded-md bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-200 text-[8px] font-black shrink-0">
+                              ⚠️ {p.cheatCount}x
                             </span>
-                          </div>
-                          <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                            Questão {Math.min(totalQ, p.currentQuestionIdx + 1)}/{totalQ} • Respondidas: {p.answeredCount}/{totalQ}
-                          </p>
+                          )}
                         </div>
+                        <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                          {p.status === 'WAITING'
+                            ? 'Na sala aguardando início'
+                            : `Questão ${Math.min(totalQ, p.currentQuestionIdx + 1)}/${totalQ} • ${p.answeredCount}/${totalQ} respondidas`}
+                        </p>
+                      </div>
 
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase shrink-0 ${
+                          className={`px-2 py-0.5 rounded-full text-[8.5px] font-black uppercase ${
                             p.status === 'LOCKED_CHEAT'
                               ? 'bg-red-600 text-white animate-pulse'
                               : p.status === 'FINISHED'
@@ -10712,89 +11419,27 @@ REGRAS OBRIGATÓRIAS:
                           {p.status === 'LOCKED_CHEAT'
                             ? '🚨 Bloqueado'
                             : p.status === 'FINISHED'
-                            ? `✅ Nota ${p.grade10.toFixed(1)}`
+                            ? `✅ Nota ${p.grade10.toFixed(1).replace('.', ',')}`
                             : p.status === 'DISQUALIFIED'
                             ? '⛔ Desclassificado'
                             : p.status === 'PLAYING'
                             ? '🟢 Respondendo'
                             : '⏳ Na Sala'}
                         </span>
-                      </div>
 
-                      <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full transition-all duration-300 ${
-                            p.status === 'LOCKED_CHEAT'
-                              ? 'bg-red-600'
-                              : p.status === 'FINISHED'
-                              ? 'bg-emerald-500'
-                              : 'bg-indigo-600'
-                          }`}
-                          style={{ width: `${progressPct}%` }}
-                        />
-                      </div>
-
-                      <div className="flex flex-wrap items-center justify-between gap-1.5">
-                        <div className="flex items-center gap-1.5 text-[9px] font-black flex-wrap">
-                          <span className={isApproved ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500'}>
-                            {p.correctCount}/{totalQ} ({p.scorePercent}%)
-                          </span>
-                          {p.timeSpentSeconds !== undefined && p.timeSpentSeconds > 0 && (
-                            <span className="px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-300">
-                              ⏱️ {formatTimeMMSS(p.timeSpentSeconds)}
-                            </span>
-                          )}
-                          {p.cheatCount > 0 ? (
-                            <span className="px-1.5 py-0.5 rounded-md bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-200">
-                              ⚠️ {p.cheatCount} {p.cheatCount === 1 ? 'saída' : 'saídas'} (-{(p.cheatCount * 0.1).toFixed(1).replace('.', ',')})
-                            </span>
-                          ) : (
-                            <span className="text-emerald-600 dark:text-emerald-400">🛡️ 0 saídas</span>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-1">
-                          {p.isLocked ? (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleUnlockStudent(p.id);
-                              }}
-                              className="px-2 py-0.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[9px] font-black uppercase flex items-center gap-1 cursor-pointer"
-                            >
-                              <Unlock size={10} />
-                              <span>Liberar</span>
-                            </button>
-                          ) : (
-                            p.status === 'PLAYING' && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleLockOrDisqualifyStudent(p.id, false);
-                                }}
-                                className="px-2 py-0.5 rounded-lg bg-red-100 dark:bg-red-950/70 text-red-600 dark:text-red-300 text-[9px] font-black uppercase flex items-center gap-1 cursor-pointer"
-                              >
-                                <Lock size={10} />
-                                <span>Bloquear</span>
-                              </button>
-                            )
-                          )}
-                          {canViewStudentResult && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setInspectingStudent(p);
-                              }}
-                              className="px-2 py-0.5 rounded-lg bg-slate-200/80 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[9px] font-black uppercase flex items-center gap-1 cursor-pointer"
-                            >
-                              <Eye size={10} />
-                              <span>Ver Resultado</span>
-                            </button>
-                          )}
-                        </div>
+                        {p.isLocked && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUnlockStudent(p.id);
+                            }}
+                            className="px-2 py-0.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[8.5px] font-black uppercase flex items-center gap-0.5 cursor-pointer"
+                          >
+                            <Unlock size={9} />
+                            <span>Liberar</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -10951,10 +11596,12 @@ REGRAS OBRIGATÓRIAS:
 
                           <div className="flex items-center justify-between gap-1 pt-0.5">
                             <div className="flex items-center gap-1 text-[8.5px] font-black flex-wrap">
-                              <span className={isApproved ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}>
-                                {p.correctCount}/{totalQ} ({p.scorePercent}%)
-                              </span>
-                              {p.timeSpentSeconds !== undefined && p.timeSpentSeconds > 0 && (
+                              {p.status === 'FINISHED' ? (
+                                <span className={isApproved ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}>
+                                  Nota {p.grade10.toFixed(1)} • {p.scorePercent}% acerto
+                                </span>
+                              ) : null}
+                              {p.timeSpentSeconds !== undefined && p.timeSpentSeconds > 0 && p.status === 'FINISHED' && (
                                 <span className="px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300">
                                   ⏱️ {formatTimeMMSS(p.timeSpentSeconds)}
                                 </span>
@@ -11087,25 +11734,80 @@ REGRAS OBRIGATÓRIAS:
               style={{
                 background: 'radial-gradient(circle at top, #1e1b4b 0%, #090d16 70%)'
               }}
-              className={`text-white flex flex-col justify-between transition-all overflow-y-auto scrollbar-hide ${
+              className={`text-white flex flex-col justify-between transition-all overflow-y-auto scrollbar-hide relative ${
                 isQrTelaoExpanded
-                  ? 'w-full h-full p-6 sm:p-10'
-                  : 'w-full max-w-4xl max-h-[92vh] rounded-[32px] border border-indigo-500/35 shadow-2xl p-5 sm:p-7 gap-5'
+                  ? 'w-full h-full p-5 sm:p-9 gap-4 sm:gap-5'
+                  : 'w-full max-w-6xl max-h-[94vh] rounded-[32px] border border-indigo-500/35 shadow-2xl p-4 sm:p-7 gap-4 sm:gap-5'
               }`}
             >
-              {/* Barra Superior do Modal no padrão do Projetar */}
-              <div className="w-full flex flex-wrap items-center justify-between gap-2.5 pb-3.5 border-b border-white/10 shrink-0">
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/20 border border-amber-400/35 text-amber-300 text-[11px] font-black uppercase tracking-[0.14em]">
-                  <QrCode size={14} />
-                  <span>PROVA EM ANDAMENTO</span>
+              {/* Botão Fechar Dedicado no Topo Direito no Celular (Imagem 2) */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (document.fullscreenElement) {
+                    document.exitFullscreen().catch(() => {});
+                  }
+                  setIsQrTelaoExpanded(false);
+                  setIsQrFullscreenModalOpen(false);
+                }}
+                title="Fechar"
+                aria-label="Fechar"
+                className="md:hidden absolute top-3.5 right-3.5 z-20 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white flex items-center justify-center cursor-pointer transition-all"
+              >
+                <X size={18} />
+              </button>
+
+              {/* Barra Superior do Modal (Centralizada no Celular e Completa no PC) */}
+              <div className="w-full flex items-center justify-between gap-3 pb-3 sm:pb-3.5 border-b border-white/12 shrink-0">
+                <div className="hidden md:flex items-center gap-3">
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-400/35 text-amber-300 text-[11px] font-black uppercase tracking-[0.14em]">
+                    <QrCode size={14} />
+                    <span>
+                      {activeRoom.status === 'WAITING'
+                        ? 'SALA ABERTA'
+                        : 'PROVA EM ANDAMENTO'}
+                    </span>
+                  </div>
+                  {getRoomResolvedLogo(activeRoom) && (
+                    <img
+                      src={getRoomResolvedLogo(activeRoom)}
+                      alt={activeRoom.specialtyName}
+                      className="w-9 h-9 object-contain drop-shadow-md"
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
+                {/* Título Centralizado no Celular e PC (Imagem 2) */}
+                <div className="text-center flex-1 px-8 sm:px-2 min-w-0">
+                  <span
+                    className={`font-black uppercase tracking-[0.18em] block text-[10px] sm:text-xs mb-0.5 ${
+                      getRoomEvaluationType(activeRoom) === 'BOOK'
+                        ? 'text-amber-400'
+                        : getRoomEvaluationType(activeRoom) === 'CUSTOM'
+                        ? 'text-violet-400'
+                        : 'text-indigo-400'
+                    }`}
+                  >
+                    {getRoomEvaluationHeaderLabel(activeRoom)}
+                  </span>
+                  <h2
+                    className={`font-black uppercase tracking-tight leading-tight text-white truncate ${
+                      isQrTelaoExpanded
+                        ? 'text-xl sm:text-3xl lg:text-4xl'
+                        : 'text-base sm:text-xl lg:text-2xl'
+                    }`}
+                  >
+                    {activeRoom.specialtyName.replace(/^📚\s*/, '')}
+                  </h2>
+                </div>
+
+                <div className="hidden md:flex items-center gap-2">
                   {isSecondScreenActive ? (
                     <button
                       type="button"
                       onClick={handleCloseProjectionWindow}
-                      className="hidden md:flex w-10 h-10 rounded-xl bg-red-600 hover:bg-red-500 text-white items-center justify-center cursor-pointer shadow-lg shadow-red-600/25 transition-all"
+                      className="w-10 h-10 rounded-xl bg-red-600 hover:bg-red-500 text-white flex items-center justify-center cursor-pointer shadow-lg shadow-red-600/25 transition-all"
                       title="Fechar a janela de projeção do Telão"
                       aria-label="Fechar Projeção"
                     >
@@ -11115,7 +11817,7 @@ REGRAS OBRIGATÓRIAS:
                     <button
                       type="button"
                       onClick={handleProjectQrToAnotherScreen}
-                      className="hidden md:flex w-10 h-10 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 items-center justify-center cursor-pointer shadow-lg shadow-amber-500/25 transition-all"
+                      className="w-10 h-10 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center cursor-pointer shadow-lg shadow-amber-500/25 transition-all"
                       title="Projetar em Outra Tela (Telão)"
                       aria-label="Projetar em Outra Tela (Telão)"
                     >
@@ -11142,7 +11844,7 @@ REGRAS OBRIGATÓRIAS:
                     }}
                     title={isQrTelaoExpanded ? 'Sair da Tela Cheia' : 'Tela Cheia (F11)'}
                     aria-label={isQrTelaoExpanded ? 'Sair da Tela Cheia' : 'Tela Cheia (F11)'}
-                    className="hidden md:flex w-10 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 border border-white/20 text-white items-center justify-center cursor-pointer shadow-lg shadow-indigo-600/30 transition-all"
+                    className="w-10 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 border border-white/20 text-white flex items-center justify-center cursor-pointer shadow-lg shadow-indigo-600/30 transition-all"
                   >
                     {isQrTelaoExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
                   </button>
@@ -11165,190 +11867,46 @@ REGRAS OBRIGATÓRIAS:
                 </div>
               </div>
 
-              {/* Conteúdo do Modal no mesmo padrão do Projetar (Com lista de participantes na lateral direita e expansão proporcional em Tela Cheia) */}
-              <div
-                className={`w-full grid grid-cols-1 md:grid-cols-12 items-stretch my-auto flex-1 min-h-0 ${
-                  isQrTelaoExpanded
-                    ? 'max-w-[1680px] mx-auto gap-7 pt-4'
-                    : 'gap-5 sm:gap-6'
-                }`}
-              >
-                {/* Coluna Esquerda: QR Code (Visível apenas enquanto aguarda início da prova) */}
-                {activeRoom.status === 'WAITING' && (
-                  <div
-                    className={`md:col-span-4 bg-slate-900/80 border-2 border-indigo-500/35 shadow-xl flex flex-col items-center justify-center text-center ${
-                      isQrTelaoExpanded
-                        ? 'rounded-[36px] p-7'
-                        : 'rounded-[26px] p-4 sm:p-5'
-                    }`}
-                  >
-                    {qrCodeDataUrl && (
-                      <div
-                        className={`relative overflow-hidden bg-white shadow-lg ${
-                          isQrTelaoExpanded
-                            ? 'p-5 rounded-[28px] mb-4'
-                            : 'p-3.5 rounded-2xl mb-3'
-                        }`}
-                      >
-                        <img
-                          src={qrCodeDataUrl}
-                          alt="QR Code da Prova"
-                          className={`object-contain block mx-auto ${
-                            isQrTelaoExpanded
-                              ? 'w-[min(42vh,330px)] h-[min(42vh,330px)]'
-                              : 'w-44 h-44 sm:w-52 sm:h-52'
-                          }`}
-                        />
-                      </div>
-                    )}
-                    <p
-                      className={`font-extrabold text-slate-300 uppercase tracking-wider leading-snug ${
-                        isQrTelaoExpanded ? 'text-sm sm:text-base' : 'text-[11px] sm:text-xs'
-                      }`}
-                    >
-                      Aponte a Câmera do Celular para Entrar na Prova
-                    </p>
-                  </div>
-                )}
-
-                {/* Coluna Principal: Especialidade, Código da Sala, Cronômetro embaixo e Status */}
+              {/* Conteúdo do Modal (Centralizado e Direto no Celular / 2 Colunas no PC) */}
+              <div className="w-full flex flex-col md:flex-row items-center md:items-stretch flex-1 min-h-0 gap-4 sm:gap-6 my-auto justify-center">
+                {/* Coluna Central/Esquerda: PIN e QR Code perfeitamente alinhados ao centro */}
                 <div
-                  className={`${
-                    activeRoom.status === 'WAITING' ? 'md:col-span-5 text-left' : 'md:col-span-7'
-                  } flex flex-col justify-center ${isQrTelaoExpanded ? 'gap-6' : 'gap-4'} min-w-0`}
+                  className={`w-full max-w-md md:max-w-none md:w-[360px] lg:w-[420px] shrink-0 flex flex-col items-center justify-center text-center bg-slate-900/85 border-2 border-indigo-500/35 shadow-xl ${
+                    isQrTelaoExpanded ? 'rounded-[32px] p-5 sm:p-6' : 'rounded-3xl p-4 sm:p-5'
+                  } gap-3 sm:gap-4 mx-auto`}
                 >
-                  <div
-                    className={`flex items-center ${isQrTelaoExpanded ? 'gap-5' : 'gap-3.5'} ${
-                      activeRoom.status !== 'WAITING' ? 'justify-center text-center' : ''
-                    }`}
-                  >
-                    {getRoomResolvedLogo(activeRoom) ? (
-                      <img
-                        src={getRoomResolvedLogo(activeRoom)}
-                        alt={activeRoom.specialtyName}
-                        className={`object-contain shrink-0 drop-shadow-lg ${
-                          isQrTelaoExpanded
-                            ? 'w-20 h-20 sm:w-24 sm:h-24'
-                            : 'w-14 h-14 sm:w-16 sm:h-16'
-                        }`}
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : getRoomEvaluationType(activeRoom) === 'BOOK' ? (
-                      <div
-                        className={`rounded-2xl bg-amber-500/20 border border-amber-400/40 text-amber-300 flex items-center justify-center shrink-0 shadow-lg ${
-                          isQrTelaoExpanded
-                            ? 'w-20 h-20 sm:w-24 sm:h-24'
-                            : 'w-14 h-14 sm:w-16 sm:h-16'
-                        }`}
-                      >
-                        <BookOpen className={isQrTelaoExpanded ? 'w-10 h-10 sm:w-12 sm:h-12' : 'w-7 h-7 sm:w-8 sm:h-8'} />
-                      </div>
-                    ) : null}
-                    <div className="min-w-0">
-                      <span
-                        className={`font-black uppercase tracking-[0.16em] block mb-0.5 ${
-                          getRoomEvaluationType(activeRoom) === 'BOOK'
-                            ? 'text-amber-400'
-                            : getRoomEvaluationType(activeRoom) === 'CUSTOM'
-                            ? 'text-violet-400'
-                            : 'text-indigo-400'
-                        } ${
-                          isQrTelaoExpanded ? 'text-xs sm:text-sm' : 'text-[10px] sm:text-[11px]'
-                        }`}
-                      >
-                        {getRoomEvaluationHeaderLabel(activeRoom)}
-                      </span>
-                      <h2
-                        className={`font-black uppercase tracking-tight leading-tight text-white break-words ${
-                          isQrTelaoExpanded
-                            ? 'text-3xl sm:text-4xl lg:text-5xl'
-                            : 'text-xl sm:text-3xl'
-                        }`}
-                      >
-                        {activeRoom.specialtyName.replace(/^📚\s*/, '')}
-                      </h2>
-                    </div>
-                  </div>
-
                   {activeRoom.status === 'WAITING' ? (
-                    <div className={`grid grid-cols-1 ${isQrTelaoExpanded ? 'gap-4' : 'gap-3'}`}>
-                      <div
-                        className={`bg-slate-900/85 border border-white/12 overflow-hidden min-w-0 ${
-                          isQrTelaoExpanded ? 'rounded-[28px] p-6' : 'rounded-2xl p-3.5 sm:p-4'
-                        }`}
-                      >
-                        <span
-                          className={`font-black uppercase tracking-[0.14em] text-slate-400 block mb-1 ${
-                            isQrTelaoExpanded ? 'text-xs' : 'text-[10px]'
-                          }`}
-                        >
-                          CÓDIGO PIN DA SALA
+                    <>
+                      <div className="w-full bg-indigo-950/70 border border-amber-400/40 rounded-2xl py-2 px-4 text-center">
+                        <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.16em] text-slate-400 block mb-0.5">
+                          CÓDIGO DA SALA (PIN)
                         </span>
-                        <div
-                          className={`font-black text-amber-400 tracking-[0.14em] leading-tight break-all ${
-                            isQrTelaoExpanded
-                              ? 'text-4xl sm:text-5xl lg:text-6xl'
-                              : 'text-2xl sm:text-3xl'
-                          }`}
-                        >
+                        <div className="text-3xl sm:text-4xl lg:text-5xl font-black text-amber-400 tracking-[0.16em] leading-tight">
                           {activeRoom.pin}
                         </div>
                       </div>
 
-                      <div
-                        className={`bg-slate-900/85 border border-white/12 overflow-hidden min-w-0 ${
-                          isQrTelaoExpanded ? 'rounded-[28px] p-6' : 'rounded-2xl p-3.5 sm:p-4'
-                        }`}
-                      >
-                        <span
-                          className={`font-black uppercase tracking-[0.14em] text-slate-400 block mb-1 ${
-                            isQrTelaoExpanded ? 'text-xs' : 'text-[10px]'
-                          }`}
-                        >
-                          {isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime)
-                            ? 'TEMPO DE PROVA'
-                            : 'TEMPO RESTANTE'}
-                        </span>
-                        <div
-                          className={`font-black text-sky-400 tabular-nums leading-tight ${
-                            isQrTelaoExpanded
-                              ? 'text-4xl sm:text-5xl lg:text-6xl'
-                              : 'text-2xl sm:text-3xl'
-                          }`}
-                        >
-                          {isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime)
-                            ? '∞ SEM LIMITE'
-                            : formatTimeMMSS(hostRemainingSeconds)}
+                      {qrCodeDataUrl && (
+                        <div className="relative overflow-hidden bg-white shadow-lg p-3 sm:p-3.5 rounded-2xl mx-auto">
+                          <img
+                            src={qrCodeDataUrl}
+                            alt="QR Code da Prova"
+                            className={`object-contain block mx-auto ${
+                              isQrTelaoExpanded
+                                ? 'w-[min(38vh,290px)] h-[min(38vh,290px)]'
+                                : 'w-48 h-48 sm:w-56 sm:h-56'
+                            }`}
+                          />
                         </div>
-                      </div>
-                    </div>
+                      )}
+
+                      <p className="font-extrabold text-slate-300 uppercase tracking-wider text-[11px] sm:text-xs leading-snug text-center">
+                        Aponte a Câmera do Celular para Entrar na Prova
+                      </p>
+                    </>
                   ) : (
-                    <div
-                      className={`text-center border-2 transition-all shadow-2xl ${
-                        isQrTelaoExpanded
-                          ? 'rounded-[36px] p-10 sm:p-12'
-                          : 'rounded-[28px] p-6 sm:p-8'
-                      } ${
-                        activeRoom.status === 'FINISHED' ||
-                        (!isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime) &&
-                          activeRoom.status === 'ACTIVE' &&
-                          hostRemainingSeconds <= 60)
-                          ? 'bg-red-950/60 border-red-500/60 shadow-red-600/20'
-                          : 'bg-slate-900/90 border-sky-400/45 shadow-sky-500/20'
-                      }`}
-                    >
-                      <span
-                        className={`font-black uppercase tracking-[0.22em] block mb-2 ${
-                          isQrTelaoExpanded ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'
-                        } ${
-                          activeRoom.status === 'FINISHED' ||
-                          (!isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime) &&
-                            activeRoom.status === 'ACTIVE' &&
-                            hostRemainingSeconds <= 60)
-                            ? 'text-red-300'
-                            : 'text-sky-300'
-                        }`}
-                      >
+                    <div className="w-full flex flex-col items-center justify-center p-4">
+                      <span className="font-black uppercase tracking-[0.2em] text-xs sm:text-sm text-sky-300 block mb-2">
                         {activeRoom.status === 'FINISHED'
                           ? 'STATUS DA AVALIAÇÃO'
                           : isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime)
@@ -11356,127 +11914,49 @@ REGRAS OBRIGATÓRIAS:
                           : 'TEMPO RESTANTE'}
                       </span>
                       <div
-                        className={`font-black tabular-nums tracking-wider leading-tight ${
-                          activeRoom.status === 'FINISHED'
-                            ? isQrTelaoExpanded
-                              ? 'text-4xl sm:text-5xl md:text-6xl'
-                              : 'text-3xl sm:text-4xl md:text-5xl'
-                            : isQrTelaoExpanded
-                            ? 'text-7xl sm:text-8xl md:text-9xl leading-none'
-                            : 'text-6xl sm:text-7xl md:text-8xl leading-none'
+                        className={`font-black tabular-nums tracking-wider leading-none my-3 ${
+                          isQrTelaoExpanded ? 'text-6xl sm:text-7xl lg:text-8xl' : 'text-5xl sm:text-6xl'
                         } ${
                           activeRoom.status === 'FINISHED'
-                            ? 'text-red-400 drop-shadow-[0_0_30px_rgba(248,113,113,0.45)]'
+                            ? 'text-red-400'
                             : !isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime) &&
                               activeRoom.status === 'ACTIVE' &&
                               hostRemainingSeconds <= 60
-                            ? 'text-red-400 animate-pulse drop-shadow-[0_0_30px_rgba(248,113,113,0.45)]'
-                            : 'text-sky-400 drop-shadow-[0_0_30px_rgba(56,189,248,0.35)]'
+                            ? 'text-red-400 animate-pulse'
+                            : 'text-sky-400'
                         }`}
                       >
                         {activeRoom.status === 'FINISHED'
                           ? 'PROVA ENCERRADA'
                           : isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime)
-                          ? activeRoom.status === 'ACTIVE'
-                            ? `∞ LIVRE (${formatTimeMMSS(hostRemainingSeconds)})`
-                            : '∞ SEM LIMITE'
+                          ? '∞ SEM LIMITE'
                           : formatTimeMMSS(hostRemainingSeconds)}
+                      </div>
+                      <div className="mt-2 px-4 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs font-black uppercase">
+                        {activeRoom.status === 'ACTIVE' ? '🟢 PROVA EM ANDAMENTO' : '🏁 PROVA ENCERRADA'}
                       </div>
                     </div>
                   )}
-
-                  <div
-                    className={`bg-emerald-500/15 border border-emerald-500/35 flex flex-col items-start justify-center ${
-                      isQrTelaoExpanded
-                        ? 'rounded-[22px] px-6 py-4 gap-1.5'
-                        : 'rounded-2xl px-4 py-3 gap-1'
-                    }`}
-                  >
-                    <span
-                      className={`font-black uppercase tracking-wider text-emerald-300 ${
-                        isQrTelaoExpanded ? 'text-sm sm:text-base' : 'text-[11px] sm:text-xs'
-                      }`}
-                    >
-                      {activeRoom.status === 'ACTIVE'
-                        ? '🟢 PROVA EM ANDAMENTO'
-                        : activeRoom.status === 'FINISHED'
-                        ? '🏁 PROVA ENCERRADA'
-                        : '⏳ AGUARDANDO'}
-                    </span>
-                    <span
-                      className={`font-black text-white ${
-                        isQrTelaoExpanded ? 'text-base sm:text-lg' : 'text-xs sm:text-sm'
-                      }`}
-                    >
-                      {participantsList.length} participante(s) na sala
-                    </span>
-                  </div>
                 </div>
 
-                {/* Coluna Lateral Direita: Lista de Participantes Conectados ao Vivo */}
+                {/* Coluna Direita: Participantes Estilo Kahoot (Visível APENAS no PC/Desktop, removida no celular conforme Imagem 2) */}
                 <div
-                  className={`${
-                    activeRoom.status === 'WAITING' ? 'md:col-span-3' : 'md:col-span-5'
-                  } bg-slate-900/80 border border-indigo-500/30 flex flex-col shadow-xl ${
+                  className={`hidden md:flex flex-1 min-w-0 bg-slate-900/80 border border-indigo-500/30 flex-col shadow-xl ${
                     isQrTelaoExpanded
-                      ? 'rounded-[32px] p-6 min-h-[280px] max-h-[calc(100vh-130px)]'
-                      : 'rounded-[26px] p-4 sm:p-5 min-h-[220px] max-h-[65vh]'
+                      ? 'rounded-[32px] p-6 max-h-[calc(100vh-130px)]'
+                      : 'rounded-3xl p-5 max-h-[72vh]'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-white/10 shrink-0">
-                    <span
-                      className={`font-black uppercase tracking-[0.14em] text-indigo-300 ${
-                        isQrTelaoExpanded ? 'text-xs sm:text-sm' : 'text-[10px] sm:text-xs'
-                      }`}
-                    >
+                    <span className="font-black uppercase tracking-[0.14em] text-indigo-300 text-xs sm:text-sm">
                       PARTICIPANTES NA SALA
                     </span>
-                    <span
-                      className={`rounded-full bg-indigo-500/25 border border-indigo-400/40 text-indigo-200 font-black ${
-                        isQrTelaoExpanded ? 'px-3 py-1 text-sm' : 'px-2.5 py-0.5 text-xs'
-                      }`}
-                    >
+                    <span className="rounded-full bg-indigo-500/25 border border-indigo-400/40 text-indigo-200 font-black px-3 py-0.5 text-xs">
                       {participantsList.length}
                     </span>
                   </div>
 
-                  {participantsList.length === 0 ? (
-                    <div className="flex-1 flex items-center justify-center text-center p-4">
-                      <span
-                        className={`font-bold text-slate-500 ${
-                          isQrTelaoExpanded ? 'text-sm' : 'text-xs'
-                        }`}
-                      >
-                        Aguardando os alunos entrarem na sala...
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-hide">
-                      {participantsList.map((p) => (
-                        <div
-                          key={p.id}
-                          className={`rounded-2xl bg-slate-800/85 border border-indigo-400/25 flex items-center justify-between gap-2 ${
-                            isQrTelaoExpanded ? 'px-4 py-3' : 'px-3.5 py-2.5'
-                          }`}
-                        >
-                          <span
-                            className={`font-extrabold text-white truncate ${
-                              isQrTelaoExpanded ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'
-                            }`}
-                          >
-                            {p.name}
-                          </span>
-                          <span
-                            className={`rounded-full bg-indigo-500/20 text-indigo-200 font-black uppercase shrink-0 ${
-                              isQrTelaoExpanded ? 'px-3 py-1 text-xs' : 'px-2.5 py-0.5 text-[10px]'
-                            }`}
-                          >
-                            {p.unit}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {renderWaitingParticipantsCircle(participantsList, isQrTelaoExpanded)}
                 </div>
               </div>
             </div>

@@ -148,27 +148,34 @@ function dedupeAlertsList(alertsList: any[]): any[] {
   return result;
 }
 
-function mergeRoomRecords(existingRoom: any, incomingRoom: any): any {
+function mergeRoomRecords(existingRoom: any, incomingRoom: any, replaceParticipants = false): any {
   if (!existingRoom) return incomingRoom;
   if (!incomingRoom) return existingRoom;
 
-  const mergedParticipants: Record<string, any> = {
-    ...(existingRoom.participants || {}),
-    ...(incomingRoom.participants || {})
-  };
-  const allPids = new Set([
-    ...Object.keys(existingRoom.participants || {}),
-    ...Object.keys(incomingRoom.participants || {})
-  ]);
-  allPids.forEach((pid) => {
-    mergedParticipants[pid] = mergeParticipantRecords(
-      existingRoom.participants?.[pid],
-      incomingRoom.participants?.[pid],
-      false
-    );
-  });
+  let mergedParticipants: Record<string, any> = {};
+  if (replaceParticipants) {
+    mergedParticipants = { ...(incomingRoom.participants || {}) };
+  } else {
+    mergedParticipants = {
+      ...(existingRoom.participants || {}),
+      ...(incomingRoom.participants || {})
+    };
+    const allPids = new Set([
+      ...Object.keys(existingRoom.participants || {}),
+      ...Object.keys(incomingRoom.participants || {})
+    ]);
+    allPids.forEach((pid) => {
+      mergedParticipants[pid] = mergeParticipantRecords(
+        existingRoom.participants?.[pid],
+        incomingRoom.participants?.[pid],
+        false
+      );
+    });
+  }
 
-  const mergedAlerts = dedupeAlertsList([...(incomingRoom.alerts || []), ...(existingRoom.alerts || [])]);
+  const mergedAlerts = replaceParticipants
+    ? dedupeAlertsList([...(incomingRoom.alerts || [])])
+    : dedupeAlertsList([...(incomingRoom.alerts || []), ...(existingRoom.alerts || [])]);
 
   const isIncomingNewer = Number(incomingRoom.updatedAt || 0) >= Number(existingRoom.updatedAt || 0);
   const resultsReleased =
@@ -187,7 +194,7 @@ function mergeRoomRecords(existingRoom: any, incomingRoom: any): any {
   const isUnlimited =
     Boolean(incomingRoom.unlimitedTime ?? existingRoom.unlimitedTime) ||
     effDuration <= 0 ||
-    effDuration >= 9999;
+    effDuration > 300;
   const manuallyFinished = Boolean(
     incomingRoom.manuallyFinished || existingRoom.manuallyFinished || resultsReleased
   );
@@ -209,7 +216,7 @@ function mergeRoomRecords(existingRoom: any, incomingRoom: any): any {
   return {
     ...existingRoom,
     ...incomingRoom,
-    durationMinutes: isUnlimited ? 9999 : effDuration,
+    durationMinutes: isUnlimited ? 0 : effDuration,
     unlimitedTime: isUnlimited,
     manuallyFinished,
     status,
@@ -360,13 +367,14 @@ export default async function handler(
           return;
         }
 
-        if (action === 'SYNC_STUDENT_HISTORY' && Array.isArray(payload?.keys) && Array.isArray(payload?.entries)) {
-          const keys = payload.keys.map((k: any) => String(k || '').trim()).filter(Boolean);
-          const replace = Boolean(payload?.replace);
+        const syncHistPayload = payload?.action === 'SYNC_STUDENT_HISTORY' ? (payload?.payload || payload) : null;
+        if (action === 'SYNC_STUDENT_HISTORY' && Array.isArray(syncHistPayload?.keys) && Array.isArray(syncHistPayload?.entries)) {
+          const keys = syncHistPayload.keys.map((k: any) => String(k || '').trim()).filter(Boolean);
+          const replace = Boolean(syncHistPayload?.replace);
           const deletedPins = new Set(
-            Array.isArray(payload?.deletedPins) ? payload.deletedPins.map((p: any) => String(p)) : []
+            Array.isArray(syncHistPayload?.deletedPins) ? syncHistPayload.deletedPins.map((p: any) => String(p)) : []
           );
-          let combined = (payload.entries || []).filter((e: any) => e?.pin && !deletedPins.has(String(e.pin)));
+          let combined = (syncHistPayload.entries || []).filter((e: any) => e?.pin && !deletedPins.has(String(e.pin)));
           if (!replace) {
             keys.forEach((k: string) => {
               const existing = (globalStudentHistories.get(k) || []).filter(
@@ -383,15 +391,17 @@ export default async function handler(
           return;
         }
 
-        if (action === 'DELETE_APPLIED_EXAM' && pin) {
+        if ((action === 'DELETE_APPLIED_EXAM' || action === 'CLOSE_ROOM') && pin) {
           const rPin = String(pin);
-          globalRooms.delete(rPin);
+          if (action === 'DELETE_APPLIED_EXAM') {
+            globalRooms.delete(rPin);
+          }
           if (instructorKey) {
             const iKey = String(instructorKey).trim();
             const existingSession = globalInstructorSessions.get(iKey);
             const closedSet = new Set(existingSession?.closedPins || []);
             closedSet.add(rPin);
-            const nextRoomPins = (existingSession?.roomPins || []).filter((p) => p !== rPin);
+            const nextRoomPins = (existingSession?.roomPins || []).filter((p: string) => p !== rPin);
             globalInstructorSessions.set(iKey, {
               instructorKey: iKey,
               selectedRoomPin:
@@ -408,8 +418,15 @@ export default async function handler(
 
         if (action === 'UPSERT_ROOM' && room?.pin) {
           const rPin = String(room.pin);
-          const existingRoom = globalRooms.get(rPin);
-          const savedRoom = mergeRoomRecords(existingRoom, room);
+          const existingRoom = payload?.isNewRoom ? null : globalRooms.get(rPin);
+          const savedRoom = payload?.isNewRoom
+            ? {
+                ...room,
+                participants: {},
+                alerts: [],
+                updatedAt: Date.now()
+              }
+            : mergeRoomRecords(existingRoom, room, Boolean(payload?.replaceParticipants));
           globalRooms.set(rPin, savedRoom);
           res.statusCode = 200;
           res.end(JSON.stringify({ ok: true, room: savedRoom }));
@@ -494,7 +511,17 @@ export default async function handler(
               res.end(JSON.stringify({ ok: true, room: existing }));
               return;
             }
-            const mergedP = mergeParticipantRecords(prevP, participant, true);
+            const mergedP =
+              payload?.isInitialJoin && existing.status !== 'FINISHED'
+                ? {
+                    ...participant,
+                    answeredCount: 0,
+                    correctCount: 0,
+                    scorePercent: 0,
+                    grade10: 0,
+                    answers: {}
+                  }
+                : mergeParticipantRecords(prevP, participant, true);
             existing.participants = {
               ...(existing.participants || {}),
               [participant.id]: mergedP

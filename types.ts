@@ -48,7 +48,7 @@ export interface Member {
 export interface DesbravaMais {
   id: number;
   Nome: string;
-  Capa: string;
+  Capa?: string;
   descricao: string;
   Conteudo: string;
   PDF?: string;
