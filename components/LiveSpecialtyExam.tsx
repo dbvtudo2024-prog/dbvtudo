@@ -1187,6 +1187,35 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
   const studentPendingAlertsRef = useRef<LiveExamCheatAlert[]>([]);
   const isStudentAwayRef = useRef<boolean>(false);
   const studentGraceUntilRef = useRef<number>(0);
+  const wakeLockSentinelRef = useRef<any>(null);
+
+  const acquireExamWakeLock = useCallback(async () => {
+    try {
+      if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
+        if (!wakeLockSentinelRef.current) {
+          wakeLockSentinelRef.current = await (navigator as any).wakeLock.request('screen');
+          wakeLockSentinelRef.current.addEventListener('release', () => {
+            wakeLockSentinelRef.current = null;
+          });
+        }
+      }
+    } catch {}
+  }, []);
+
+  const releaseExamWakeLock = useCallback(() => {
+    try {
+      if (wakeLockSentinelRef.current) {
+        wakeLockSentinelRef.current.release().catch(() => {});
+        wakeLockSentinelRef.current = null;
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (studentPhase === 'FINISHED') {
+      releaseExamWakeLock();
+    }
+  }, [studentPhase, releaseExamWakeLock]);
 
   // Detecta automaticamente ao abrir o link de uma prova (ou digitar o PIN de 6 dígitos) se a prova já foi encerrada,
   // exibindo a mensagem de "Prova Encerrada" sem adicionar o nome à lista de participantes nem gerar nota zero.
@@ -3923,11 +3952,7 @@ REGRAS OBRIGATÓRIAS:
         }
       }
     } catch {}
-    try {
-      if ('wakeLock' in navigator) {
-        await (navigator as any).wakeLock.request('screen');
-      }
-    } catch {}
+    await acquireExamWakeLock();
   };
 
   const buildCurrentParticipantPayload = useCallback(
@@ -5058,6 +5083,9 @@ REGRAS OBRIGATÓRIAS:
           isStudentAwayRef.current = false;
         }
         flushPendingStudentCheatAlerts();
+        if (studentPhaseRef.current === 'PLAYING') {
+          acquireExamWakeLock();
+        }
       }
     };
 
@@ -5084,6 +5112,9 @@ REGRAS OBRIGATÓRIAS:
         isStudentAwayRef.current = false;
       }
       flushPendingStudentCheatAlerts();
+      if (studentPhaseRef.current === 'PLAYING') {
+        acquireExamWakeLock();
+      }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -9795,53 +9826,56 @@ REGRAS OBRIGATÓRIAS:
 
         {/* OVERLAY DE BLOQUEIO ANTI-COLA QUANDO O ALUNO MINIMIZA A TELA OU MUDA DE JANELA */}
         {(studentLocked || studentWarningModal) &&
-          (studentPhase === 'PLAYING' || studentPhase === 'WAITING_HOST') && (
-          <div className="fixed inset-0 z-[100000] bg-red-950/95 backdrop-blur-md flex items-center justify-center p-5 text-center animate-fade-in">
-            <div className="w-full max-w-md bg-slate-950 border-2 border-red-500 rounded-[28px] p-6 shadow-2xl space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-red-600 text-white flex items-center justify-center mx-auto animate-bounce">
-                <ShieldAlert size={36} />
-              </div>
+          (studentPhase === 'PLAYING' || studentPhase === 'WAITING_HOST') &&
+          typeof document !== 'undefined' &&
+          createPortal(
+            <div className="fixed inset-0 z-[100000] bg-red-950/95 backdrop-blur-md flex items-center justify-center p-5 text-center animate-fade-in">
+              <div className="w-full max-w-md bg-slate-950 border-2 border-red-500 rounded-[28px] p-6 shadow-2xl space-y-4">
+                <div className="w-16 h-16 rounded-2xl bg-red-600 text-white flex items-center justify-center mx-auto animate-bounce">
+                  <ShieldAlert size={36} />
+                </div>
 
-              <div className="space-y-1.5">
-                <span className="px-3 py-1 rounded-full bg-red-600/30 border border-red-500 text-red-200 text-[10px] font-black uppercase tracking-widest">
-                  Alerta Anti-Cola #{studentCheatCount} Enviado ao Instrutor
-                </span>
-                <h3 className="text-xl font-black uppercase text-white">
-                  {studentLocked ? 'Sua Prova Foi Bloqueada!' : 'Atenção: Saída de Tela Detectada!'}
-                </h3>
-                <p className="text-xs text-red-200 font-bold">
-                  Motivo detectado: {studentLastCheatReason || studentWarningModal}
-                </p>
-                <p className="text-[11px] font-black text-amber-300 bg-amber-500/15 border border-amber-400/30 rounded-xl py-1.5 px-3 inline-block">
-                  ⚠️ Penalidade aplicada: -0,1 ponto por saída (Total acumulado: -{(studentCheatCount * 0.1).toFixed(1).replace('.', ',')} pt)
-                </p>
-              </div>
-
-              {studentLocked ? (
-                <div className="bg-red-900/40 border border-red-500/50 rounded-2xl p-4 space-y-2">
-                  <Lock size={22} className="text-red-300 mx-auto" />
-                  <p className="text-xs text-white font-bold leading-relaxed">
-                    O instrutor recebeu um alerta imediato na tela dele informando que você minimizou ou saiu da prova.
+                <div className="space-y-1.5">
+                  <span className="px-3 py-1 rounded-full bg-red-600/30 border border-red-500 text-red-200 text-[10px] font-black uppercase tracking-widest">
+                    Alerta Anti-Cola #{studentCheatCount} Enviado ao Instrutor
+                  </span>
+                  <h3 className="text-xl font-black uppercase text-white">
+                    {studentLocked ? 'Sua Prova Foi Bloqueada!' : 'Atenção: Saída de Tela Detectada!'}
+                  </h3>
+                  <p className="text-xs text-red-200 font-bold">
+                    Motivo detectado: {studentLastCheatReason || studentWarningModal}
                   </p>
-                  <p className="text-[11px] text-red-200 font-medium">
-                    Aguarde o instrutor clicar em <strong>"Liberar Aluno"</strong> no painel dele para você poder continuar.
+                  <p className="text-[11px] font-black text-amber-300 bg-amber-500/15 border border-amber-400/30 rounded-xl py-1.5 px-3 inline-block">
+                    ⚠️ Penalidade aplicada: -0,1 ponto por saída (Total acumulado: -{(studentCheatCount * 0.1).toFixed(1).replace('.', ',')} pt)
                   </p>
                 </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await requestExamFullscreen();
-                    setStudentWarningModal(null);
-                  }}
-                  className="w-full py-3.5 px-5 bg-red-600 hover:bg-red-500 text-white rounded-2xl font-black uppercase tracking-wider text-xs cursor-pointer"
-                >
-                  Voltar Imediatamente para a Prova em Tela Cheia
-                </button>
-              )}
-            </div>
-          </div>
-        )}
+
+                {studentLocked ? (
+                  <div className="bg-red-900/40 border border-red-500/50 rounded-2xl p-4 space-y-2">
+                    <Lock size={22} className="text-red-300 mx-auto" />
+                    <p className="text-xs text-white font-bold leading-relaxed">
+                      O instrutor recebeu um alerta imediato na tela dele informando que você minimizou ou saiu da prova.
+                    </p>
+                    <p className="text-[11px] text-red-200 font-medium">
+                      Aguarde o instrutor clicar em <strong>"Liberar Aluno"</strong> no painel dele para você poder continuar.
+                    </p>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await requestExamFullscreen();
+                      setStudentWarningModal(null);
+                    }}
+                    className="w-full py-3.5 px-5 bg-red-600 hover:bg-red-500 text-white rounded-2xl font-black uppercase tracking-wider text-xs cursor-pointer"
+                  >
+                    Voltar Imediatamente para a Prova em Tela Cheia
+                  </button>
+                )}
+              </div>
+            </div>,
+            document.body
+          )}
       </div>
     );
   }
@@ -11581,26 +11615,8 @@ REGRAS OBRIGATÓRIAS:
                             </span>
                           </div>
 
-                          <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full transition-all duration-300 ${
-                                p.status === 'LOCKED_CHEAT'
-                                  ? 'bg-red-500'
-                                  : p.status === 'FINISHED'
-                                  ? 'bg-emerald-500 dark:bg-emerald-400'
-                                  : 'bg-indigo-600 dark:bg-indigo-500'
-                              }`}
-                              style={{ width: `${progressPct}%` }}
-                            />
-                          </div>
-
                           <div className="flex items-center justify-between gap-1 pt-0.5">
                             <div className="flex items-center gap-1 text-[8.5px] font-black flex-wrap">
-                              {p.status === 'FINISHED' ? (
-                                <span className={isApproved ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}>
-                                  Nota {p.grade10.toFixed(1)} • {p.scorePercent}% acerto
-                                </span>
-                              ) : null}
                               {p.timeSpentSeconds !== undefined && p.timeSpentSeconds > 0 && p.status === 'FINISHED' && (
                                 <span className="px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300">
                                   ⏱️ {formatTimeMMSS(p.timeSpentSeconds)}

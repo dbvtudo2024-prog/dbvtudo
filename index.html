@@ -1,6 +1,5 @@
-
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -14,7 +13,6 @@
       // 1. Process and global polyfills
       window.global = window.global || window;
       window.process = window.process || { env: { NODE_ENV: 'production' } };
-
       // 2. Disable mobile browser pull-to-refresh on top drag
       (function() {
         var startY = 0;
@@ -23,7 +21,6 @@
             startY = e.touches[0].clientY;
           }
         }, { passive: true });
-
         window.addEventListener('touchmove', function(e) {
           if (e.touches && e.touches.length === 1) {
             var currentY = e.touches[0].clientY;
@@ -40,7 +37,6 @@
           }
         }, { passive: false });
       })();
-
       // 3. Safe Storage Polyfill for Opera, Brave, Safari iframe restrictions
       (function() {
         var isStorageWorking = false;
@@ -52,7 +48,6 @@
         } catch (e) {
           isStorageWorking = false;
         }
-
         if (!isStorageWorking) {
           console.warn('[DBV Tudo] LocalStorage is restricted in this browser environment. Using safe in-memory storage.');
           var mem = {};
@@ -76,7 +71,6 @@
           }
         }
       })();
-
       // 3. Safe History API Polyfill for Opera sandboxed iframes
       (function() {
         try {
@@ -98,7 +92,6 @@
           };
         } catch(e) {}
       })();
-
       // 4. Detecção precoce de App PWA instalado para abertura inteligente via QR Code
       (function() {
         window.__dbvBeforeInstallPromptFired = false;
@@ -178,6 +171,6 @@
 </head>
 <body>
     <div id="root"></div>
-<script type="module" src="/index.tsx"></script>
+    <script type="module" src="/index.tsx"></script>
 </body>
 </html>

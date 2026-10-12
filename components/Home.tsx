@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { ClubType } from '../types';
 import { PathfinderLogo, AdventurerLogo, PROFILE_KEY } from '../constants';

@@ -1,9 +1,108 @@
+import {
+  ClubType,
+  Category,
+  ClubClass,
+  Especialidade,
+  Member,
+  DesbravaMais,
+  BibleBook,
+  BibleVerse,
+  BibleDictionaryEntry,
+  BibleNote,
+  Devocional,
+  Cultura,
+  CulturaItem,
+  UserProfile,
+  FuncaoCargo,
+  LivroClasse,
+  LivroAno,
+  OutroLivro,
+  ManualDBV,
+  CampingDBV,
+  Formulario,
+  Video,
+  VideoCategory,
+  LivroAVT,
+  ManualAVT,
+  AppLink,
+  Conquista,
+  Trunfo
+} from "../types";
+
+export const CANONICAL_BIBLE_BOOKS: BibleBook[] = [
+  // Antigo Testamento (39 livros)
+  { id: 1, book_name: "Gênesis", book_abbrev: "gn", total_chapters: 50, testament: "Antigo" },
+  { id: 2, book_name: "Êxodo", book_abbrev: "ex", total_chapters: 40, testament: "Antigo" },
+  { id: 3, book_name: "Levítico", book_abbrev: "lv", total_chapters: 27, testament: "Antigo" },
+  { id: 4, book_name: "Números", book_abbrev: "nm", total_chapters: 36, testament: "Antigo" },
+  { id: 5, book_name: "Deuteronômio", book_abbrev: "dt", total_chapters: 34, testament: "Antigo" },
+  { id: 6, book_name: "Josué", book_abbrev: "js", total_chapters: 24, testament: "Antigo" },
+  { id: 7, book_name: "Juízes", book_abbrev: "jz", total_chapters: 21, testament: "Antigo" },
+  { id: 8, book_name: "Rute", book_abbrev: "rt", total_chapters: 4, testament: "Antigo" },
+  { id: 9, book_name: "1 Samuel", book_abbrev: "1sm", total_chapters: 31, testament: "Antigo" },
+  { id: 10, book_name: "2 Samuel", book_abbrev: "2sm", total_chapters: 24, testament: "Antigo" },
+  { id: 11, book_name: "1 Reis", book_abbrev: "1rs", total_chapters: 22, testament: "Antigo" },
+  { id: 12, book_name: "2 Reis", book_abbrev: "2rs", total_chapters: 25, testament: "Antigo" },
+  { id: 13, book_name: "1 Crônicas", book_abbrev: "1cr", total_chapters: 29, testament: "Antigo" },
+  { id: 14, book_name: "2 Crônicas", book_abbrev: "2cr", total_chapters: 36, testament: "Antigo" },
+  { id: 15, book_name: "Esdras", book_abbrev: "ed", total_chapters: 10, testament: "Antigo" },
+  { id: 16, book_name: "Neemias", book_abbrev: "ne", total_chapters: 13, testament: "Antigo" },
+  { id: 17, book_name: "Ester", book_abbrev: "et", total_chapters: 10, testament: "Antigo" },
+  { id: 18, book_name: "Jó", book_abbrev: "jb", total_chapters: 42, testament: "Antigo" },
+  { id: 19, book_name: "Salmos", book_abbrev: "sl", total_chapters: 150, testament: "Antigo" },
+  { id: 20, book_name: "Provérbios", book_abbrev: "pv", total_chapters: 31, testament: "Antigo" },
+  { id: 21, book_name: "Eclesiastes", book_abbrev: "ec", total_chapters: 12, testament: "Antigo" },
+  { id: 22, book_name: "Cânticos", book_abbrev: "ct", total_chapters: 8, testament: "Antigo" },
+  { id: 23, book_name: "Isaías", book_abbrev: "is", total_chapters: 66, testament: "Antigo" },
+  { id: 24, book_name: "Jeremias", book_abbrev: "jr", total_chapters: 52, testament: "Antigo" },
+  { id: 25, book_name: "Lamentações", book_abbrev: "lm", total_chapters: 5, testament: "Antigo" },
+  { id: 26, book_name: "Ezequiel", book_abbrev: "ez", total_chapters: 48, testament: "Antigo" },
+  { id: 27, book_name: "Daniel", book_abbrev: "dn", total_chapters: 12, testament: "Antigo" },
+  { id: 28, book_name: "Oseias", book_abbrev: "os", total_chapters: 14, testament: "Antigo" },
+  { id: 29, book_name: "Joel", book_abbrev: "jl", total_chapters: 3, testament: "Antigo" },
+  { id: 30, book_name: "Amós", book_abbrev: "am", total_chapters: 9, testament: "Antigo" },
+  { id: 31, book_name: "Obadias", book_abbrev: "ob", total_chapters: 1, testament: "Antigo" },
+  { id: 32, book_name: "Jonas", book_abbrev: "jn", total_chapters: 4, testament: "Antigo" },
+  { id: 33, book_name: "Miqueias", book_abbrev: "mq", total_chapters: 7, testament: "Antigo" },
+  { id: 34, book_name: "Naum", book_abbrev: "na", total_chapters: 3, testament: "Antigo" },
+  { id: 35, book_name: "Habacuque", book_abbrev: "hc", total_chapters: 3, testament: "Antigo" },
+  { id: 36, book_name: "Sofonias", book_abbrev: "sf", total_chapters: 3, testament: "Antigo" },
+  { id: 37, book_name: "Ageu", book_abbrev: "ag", total_chapters: 2, testament: "Antigo" },
+  { id: 38, book_name: "Zacarias", book_abbrev: "zc", total_chapters: 14, testament: "Antigo" },
+  { id: 39, book_name: "Malaquias", book_abbrev: "ml", total_chapters: 4, testament: "Antigo" },
+  // Novo Testamento (27 livros)
+  { id: 40, book_name: "Mateus", book_abbrev: "mt", total_chapters: 28, testament: "Novo" },
+  { id: 41, book_name: "Marcos", book_abbrev: "mc", total_chapters: 16, testament: "Novo" },
+  { id: 42, book_name: "Lucas", book_abbrev: "lc", total_chapters: 24, testament: "Novo" },
+  { id: 43, book_name: "João", book_abbrev: "jo", total_chapters: 21, testament: "Novo" },
+  { id: 44, book_name: "Atos", book_abbrev: "at", total_chapters: 28, testament: "Novo" },
+  { id: 45, book_name: "Romanos", book_abbrev: "rm", total_chapters: 16, testament: "Novo" },
+  { id: 46, book_name: "1 Coríntios", book_abbrev: "1co", total_chapters: 16, testament: "Novo" },
+  { id: 47, book_name: "2 Coríntios", book_abbrev: "2co", total_chapters: 13, testament: "Novo" },
+  { id: 48, book_name: "Gálatas", book_abbrev: "gl", total_chapters: 6, testament: "Novo" },
+  { id: 49, book_name: "Efésios", book_abbrev: "ef", total_chapters: 6, testament: "Novo" },
+  { id: 50, book_name: "Filipenses", book_abbrev: "fp", total_chapters: 4, testament: "Novo" },
+  { id: 51, book_name: "Colossenses", book_abbrev: "cl", total_chapters: 4, testament: "Novo" },
+  { id: 52, book_name: "1 Tessalonicenses", book_abbrev: "1ts", total_chapters: 5, testament: "Novo" },
+  { id: 53, book_name: "2 Tessalonicenses", book_abbrev: "2ts", total_chapters: 3, testament: "Novo" },
+  { id: 54, book_name: "1 Timóteo", book_abbrev: "1tm", total_chapters: 6, testament: "Novo" },
+  { id: 55, book_name: "2 Timóteo", book_abbrev: "2tm", total_chapters: 4, testament: "Novo" },
+  { id: 56, book_name: "Tito", book_abbrev: "tt", total_chapters: 3, testament: "Novo" },
+  { id: 57, book_name: "Filemom", book_abbrev: "fm", total_chapters: 1, testament: "Novo" },
+  { id: 58, book_name: "Hebreus", book_abbrev: "hb", total_chapters: 13, testament: "Novo" },
+  { id: 59, book_name: "Tiago", book_abbrev: "tg", total_chapters: 5, testament: "Novo" },
+  { id: 60, book_name: "1 Pedro", book_abbrev: "1pe", total_chapters: 5, testament: "Novo" },
+  { id: 61, book_name: "2 Pedro", book_abbrev: "2pe", total_chapters: 3, testament: "Novo" },
+  { id: 62, book_name: "1 João", book_abbrev: "1jo", total_chapters: 5, testament: "Novo" },
+  { id: 63, book_name: "2 João", book_abbrev: "2jo", total_chapters: 1, testament: "Novo" },
+  { id: 64, book_name: "3 João", book_abbrev: "3jo", total_chapters: 1, testament: "Novo" },
+  { id: 65, book_name: "Judas", book_abbrev: "jd", total_chapters: 1, testament: "Novo" },
+  { id: 66, book_name: "Apocalipse", book_abbrev: "ap", total_chapters: 22, testament: "Novo" }
+];
 
 import { createClient } from '@supabase/supabase-js';
-import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, UserProfile, FuncaoCargo, Devocional, Cultura, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario, Video, VideoCategory, LivroAVT, ManualAVT, AppLink, Conquista, Trunfo } from '../types';
-import { CANONICAL_BIBLE_BOOKS } from './bibleData';
 import { RUD_UNIFORMES_DBV, RUD_UNIFORMES_AVT, RUD_EMBLEMAS_DBV, RUD_EMBLEMAS_AVT, RUD_CREDITS, getOfficialRudUniforms, getOfficialRudEmblems } from './rudService';
-export { CANONICAL_BIBLE_BOOKS, RUD_UNIFORMES_DBV, RUD_UNIFORMES_AVT, RUD_EMBLEMAS_DBV, RUD_EMBLEMAS_AVT, RUD_CREDITS, getOfficialRudUniforms, getOfficialRudEmblems };
+export { RUD_UNIFORMES_DBV, RUD_UNIFORMES_AVT, RUD_EMBLEMAS_DBV, RUD_EMBLEMAS_AVT, RUD_CREDITS, getOfficialRudUniforms, getOfficialRudEmblems };
 
 export const QFPY_URL = 'https://qfpyjavbncijowjvznkg.supabase.co';
 export const QFPY_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmcHlqYXZibmNpam93anZ6bmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NDcxMDUsImV4cCI6MjA3NDQyMzEwNX0.adxRCkobV-m_XUHp1KBXmg67VXkR-HL4QKFVtgQOmYc';
@@ -3984,4 +4083,3 @@ export async function uploadFaixaImage(file: File, filenameKey: string): Promise
     });
   }
 }
-

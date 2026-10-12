@@ -1,875 +1,537 @@
 import { QuizQuestionItem } from '../components/ClubQuiz';
 
-// ============================================================================
-// LIVRO "NISTO CREMOS" — CAPÍTULOS 1 AO 10 (Doutrinas de Deus, Humanidade e Salvação)
-// ============================================================================
 export const NISTO_CREMOS_1_10_QUESTIONS: Omit<QuizQuestionItem, 'id'>[] = [
   {
     category: 'NISTO_CREMOS_1_10',
-    subCategory: 'Cap. 1 • As Escrituras Sagradas',
-    question: 'Segundo o Capítulo 1 do livro "Nisto Cremos" (As Escrituras Sagradas), qual é a regra infalível de fé e prática e o padrão pelo qual todo ensino e experiência devem ser provados?',
+    subCategory: '1. As Escrituras Sagradas',
+    question: 'De acordo com a crença fundamental 1, qual é o papel das Sagradas Escrituras na vida da igreja?',
     options: [
-      'As Escrituras Sagradas (Antigo e Novo Testamentos), a Palavra escrita de Deus dada por inspiração divina',
-      'As tradições históricas dos concílios eclesiásticos ao longo dos séculos',
-      'A razão filosófica humana aliada às descobertas científicas',
-      'As experiências emocionais individuais de cada cristão'
+      'A infalível revelação da vontade de Deus e padrão supremo de caráter',
+      'Um conjunto histórico de valor literário sem inspiração divina direta',
+      'Uma fonte secundária sujeita às decisões das tradições humanas',
+      'Um relato poético sem autoridade doutrinária'
     ],
     correctIndex: 0,
-    explanation: 'A Crença Fundamental nº 1 afirma que as Escrituras Sagradas são a infalível revelação da vontade de Deus, constituindo o padrão de caráter, a prova da experiência e o revelador autorizado de doutrinas.',
-    reference: 'Nisto Cremos, Cap. 1 • 2 Timóteo 3:16-17; 2 Pedro 1:20-21; Isaías 8:20',
-    hint: 'Baseia-se em "À lei e ao testemunho!" (Isaías 8:20) e 2 Timóteo 3:16.'
+    explanation: 'As Escrituras Sagradas são a infalível revelação da vontade divina e constituem o padrão de caráter e teste da experiência.',
+    reference: 'Nisto Cremos • Crença 1 (Salmo 119:105, 2 Timóteo 3:16-17)'
   },
   {
     category: 'NISTO_CREMOS_1_10',
-    subCategory: 'Cap. 2 • A Trindade',
-    question: 'De acordo com o Capítulo 2 de "Nisto Cremos" (A Trindade), como a Bíblia apresenta a Divindade?',
+    subCategory: '2. A Trindade',
+    question: 'A crença 2 afirma que Deus é uno em três Pessoas coeternas. Quais são elas?',
     options: [
-      'Há um só Deus: Pai, Filho e Espírito Santo, uma unidade de três Pessoas coeternas',
-      'Três deuses independentes com propósitos distintos no Universo',
-      'Uma única pessoa divina que apenas trocou de nome em diferentes épocas históricas',
-      'Um Deus supremo (o Pai) e dois seres criados posteriormente para auxiliá-Lo'
+      'Pai, Filho e Espírito Santo',
+      'Pai, Moisés e Elias',
+      'Criador, Anjos e Santos',
+      'Pai, Filho e a Igreja'
     ],
     correctIndex: 0,
-    explanation: 'A Crença Fundamental nº 2 ensina que há um só Deus: Pai, Filho e Espírito Santo, uma unidade de três Pessoas coeternas, imortais, onipotentes e oniscientes.',
-    reference: 'Nisto Cremos, Cap. 2 • Mateus 28:19; 2 Coríntios 13:13; Deuteronômio 6:4',
-    hint: 'Presente na fórmula batismal de Mateus 28:19 e na bênção apostólica.'
+    explanation: 'Há um só Deus: Pai, Filho e Espírito Santo, uma unidade de três Pessoas coeternas.',
+    reference: 'Nisto Cremos • Crença 2 (Mateus 28:19, 2 Coríntios 13:14)'
   },
   {
     category: 'NISTO_CREMOS_1_10',
-    subCategory: 'Cap. 3 • Deus o Pai',
-    question: 'Conforme o Capítulo 3 de "Nisto Cremos" (O Pai), como o caráter de Deus o Pai foi revelado de maneira suprema à humanidade?',
+    subCategory: '3. Deus Pai',
+    question: 'Qual das seguintes declarações melhor descreve o caráter de Deus Pai segundo a Crença 3?',
     options: [
-      'Através de Seu Filho Jesus Cristo ("Quem Me vê a Mim vê o Pai")',
-      'Exclusivamente por meio de fenômenos da natureza como trovões e terremotos',
-      'Por meio dos filósofos gregos da antiguidade',
-      'Apenas no juízo executivo final sem misericórdia'
+      'Ele é justo, santo, compassivo, clemente e abundante em misericórdia',
+      'Um juiz distante que só se relaciona através da condenação',
+      'Uma força impessoal do universo sem sentimentos',
+      'Um ser criado que evoluiu espiritualmente'
     ],
     correctIndex: 0,
-    explanation: 'As qualidades e poderes manifestos no Filho e no Espírito Santo também são revelações do Pai, que é amoroso, compassivo, justo e santo.',
-    reference: 'Nisto Cremos, Cap. 3 • João 14:9; 1 João 4:8; Êxodo 34:6-7',
-    hint: 'Jesus respondeu isso a Filipe no Evangelho de João capítulo 14.'
+    explanation: 'Deus, o Pai eterno, é o Criador, Originador, Sustentador e Soberano de toda a criação, justo e santo, compassivo e clemente.',
+    reference: 'Nisto Cremos • Crença 3 (Êxodo 34:6-7, João 3:16)'
   },
   {
     category: 'NISTO_CREMOS_1_10',
-    subCategory: 'Cap. 4 • Deus o Filho',
-    question: 'Segundo o Capítulo 4 de "Nisto Cremos" (O Filho), o que afirma a doutrina bíblica sobre a natureza de Jesus Cristo em Sua encarnação?',
+    subCategory: '4. Deus Filho',
+    question: 'Na encarnação de Jesus Cristo (Crença 4), como se expressou a sua natureza?',
     options: [
-      'Sendo eternamente verdadeiro Deus, Ele Se tornou também verdadeiro homem, concebido pelo Espírito Santo e nascido da virgem Maria',
-      'Ele deixou completamente de ser Deus enquanto esteve na Terra, tornando-se apenas um profeta humano',
-      'Ele apenas aparentava ter um corpo físico, mas nunca sofreu dores reais nem tentação',
-      'Ele passou a existir somente a partir de Seu nascimento em Belém'
+      'Verdadeiro Deus e verdadeiro homem, concebido do Espírito Santo e nascido da virgem Maria',
+      'Apenas uma aparência humana sem corpo real',
+      'Um grande mestre humano que se tornou divino apenas após o batismo',
+      'Um anjo encarnado que perdeu sua divindade'
     ],
     correctIndex: 0,
-    explanation: 'Jesus Cristo é o Filho eterno de Deus que Se encarnou como Jesus o Cristo, unindo perfeitamente a natureza divina e a natureza humana sem pecado para salvar a humanidade.',
-    reference: 'Nisto Cremos, Cap. 4 • João 1:1-3, 14; Filipenses 2:5-11; Hebreus 4:15',
-    hint: 'João 1:14 declara: "E o Verbo se fez carne e habitou entre nós."'
+    explanation: 'Em Cristo se uniram as naturezas divina e humana; Ele foi verdadeiramente Deus e verdadeiramente homem.',
+    reference: 'Nisto Cremos • Crença 4 (João 1:1-14, Hebreus 2:14-17)'
   },
   {
     category: 'NISTO_CREMOS_1_10',
-    subCategory: 'Cap. 5 • Deus o Espírito Santo',
-    question: 'De acordo com o Capítulo 5 de "Nisto Cremos" (O Espírito Santo), qual é a atuação do Espírito Santo na história da salvação?',
+    subCategory: '5. Deus Espírito Santo',
+    question: 'Qual é uma das obras essenciais do Espírito Santo na vida do cristão (Crença 5)?',
     options: [
-      'Atuou na Criação, na encarnação e na redenção, inspirou os escritores bíblicos, convence do pecado e distribui dons espirituais à igreja',
-      'É apenas uma força impessoal ou energia elétrica sem vontade nem inteligência',
-      'Começou a existir somente no dia de Pentecostes em Atos 2',
-      'Sua função restringe-se ao Antigo Testamento, sem atuar na igreja cristã'
+      'Convencer do pecado, regenerar e transformar à imagem de Deus',
+      'Substituir a autoridade da Bíblia por novas visões pessoais',
+      'Conceder prosperidade financeira imediata a todos os crentes',
+      'Tornar o ser humano incapaz de pecar sem esforço'
     ],
     correctIndex: 0,
-    explanation: 'Deus o Espírito Eterno é uma Pessoa divina (o Consolador/Parácleto) que desempenhou parte ativa com o Pai e o Filho na Criação, encarnação e redenção.',
-    reference: 'Nisto Cremos, Cap. 5 • João 14:16-18; 16:7-13; Atos 1:8; Gênesis 1:2',
-    hint: 'Jesus O chamou de "outro Consolador" e "Espírito da verdade".'
+    explanation: 'O Espírito Santo atrai e convence os seres humanos, renovando e transformando-os à imagem de Deus.',
+    reference: 'Nisto Cremos • Crença 5 (João 16:7-13, Gálatas 5:22-23)'
   },
   {
     category: 'NISTO_CREMOS_1_10',
-    subCategory: 'Cap. 6 • A Criação',
-    question: 'O que ensina o Capítulo 6 de "Nisto Cremos" (A Criação) sobre a origem do mundo e da vida na Terra?',
+    subCategory: '6. A Criação',
+    question: 'Como a Igreja Adventista compreende o relato da Criação em Gênesis (Crença 6)?',
     options: [
-      'Deus criou o Universo e, em uma criação recente de seis dias literais, o Senhor fez "os céus e a terra, o mar e tudo o que neles há" e descansou no sétimo dia',
-      'A vida surgiu ao acaso através de bilhões de anos de evolução darwinista sem intervenção divina',
-      'Os seis dias da criação simbolizam seis eras geológicas de milhões de anos de morte e seleção natural',
-      'A Terra foi criada por anjos menores sem a participação da Trindade'
+      'Uma criação literal e histórica em seis dias recentes, com o sábado instituído no 7º dia',
+      'Um processo evolutivo de bilhões de anos guiado pela seleção natural',
+      'Uma alegoria mitológica sem base em fatos reais',
+      'Uma sucessão de eras geológicas indeterminadas'
     ],
     correctIndex: 0,
-    explanation: 'Deus é o Criador de todas as coisas e revelou nas Escrituras o relato autêntico de Sua atividade criadora em seis dias literais ("tarde e manhã"), instituindo o sábado como memorial eterno.',
-    reference: 'Nisto Cremos, Cap. 6 • Gênesis 1-2; Êxodo 20:8-11; Salmos 33:6, 9',
-    hint: 'Pela palavra do Senhor foram feitos os céus; Ele falou, e tudo se fez (Salmos 33:6, 9).'
+    explanation: 'Deus é o Criador de todas as coisas e revelou nas Escrituras o relato autêntico e histórico de Sua atividade criadora recente em seis dias literais.',
+    reference: 'Nisto Cremos • Crença 6 (Gênesis 1-2, Êxodo 20:8-11)'
   },
   {
     category: 'NISTO_CREMOS_1_10',
-    subCategory: 'Cap. 7 • A Natureza da Humanidade',
-    question: 'Segundo o Capítulo 7 de "Nisto Cremos" (A Natureza da Humanidade), como a Bíblia define a constituição do ser humano?',
+    subCategory: '7. A Natureza da Humanidade',
+    question: 'Segundo a Crença 7, como o homem e a mulher foram criados e o que a queda provocou?',
     options: [
-      'Homem e mulher foram feitos à imagem de Deus como uma unidade indivisível de corpo, mente e espírito, dependentes de Deus para a vida',
-      'O ser humano possui uma alma naturalmente imortal presa temporariamente em um corpo físico descartável',
-      'A humanidade não possui livre-arbítrio nem responsabilidade moral',
-      'Após a queda de Adão, os seres humanos perderam totalmente qualquer valor diante de Deus'
+      'À imagem de Deus com livre-arbítrio; a desobediência trouxe a morte e corrompeu a imagem divina',
+      'Com imortalidade incondicional da alma independente de Deus',
+      'Como seres já predispostos biologicamente ao mal desde o início',
+      'Sem responsabilidade moral por suas escolhas'
     ],
     correctIndex: 0,
-    explanation: 'Em Gênesis 2:7, Deus formou o homem do pó da terra e soprou em suas narinas o fôlego de vida, e o homem "foi feito alma vivente" — uma unidade holística e indivisível.',
-    reference: 'Nisto Cremos, Cap. 7 • Gênesis 1:26-28; 2:7; Salmos 8:4-8',
-    hint: 'Pó da terra + fôlego de vida = alma/ser vivente (Gênesis 2:7).'
+    explanation: 'O homem e a mulher foram formados à imagem de Deus como seres livres; ao desobedecerem, alienaram-se de Deus e tornaram-se sujeitos à morte.',
+    reference: 'Nisto Cremos • Crença 7 (Gênesis 1:26-28, Romanos 5:12)'
   },
   {
     category: 'NISTO_CREMOS_1_10',
-    subCategory: 'Cap. 8 • O Grande Conflito',
-    question: 'De acordo com o Capítulo 8 de "Nisto Cremos" (O Grande Conflito), qual é o tema central da controvérsia cósmica entre Cristo e Satanás?',
+    subCategory: '8. O Grande Conflito',
+    question: 'Onde se originou o Grande Conflito entre Cristo e Satanás (Crença 8)?',
     options: [
-      'O caráter de Deus, Sua Lei e Sua soberania sobre o Universo',
-      'Uma disputa territorial apenas pelas riquezas minerais do planeta Terra',
-      'Um equilíbrio eterno e necessário entre o bem e o mal que nunca terá fim',
-      'Uma guerra meramente política entre impérios humanos antigos'
+      'No Céu, com a rebelião de Lúcifer contra o caráter, a lei e a soberania de Deus',
+      'Na Terra, com a construção da Torre de Babel',
+      'No deserto da Judeia durante a tentação de Jesus',
+      'No Egito durante o cativeiro de Israel'
     ],
     correctIndex: 0,
-    explanation: 'Toda a humanidade está envolvida em um grande conflito entre Cristo e Satanás quanto ao caráter de Deus, Sua Lei e Sua soberania sobre o Universo, originado no Céu quando um ser criado se tornou Satanás.',
-    reference: 'Nisto Cremos, Cap. 8 • Apocalipse 12:4-9; Isaías 14:12-14; Ezequiel 28:12-18',
-    hint: 'Começou no Céu com a rebelião de Lúcifer contra o governo de amor e a Lei de Deus.'
+    explanation: 'Toda a humanidade está envolvida no grande conflito entre Cristo e Satanás, originado no Céu quando Lúcifer se rebelou.',
+    reference: 'Nisto Cremos • Crença 8 (Isaías 14:12-14, Apocalipse 12:4-9)'
   },
   {
     category: 'NISTO_CREMOS_1_10',
-    subCategory: 'Cap. 9 • A Vida, Morte e Ressurreição de Cristo',
-    question: 'Segundo o Capítulo 9 de "Nisto Cremos", o que a vida sem pecado, a morte expiatória e a ressurreição de Cristo asseguram?',
+    subCategory: '9. Vida, Morte e Ressurreição de Cristo',
+    question: 'Na morte vicária de Cristo na cruz (Crença 9), o que foi provido para a humanidade?',
     options: [
-      'A única provisão de expiação para o pecado humano, vindicando o caráter de Deus e garantindo a vitória final sobre o mal e a morte',
-      'Apenas um exemplo moral inspirador, sem necessidade de sacrifício substitutivo',
-      'A abolição completa da justiça divina sem perdão dos pecados',
-      'Uma salvação automática apenas para os descendentes biológicos de Abraão'
+      'A única expiação eficaz pelos pecados humanos, reconciliando-nos com Deus',
+      'Apenas um exemplo moral heroico sem poder redentor',
+      'A salvação universal automática sem necessidade de fé ou arrependimento',
+      'A anulação imediata do livre-arbítrio dos salvos'
     ],
     correctIndex: 0,
-    explanation: 'Na vida de Cristo de perfeita obediência à vontade de Deus, em Seu sofrimento, morte e ressurreição, Deus proveu o único meio de expiação para o pecado humano, para que os que pela fé aceitam essa expiação tenham vida eterna.',
-    reference: 'Nisto Cremos, Cap. 9 • João 3:16; Romanos 5:8-10; 1 Coríntios 15:3-4, 20-22',
-    hint: 'Cristo morreu por nossos pecados e ressuscitou ao terceiro dia segundo as Escrituras.'
+    explanation: 'A morte de Cristo é vicária e expiatória, reconciliadora e transformadora, o único meio de expiação pelos pecados humanos.',
+    reference: 'Nisto Cremos • Crença 9 (Romanos 5:6-10, 1 Coríntios 15:3-4)'
   },
   {
     category: 'NISTO_CREMOS_1_10',
-    subCategory: 'Cap. 10 • A Experiência da Salvação',
-    question: 'No Capítulo 10 de "Nisto Cremos" (A Experiência da Salvação), como o pecador arrependido recebe a justificação e a santificação?',
+    subCategory: '10. A Experiência da Salvação',
+    question: 'Como o pecador é justificado e aceito perante Deus (Crença 10)?',
     options: [
-      'Pela graça de Deus mediante a fé no sacrifício de Jesus, sendo justificado gratuitamente e transformado pelo Espírito Santo para viver uma vida santa',
-      'Pelo acúmulo de méritos humanos, penitências físicas e pagamento de indulgências',
-      'Por meio do conhecimento secreto reservado a poucos iniciados',
-      'Sem necessidade de arrependimento nem de novo nascimento espiritual'
+      'Pela graça mediante a fé no sangue de Jesus, e não pelas obras da lei',
+      'Pela contagem das boas ações e penitências acumuladas em vida',
+      'Pela linhagem familiar e participação em rituais tradicionais',
+      'Pelo conhecimento intelectual aprofundado de teologia'
     ],
     correctIndex: 0,
-    explanation: 'Guiados pelo Espírito Santo, reconhecemos nossa pecaminosidade, nos arrependemos e exercemos fé em Jesus como Senhor e Cristo, como Substituto e Exemplo.',
-    reference: 'Nisto Cremos, Cap. 10 • Efésios 2:8-10; Romanos 3:24; Tito 3:5-7',
-    hint: '"Porque pela graça sois salvos, por meio da fé; e isto não vem de vós, é dom de Deus" (Efésios 2:8).'
+    explanation: 'Em infinita misericórdia e amor, Deus fez com que Cristo Se tornasse pecado por nós para que nEle fôssemos feitos justiça de Deus, pela fé.',
+    reference: 'Nisto Cremos • Crença 10 (Efésios 2:8-10, Romanos 3:21-26)'
   }
 ];
 
-// ============================================================================
-// LIVRO "NISTO CREMOS" — CAPÍTULOS 11 AO 20 (Doutrinas da Igreja e Vida Cristã)
-// ============================================================================
 export const NISTO_CREMOS_11_20_QUESTIONS: Omit<QuizQuestionItem, 'id'>[] = [
   {
     category: 'NISTO_CREMOS_11_20',
-    subCategory: 'Cap. 11 • Crescer em Cristo',
-    question: 'Segundo o Capítulo 11 de "Nisto Cremos" (Crescer em Cristo), por quais meios práticos o cristão cresce diariamente em maturidade espiritual e vitória sobre as forças do mal?',
+    subCategory: '11. Crescer em Cristo',
+    question: 'Segundo a Crença 11, como o crente obtém vitória contínua sobre as forças do mal?',
     options: [
-      'Comunhão diária em oração, estudo da Palavra, meditação, louvor, reunião para adoração e participação na missão da igreja',
-      'Isolamento completo da sociedade em cavernas ou mosteiros',
-      'Confiança na própria força humana sem depender do Espírito Santo',
-      'Apenas comparecendo à igreja uma vez por ano sem vida devocional'
+      'Permanecendo em comunhão diária com Jesus pela oração, estudo da Palavra e serviço ao próximo',
+      'Usando amuletos, rituais sagrados e símbolos místicos',
+      'Isolando-se completamente da sociedade em mosteiros',
+      'Dependendo apenas da força de vontade pessoal'
     ],
     correctIndex: 0,
-    explanation: 'Por Sua morte na cruz, Jesus triunfou sobre as forças do mal, e enquanto permanecemos Nele pela oração, estudo da Bíblia, adoração e serviço amoroso, crescemos na semelhança de Seu caráter.',
-    reference: 'Nisto Cremos, Cap. 11 • Colossenses 2:6, 14-15; 2 Pedro 3:18; Filipenses 3:12-14',
-    hint: '"Antes, crescei na graça e no conhecimento de nosso Senhor e Salvador Jesus Cristo" (2 Pedro 3:18).'
+    explanation: 'Por Sua morte na cruz, Jesus triunfou sobre as forças do mal. Ao nos entregarmos a Jesus, somos libertos e crescemos em Seu Espírito.',
+    reference: 'Nisto Cremos • Crença 11 (Colossenses 2:15, 1 Tessalonicenses 5:23)'
   },
   {
     category: 'NISTO_CREMOS_11_20',
-    subCategory: 'Cap. 12 • A Igreja',
-    question: 'Conforme o Capítulo 12 de "Nisto Cremos" (A Igreja), quem é a Cabeça da Igreja e quais metáforas bíblicas descrevem a comunidade dos crentes?',
+    subCategory: '12. A Igreja',
+    question: 'Como a Bíblia descreve a Igreja de Deus (Crença 12)?',
     options: [
-      'Cristo é a Cabeça da Igreja, que é descrita como o Corpo de Cristo, a Família de Deus e a Noiva pela qual Ele morreu',
-      'Um líder político terreno é o cabeça supremo e infalível da igreja',
-      'A igreja é apenas o prédio de alvenaria e madeira onde ocorrem reuniões',
-      'A igreja não possui organização nem missão no mundo'
+      'A comunidade de crentes que confessam a Jesus Cristo como Senhor e Salvador, o corpo de Cristo',
+      'Uma organização puramente humana e política governada por votos seculares',
+      'Apenas o templo físico de alvenaria',
+      'Um clube social recreativo'
     ],
     correctIndex: 0,
-    explanation: 'A igreja é a comunidade de crentes que confessam a Jesus Cristo como Senhor e Salvador; ela deriva sua autoridade de Cristo, que é a Palavra encarnada, e das Escrituras.',
-    reference: 'Nisto Cremos, Cap. 12 • Efésios 1:22-23; 5:23-27; 1 Coríntios 12:12-14',
-    hint: 'Em Efésios, Paulo chama a igreja de "o corpo de Cristo" e a "noiva" de Cristo.'
+    explanation: 'A igreja é a comunidade de crentes que confessam a Jesus Cristo como Senhor e Salvador. Em continuidade ao povo de Deus do AT, somos chamados para fora do mundo.',
+    reference: 'Nisto Cremos • Crença 12 (1 Coríntios 12:12-27, Efésios 1:22-23)'
   },
   {
     category: 'NISTO_CREMOS_11_20',
-    subCategory: 'Cap. 13 • O Remanescente e Sua Missão',
-    question: 'De acordo com o Capítulo 13 de "Nisto Cremos", quais são as características proféticas da Igreja Remanescente dos últimos dias e qual é a sua missão especial?',
+    subCategory: '13. O Remanescente e Sua Missão',
+    question: 'Quais são as duas características bíblicas marcantes da igreja remanescente nos últimos dias (Crença 13)?',
     options: [
-      'Guardar os mandamentos de Deus e ter a fé de Jesus (Apoc. 12:17; 14:12), proclamando as Três Mensagens Angélicas de Apocalipse 14:6-12',
-      'Buscar alianças políticas para estabelecer um império militar na Terra',
-      'Abolir os Dez Mandamentos e ocultar as profecias de Daniel e Apocalipse',
-      'Limitar a pregação do evangelho a apenas um país ou idioma'
+      'Guardam os mandamentos de Deus e têm o testemunho de Jesus (Apoc. 12:17 e 14:12)',
+      'Possuem riqueza material abundante e controle governamental',
+      'Realizam milagres espetaculares sem necessidade de fidelidade bíblica',
+      'Aceitam todas as crenças sem distinção doutrinária'
     ],
     correctIndex: 0,
-    explanation: 'Nos últimos dias, um tempo de ampla apostasia, um remanescente tem sido chamado para guardar os mandamentos de Deus e a fé de Jesus, anunciando a chegada da hora do juízo e a iminente volta de Cristo.',
-    reference: 'Nisto Cremos, Cap. 13 • Apocalipse 12:17; 14:6-12; 18:1-4',
-    hint: 'Apocalipse 12:17 e 14:6-12 descrevem a identidade e a mensagem do remanescente.'
+    explanation: 'A igreja universal compõe-se de todos os que verdadeiramente creem, mas nos últimos dias um remanescente foi chamado para guardar os mandamentos de Deus e a fé de Jesus.',
+    reference: 'Nisto Cremos • Crença 13 (Apocalipse 12:17, Apocalipse 14:6-12)'
   },
   {
     category: 'NISTO_CREMOS_11_20',
-    subCategory: 'Cap. 14 • Unidade no Corpo de Cristo',
-    question: 'Segundo o Capítulo 14 de "Nisto Cremos" (Unidade no Corpo de Cristo), como a igreja deve tratar as diferenças de raça, cultura, nacionalidade e posição social?',
+    subCategory: '14. Unidade no Corpo de Cristo',
+    question: 'Na igreja de Cristo (Crença 14), como devem ser vistas as distinções de raça, cultura e nacionalidade?',
     options: [
-      'Em Cristo somos uma nova criação e todos somos iguais, sem distinções divisórias de raça, cultura, instrução, nacionalidade, sexo ou posição social',
-      'Separando as congregações em castas sociais superiores e inferiores',
-      'Exigindo que todos abandonem seu idioma natal para ser aceitos por Deus',
-      'Priorizando os membros mais ricos nas decisões espirituais da igreja'
+      'Todos somos iguais em Cristo, unidos em um só Espírito sem discriminação',
+      'Algumas etnias devem ter prioridade na liderança da igreja',
+      'Culturas diferentes devem formar congregações separadas e sem contato',
+      'A unidade deve ser imposta à força sem liberdade individual'
     ],
     correctIndex: 0,
-    explanation: 'A igreja é um corpo com muitos membros, chamados de toda nação, tribo, língua e povo. Em Cristo somos todos um, servindo e sendo servidos sem parcialidade.',
-    reference: 'Nisto Cremos, Cap. 14 • Gálatas 3:27-29; João 17:20-23; Efésios 4:1-6',
-    hint: 'Baseia-se na oração sacerdotal de Jesus ("para que todos sejam um" - João 17:21) e Gálatas 3:28.'
+    explanation: 'Em Cristo somos uma nova criação; distinções de raça, cultura, instrução e nacionalidade não devem causar divisões entre nós.',
+    reference: 'Nisto Cremos • Crença 14 (Gálatas 3:28, João 17:20-23)'
   },
   {
     category: 'NISTO_CREMOS_11_20',
-    subCategory: 'Cap. 15 • O Batismo',
-    question: 'O que ensina o Capítulo 15 de "Nisto Cremos" sobre o modo bíblico do Batismo e o seu significado espiritual?',
+    subCategory: '15. O Batismo',
+    question: 'Qual é a forma bíblica e o significado do batismo (Crença 15)?',
     options: [
-      'É realizado por imersão na água, simbolizando a união com Cristo em Sua morte, sepultamento e ressurreição para uma nova vida',
-      'É feito por aspersão em recém-nascidos sem necessidade de instrução bíblica ou fé pessoal',
-      'É opcional e desnecessário para aqueles que desejam seguir a Cristo',
-      'Deve ser repetido todos os meses como ritual de purificação física'
+      'Por imersão na água, simbolizando morte para o pecado e ressurreição para nova vida em Cristo',
+      'Por aspersão na infância antes da consciência moral',
+      'Um mero ato social sem significado espiritual',
+      'Um juramento secreto reservado a iniciados'
     ],
     correctIndex: 0,
-    explanation: 'Pelo batismo por imersão confessamos nossa fé na morte e ressurreição de Jesus Cristo e testemunhamos nossa morte para o pecado e nosso propósito de andar em novidade de vida.',
-    reference: 'Nisto Cremos, Cap. 15 • Romanos 6:1-6; Mateus 3:13-17; Atos 2:38',
-    hint: 'Romanos 6:4 explica o sepultamento com Cristo pelo batismo na morte.'
+    explanation: 'Pelo batismo confessamos nossa fé na morte e ressurreição de Jesus Cristo. Ele se dá por imersão na água e segue a instrução nas Escrituras.',
+    reference: 'Nisto Cremos • Crença 15 (Romanos 6:3-5, Mateus 28:19-20)'
   },
   {
     category: 'NISTO_CREMOS_11_20',
-    subCategory: 'Cap. 16 • A Ceia do Senhor',
-    question: 'Conforme o Capítulo 16 de "Nisto Cremos" (A Ceia do Senhor), qual cerimônia instituída por Jesus precede a participação nos emblemas do pão sem fermento e do fruto da vide (suco de uva)?',
+    subCategory: '16. A Ceia do Senhor',
+    question: 'Quais elementos e cerimônia preparatória compõem a Ceia do Senhor (Crença 16)?',
     options: [
-      'A cerimônia do Lava-pés (Ordenança da Humildade), segundo o exemplo de Cristo em João 13',
-      'O sacrifício de cordeiros no pátio da igreja',
-      'Uma procissão pública com incenso e velas',
-      'O pagamento de uma taxa obrigatória de ingresso no templo'
+      'O lava-pés (humildade) seguido da participação do pão ázimo e suco de uva não fermentado',
+      'Pão com fermento e vinho alcóolico sem cerimônia prévia',
+      'Apenas uma oração em silêncio sem distribuição de símbolos',
+      'Um banquete festivo aberto com qualquer tipo de alimento'
     ],
     correctIndex: 0,
-    explanation: 'A preparação para a Ceia inclui o exame de consciência, o arrependimento e a confissão. O Mestre instituiu a cerimônia do lava-pés para representar renovada purificação e disposição de servir uns aos outros em humildade.',
-    reference: 'Nisto Cremos, Cap. 16 • João 13:1-17; 1 Coríntios 11:23-30',
-    hint: 'Jesus cingiu-Se com uma toalha e disse: "Ora, se Eu, Senhor e Mestre, vos lavei os pés, vós deveis também lavar os pés uns aos outros."'
+    explanation: 'A Ceia do Senhor é uma participação nos emblemas do corpo e sangue de Jesus. A preparação inclui o lava-pés como ordenança de humildade.',
+    reference: 'Nisto Cremos • Crença 16 (1 Coríntios 11:23-26, João 13:1-17)'
   },
   {
     category: 'NISTO_CREMOS_11_20',
-    subCategory: 'Cap. 17 • Dons e Ministérios Espirituais',
-    question: 'Segundo o Capítulo 17 de "Nisto Cremos", com que finalidade o Espírito Santo concede dons espirituais aos membros da igreja?',
+    subCategory: '17. Dons e Ministérios Espirituais',
+    question: 'Quem concede os dons espirituais e para qual finalidade (Crença 17)?',
     options: [
-      'Para o aperfeiçoamento dos santos, o desempenho de um ministério de amor para o bem comum da igreja e da humanidade',
-      'Para promover exaltação pessoal, orgulho espiritual e competição entre os membros',
-      'Apenas para os apóstolos do primeiro século, tendo cessado completamente hoje',
-      'Para substituir o estudo da Bíblia e a obediência aos mandamentos'
+      'O Espírito Santo, distribuindo a cada membro para o aperfeiçoamento da igreja e proclamação do evangelho',
+      'O pastor distrital, de acordo com as simpatias pessoais',
+      'O próprio membro, desenvolvendo dons por seu poder inato',
+      'Eles cessaram completamente nos tempos apostólicos'
     ],
     correctIndex: 0,
-    explanation: 'Deus concede a todos os membros de Sua igreja, em todas as épocas, dons espirituais que cada membro deve empregar em amoroso ministério para a edificação da igreja e o cumprimento de sua missão.',
-    reference: 'Nisto Cremos, Cap. 17 • 1 Coríntios 12:4-11; Efésios 4:11-16; Romanos 12:4-8',
-    hint: 'São distribuídos pelo Espírito "como lhe apraz", visando a edificação do Corpo de Cristo.'
+    explanation: 'Deus outorga a todos os membros de Sua igreja, em todas as épocas, dons espirituais para o ministério em benefício comum da igreja.',
+    reference: 'Nisto Cremos • Crença 17 (Romanos 12:4-8, 1 Coríntios 12:7-11)'
   },
   {
     category: 'NISTO_CREMOS_11_20',
-    subCategory: 'Cap. 18 • O Dom de Profecia',
-    question: 'De acordo com o Capítulo 18 de "Nisto Cremos" (O Dom de Profecia), como esse dom se manifestou na história da Igreja Remanescente?',
+    subCategory: '18. O Dom de Profecia',
+    question: 'Como a Igreja Adventista reconhece o ministério e os escritos de Ellen G. White (Crença 18)?',
     options: [
-      'No ministério de Ellen G. White, cujos escritos falam com autoridade profética para confortar, orientar, instruir e corrigir a igreja, exaltando sempre a Bíblia como regra suprema',
-      'Por meio de adivinhos e horóscopos consultados pelos cristãos',
-      'Substituindo a Bíblia Sagrada por um terceiro testamento superior às Escrituras',
-      'Exclusivamente nos profetas anteriores a João Batista, sem manifestação nos últimos dias'
+      'Uma manifestação do dom de profecia que conforta, guia, instrui e corrige, apontando para a Bíblia',
+      'Textos canônicos que substituem ou atualizam a Bíblia',
+      'Literatura secular comum sem inspiração divina',
+      'Doutrinas secretas para uma elite da igreja'
     ],
     correctIndex: 0,
-    explanation: 'As Escrituras dão testemunho de que um dos dons do Espírito Santo é a profecia. Esse dom é uma característica da igreja remanescente (Apocalipse 12:17; 19:10) e se manifestou no ministério de Ellen G. White.',
-    reference: 'Nisto Cremos, Cap. 18 • Apocalipse 12:17; 19:10; Joel 2:28-29; 1 Tessalonicenses 5:20-21',
-    hint: 'Apocalipse 19:10 declara que "o testemunho de Jesus é o espírito de profecia".'
+    explanation: 'Um dos dons do Espírito Santo é a profecia. Esse dom é uma marca da igreja remanescente e se manifestou no ministério de Ellen G. White, cujos escritos são uma fonte contínua de instrução, sempre submissos à Bíblia.',
+    reference: 'Nisto Cremos • Crença 18 (Joel 2:28-29, Apocalipse 19:10)'
   },
   {
     category: 'NISTO_CREMOS_11_20',
-    subCategory: 'Cap. 19 • A Lei de Deus',
-    question: 'O que afirma o Capítulo 19 de "Nisto Cremos" a respeito dos grandes princípios da Lei de Deus expressos nos Dez Mandamentos?',
+    subCategory: '19. A Lei de Deus',
+    question: 'Qual é a natureza e a permanência dos Dez Mandamentos (Crença 19)?',
     options: [
-      'São exemplificados na vida de Cristo, expressam o amor, a vontade e os propósitos de Deus e são obrigatórios para todas as pessoas, em todas as épocas',
-      'Foram abolidos na cruz para que o cristão não precise mais obedecer a nenhum mandamento moral',
-      'São o meio pelo qual o pecador conquista a salvação por suas próprias obras sem precisar da graça',
-      'Aplicavam-se exclusivamente ao povo hebreu durante a peregrinação no deserto do Sinai'
+      'Expressão do caráter de Deus, preceitos morais imutáveis válidos para todas as épocas',
+      'Normas provisórias abolidas na cruz de Cristo',
+      'Um código cerimonial restrito apenas aos israelitas no deserto',
+      'Sugestões éticas opcionais para a vida moderna'
     ],
     correctIndex: 0,
-    explanation: 'A salvação é totalmente pela graça e não pelas obras, mas seu fruto é a obediência aos Mandamentos (João 14:15; Romanos 3:31). Os Dez Mandamentos são imutáveis e eternos.',
-    reference: 'Nisto Cremos, Cap. 19 • Êxodo 20:1-17; Mateus 5:17-19; João 14:15; Romanos 3:31',
-    hint: '"Anulamos, pois, a lei pela fé? De maneira nenhuma! Antes, confirmamos a lei" (Romanos 3:31).'
+    explanation: 'Os grandes princípios da lei de Deus são incorporados nos Dez Mandamentos e exemplificados na vida de Cristo. Expressam o amor de Deus e são imutáveis.',
+    reference: 'Nisto Cremos • Crença 19 (Êxodo 20:1-17, Tiago 2:10-12)'
   },
   {
     category: 'NISTO_CREMOS_11_20',
-    subCategory: 'Cap. 20 • O Sábado',
-    question: 'Segundo o Capítulo 20 de "Nisto Cremos" (O Sábado), quando começa e termina a observância bíblica do santo Sábado e o que ele representa?',
+    subCategory: '20. O Sábado',
+    question: 'Em que dia e momento deve ser guardado o Sábado do quarto mandamento (Crença 20)?',
     options: [
-      'De pôr do sol a pôr do sol (sexta-feira ao pôr do sol até sábado ao pôr do sol), sendo memorial da Criação e símbolo de redenção e santificação em Cristo',
-      'Da meia-noite de sexta-feira até a meia-noite de sábado, apenas como feriado comercial',
-      'Do nascer do sol de domingo até o meio-dia de domingo',
-      'Em qualquer dia da semana escolhido individualmente segundo a conveniência de cada pessoa'
+      'Do pôr do sol de sexta-feira ao pôr do sol de sábado, o memorial perpétuo da Criação',
+      'No domingo de manhã durante o culto dominical',
+      'Em qualquer período de 24 horas escolhido pelo indivíduo',
+      'Apenas uma vez ao ano no dia da Páscoa'
     ],
     correctIndex: 0,
-    explanation: 'O bondoso Criador, após os seis dias da Criação, descansou no sétimo dia e instituiu o sábado para todas as pessoas como memorial da Criação e sinal eterno de Seu concerto (Levítico 23:32; Ezequiel 20:12, 20).',
-    reference: 'Nisto Cremos, Cap. 20 • Gênesis 2:1-3; Êxodo 20:8-11; Levítico 23:32; Marcos 2:27-28',
-    hint: 'Conforme Levítico 23:32, o dia bíblico é celebrado "duma tarde a outra tarde" (pôr do sol a pôr do sol).'
+    explanation: 'O Criador, após os seis dias da Criação, descansou no sétimo dia e instituiu o sábado para todas as pessoas como memorial perpétuo da Criação, do pôr do sol ao pôr do sol.',
+    reference: 'Nisto Cremos • Crença 20 (Gênesis 2:1-3, Êxodo 20:8-11, Levítico 23:32)'
   }
 ];
 
-// ============================================================================
-// LIVRO "NISTO CREMOS" — CAPÍTULOS 21 AO 28 (Vida Cristã e Eventos Finais)
-// ============================================================================
 export const NISTO_CREMOS_21_28_QUESTIONS: Omit<QuizQuestionItem, 'id'>[] = [
   {
     category: 'NISTO_CREMOS_21_28',
-    subCategory: 'Cap. 21 • Mordomia',
-    question: 'Segundo o Capítulo 21 de "Nisto Cremos" (Mordomia), quem somos nós em relação a Deus e como reconhecemos Sua propriedade sobre tudo?',
+    subCategory: '21. Mordomia',
+    question: 'De acordo com a Crença 21 (Mordomia Cristã), o que reconhecemos ao devolver o dízimo e as ofertas?',
     options: [
-      'Somos mordomos de Deus, a quem Ele confiou tempo, oportunidades, capacidades, posses e as bênçãos da Terra, reconhecendo Seu senhorio pela devolução fiel dos dízimos e entrega de ofertas',
-      'Somos donos absolutos de nossa vida e bens, sem prestar contas a ninguém',
-      'A mordomia refere-se apenas ao dinheiro, não tendo relação com o uso do tempo, dos talentos ou do cuidado com a natureza',
-      'Os dízimos destinam-se ao enriquecimento pessoal de quem os recolhe, sem relação com a pregação do evangelho'
+      'Reconhecemos a soberania de Deus como Dono de todas as coisas e participamos no sustento da pregação do evangelho',
+      'Pagamos a Deus uma taxa para ter o direito de reter o restante dos bens',
+      'Compramos a bênção da salvação através do dinheiro',
+      'Apenas auxiliamos uma instituição humana beneficente'
     ],
     correctIndex: 0,
-    explanation: 'Mordomia cristã abrange toda a vida: o cuidado responsável da Terra, o uso sábio do tempo, dos talentos, do corpo e a fidelidade financeira nos dízimos e ofertas para o sustento do ministério e difusão do evangelho.',
-    reference: 'Nisto Cremos, Cap. 21 • Malaquias 3:8-12; 1 Coríntios 4:1-2; Salmos 24:1',
-    hint: '"Do Senhor é a terra e a sua plenitude" (Salmos 24:1).'
+    explanation: 'Somos mordomos de Deus, responsáveis pelo uso fiel do tempo, oportunidades, capacidades, posses e bênçãos da Terra. Reconhecemos o senhorio divino mediante a devolução fiel dos dízimos e ofertas.',
+    reference: 'Nisto Cremos • Crença 21 (Malaquias 3:8-10, 1 Coríntios 9:9-14)'
   },
   {
     category: 'NISTO_CREMOS_21_28',
-    subCategory: 'Cap. 22 • Conduta Cristã',
-    question: 'De acordo com o Capítulo 22 de "Nisto Cremos" (Conduta Cristã), por que o cristão cuida da saúde do corpo, abstendo-se de alimentos impuros, bebidas alcoólicas, fumo e drogas?',
+    subCategory: '22. Conduta Cristã',
+    question: 'Qual é o princípio fundamental para o cuidado do corpo e estilo de vida cristão (Crença 22)?',
     options: [
-      'Porque nosso corpo é o templo do Espírito Santo, e somos chamados a glorificar a Deus em nosso corpo, mente e escolhas culturais e recreativas',
-      'Para obter salvação pelas obras da dieta alimentar',
-      'Apenas por estética social, sem relação com a espiritualidade ou discernimento mental',
-      'Porque a Bíblia proíbe qualquer tipo de alegria ou recreação sadia'
+      'Nosso corpo é templo do Espírito Santo; devemos abster-nos de alimentos prejudiciais, álcool, fumo e drogas',
+      'O corpo é matéria descartável, o que importa é somente o pensamento espiritual',
+      'Tudo é permitido sem moderação desde que a pessoa se sinta bem',
+      'A saúde física não tem nenhuma relação com a adoração a Deus'
     ],
     correctIndex: 0,
-    explanation: 'Somos chamados a ser um povo piedoso que pensa, sente e age de acordo com os princípios bíblicos em todas as facetas da vida pessoal e social, cuidando do templo do Espírito Santo.',
-    reference: 'Nisto Cremos, Cap. 22 • 1 Coríntios 6:19-20; 10:31; Filipenses 4:8; Romanos 12:1-2',
-    hint: '"Portanto, quer comais, quer bebais ou façais outra qualquer coisa, fazei tudo para a glória de Deus" (1 Cor. 10:31).'
+    explanation: 'Somos chamados para ser um povo piedoso que pensa, sente e age de acordo com os princípios bíblicos. Como nosso corpo é o templo do Espírito Santo, cuidamos dele de forma inteligente.',
+    reference: 'Nisto Cremos • Crença 22 (1 Coríntios 6:19-20, Romanos 12:1-2)'
   },
   {
     category: 'NISTO_CREMOS_21_28',
-    subCategory: 'Cap. 23 • O Casamento e a Família',
-    question: 'O que ensina o Capítulo 23 de "Nisto Cremos" sobre a origem e a natureza do casamento e da família?',
+    subCategory: '23. O Casamento e a Família',
+    question: 'Como a Bíblia define o casamento instituído por Deus no Éden (Crença 23)?',
     options: [
-      'O casamento foi divinamente estabelecido no Éden e confirmado por Jesus como união vitalícia e amorosa entre um homem e uma mulher, sendo a família o núcleo de educação espiritual e afeto',
-      'O casamento foi inventado pelo Estado moderno apenas como contrato financeiro temporário',
-      'Os pais não têm responsabilidade de ensinar as Escrituras aos filhos em casa',
-      'O Evangelho de Cristo desvaloriza o relacionamento entre pais e filhos'
+      'A união vitalícia entre um homem e uma mulher em amor mútuo, submissão e fidelidade',
+      'Um contrato temporário renovável a cada ano',
+      'Uma invenção social recente sem sanção divina',
+      'Uma união indiferente a gênero e compromisso moral'
     ],
     correctIndex: 0,
-    explanation: 'Estabelecido por Deus no Éden (Gênesis 2:18-24) e confirmado por Jesus (Mateus 19:4-6), o casamento é um compromisso mútuo para toda a vida, e os pais devem criar os filhos para amarem e obedecerem ao Senhor (Deut. 6:5-9).',
-    reference: 'Nisto Cremos, Cap. 23 • Gênesis 2:18-25; Efésios 5:21-33; Deuteronômio 6:5-9; Malaquias 4:5-6',
-    hint: 'Foi uma das duas instituições estabelecidas por Deus no próprio Jardim do Éden (junto com o Sábado).'
+    explanation: 'O casamento foi divinamente estabelecido no Éden e confirmado por Jesus como a união para toda a vida entre um homem e uma mulher, em amoroso companheirismo.',
+    reference: 'Nisto Cremos • Crença 23 (Gênesis 2:18-24, Mateus 19:3-9)'
   },
   {
     category: 'NISTO_CREMOS_21_28',
-    subCategory: 'Cap. 24 • O Ministério de Cristo no Santuário Celestial',
-    question: 'Segundo o Capítulo 24 de "Nisto Cremos", em que ano começou a segunda e última fase do ministério expiatório de Cristo no lugar santíssimo do santuário celestial (o Juízo Investigativo)?',
+    subCategory: '24. O Ministério de Cristo no Santuário Celestial',
+    question: 'O que Jesus iniciou em 1844 na segunda fase de Seu ministério sacerdotal (Crença 24)?',
     options: [
-      'Em 1844, ao término do período profético das 2.300 tardes e manhãs de Daniel 8:14',
-      'No ano 31 d.C., imediatamente no dia da crucificação',
-      'No ano 70 d.C., durante a destruição do templo de Jerusalém pelos romanos',
-      'No ano 1950, com a organização mundial dos clubes de jovens'
+      'O Juízo Investigativo e a purificação do Santuário Celestial, prefigurados pelo Dia da Expiação',
+      'A recriação do planeta Terra no céu',
+      'O cancelamento das profecias de Daniel e Apocalipse',
+      'O início do Seu descanso sabático eterno'
     ],
     correctIndex: 0,
-    explanation: 'Há um santuário no Céu, o verdadeiro tabernáculo que o Senhor erigiu (Hebreus 8:1-2). Em 1844, ao fim dos 2.300 anos proféticos de Daniel 8:14, Cristo entrou na segunda fase de Seu ministério para purificar o santuário celestial.',
-    reference: 'Nisto Cremos, Cap. 24 • Daniel 7:9-10; 8:14; Hebreus 8:1-5; Levítico 16',
-    hint: '"Até duas mil e trezentas tardes e manhãs; e o santuário será purificado" (Daniel 8:14).'
+    explanation: 'Há um santuário no Céu. Em 1844, no fim do período profético dos 2.300 dias, Cristo entrou na segunda e última fase de Seu ministério expiatório no Lugar Santíssimo.',
+    reference: 'Nisto Cremos • Crença 24 (Hebreus 8:1-5, Daniel 8:14, Apocalipse 14:6-7)'
   },
   {
     category: 'NISTO_CREMOS_21_28',
-    subCategory: 'Cap. 25 • A Segunda Vinda de Cristo',
-    question: 'Como o Capítulo 25 de "Nisto Cremos" descreve a Segunda Vinda de Cristo ("a bendita esperança da igreja")?',
+    subCategory: '25. A Segunda Vinda de Cristo',
+    question: 'Como será a Segunda Vinda de Jesus à Terra (Crença 25)?',
     options: [
-      'A vinda do Salvador será literal, pessoal, visível e de alcance mundial ("todo olho O verá")',
-      'Será um evento secreto e invisível percebido apenas no coração dos crentes',
-      'Cristo já voltou espiritualmente no século XIX e não haverá retorno visível nas nuvens',
-      'Acontecerá somente depois que a humanidade converter 100% do planeta em mil anos de paz política'
+      'Literal, pessoal, visível a todos os olhos e universal, acompanhada pelos anjos celestiais',
+      'Secreta e invisível, captada apenas por médiuns espirituais',
+      'Apenas uma melhora gradual na moral da humanidade',
+      'Um evento simbólico na mente de cada crente'
     ],
     correctIndex: 0,
-    explanation: 'A segunda vinda de Cristo é a bendita esperança da igreja, o grande clímax do evangelho. Quando Ele voltar, os justos mortos serão ressuscitados e, juntamente com os justos vivos, serão glorificados e levados para o Céu.',
-    reference: 'Nisto Cremos, Cap. 25 • Tito 2:13; Atos 1:9-11; Apocalipse 1:7; 1 Tessalonicenses 4:16-17',
-    hint: 'Apocalipse 1:7 declara: "Eis que vem com as nuvens, e todo olho O verá."'
+    explanation: 'A segunda vinda de Cristo é a bendita esperança da igreja. A vinda será literal, pessoal, visível e universal (Apocalipse 1:7).',
+    reference: 'Nisto Cremos • Crença 25 (Tito 2:13, Atos 1:11, Mateus 24:30)'
   },
   {
     category: 'NISTO_CREMOS_21_28',
-    subCategory: 'Cap. 26 • Morte e Ressurreição',
-    question: 'Segundo o Capítulo 26 de "Nisto Cremos" (Morte e Ressurreição), qual é o estado dos mortos até o dia da ressurreição?',
+    subCategory: '26. Morte e Ressurreição',
+    question: 'Qual é o estado do ser humano na morte segundo as Escrituras (Crença 26)?',
     options: [
-      'A morte é um estado de inconsciência ("sono") para todas as pessoas; os mortos não sabem coisa alguma até a ressurreição',
-      'No instante da morte, as almas sobem imediatamente para o Céu ou descem para um purgatório consciente',
-      'Os mortos podem se comunicar com os vivos através de médiuns e sessões espíritas',
-      'A alma reencarna sucessivas vezes em outros corpos na Terra'
+      'Um sono inconsciente aguardando o dia da ressurreição no retorno de Cristo',
+      'A alma vai imediatamente para o céu, purgatório ou inferno consciente',
+      'Reencarna sucessivamente em novos corpos terrenos',
+      'Torna-se um espírito guia comunicando-se com os vivos'
     ],
     correctIndex: 0,
-    explanation: 'O salário do pecado é a morte, mas Deus, o único que é imortal, concederá vida eterna a Seus remidos. Até aquele dia, a morte é um sono inconsciente (Eclesiastes 9:5-6; João 11:11-14).',
-    reference: 'Nisto Cremos, Cap. 26 • Eclesiastes 9:5-6, 10; João 11:11-14; 1 Tessalonicenses 4:13-17',
-    hint: 'Jesus comparou a morte de Lázaro a um "sono" (João 11:11) e Eclesiastes 9:5 diz que "os mortos não sabem coisa nenhuma".'
+    explanation: 'O salário do pecado é a morte. Mas Deus concederá vida eterna aos Seus remidos. Até aquele dia, a morte é um estado de inconsciência para todas as pessoas.',
+    reference: 'Nisto Cremos • Crença 26 (Eclesiastes 9:5-6, 1 Tessalonicenses 4:13-17)'
   },
   {
     category: 'NISTO_CREMOS_21_28',
-    subCategory: 'Cap. 27 • O Milênio e o Fim do Pecado',
-    question: 'De acordo com o Capítulo 27 de "Nisto Cremos", onde estarão os justos redimidos durante os mil anos (o Milênio de Apocalipse 20) e em que condição estará a Terra?',
+    subCategory: '27. O Milênio e o Fim do Pecado',
+    question: 'Onde os santos estarão e o que farão durante os mil anos (Crença 27)?',
     options: [
-      'Os justos reinarão com Cristo no Céu durante os mil anos, enquanto a Terra ficará desolada, sem habitantes humanos vivos, com Satanás e seus anjos presos às circunstâncias',
-      'Os justos passarão os mil anos construindo cidades na Terra antiga junto com as nações ímpias',
-      'Satanás estará no Céu durante o milênio tentando os salvos',
-      'Durante os mil anos haverá uma segunda oportunidade de salvação para os que rejeitaram a Cristo'
+      'No Céu com Cristo, participando no julgamento dos ímpios, enquanto a Terra jaz desolada com Satanás preso',
+      'Reinando sobre cidades terrenas com pecadores convertidos à força',
+      'Combatendo exércitos alienígenas no espaço sideral',
+      'Dormindo em sepulcros sem consciência'
     ],
     correctIndex: 0,
-    explanation: 'O milênio é o reinado de mil anos de Cristo com Seus santos no Céu, entre a primeira e a segunda ressurreição. Ao fim dos mil anos, a Cidade Santa descerá à Terra, ocorrerá o juízo final e o fogo de Deus purificará a Terra, erradicando para sempre o pecado e os pecadores.',
-    reference: 'Nisto Cremos, Cap. 27 • Apocalipse 20:1-15; 1 Coríntios 6:2-3; Jeremias 4:23-26; Malaquias 4:1',
-    hint: 'Durante os mil anos no Céu, os santos participarão do juízo de revisão (1 Coríntios 6:2-3; Apocalipse 20:4).'
+    explanation: 'O milênio é o reinado de mil anos de Cristo com Seus santos no Céu, entre a primeira e a segunda ressurreições, quando os ímpios mortos serão julgados.',
+    reference: 'Nisto Cremos • Crença 27 (Apocalipse 20, 1 Coríntios 6:2-3)'
   },
   {
     category: 'NISTO_CREMOS_21_28',
-    subCategory: 'Cap. 28 • A Nova Terra',
-    question: 'Como o Capítulo 28 de "Nisto Cremos" (A Nova Terra) encerra as 28 Crenças Fundamentais ao descrever o lar eterno dos remidos?',
+    subCategory: '28. A Nova Terra',
+    question: 'Como será a vida dos salvos na Nova Terra (Crença 28)?',
     options: [
-      'Na Nova Terra, em que habita a justiça, Deus proverá um lar eterno para os remidos; não haverá mais morte, pranto, clamor nem dor, e o grande conflito estará encerrado para sempre',
-      'Os salvos viverão flutuando no espaço sem mundo físico nem atividades criativas',
-      'O pecado voltará a surgir periodicamente a cada milhão de anos',
-      'Deus viverá distante dos redimidos, em outra galáxia inacessível'
+      'Deus habitará com os redimidos face a face; não haverá mais dor, morte, choro nem pecado',
+      'Fantasmas etéreos flutuando em nuvens sem afazeres',
+      'Um ciclo interminável de novas provas morais e tentações',
+      'Uma cópia do mundo atual com as mesmas limitações'
     ],
     correctIndex: 0,
-    explanation: 'Deus fará novas todas as coisas e habitará pessoalmente com Seu povo (Apocalipse 21:1-5). O pecado e os pecadores não mais existirão, e o Universo inteiro declarará que Deus é amor (Naum 1:9; 1 João 4:8).',
-    reference: 'Nisto Cremos, Cap. 28 • Apocalipse 21:1-5; 22:1-5; 2 Pedro 3:13; Isaías 65:17-25',
-    hint: '"E Deus limpará de seus olhos toda lágrima, e não haverá mais morte, nem pranto, nem clamor, nem dor" (Apocalipse 21:4).'
+    explanation: 'Na Nova Terra, na qual habita justiça, Deus proverá um lar eterno para os redimidos. Ali Deus habitará com o Seu povo e não haverá mais sofrimento nem morte.',
+    reference: 'Nisto Cremos • Crença 28 (2 Pedro 3:13, Apocalipse 21:1-7)'
   }
 ];
 
-// ============================================================================
-// MANUAL ADMINISTRATIVO DOS DESBRAVADORES (Organização, Diretoria, Unidades, Classes, Finanças e Eventos)
-// ============================================================================
 export const MANUAL_ADMINISTRATIVO_DBV_QUESTIONS: Omit<QuizQuestionItem, 'id'>[] = [
   {
     category: 'MANUAL_ADMINISTRATIVO',
-    subCategory: 'Filosofia e Faixa Etária',
-    question: 'Segundo o Manual Administrativo do Clube de Desbravadores, qual é a faixa etária oficial atendida pelo Clube de Desbravadores?',
+    subCategory: 'Faixa Etária e Estrutura',
+    question: 'Qual é a faixa etária oficial do Clube de Desbravadores segundo o Manual Administrativo da DSA?',
     options: [
-      'Juvenis e adolescentes de 10 a 15 anos de idade (podendo ingressar no ano em que completam 10 anos)',
-      'Crianças de 6 a 9 anos de idade',
-      'Jovens adultos de 16 a 30 anos exclusivamente',
-      'Qualquer idade a partir dos 4 anos sem separação com os Aventureiros'
+      '10 a 15 anos',
+      '6 a 9 anos',
+      '12 a 18 anos',
+      '8 a 16 anos'
     ],
     correctIndex: 0,
-    explanation: 'O Clube de Desbravadores é um programa oficial da Igreja Adventista do Sétimo Dia voltado especificamente para meninos e meninas de 10 a 15 anos, desenvolvendo de forma harmoniosa as faculdades físicas, mentais, sociais e espirituais.',
-    reference: 'Manual Administrativo dos Desbravadores • Cap. 1 e 2',
-    hint: 'Compreende as 6 classes regulares, dos 10 aos 15 anos.'
-  },
-  {
-    category: 'MANUAL_ADMINISTRATIVO',
-    subCategory: 'Eleição e Diretoria',
-    question: 'De acordo com o Manual Administrativo e o Manual da Igreja, quem elege o Diretor(a) do Clube de Desbravadores da igreja local?',
-    options: [
-      'A Comissão de Nomeações da Igreja local (com aprovação da igreja em reunião regular)',
-      'Exclusivamente os capitães das unidades por votação secreta no acampamento',
-      'O próprio diretor anterior por indicação particular sem passar pela igreja',
-      'A prefeitura municipal da cidade onde o clube se reúne'
-    ],
-    correctIndex: 0,
-    explanation: 'O Diretor do Clube de Desbravadores é um oficial da igreja eleito pela Comissão de Nomeações da igreja local e membro nato da Comissão da Igreja e do Ministério Jovem.',
-    reference: 'Manual Administrativo • Administração e Liderança do Clube',
-    hint: 'Segue o mesmo processo oficial dos demais diretores de departamentos da igreja local.'
-  },
-  {
-    category: 'MANUAL_ADMINISTRATIVO',
-    subCategory: 'Comissões do Clube',
-    question: 'Segundo o Manual Administrativo, quem compõe a Comissão Executiva do Clube de Desbravadores?',
-    options: [
-      'Diretor(a), Diretores Associados, Secretário(a), Tesoureiro(a), Capelão e Pastor Distrital / Ancião Conselheiro',
-      'Apenas os desbravadores de 10 anos recém-admitidos em lenço',
-      'Somente os pais que não possuem cargos no clube',
-      'Apenas o Coordenador Regional e o Departamental da Associação'
-    ],
-    correctIndex: 0,
-    explanation: 'A Comissão Executiva trata do planejamento macro, finanças e decisões administrativas, enquanto a Comissão Regular (Diretoria + Conselheiros + Instrutores) planeja e avalia a execução semanal das unidades e classes.',
-    reference: 'Manual Administrativo • Comissões do Clube',
-    hint: 'Reúne o núcleo diretivo central do clube e a liderança pastoral.'
+    explanation: 'O Clube de Desbravadores atende juvenis e adolescentes de 10 a 15 anos de idade.',
+    reference: 'Manual Administrativo do Clube de Desbravadores • Capítulo 1'
   },
   {
     category: 'MANUAL_ADMINISTRATIVO',
     subCategory: 'Sistema de Unidades',
-    question: 'No Manual Administrativo, qual é o papel do Conselheiro(a) de Unidade dentro do Clube de Desbravadores?',
+    question: 'Quantos membros em média compõem uma Unidade de Desbravadores recomendada pelo Manual?',
     options: [
-      'É o líder adulto (18 anos ou mais, podendo contar com um Conselheiro Associado de 16-17 anos) que acompanha os 6 a 8 desbravadores da unidade, sendo exemplo espiritual, visitando os lares e avaliando as classes',
-      'Apenas cobrar mensalidades na porta da reunião e aplicar punições físicas',
-      'Atuar somente uma vez por ano no dia da investidura',
-      'Substituir o pastor na realização de casamentos e batismos'
+      '6 a 8 desbravadores do mesmo sexo e faixa etária semelhante',
+      '15 a 20 membros mistos',
+      'Exatamente 12 membros sem distinção de idade',
+      '3 a 4 membros independentemente do sexo'
     ],
     correctIndex: 0,
-    explanation: 'O Conselheiro é a peça-chave do Clube de Desbravadores, pois convive diretamente com os juvenis da unidade, conhece suas famílias, lidera o cantinho da unidade e acompanha seu crescimento cristão.',
-    reference: 'Manual Administrativo • O Conselheiro de Unidade',
-    hint: 'Lidera diretamente o "Cantinho da Unidade" e acompanha a vida de cada desbravador.'
+    explanation: 'A unidade é a célula básica do clube, composta de 6 a 8 juvenis do mesmo sexo e idade aproximada, liderados por um conselheiro.',
+    reference: 'Manual Administrativo • O Sistema de Unidades'
   },
   {
     category: 'MANUAL_ADMINISTRATIVO',
-    subCategory: 'Cargos da Unidade',
-    question: 'Segundo o Manual Administrativo, quais são os dois cargos exercidos pelos próprios desbravadores (10 a 15 anos) dentro de cada Unidade e qual é o tempo recomendado de mandato?',
+    subCategory: 'Liderança e Diretoria',
+    question: 'Quem nomeia o Diretor do Clube de Desbravadores na Igreja Local?',
     options: [
-      'Capitão(ã) e Secretário(a) da Unidade, com rodízio recomendado a cada 3 a 6 meses (ou trimestre/semestre) para treinar novos líderes',
-      'Diretor Geral e Tesoureiro da Igreja, com mandato vitalício',
-      'Conselheiro Sênior e Regional, eleitos por 10 anos',
-      'Ancião e Diácono da Unidade, sem troca de funções'
+      'A Comissão de Nomeações e a Comissão da Igreja Local',
+      'Apenas os próprios desbravadores por votação em reunião',
+      'O coordenador regional sem consulta à igreja local',
+      'O clube do distrito em convenção regional'
     ],
     correctIndex: 0,
-    explanation: 'O Capitão porta o banderim e auxilia na liderança e ordem da unidade; o Secretário faz a chamada, registra pontuações e substitui o capitão quando ausente. O rodízio permite que todos desenvolvam liderança.',
-    reference: 'Manual Administrativo • Cargos da Unidade (Capitão e Secretário)',
-    hint: 'Um conduz o banderim da unidade e o outro cuida da frequência e relatórios do cantinho.'
+    explanation: 'O Diretor do Clube é eleito pela Igreja Local através da Comissão de Nomeações da congregação.',
+    reference: 'Manual da Igreja e Manual Administrativo de Desbravadores'
   },
   {
     category: 'MANUAL_ADMINISTRATIVO',
-    subCategory: 'Cerimônia de Admissão em Lenço',
-    question: 'De acordo com o Manual Administrativo, o que o candidato precisa cumprir para ser recebido oficialmente na Cerimônia de Admissão em Lenço?',
+    subCategory: 'Classes Regulares',
+    question: 'Qual é a sequência correta das seis Classes Regulares dos Desbravadores (10 a 15 anos)?',
     options: [
-      'Estar frequentando regularmente o clube (período probatório), memorizar e compreender o Voto e a Lei do Desbravador, conhecer o Hino, os emblemas e a história básica do clube',
-      'Ter concluído todas as 6 classes regulares e o Mestrado em Vida Campestre',
-      'Ter no mínimo 18 anos completos e ser membro da diretoria há 3 anos',
-      'Apenas comprar o uniforme de gala sem conhecer os ideais do clube'
+      'Amigo, Companheiro, Pesquisador, Pioneiro, Excursionista e Guia',
+      'Luminar, Amigo, Guia, Capitão, Pioneiro e Líder',
+      'Abelhinhas, Luminares, Edificadores, Amigo e Guia',
+      'Companheiro, Amigo, Pioneiro, Pesquisador, Guia e Excursionista'
     ],
     correctIndex: 0,
-    explanation: 'A Admissão em Lenço marca o ingresso oficial do juvenil na família mundial dos Desbravadores, após demonstrar compromisso com os ideais (Voto, Lei, Hino) e frequência regular.',
-    reference: 'Manual Administrativo • Cerimônias Oficiais (Admissão em Lenço)',
-    hint: 'É a primeira grande cerimônia do desbravador ao receber o lenço amarelo.'
+    explanation: 'A sequência oficial das classes é: Amigo (10 anos), Companheiro (11 anos), Pesquisador (12 anos), Pioneiro (13 anos), Excursionista (14 anos) e Guia (15 anos).',
+    reference: 'Manual Administrativo • Classes Regulares e Avançadas'
   },
   {
     category: 'MANUAL_ADMINISTRATIVO',
-    subCategory: 'Finanças e Patrimônio',
-    question: 'Segundo o Manual Administrativo, como devem ser geridos os recursos financeiros e o patrimônio (barracas, equipamentos) do Clube de Desbravadores?',
+    subCategory: 'Seguro e SGC',
+    question: 'Segundo as normas da DSA, quando o seguro anual do desbravador e voluntário deve ser ativado?',
     options: [
-      'Todo movimento financeiro do clube deve passar pela Tesouraria da Igreja local (conta específica do clube), com recibos e relatórios transparentes, e todo patrimônio pertence à igreja local',
-      'O dinheiro do clube deve ser guardado na conta pessoal privada do diretor sem prestação de contas à igreja',
-      'O clube não pode ter tesoureiro nem livro de patrimônio',
-      'Caso o diretor mude de cidade, ele leva consigo as barracas e os fundos financeiros do clube'
+      'Antes do desbravador ou líder participar de qualquer atividade oficial, cadastrado no SGC',
+      'Apenas se o clube for viajar para outro país',
+      'Somente após o jovem ser investido em lenço',
+      'O seguro é opcional e cabe a cada família decidir'
     ],
     correctIndex: 0,
-    explanation: 'O Tesoureiro do Clube trabalha em estreita harmonia com o Tesoureiro da Igreja local; todas as receitas e despesas são auditáveis pela igreja, e os bens adquiridos pertencem ao patrimônio da congregação.',
-    reference: 'Manual Administrativo • Finanças, Orçamento e Patrimônio do Clube',
-    hint: 'O clube é um ministério oficial da igreja local e opera integrado à tesouraria da igreja.'
-  },
-  {
-    category: 'MANUAL_ADMINISTRATIVO',
-    subCategory: 'Seguro Anual e SGC',
-    question: 'O que determina o Manual Administrativo sobre o Seguro Anual Obrigatório e o cadastro no Sistema de Gerenciamento de Clubes (SGC) para saídas, acampamentos e Camporis?',
-    options: [
-      'Todo membro e líder deve estar devidamente cadastrado e com o Seguro Anual ativo no SGC, além de possuir autorização expressa assinada pelos pais/responsáveis e aprovação da Comissão da Igreja',
-      'O seguro é necessário apenas para viagens internacionais fora da América do Sul',
-      'Menores de 15 anos podem viajar e acampar sem autorização dos pais desde que o capitão permita',
-      'O clube pode realizar acampamentos secretos sem comunicar o pastor nem a comissão da igreja'
-    ],
-    correctIndex: 0,
-    explanation: 'A segurança dos juvenis é prioridade absoluta: nenhuma atividade externa ou acampamento pode ocorrer sem aprovação da Comissão da Igreja, autorização assinada pelos pais, ficha médica atualizada e Seguro Anual ativo no SGC.',
-    reference: 'Manual Administrativo • Segurança, Seguro Anual e Acampamentos',
-    hint: 'Envolve o SGC, Seguro Anual, Ficha Médica e Autorização dos Pais.'
-  },
-  {
-    category: 'MANUAL_ADMINISTRATIVO',
-    subCategory: 'Ordem Unida e Banderim',
-    question: 'Conforme o Manual Administrativo e o Regulamento de Uniformes (RUD), quais são as medidas oficiais do Banderim de Unidade e da Bandeira Oficial dos Desbravadores?',
-    options: [
-      'Banderim: 36 cm de altura no mastro por 55 cm de comprimento (estreitando na ponta), em mastro de 1,70 m a 2,00 m; Bandeira Oficial: 90 cm x 135 cm dividida em 4 partes (azul e branca) com o emblema D1 no centro',
-      'Banderim quadrado de 1 metro por 1 metro na cor preta; Bandeira redonda toda vermelha',
-      'Não existem medidas nem cores padronizadas para a bandeira e o banderim',
-      'O banderim deve conter apenas propagandas comerciais e nenhuma insígnia do clube'
-    ],
-    correctIndex: 0,
-    explanation: 'A Bandeira Oficial dos Desbravadores (criada por Henry Bergh e Helen Hobbs em 1948) mede 90 x 135 cm, com quadrantes superior esquerdo e inferior direito em azul royal e os outros dois em branco, trazendo o emblema D1 ao centro e o nome do clube bordado no quadrante inferior direito.',
-    reference: 'Manual Administrativo • Bandeira Oficial e Banderim de Unidade',
-    hint: 'A bandeira oficial é dividida em 4 retângulos (azul e branco) com o triângulo D1 no centro.'
-  },
-  {
-    category: 'MANUAL_ADMINISTRATIVO',
-    subCategory: 'Disciplina Cristã no Clube',
-    question: 'Segundo o Manual Administrativo, qual é o objetivo e o princípio orientador da disciplina no Clube de Desbravadores?',
-    options: [
-      'A disciplina deve ser redentiva, preventiva e educativa, baseada no amor cristão, no diálogo e no domínio próprio — jamais utilizando castigos físicos, humilhações ou exercícios punitivos',
-      'Aplicar flexões físicas exaustivas e exposição pública para corrigir erros',
-      'Expulsar sumariamente qualquer juvenil na primeira falha sem conversar com os pais',
-      'Não ter nenhuma regra de convivência ou horário nas reuniões'
-    ],
-    correctIndex: 0,
-    explanation: 'O Manual Administrativo proíbe terminantemente qualquer castigo físico, moral ou exercício físico punitivo ("pagar flexões"). A verdadeira disciplina busca conquistar o coração do juvenil para o autogoverno e para Cristo.',
-    reference: 'Manual Administrativo • Princípios de Disciplina no Clube',
-    hint: 'A disciplina adventista é sempre redentora e proíbe castigos físicos ou constrangimento.'
+    explanation: 'Todos os membros ativos devem estar segurados antes de iniciar as atividades do ano pelo Sistema de Gerenciamento de Clubes (SGC).',
+    reference: 'Manual Administrativo • Segurança e Seguro Anual'
   }
 ];
 
-// ============================================================================
-// HISTÓRIA, IDEAIS, EMBLEMAS E MANUAL — DESBRAVADORES E AVENTUREIROS
-// ============================================================================
 export const DESBRAVADORES_IDEALS_MANUAL_QUESTIONS: Omit<QuizQuestionItem, 'id'>[] = [
   {
     category: 'HISTORIA_MANUAL',
-    subCategory: 'Hino e Ideais',
-    question: 'Quem compôs a letra e a música do Hino Oficial dos Desbravadores e em que ano ele foi escrito?',
+    subCategory: 'Voto dos Desbravadores',
+    question: 'Qual é o texto exato do Voto dos Desbravadores?',
     options: [
-      'Henry T. Bergh, em 1949',
-      'John Hancock, em 1946',
-      'Lawrence Skinner, em 1950',
-      'Arthur W. Spalding, em 1921'
+      'Pela graça de Deus, serei puro, bondoso e leal; guardarei a Lei do Desbravador, serei servo de Deus e amigo de todos.',
+      'Prometo amar a Deus e cuidar da natureza com pureza e honra.',
+      'Serei sempre fiel ao meu clube e aos meus amigos em todas as ocasiões.',
+      'Pela minha própria força serei valente e vencerei todas as batalhas.'
     ],
     correctIndex: 0,
-    explanation: 'O pastor Henry T. Bergh compôs o Hino dos Desbravadores em maio de 1949, enquanto dirigia rumo a uma reunião na Califórnia.',
-    reference: 'Manual Administrativo do Clube de Desbravadores',
-    hint: 'Foi escrito um ano antes do reconhecimento mundial oficial de 1950.'
+    explanation: 'O Voto dos Desbravadores é: "Pela graça de Deus, serei puro, bondoso e leal; guardarei a Lei do Desbravador, serei servo de Deus e amigo de todos."',
+    reference: 'Ideais Oficiais dos Desbravadores'
   },
   {
     category: 'HISTORIA_MANUAL',
-    subCategory: 'História Mundial',
-    question: 'Em que ano a Associação Geral da Igreja Adventista do Sétimo Dia oficializou mundialmente o Clube de Desbravadores?',
+    subCategory: 'Lei dos Desbravadores',
+    question: 'Quantos itens compõem a Lei dos Desbravadores?',
     options: [
-      '1950',
-      '1946',
-      '1929',
-      '1959'
+      '8 itens: Observar a devoção matinal, cumprir a parte que me toca, cuidar do meu corpo...',
+      '10 itens como os Dez Mandamentos',
+      '5 itens fundamentais',
+      '12 itens como as tribos de Israel'
     ],
     correctIndex: 0,
-    explanation: 'Em 24 de agosto de 1950, a Associação Geral reconheceu oficialmente o programa do Clube de Desbravadores em âmbito mundial, tendo Lawrence Skinner como primeiro diretor mundial.',
-    reference: 'História Mundial dos Desbravadores',
-    hint: 'Meados do século XX, logo após a composição do hino em 1949.'
-  },
-  {
-    category: 'HISTORIA_MANUAL',
-    subCategory: 'Emblemas e RUD',
-    question: 'Quem desenhou o emblema triangular oficial do Clube de Desbravadores em 1946?',
-    options: [
-      'John Hancock',
-      'C. Lester Bond',
-      'J. H. N. Tindall',
-      'Malcolm Allen'
-    ],
-    correctIndex: 0,
-    explanation: 'O pastor John Hancock, então diretor de jovens da Associação do Sudeste da Califórnia, desenhou o triângulo dos Desbravadores em 1946.',
-    reference: 'Manual Administrativo • Emblemas Oficiais',
-    hint: 'Era conhecido por tocar acordeão e desenhar cartazes para os jovens.'
-  },
-  {
-    category: 'HISTORIA_MANUAL',
-    subCategory: 'Emblemas e RUD',
-    question: 'No emblema oficial D1 dos Desbravadores, o que simbolizam o Escudo e a Espada?',
-    options: [
-      'O Escudo da Fé (Gênesis 15:1 / Efésios 6:16) e a Espada do Espírito, que é a Palavra de Deus (Efésios 6:17)',
-      'A proteção do acampamento e a coragem física nas atividades de campo',
-      'A justiça dos reis de Israel e a força militar de Davi',
-      'A honra da liderança e a disciplina da ordem unida'
-    ],
-    correctIndex: 0,
-    explanation: 'O escudo representa a fé que protege o cristão e a espada simboliza a Bíblia Sagrada, a Palavra de Deus, em uma guerra espiritual contra o pecado.',
-    reference: 'Efésios 6:16-17 • Regulamento de Uniformes (RUD)',
-    hint: 'Baseia-se na armadura do cristão descrita pelo apóstolo Paulo.'
-  },
-  {
-    category: 'HISTORIA_MANUAL',
-    subCategory: 'Emblemas e RUD',
-    question: 'Qual é o significado oficial das 4 cores presentes no emblema dos Desbravadores (Vermelho, Amarelo/Ouro, Branco e Azul)?',
-    options: [
-      'Vermelho: Sacrifício de Cristo; Amarelo: Excelência; Branco: Pureza; Azul: Lealdade',
-      'Vermelho: Coragem; Amarelo: Riqueza; Branco: Paz; Azul: Céu',
-      'Vermelho: Fogo do Espírito; Amarelo: Sol da Justiça; Branco: Santidade; Azul: Verdade',
-      'Vermelho: Sangue; Amarelo: Luz; Branco: Fé; Azul: Esperança'
-    ],
-    correctIndex: 0,
-    explanation: 'Vermelho lembra o sangue e sacrifício de Cristo (João 3:16); Amarelo/Ouro representa a excelência dos ideais; Branco a pureza (Apoc. 3:5); e Azul a lealdade ao Senhor, à família e ao clube.',
-    reference: 'Manual Administrativo • Significado dos Emblemas',
-    hint: 'Pense em Sacrifício, Excelência, Pureza e Lealdade.'
-  },
-  {
-    category: 'HISTORIA_MANUAL',
-    subCategory: 'História na América do Sul',
-    question: 'Qual foi o primeiro Clube de Desbravadores oficializado na América do Sul (em 1955) e em que país surgiu?',
-    options: [
-      'Clube "Conquistadores de Miraflores", em Lima, Peru',
-      'Clube "Pioneiros do Catetinho", em Brasília, Brasil',
-      'Clube "Cruzeiro do Sul", em Buenos Aires, Argentina',
-      'Clube "Vigia do Pacífico", em Santiago, Chile'
-    ],
-    correctIndex: 0,
-    explanation: 'Em 1955, na igreja de Miraflores (Lima, Peru), foi organizado o primeiro clube sul-americano sob a liderança do casal Nercida e Armando Ruiz, após visita do Pr. Jairo Tavares de Araújo.',
-    reference: 'História dos Desbravadores na Divisão Sul-Americana',
-    hint: 'Surgiu no bairro de Miraflores, capital peruana.'
-  },
-  {
-    category: 'HISTORIA_MANUAL',
-    subCategory: 'História no Brasil',
-    question: 'Em qual cidade brasileira foi organizado o primeiro Clube de Desbravadores do Brasil em 1959, com apoio do Pr. Wilson Sarli?',
-    options: [
-      'Ribeirão Preto (SP)',
-      'Curitiba (PR)',
-      'Santo André (SP)',
-      'Lajeado (RS)'
-    ],
-    correctIndex: 0,
-    explanation: 'Em 1959, na cidade de Ribeirão Preto (interior de São Paulo), foi organizado o primeiro clube brasileiro sob a direção de Edgar Turcato e apoio do Pr. Wilson Sarli.',
-    reference: 'História dos Desbravadores no Brasil',
-    hint: 'Importante cidade do interior do estado de São Paulo.'
-  },
-  {
-    category: 'HISTORIA_MANUAL',
-    subCategory: 'História na América do Sul',
-    question: 'Onde e quando foi realizado o 1º Campori Sul-Americano de Desbravadores?',
-    options: [
-      'Foz do Iguaçu (PR), em dezembro de 1983 / janeiro de 1984',
-      'Ponta Grossa (PR), em janeiro de 1994',
-      'Barretos (SP), em janeiro de 2005',
-      'Santa Helena (PR), em janeiro de 2014'
-    ],
-    correctIndex: 0,
-    explanation: 'O 1º Campori Sul-Americano ("Da Natureza ao Criador") aconteceu em Foz do Iguaçu (PR), de 28 de dezembro de 1983 a 4 de janeiro de 1984, dirigido pelo Pr. Cláudio Belz.',
-    reference: 'História dos Camporis da DSA',
-    hint: 'Realizado na cidade das Cataratas do Iguaçu.'
-  },
-  {
-    category: 'HISTORIA_MANUAL',
-    subCategory: 'Manual Administrativo',
-    question: 'Qual é a sequência correta das 6 Classes Regulares dos Desbravadores e suas respectivas idades iniciais?',
-    options: [
-      'Amigo (10), Companheiro (11), Pesquisador (12), Pioneiro (13), Excursionista (14) e Guia (15)',
-      'Amigo (10), Pesquisador (11), Companheiro (12), Pioneiro (13), Guia (14) e Excursionista (15)',
-      'Companheiro (10), Amigo (11), Pioneiro (12), Pesquisador (13), Excursionista (14) e Guia (15)',
-      'Amigo (9), Companheiro (10), Pesquisador (11), Pioneiro (12), Excursionista (13) e Guia (14)'
-    ],
-    correctIndex: 0,
-    explanation: 'As classes regulares atendem juvenis de 10 a 15 anos na ordem: Amigo (Azul, 10), Companheiro (Vermelho, 11), Pesquisador (Verde, 12), Pioneiro (Cinza, 13), Excursionista (Vinho, 14) e Guia (Amarelo, 15).',
-    reference: 'Manual Administrativo • Currículo das Classes',
-    hint: 'Começa em Amigo aos 10 anos e encerra em Guia aos 15 anos.'
-  },
-  {
-    category: 'HISTORIA_MANUAL',
-    subCategory: 'Ideais',
-    question: 'Qual item abaixo faz parte dos 8 pontos da Lei do Desbravador ("A Lei do Desbravador ordena-me...")?',
-    options: [
-      'Cumprir fielmente a parte que me corresponde',
-      'Ser sempre obediente e ajudar em casa',
-      'Prometer fidelidade à Bíblia Sagrada',
-      'Levar a mensagem do advento a todo o mundo'
-    ],
-    correctIndex: 0,
-    explanation: 'Os 8 itens da Lei do Desbravador são: 1) Observar a devoção matinal; 2) Cumprir fielmente a parte que me corresponde; 3) Cuidar de meu corpo; 4) Manter a consciência limpa; 5) Ser cortês e obediente; 6) Andar com reverência na casa de Deus; 7) Ter sempre um cântico no coração; 8) Ir aonde Deus mandar.',
-    reference: 'Ideais Oficiais dos Desbravadores',
-    hint: 'É o segundo item da Lei do Desbravador.'
-  },
-  {
-    category: 'HISTORIA_MANUAL',
-    subCategory: 'Ideais',
-    question: 'Qual é o texto oficial do LEMA e do OBJETIVO do Ministério de Desbravadores / Jovens?',
-    options: [
-      'Lema: "O amor de Cristo me motiva" • Objetivo: "Salvar do pecado e guiar no serviço"',
-      'Lema: "A mensagem do advento a todo o mundo" • Objetivo: "Pela graça de Deus serei puro"',
-      'Lema: "Servir a Deus e à pátria" • Objetivo: "Amar ao próximo como a mim mesmo"',
-      'Lema: "Sempre alerta para servir" • Objetivo: "Guardar a lei dos Desbravadores"'
-    ],
-    correctIndex: 0,
-    explanation: 'O Alvo é "A mensagem do advento a todo o mundo em minha geração"; o Lema é "O amor de Cristo me motiva" (2 Coríntios 5:14); e o Objetivo é "Salvar do pecado e guiar no serviço".',
-    reference: 'Manual Administrativo • Ideais do Clube',
-    hint: 'Inspirado em 2 Coríntios 5:14.'
-  },
-  {
-    category: 'HISTORIA_MANUAL',
-    subCategory: 'Manual Administrativo',
-    question: 'No sistema de unidades do Clube de Desbravadores, qual é a composição ideal de uma unidade?',
-    options: [
-      'De 6 a 8 desbravadores do mesmo sexo, liderados por um Conselheiro(a), com Capitão e Secretário escolhidos entre os membros',
-      'De 12 a 15 desbravadores mistos, liderados diretamente pelo Diretor Associado',
-      'De 4 a 5 desbravadores de todas as idades sem cargos internos',
-      'Até 20 desbravadores divididos apenas por ordem alfabética'
-    ],
-    correctIndex: 0,
-    explanation: 'A unidade é o coração do clube: composta por 6 a 8 membros (separados por sexo e faixa etária próxima), acompanhados por um Conselheiro(a) maior de 16/18 anos, tendo um Capitão e um Secretário.',
-    reference: 'Manual Administrativo • Sistema de Unidades',
-    hint: 'A unidade é um pequeno grupo de 6 a 8 membros.'
+    explanation: 'A Lei do Desbravador contém 8 preceitos sagrados que norteiam a vida do jovem cristão.',
+    reference: 'Manual dos Desbravadores • Ideais'
   }
 ];
 
 export const AVENTUREIROS_IDEALS_MANUAL_QUESTIONS: Omit<QuizQuestionItem, 'id'>[] = [
   {
     category: 'HISTORIA_MANUAL',
+    subCategory: 'Voto dos Aventureiros',
+    question: 'Qual é o Voto oficial do Clube de Aventureiros?',
+    options: [
+      'Por amor a Jesus, farei sempre o meu melhor.',
+      'Pela graça de Deus serei leal e amigo de todos.',
+      'Prometo ser obediente em tudo aos meus pais.',
+      'Serei o mais rápido e forte nas brincadeiras.'
+    ],
+    correctIndex: 0,
+    explanation: 'O Voto dos Aventureiros é: "Por amor a Jesus, farei sempre o meu melhor."',
+    reference: 'Manual Administrativo do Clube de Aventureiros • Ideais'
+  },
+  {
+    category: 'MANUAL_ADMINISTRATIVO',
     subCategory: 'Classes dos Aventureiros',
-    question: 'Qual é a sequência correta das 4 Classes dos Aventureiros e suas respectivas idades e cores?',
+    question: 'Quais são as 4 Classes oficiais dos Aventureiros (6 a 9 anos)?',
     options: [
-      'Abelhinhas Laboriosas (6 anos, Azul Claro), Luminares (7 anos, Laranja), Edificadores (8 anos, Azul Escuro) e Mãos Ajudadoras (9 anos, Vinho/Bordô)',
-      'Luminares (6 anos), Abelhinhas Laboriosas (7 anos), Edificadores (8 anos) e Mãos Ajudadoras (9 anos)',
-      'Abelhinhas Laboriosas (5 anos), Edificadores (6 anos), Luminares (7 anos) e Mãos Ajudadoras (8 anos)',
-      'Pequenos Amigos (6 anos), Luminares (7 anos), Construtores (8 anos) e Ajudantes (9 anos)'
+      'Abelhinhas Laboriosas (6a), Luminares (7a), Edificadores (8a) e Mãos Ajudadoras (9a)',
+      'Amigo, Companheiro, Pesquisador e Pioneiro',
+      'Formiguinhas, Abelhas, Castores e Estrelinhas',
+      'Luminares, Mãos Amigas, Guias e Exploradores'
     ],
     correctIndex: 0,
-    explanation: 'O currículo oficial dos Aventureiros atende crianças de 6 a 9 anos: Abelhinhas Laboriosas (6), Luminares (7), Edificadores (8) e Mãos Ajudadoras (9).',
-    reference: 'Manual Administrativo do Clube de Aventureiros',
-    hint: 'Começa aos 6 anos com as Abelhinhas Laboriosas.'
-  },
-  {
-    category: 'HISTORIA_MANUAL',
-    subCategory: 'Ideais dos Aventureiros',
-    question: 'Qual é o texto oficial do VOTO do Clube de Aventureiros?',
-    options: [
-      '"Por amor a Jesus, farei sempre o meu melhor."',
-      '"Pela graça de Deus, serei puro, bondoso e leal."',
-      '"Prometo ajudar em casa e ser amigo de todos."',
-      '"O amor de Cristo me motiva a fazer o bem."'
-    ],
-    correctIndex: 0,
-    explanation: 'O Voto dos Aventureiros é curto, significativo e adaptado à faixa etária infantil: "Por amor a Jesus, farei sempre o meu melhor."',
-    reference: 'Ideais Oficiais dos Aventureiros',
-    hint: 'Tem apenas 9 palavras e começa com "Por amor a Jesus...".'
-  },
-  {
-    category: 'HISTORIA_MANUAL',
-    subCategory: 'Ideais dos Aventureiros',
-    question: 'Quantos itens compõem a Lei do Aventureiro ("Jesus me ajuda a ser...") e quais são eles?',
-    options: [
-      '5 itens: Obediente, Puro, Reverente, Bondoso e Colaborador',
-      '8 itens: Devoção matinal, Fiel, Cuidar do corpo, Consciência limpa, Cortês, Reverente, Cântico e Ir aonde Deus mandar',
-      '3 itens: Obediente aos pais, Amigo da natureza e Fiel a Jesus',
-      '4 itens: Puro, Bondoso, Leal e Servo de Deus'
-    ],
-    correctIndex: 0,
-    explanation: 'A Lei do Aventureiro declara: "Jesus me ajuda a ser: obediente, puro, reverente, bondoso e colaborador."',
-    reference: 'Manual Administrativo • Ideais dos Aventureiros',
-    hint: 'São 5 qualidades começando com "Obediente".'
-  },
-  {
-    category: 'HISTORIA_MANUAL',
-    subCategory: 'Hino dos Aventureiros',
-    question: 'Quem é o autor do Hino Oficial dos Aventureiros ("Somos Aventureiros alegres, confiantes no amigo Jesus...")?',
-    options: [
-      'Pr. Wanderson Paiva (em 1995)',
-      'Pr. Henry T. Bergh (em 1949)',
-      'Pr. John Hancock (em 1972)',
-      'Pr. Erton Köhler (em 1998)'
-    ],
-    correctIndex: 0,
-    explanation: 'O Hino Oficial dos Aventureiros na Divisão Sul-Americana foi composto pelo Pr. Wanderson Paiva em 1995.',
-    reference: 'Manual Administrativo dos Aventureiros',
-    hint: 'Foi composto no Brasil na década de 1990.'
-  },
-  {
-    category: 'HISTORIA_MANUAL',
-    subCategory: 'História dos Aventureiros',
-    question: 'Em que ano a Associação Geral oficializou mundialmente o Ministério do Clube de Aventureiros como departamento próprio?',
-    options: [
-      '1989 / 1990 (com Teresa Reeve no desenvolvimento do currículo)',
-      '1950 (junto com os Desbravadores)',
-      '2002',
-      '1965'
-    ],
-    correctIndex: 0,
-    explanation: 'Após experiências pioneiras desde 1972, em 1989/1990 a Associação Geral aprovou o currículo mundial oficial do Clube de Aventureiros e a criação da Rede Familiar dos Aventureiros (RFA).',
-    reference: 'História Mundial dos Aventureiros',
-    hint: 'Final da década de 1980 e início de 1990.'
-  },
-  {
-    category: 'HISTORIA_MANUAL',
-    subCategory: 'Rede Familiar (RFA)',
-    question: 'Qual é o papel fundamental da Rede Familiar dos Aventureiros (RFA) no clube?',
-    options: [
-      'Integrar e capacitar os pais/responsáveis para participarem ativamente do desenvolvimento espiritual, físico e social dos filhos junto ao clube',
-      'Substituir os pais nas responsabilidades escolares das crianças',
-      'Organizar apenas acampamentos de sobrevivência na selva',
-      'Realizar cobrança financeira mensal sem participação pedagógica'
-    ],
-    correctIndex: 0,
-    explanation: 'O Clube de Aventureiros existe para apoiar os pais na missão de educar os filhos para Jesus; por isso, a Rede Familiar (RFA) envolve diretamente a família nas atividades e classes.',
-    reference: 'Manual Administrativo dos Aventureiros • RFA',
-    hint: 'O clube de Aventureiros trabalha em parceria direta com o lar.'
+    explanation: 'As 4 classes oficiais são Abelhinhas Laboriosas (6 anos), Luminares (7 anos), Edificadores (8 anos) e Mãos Ajudadoras (9 anos).',
+    reference: 'Manual Administrativo de Aventureiros • Classes'
   }
 ];
-

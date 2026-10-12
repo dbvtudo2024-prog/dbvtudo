@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { jsPDF } from 'jspdf';
@@ -10812,14 +10811,6 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
   const renderDashboard = () => {
     const quickAccessButtons = [
-      { 
-        label: 'Prova Ao Vivo', 
-        subtitle: 'QR Code e Salas', 
-        icon: QrCode, 
-        gradient: 'from-[#be123c] via-[#e11d48] to-[#f43f5e]', 
-        view: 'LIVE_EXAM', 
-        show: true 
-      },
       { 
         label: 'Cultura', 
         subtitle: 'História e Ideais', 
