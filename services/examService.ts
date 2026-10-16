@@ -28,47 +28,60 @@ export interface GenerateExamOptions {
   onProgress?: (status: string, percent: number) => void;
 }
 
+import { generateExamQuestionsWithAi } from './examAiService';
+
 export async function generateSpecialtyExamQuestions(
   specialty: Especialidade,
   options?: GenerateExamOptions
 ): Promise<ExamQuestion[]> {
-  const parsed = parseAndNormalizeRequirements(specialty.requisitos || []);
-  const count = options?.questionCount || 10;
-  const questions: ExamQuestion[] = [];
+  const count = typeof options?.questionCount === 'number' && options.questionCount > 0 ? options.questionCount : 10;
+  options?.onProgress?.('Elaborando questões oficiais com IA...', 25);
 
-  options?.onProgress?.('Elaborando banco de questões...', 30);
+  try {
+    const aiQuestions = await generateExamQuestionsWithAi({
+      subject: specialty.nome,
+      areaOrCategory: specialty.area,
+      requirementsOrContext: specialty.requisitos,
+      targetCount: count,
+      clubType: options?.clubType || 'PATHFINDER',
+      onProgress: (status, pct) => options?.onProgress?.(status, Math.min(85, pct))
+    });
 
-  const reqList = parsed.items;
-  for (let i = 0; i < count; i++) {
-    const req = reqList[i % reqList.length];
-    const qNum = i + 1;
-    const reqRef = req ? `Requisito ${req.number}` : undefined;
-    const reqText = req ? req.text : `Conhecimento prático da especialidade de ${specialty.nome}`;
+    return aiQuestions.map((q, idx) => ({
+      number: idx + 1,
+      question: q.question,
+      options: q.options,
+      correctIndex: q.correctIndex,
+      answer: q.explanation || q.options[q.correctIndex],
+      referenceRequirement: `Requisito ${idx + 1}`
+    }));
+  } catch (err) {
+    console.warn('Fallback na elaboração de questões do exame:', err);
+    const parsed = parseAndNormalizeRequirements(specialty.requisitos || []);
+    const reqList = parsed.items;
+    const questions: ExamQuestion[] = [];
 
-    if (options?.formatMode === 'DISCURSIVE') {
+    for (let i = 0; i < count; i++) {
+      const req = reqList[i % Math.max(1, reqList.length)];
+      const qNum = i + 1;
+      const reqRef = req ? `Requisito ${req.number}` : undefined;
+      const reqText = req ? req.text : `Conhecimento prático da especialidade de ${specialty.nome}`;
+
       questions.push({
         number: qNum,
-        question: `Explique detalhadamente: ${reqText}`,
-        answer: 'Resposta esperada com base no cumprimento do requisito oficial.',
-        referenceRequirement: reqRef
-      });
-    } else {
-      questions.push({
-        number: qNum,
-        question: `A respeito de "${specialty.nome}", analise o requisito: "${reqText}". Qual afirmativa está CORRETA?`,
+        question: `Sobre o aprendizado de "${specialty.nome}", analise a aplicação prática do item: "${reqText}". Qual alternativa representa o procedimento oficial correto?`,
         options: [
-          `O cumprimento integral das normas estabelecidas para esta especialidade.`,
-          `Executar de forma simplificada sem registro ou acompanhamento do instrutor.`,
-          `Substituir totalmente por outra atividade sem autorização da diretoria.`,
-          `Apenas ler o texto sem realizar qualquer demonstração prática.`
+          `Cumprimento integral e demonstração prática do requisito junto à unidade.`,
+          `Execução simplificada sem acompanhamento ou aprovação do instrutor.`,
+          `Substituição por atividade recreativa não homologada no manual.`,
+          `Apenas leitura rápida sem realização dos exercícios práticos solicitados.`
         ],
         correctIndex: 0,
         referenceRequirement: reqRef
       });
     }
+    return questions;
   }
-
-  return questions;
 }
 
 export async function generateSpecialtyExamPdf(

@@ -6,14 +6,38 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.1.0';
-export const APP_BUILD_DATE = '12 de Outubro de 2026';
+export const APP_VERSION = '3.1.2';
+export const APP_BUILD_DATE = '16 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '3.1.2',
+    date: '16/10/2026',
+    tag: 'NOVO',
+    title: 'Gerador Didático de Slides com IA (PowerPoint), Respostas Oficiais Completas e Notificações de Versões Ativas',
+    changes: [
+      'Gerador de Slides Didáticos com IA em Especialidades: Todas as questões e requisitos oficiais agora são respondidos de forma completa e explicativa com IA didática (Gemini 3.5 Flash Lite), acompanhados de pontos fundamentais de fixação, dinâmicas práticas para a unidade e conselhos pedagógicos ao instrutor.',
+      'Design Profissional em PowerPoint (.pptx): Slides com identidade visual oficial dos Desbravadores temática por área (Natureza em verde floresta, Missionárias em azul real, Habilidades Manuais em ciano, etc.), capa moderna com dados do clube/unidade, sumário dos requisitos, slides dedicados e encerramento com os Ideais.',
+      'Central de Notificações de Atualizações Ativada: O aplicativo agora notifica ativamente quando uma nova versão é lançada, além de apresentar uma notificação de boas-vindas com o resumo de novidades para quem acabou de atualizar o app.',
+      'Visualizador de Itens do Banco de Dados: Sincronização e exibição imediata do número e do enunciado dos requisitos oficiais dentro do modal de geração de apresentações e provas.',
+      'Resiliência e Alta Disponibilidade de Modelos IA: Atualização da infraestrutura do Gemini para Gemini 3.5 Flash Lite com fallback automático em caso de alta demanda nos servidores da Google.'
+    ]
+  },
+  {
+    version: '3.1.1',
+    date: '16/10/2026',
+    tag: 'ATUAL',
+    title: 'Notificações Automáticas de Atualizações & Estabilidade de Sincronização',
+    changes: [
+      'Notificação Imediata de Nova Versão: O sistema de verificação de atualizações agora detecta instantaneamente quando uma nova versão é publicada na nuvem, emitindo alerta visual na tela e notificação nativa no celular/computador com botão "Atualizar Agora".',
+      'Correção de Sincronização em Nuvem: Resolvida a inicialização do cliente em tempo real (createClient) e o escopo de ClubType em supabaseService, restaurando o sincronismo automático e estabilidade de dados entre múltiplos aparelhos.',
+      'Melhorias na Prova Ao Vivo: Lista de participantes com layout compacto sem poluição visual, alerta anti-cola em tela cheia com proteção contra saídas de aba, e prevenção de desligamento de tela durante a realização da prova.'
+    ]
+  },
+  {
     version: '3.1.0',
     date: '12/10/2026',
-    tag: 'NOVO',
+    tag: 'ATUAL',
     title: 'Nisto Cremos (Cap. 1-10, 11-20 e 21-28), Manuais na Prova dos Livros e Círculo Giratório de Participantes no Telão',
     changes: [
       'Categorias do Livro "Nisto Cremos" na Prova Ao Vivo: Ao selecionar o livro Nisto Cremos, escolha entre Capítulos 1 a 10, Capítulos 11 a 20, Capítulos 21 a 28 ou Todos os Capítulos (1 a 28), com banco oficial de questões específico para cada faixa de capítulos.',

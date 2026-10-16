@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
+import { GoogleGenAI } from '@google/genai';
 import { ClubType, Especialidade } from '../types';
 import {
   supabaseQfpy,
@@ -18,6 +19,7 @@ import {
   fetchManuaisAVT,
   resolveGeminiApiKey
 } from '../services/supabaseService';
+import { generateExamQuestionsWithAi, buildSmartFallbackQuestions } from '../services/examAiService';
 import {
   NISTO_CREMOS_1_10_QUESTIONS,
   NISTO_CREMOS_11_20_QUESTIONS,
@@ -2625,122 +2627,18 @@ const LiveSpecialtyExam: React.FC<LiveSpecialtyExamProps> = ({
         reqs = await fetchEspecialidadeRequisitos(club, spec.id);
       }
 
-      const clubLabel = isPathfinder ? 'Clube de Desbravadores' : 'Clube de Aventureiros';
-      const reqsContext =
-        reqs.length > 0
-          ? `Requisitos oficiais cadastrados para a especialidade "${spec.nome}":\n${reqs
-              .map((r, i) => `${i + 1}. ${r}`)
-              .join('\n')}`
-          : `Especialidade oficial "${spec.nome}" da área "${spec.area}" do ${clubLabel}.`;
+      const generated = await generateExamQuestionsWithAi({
+        subject: spec.nome,
+        areaOrCategory: spec.area,
+        requirementsOrContext: reqs,
+        targetCount,
+        clubType: isPathfinder ? 'PATHFINDER' : 'ADVENTURER'
+      });
 
-      const prompt = `Você é um Instrutor Oficial de Especialidades do ${clubLabel} (Divisão Sul-Americana da IASD).
-Elabore uma prova oficial com exatamente ${targetCount} questões de múltipla escolha para avaliar a especialidade "${spec.nome}" (Área: ${spec.area}).
-
-${reqsContext}
-
-REGRAS OBRIGATÓRIAS:
-1. Cada questão deve avaliar conhecimentos reais e técnicos exigidos nos requisitos desta especialidade.
-2. Cada questão deve conter exatamente 4 alternativas ("options": array de 4 strings sem letras A/B/C/D no início) e apenas 1 correta ("correctIndex": 0, 1, 2 ou 3).
-3. Retorne EXCLUSIVAMENTE um JSON array válido no formato:
-[
-  {
-    "question": "Pergunta clara e objetiva sobre a especialidade?",
-    "options": ["Alternativa 1", "Alternativa 2", "Alternativa 3", "Alternativa 4"],
-    "correctIndex": 0,
-    "explanation": "Resumo curto explicando a resposta correta."
-  }
-]`;
-
-      let parsedQuestions: any[] = [];
-
-      // 1. Tenta via rota server-side (/api/gemini/generate-didactic)
-      try {
-        const res = await fetch('/api/gemini/generate-didactic', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt,
-            responseMimeType: 'application/json',
-            temperature: 0.45
-          })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.text) {
-            const clean = data.text.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
-            const first = clean.indexOf('[');
-            const last = clean.lastIndexOf(']');
-            if (first !== -1 && last > first) {
-              parsedQuestions = JSON.parse(clean.substring(first, last + 1));
-            }
-          }
-        }
-      } catch {}
-
-      // 2. Tenta direto via chave Gemini se necessário
-      if (!Array.isArray(parsedQuestions) || parsedQuestions.length === 0) {
-        try {
-          const apiKey = await resolveGeminiApiKey();
-          if (apiKey) {
-            const res = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  contents: [{ parts: [{ text: prompt }] }],
-                  generationConfig: { responseMimeType: 'application/json', temperature: 0.45 }
-                })
-              }
-            );
-            if (res.ok) {
-              const data = await res.json();
-              const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-              const clean = rawText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
-              const first = clean.indexOf('[');
-              const last = clean.lastIndexOf(']');
-              if (first !== -1 && last > first) {
-                parsedQuestions = JSON.parse(clean.substring(first, last + 1));
-              }
-            }
-          }
-        } catch {}
-      }
-
-      if (Array.isArray(parsedQuestions) && parsedQuestions.length >= 1) {
-        const formatted: LiveExamQuestion[] = parsedQuestions.slice(0, targetCount).map((q, idx) => {
-          const rawOpts =
-            Array.isArray(q.options) && q.options.length >= 4
-              ? q.options.slice(0, 4).map((o: any) => String(o).replace(/^[A-Da-d][\)\.\-]\s*/, '').trim())
-              : ['Opção A', 'Opção B', 'Opção C', 'Opção D'];
-          const safeCorrect =
-            typeof q.correctIndex === 'number' && q.correctIndex >= 0 && q.correctIndex < 4 ? q.correctIndex : 0;
-          // Equilibra posição da alternativa correta
-          const targetSlot = idx % 4;
-          const reordered = [...rawOpts];
-          const correctText = reordered[safeCorrect];
-          reordered[safeCorrect] = reordered[targetSlot];
-          reordered[targetSlot] = correctText;
-
-          return {
-            id: `live_q_${Date.now()}_${idx}`,
-            question: String(q.question || `Questão ${idx + 1} - ${spec.nome}`),
-            options: reordered,
-            correctIndex: targetSlot,
-            explanation: String(q.explanation || '')
-          };
-        });
-        if (formatted.length < targetCount) {
-          const topUp = buildFallbackSpecialtyQuestions(spec, reqs, targetCount).slice(formatted.length);
-          setSpecialtyQuestions([...formatted, ...topUp]);
-        } else {
-          setSpecialtyQuestions(formatted);
-        }
-      } else {
-        setSpecialtyQuestions(buildFallbackSpecialtyQuestions(spec, reqs, targetCount));
-      }
-    } catch {
-      setSpecialtyQuestions(buildFallbackSpecialtyQuestions(spec, spec.requisitos || [], targetCount));
+      setSpecialtyQuestions(generated);
+    } catch (err) {
+      console.warn('Erro ao gerar questões com IA para especialidade:', err);
+      setSpecialtyQuestions(buildSmartFallbackQuestions(spec.nome, spec.area, spec.requisitos || [], targetCount));
     } finally {
       setIsGeneratingSpecialtyQuestions(false);
     }
@@ -2790,142 +2688,19 @@ REGRAS OBRIGATÓRIAS:
     );
 
     try {
-      const clubLabel = isPathfinder ? 'Clube de Desbravadores' : 'Clube de Aventureiros';
-      const prompt = `Você é um Instrutor Oficial do ${clubLabel} (Divisão Sul-Americana da IASD).
-Elabore uma prova oficial com exatamente ${targetCount} questões de múltipla escolha sobre o tema: "${themeTitle}".
-${extraDetails ? `\nFoco / Conteúdo específico solicitado pelo instrutor:\n${extraDetails}\n` : ''}
-REGRAS OBRIGATÓRIAS:
-1. Todas as questões devem abordar diretamente o tema "${themeTitle}"${extraDetails ? ` (${extraDetails})` : ''}.
-2. Cada questão deve conter exatamente 4 alternativas ("options": array de 4 strings sem letras A/B/C/D no início) e apenas 1 correta ("correctIndex": 0, 1, 2 ou 3).
-3. Retorne EXCLUSIVAMENTE um JSON array válido no formato:
-[
-  {
-    "question": "Pergunta clara e objetiva sobre o tema?",
-    "options": ["Alternativa 1", "Alternativa 2", "Alternativa 3", "Alternativa 4"],
-    "correctIndex": 0,
-    "explanation": "Resumo curto explicando a resposta correta."
-  }
-]`;
+      const generated = await generateExamQuestionsWithAi({
+        subject: themeTitle,
+        areaOrCategory: 'Tema Livre',
+        requirementsOrContext: extraDetails || themeTitle,
+        targetCount,
+        clubType: isPathfinder ? 'PATHFINDER' : 'ADVENTURER'
+      });
 
-      let parsedQuestions: any[] = [];
-
-      // 1. Tenta via rota server-side (/api/gemini/generate-didactic)
-      try {
-        const res = await fetch('/api/gemini/generate-didactic', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt,
-            responseMimeType: 'application/json',
-            temperature: 0.45
-          })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.text) {
-            const clean = data.text.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
-            const first = clean.indexOf('[');
-            const last = clean.lastIndexOf(']');
-            if (first !== -1 && last > first) {
-              parsedQuestions = JSON.parse(clean.substring(first, last + 1));
-            }
-          }
-        }
-      } catch {}
-
-      // 2. Fallback direto via chave Gemini se necessário
-      if (!Array.isArray(parsedQuestions) || parsedQuestions.length === 0) {
-        try {
-          const apiKey = await resolveGeminiApiKey();
-          if (apiKey) {
-            const res = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  contents: [{ parts: [{ text: prompt }] }],
-                  generationConfig: { responseMimeType: 'application/json', temperature: 0.45 }
-                })
-              }
-            );
-            if (res.ok) {
-              const data = await res.json();
-              const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-              const clean = rawText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
-              const first = clean.indexOf('[');
-              const last = clean.lastIndexOf(']');
-              if (first !== -1 && last > first) {
-                parsedQuestions = JSON.parse(clean.substring(first, last + 1));
-              }
-            }
-          }
-        } catch {}
-      }
-
-      if (Array.isArray(parsedQuestions) && parsedQuestions.length >= 1) {
-        const formatted: LiveExamQuestion[] = parsedQuestions.slice(0, targetCount).map((q, idx) => {
-          const rawOpts =
-            Array.isArray(q.options) && q.options.length >= 4
-              ? q.options.slice(0, 4).map((o: any) => String(o).replace(/^[A-Da-d][\)\.\-]\s*/, '').trim())
-              : ['Opção A', 'Opção B', 'Opção C', 'Opção D'];
-          const safeCorrect =
-            typeof q.correctIndex === 'number' && q.correctIndex >= 0 && q.correctIndex < 4 ? q.correctIndex : 0;
-          const targetSlot = idx % 4;
-          const reordered = [...rawOpts];
-          const correctText = reordered[safeCorrect];
-          reordered[safeCorrect] = reordered[targetSlot];
-          reordered[targetSlot] = correctText;
-
-          return {
-            id: `theme_q_${Date.now()}_${idx}`,
-            question: String(q.question || `Questão ${idx + 1} - ${themeTitle}`),
-            options: reordered,
-            correctIndex: targetSlot,
-            explanation: String(q.explanation || '')
-          };
-        });
-        if (formatted.length < targetCount) {
-          const extraFallback: LiveExamQuestion[] = Array.from({ length: targetCount - formatted.length }).map(
-            (_, i) => {
-              const idx = formatted.length + i;
-              return {
-                id: `theme_fb_extra_${Date.now()}_${idx}`,
-                question: `Questão ${idx + 1} sobre ${themeTitle}: complemente ou edite o enunciado se desejar.`,
-                options: [
-                  `Alternativa correta sobre ${themeTitle}`,
-                  'Segunda alternativa',
-                  'Terceira alternativa',
-                  'Quarta alternativa'
-                ],
-                correctIndex: 0,
-                explanation: ''
-              };
-            }
-          );
-          setCustomQuestions([...formatted, ...extraFallback]);
-        } else {
-          setCustomQuestions(formatted);
-        }
-        setCustomEditingQuestionIdx(null);
-      } else {
-        const fallbackList: LiveExamQuestion[] = Array.from({ length: targetCount }).map((_, idx) => ({
-          id: `theme_fb_${Date.now()}_${idx}`,
-          question: `Questão ${idx + 1} sobre ${themeTitle}: edite o enunciado ou tente regerar com a IA.`,
-          options: [
-            `Alternativa correta sobre ${themeTitle}`,
-            'Segunda alternativa',
-            'Terceira alternativa',
-            'Quarta alternativa'
-          ],
-          correctIndex: 0,
-          explanation: ''
-        }));
-        setCustomQuestions(fallbackList);
-        setCustomEditingQuestionIdx(0);
-      }
+      setCustomQuestions(generated);
+      setCustomEditingQuestionIdx(null);
     } catch {
       setCustomThemeNotice('⚠️ Não foi possível conectar à IA no momento. Você pode adicionar ou editar as questões manualmente.');
+      setCustomQuestions(buildSmartFallbackQuestions(themeTitle, 'Tema Livre', [], targetCount));
     } finally {
       setIsGeneratingCustomQuestions(false);
     }
@@ -3408,60 +3183,79 @@ REGRAS OBRIGATÓRIAS:
 ]`;
 
       let parsedQuestions: any[] = [];
+      const modelsToTry = [
+        'gemini-3.8-flash',
+        'gemini-3.5-flash',
+        'gemini-3.1-flash-lite',
+        'gemini-3.5-flash-lite'
+      ];
 
-      // 1. Tenta via rota server-side (/api/gemini/generate-didactic)
       try {
-        const res = await fetch('/api/gemini/generate-didactic', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt,
-            responseMimeType: 'application/json',
-            temperature: 0.45
-          })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.text) {
-            const clean = data.text.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
-            const first = clean.indexOf('[');
-            const last = clean.lastIndexOf(']');
-            if (first !== -1 && last > first) {
-              parsedQuestions = JSON.parse(clean.substring(first, last + 1));
+        const apiKey = await resolveGeminiApiKey();
+        if (apiKey) {
+          // 1. Tenta via SDK GoogleGenAI
+          try {
+            const ai = new GoogleGenAI({ apiKey });
+            for (const modelName of modelsToTry) {
+              try {
+                const res = await ai.models.generateContent({
+                  model: modelName,
+                  contents: prompt,
+                  config: {
+                    responseMimeType: 'application/json',
+                    temperature: 0.4
+                  }
+                });
+                if (res.text) {
+                  const clean = res.text.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+                  const first = clean.indexOf('[');
+                  const last = clean.lastIndexOf(']');
+                  if (first !== -1 && last > first) {
+                    const arr = JSON.parse(clean.substring(first, last + 1));
+                    if (Array.isArray(arr) && arr.length > 0) {
+                      parsedQuestions = arr;
+                      break;
+                    }
+                  }
+                }
+              } catch {}
+            }
+          } catch {}
+
+          // 2. Fallback via REST API direto
+          if (!Array.isArray(parsedQuestions) || parsedQuestions.length === 0) {
+            for (const modelName of modelsToTry) {
+              try {
+                const res = await fetch(
+                  `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
+                  {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      contents: [{ parts: [{ text: prompt }] }],
+                      generationConfig: { responseMimeType: 'application/json', temperature: 0.4 }
+                    })
+                  }
+                );
+                if (res.ok) {
+                  const data = await res.json();
+                  const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                  const clean = rawText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+                  const first = clean.indexOf('[');
+                  const last = clean.lastIndexOf(']');
+                  if (first !== -1 && last > first) {
+                    const arr = JSON.parse(clean.substring(first, last + 1));
+                    if (Array.isArray(arr) && arr.length > 0) {
+                      parsedQuestions = arr;
+                      break;
+                    }
+                  }
+                }
+              } catch {}
             }
           }
         }
       } catch {}
-
-      // 2. Fallback direto via chave Gemini se necessário
-      if (!Array.isArray(parsedQuestions) || parsedQuestions.length === 0) {
-        try {
-          const apiKey = await resolveGeminiApiKey();
-          if (apiKey) {
-            const res = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  contents: [{ parts: [{ text: prompt }] }],
-                  generationConfig: { responseMimeType: 'application/json', temperature: 0.45 }
-                })
-              }
-            );
-            if (res.ok) {
-              const data = await res.json();
-              const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-              const clean = rawText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
-              const first = clean.indexOf('[');
-              const last = clean.lastIndexOf(']');
-              if (first !== -1 && last > first) {
-                parsedQuestions = JSON.parse(clean.substring(first, last + 1));
-              }
-            }
-          }
-        } catch {}
-      }
 
       if (Array.isArray(parsedQuestions) && parsedQuestions.length >= 1) {
         const formatted: LiveExamQuestion[] = parsedQuestions.slice(0, targetCount).map((q, idx) => {
@@ -10207,10 +10001,239 @@ REGRAS OBRIGATÓRIAS:
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             {/* Coluna Esquerda: Escolher Especialidade, Livro OU Configurar Tema/Manual + Regras da Sala */}
             <div className="lg:col-span-5 bg-white dark:bg-slate-800 rounded-[24px] p-4 sm:p-5 border border-slate-200/80 dark:border-slate-700 shadow-xs space-y-4">
-              {examCreationMode === 'SPECIALTY' ? (
-                <>
+              {/* Bloco 1: Quantidade de Questões e Tempo de Prova (Acima da Escolha da Especialidade) */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
                   <h4 className="text-xs font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
-                    1. Escolha a Especialidade e o Tempo Limite
+                    1. Quantidade de Questões e Tempo Limite
+                  </h4>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    Configuração da Prova
+                  </span>
+                </div>
+
+                {/* Bloco: Nº de Questões */}
+                <div className="bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/70 rounded-2xl p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Nº de Questões (IA / Prova)
+                    </label>
+                    <span className="px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 text-[10px] font-black uppercase">
+                      {questionCount} {questionCount === 1 ? 'questão' : 'questões'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-1 bg-slate-200/60 dark:bg-slate-950 p-1 rounded-xl">
+                    {[5, 10, 15, 20, 25, 30, 40, 50].map((cnt) => (
+                      <button
+                        key={cnt}
+                        type="button"
+                        onClick={() => {
+                          setQuestionCount(cnt);
+                          if (!isGeneratingQuestions) {
+                            if (examCreationMode === 'SPECIALTY' && selectedSpecialty) {
+                              handleSelectSpecialtyForExam(selectedSpecialty, cnt);
+                            } else if (examCreationMode === 'BOOKS' && selectedBookForExam) {
+                              handleSelectBookForExam(selectedBookForExam, undefined, cnt);
+                            }
+                          }
+                        }}
+                        className={`py-1.5 rounded-lg text-[11px] font-black cursor-pointer transition-all ${
+                          questionCount === cnt
+                            ? 'bg-indigo-600 text-white shadow-xs'
+                            : 'text-slate-600 dark:text-slate-400 hover:bg-white/60 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        {cnt}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-0.5 flex-wrap sm:flex-nowrap">
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                      Personalizar quantidade (1 a 100):
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setQuestionCount(Math.max(1, questionCount - 1))}
+                        className="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-black flex items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700"
+                        title="Diminuir 1 questão"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={questionCount}
+                        onChange={(e) => {
+                          const raw = parseInt(e.target.value, 10);
+                          if (!Number.isNaN(raw)) {
+                            setQuestionCount(Math.max(1, Math.min(100, raw)));
+                          }
+                        }}
+                        className="w-16 px-2 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-center text-xs font-black text-indigo-600 dark:text-indigo-300 focus:outline-none focus:border-indigo-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setQuestionCount(Math.min(100, questionCount + 1))}
+                        className="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-black flex items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700"
+                        title="Aumentar 1 questão"
+                      >
+                        +
+                      </button>
+                      {!isGeneratingQuestions &&
+                        questions.length > 0 &&
+                        questions.length !== questionCount &&
+                        ((examCreationMode === 'SPECIALTY' && selectedSpecialty) ||
+                          (examCreationMode === 'BOOKS' && selectedBookForExam) ||
+                          (examCreationMode === 'CUSTOM' && customExamTitle.trim())) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (examCreationMode === 'SPECIALTY' && selectedSpecialty) {
+                                handleSelectSpecialtyForExam(selectedSpecialty, questionCount);
+                              } else if (examCreationMode === 'BOOKS' && selectedBookForExam) {
+                                handleSelectBookForExam(selectedBookForExam, undefined, questionCount);
+                              } else if (examCreationMode === 'CUSTOM') {
+                                handleGenerateCustomThemeQuestions(questionCount);
+                              }
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider cursor-pointer whitespace-nowrap"
+                          >
+                            Gerar {questionCount}
+                          </button>
+                        )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bloco: Tempo Limite */}
+                <div className="bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/70 rounded-2xl p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Tempo Limite da Prova
+                    </label>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                        durationMinutes <= 0
+                          ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                          : 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300'
+                      }`}
+                    >
+                      {durationMinutes <= 0 ? '∞ Sem Tempo Limite' : `${durationMinutes} min`}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-1 bg-slate-200/60 dark:bg-slate-950 p-1 rounded-xl">
+                    {[
+                      { mins: 0, label: '∞ Livre' },
+                      { mins: 10, label: '10m' },
+                      { mins: 15, label: '15m' },
+                      { mins: 25, label: '25m' },
+                      { mins: 30, label: '30m' },
+                      { mins: 45, label: '45m' },
+                      { mins: 60, label: '60m' },
+                      { mins: 90, label: '90m' }
+                    ].map((opt) => (
+                      <button
+                        key={opt.mins}
+                        type="button"
+                        onClick={() => setDurationMinutes(opt.mins)}
+                        className={`py-1.5 px-1 rounded-lg text-[10px] sm:text-[11px] font-black cursor-pointer transition-all whitespace-nowrap ${
+                          durationMinutes === opt.mins
+                            ? opt.mins === 0
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'bg-indigo-600 text-white shadow-xs'
+                            : 'text-slate-600 dark:text-slate-400 hover:bg-white/60 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-0.5 flex-wrap sm:flex-nowrap">
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                      Outro tempo em minutos (0 = sem limite):
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setDurationMinutes(Math.max(0, durationMinutes - 5))}
+                        className="px-2 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-[10px] font-black flex items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700"
+                        title="Diminuir 5 minutos"
+                      >
+                        -5m
+                      </button>
+                      <input
+                        type="number"
+                        min={0}
+                        max={300}
+                        value={durationMinutes}
+                        onChange={(e) => {
+                          const raw = parseInt(e.target.value, 10);
+                          if (e.target.value === '') {
+                            setDurationMinutes(0);
+                          } else if (!Number.isNaN(raw)) {
+                            setDurationMinutes(Math.max(0, Math.min(300, raw)));
+                          }
+                        }}
+                        className="w-16 px-2 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-center text-xs font-black text-indigo-600 dark:text-indigo-300 focus:outline-none focus:border-indigo-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setDurationMinutes(Math.min(300, (durationMinutes <= 0 ? 25 : durationMinutes) + 5))}
+                        className="px-2 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-[10px] font-black flex items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700"
+                        title="Aumentar 5 minutos"
+                      >
+                        +5m
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bloco: Opção Anti-Cola */}
+                <div className="bg-red-50/70 dark:bg-red-950/30 border border-red-200/80 dark:border-red-900/50 rounded-2xl p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-red-700 dark:text-red-300 flex items-center gap-1.5">
+                      <ShieldAlert size={14} />
+                      <span>Ação Anti-Cola ao Minimizar a Tela</span>
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setLockOnCheat(true)}
+                      className={`py-2 px-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all ${
+                        lockOnCheat
+                          ? 'bg-red-600 text-white shadow-xs'
+                          : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      🔒 Bloquear + Alerta
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLockOnCheat(false)}
+                      className={`py-2 px-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all ${
+                        !lockOnCheat
+                          ? 'bg-red-600 text-white shadow-xs'
+                          : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      ⚠️ Apenas Alertar
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bloco 2: Seleção de Conteúdo da Prova */}
+              {examCreationMode === 'SPECIALTY' ? (
+                <div className="space-y-3 pt-2 border-t border-slate-200/80 dark:border-slate-700/80">
+                  <h4 className="text-xs font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+                    2. Escolha a Especialidade no Catálogo Oficial
                   </h4>
 
                   {/* Busca e Filtro de Área */}
@@ -10287,7 +10310,7 @@ REGRAS OBRIGATÓRIAS:
                       })
                     )}
                   </div>
-                </>
+                </div>
               ) : examCreationMode === 'BOOKS' ? (
                 <>
                   <h4 className="text-xs font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">
@@ -10500,225 +10523,6 @@ REGRAS OBRIGATÓRIAS:
                   </div>
                 </>
               )}
-
-              {/* Configurações de Quantidade de Questões (inclusive > 15) e Tempo Limite (inclusive Sem Limite e > 25m) */}
-              <div className="space-y-3 pt-1">
-                {/* Bloco 1: Nº de Questões */}
-                <div className="bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/70 rounded-2xl p-3 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Nº de Questões (IA / Prova)
-                    </label>
-                    <span className="px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 text-[10px] font-black uppercase">
-                      {questionCount} {questionCount === 1 ? 'questão' : 'questões'}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-1 bg-slate-200/60 dark:bg-slate-950 p-1 rounded-xl">
-                    {[5, 10, 15, 20, 25, 30, 40, 50].map((cnt) => (
-                      <button
-                        key={cnt}
-                        type="button"
-                        onClick={() => {
-                          setQuestionCount(cnt);
-                          if (!isGeneratingQuestions) {
-                            if (examCreationMode === 'SPECIALTY' && selectedSpecialty) {
-                              handleSelectSpecialtyForExam(selectedSpecialty, cnt);
-                            } else if (examCreationMode === 'BOOKS' && selectedBookForExam) {
-                              handleSelectBookForExam(selectedBookForExam, undefined, cnt);
-                            }
-                          }
-                        }}
-                        className={`py-1.5 rounded-lg text-[11px] font-black cursor-pointer transition-all ${
-                          questionCount === cnt
-                            ? 'bg-indigo-600 text-white shadow-xs'
-                            : 'text-slate-600 dark:text-slate-400 hover:bg-white/60 dark:hover:bg-slate-800'
-                        }`}
-                      >
-                        {cnt}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="flex items-center justify-between gap-2 pt-0.5">
-                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                      Personalizar quantidade (1 a 100):
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setQuestionCount(Math.max(1, questionCount - 1))}
-                        className="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-black flex items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700"
-                        title="Diminuir 1 questão"
-                      >
-                        -
-                      </button>
-                      <input
-                        type="number"
-                        min={1}
-                        max={100}
-                        value={questionCount}
-                        onChange={(e) => {
-                          const raw = parseInt(e.target.value, 10);
-                          if (!Number.isNaN(raw)) {
-                            setQuestionCount(Math.max(1, Math.min(100, raw)));
-                          }
-                        }}
-                        className="w-16 px-2 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-center text-xs font-black text-indigo-600 dark:text-indigo-300 focus:outline-none focus:border-indigo-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setQuestionCount(Math.min(100, questionCount + 1))}
-                        className="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-black flex items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700"
-                        title="Aumentar 1 questão"
-                      >
-                        +
-                      </button>
-                      {!isGeneratingQuestions &&
-                        questions.length > 0 &&
-                        questions.length !== questionCount &&
-                        ((examCreationMode === 'SPECIALTY' && selectedSpecialty) ||
-                          (examCreationMode === 'BOOKS' && selectedBookForExam) ||
-                          (examCreationMode === 'CUSTOM' && customExamTitle.trim())) && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (examCreationMode === 'SPECIALTY' && selectedSpecialty) {
-                                handleSelectSpecialtyForExam(selectedSpecialty, questionCount);
-                              } else if (examCreationMode === 'BOOKS' && selectedBookForExam) {
-                                handleSelectBookForExam(selectedBookForExam, undefined, questionCount);
-                              } else if (examCreationMode === 'CUSTOM') {
-                                handleGenerateCustomThemeQuestions(questionCount);
-                              }
-                            }}
-                            className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider cursor-pointer whitespace-nowrap"
-                          >
-                            Gerar {questionCount}
-                          </button>
-                        )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bloco 2: Tempo Limite */}
-                <div className="bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/70 rounded-2xl p-3 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Tempo Limite da Prova
-                    </label>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                        durationMinutes <= 0
-                          ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                          : 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300'
-                      }`}
-                    >
-                      {durationMinutes <= 0 ? '∞ Sem Tempo Limite' : `${durationMinutes} min`}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-1 bg-slate-200/60 dark:bg-slate-950 p-1 rounded-xl">
-                    {[
-                      { mins: 0, label: '∞ Livre' },
-                      { mins: 10, label: '10m' },
-                      { mins: 15, label: '15m' },
-                      { mins: 25, label: '25m' },
-                      { mins: 30, label: '30m' },
-                      { mins: 45, label: '45m' },
-                      { mins: 60, label: '60m' },
-                      { mins: 90, label: '90m' }
-                    ].map((opt) => (
-                      <button
-                        key={opt.mins}
-                        type="button"
-                        onClick={() => setDurationMinutes(opt.mins)}
-                        className={`py-1.5 px-1 rounded-lg text-[10px] sm:text-[11px] font-black cursor-pointer transition-all whitespace-nowrap ${
-                          durationMinutes === opt.mins
-                            ? opt.mins === 0
-                              ? 'bg-emerald-600 text-white shadow-xs'
-                              : 'bg-indigo-600 text-white shadow-xs'
-                            : 'text-slate-600 dark:text-slate-400 hover:bg-white/60 dark:hover:bg-slate-800'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="flex items-center justify-between gap-2 pt-0.5">
-                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                      Outro tempo em minutos (0 = sem limite):
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setDurationMinutes(Math.max(0, durationMinutes - 5))}
-                        className="px-2 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-[10px] font-black flex items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700"
-                        title="Diminuir 5 minutos"
-                      >
-                        -5m
-                      </button>
-                      <input
-                        type="number"
-                        min={0}
-                        max={300}
-                        value={durationMinutes}
-                        onChange={(e) => {
-                          const raw = parseInt(e.target.value, 10);
-                          if (e.target.value === '') {
-                            setDurationMinutes(0);
-                          } else if (!Number.isNaN(raw)) {
-                            setDurationMinutes(Math.max(0, Math.min(300, raw)));
-                          }
-                        }}
-                        className="w-16 px-2 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-center text-xs font-black text-indigo-600 dark:text-indigo-300 focus:outline-none focus:border-indigo-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setDurationMinutes(Math.min(300, (durationMinutes <= 0 ? 25 : durationMinutes) + 5))}
-                        className="px-2 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-[10px] font-black flex items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700"
-                        title="Aumentar 5 minutos"
-                      >
-                        +5m
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Opção de Bloqueio Anti-Cola */}
-              <div className="bg-red-50/70 dark:bg-red-950/30 border border-red-200/80 dark:border-red-900/50 rounded-2xl p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-red-700 dark:text-red-300 flex items-center gap-1.5">
-                    <ShieldAlert size={14} />
-                    <span>Ação Anti-Cola ao Minimizar a Tela</span>
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setLockOnCheat(true)}
-                    className={`py-2 px-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all ${
-                      lockOnCheat
-                        ? 'bg-red-600 text-white shadow-xs'
-                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
-                    }`}
-                  >
-                    🔒 Bloquear + Alerta
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setLockOnCheat(false)}
-                    className={`py-2 px-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all ${
-                      !lockOnCheat
-                        ? 'bg-red-600 text-white shadow-xs'
-                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
-                    }`}
-                  >
-                    ⚠️ Apenas Alertar
-                  </button>
-                </div>
-              </div>
             </div>
 
             {/* Coluna Direita: Questões da Prova + Botão de Gerar QR Code */}
@@ -11093,22 +10897,22 @@ REGRAS OBRIGATÓRIAS:
                   )}
 
                   <div className="w-full min-w-0 flex flex-col gap-2">
-                    <div className="grid grid-cols-1 gap-2">
-                      <div className="w-full overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl py-2 px-3 text-center border border-slate-200 dark:border-slate-800">
-                        <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="w-full overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl py-2 px-2.5 text-center border border-slate-200 dark:border-slate-800">
+                        <span className="text-[8.5px] sm:text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block truncate">
                           Código PIN da Sala
                         </span>
-                        <p className="text-lg sm:text-xl font-black tracking-widest text-amber-600 dark:text-amber-400 leading-tight break-all">
+                        <p className="text-base sm:text-xl font-black tracking-widest text-amber-600 dark:text-amber-400 leading-tight truncate">
                           {activeRoom.pin}
                         </p>
                       </div>
 
-                      <div className="w-full overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl py-2 px-3 text-center border border-slate-200 dark:border-slate-800">
-                        <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                      <div className="w-full overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl py-2 px-2.5 text-center border border-slate-200 dark:border-slate-800">
+                        <span className="text-[8.5px] sm:text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block truncate">
                           {activeRoom.status === 'FINISHED'
-                            ? 'Status da Avaliação'
+                            ? 'Status'
                             : isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime)
-                            ? 'Tempo de Prova'
+                            ? 'Tempo'
                             : 'Tempo Restante'}
                         </span>
                         <div

@@ -4,6 +4,29 @@ import { getLocalUserSpecialties, saveLocalUserSpecialties } from '../services/s
 import { APP_VERSION } from '../versionConfig';
 
 declare const __APP_BUILD_TIME__: number | string | undefined;
+declare const __APP_VERSION__: string | undefined;
+
+function parseVersionNumbers(v: string): number[] {
+  return (v || '')
+    .replace(/^v/i, '')
+    .split(/[-+.]/)
+    .map((part) => parseInt(part, 10))
+    .filter((n) => !isNaN(n));
+}
+
+function isNewerVersion(serverVer: string, currentVer: string): boolean {
+  if (!serverVer || !currentVer) return false;
+  const sParts = parseVersionNumbers(serverVer);
+  const cParts = parseVersionNumbers(currentVer);
+  const len = Math.max(sParts.length, cParts.length);
+  for (let i = 0; i < len; i++) {
+    const s = sParts[i] || 0;
+    const c = cParts[i] || 0;
+    if (s > c) return true;
+    if (s < c) return false;
+  }
+  return false;
+}
 
 interface UpdateNotificationProps {
   onOpenVersionHistory?: () => void;
@@ -17,6 +40,7 @@ export const UpdateNotification: React.FC<UpdateNotificationProps> = ({ onOpenVe
   const [isDismissed, setIsDismissed] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
   const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
+  const [showWelcomeNewVersion, setShowWelcomeNewVersion] = useState(false);
   const notifiedRef = useRef(false);
 
   // Carrega ou inicializa a versão de build atual
@@ -33,15 +57,25 @@ export const UpdateNotification: React.FC<UpdateNotificationProps> = ({ onOpenVe
       if (stored) {
         version = Number(stored);
       } else {
-        version = Date.now();
+        version = 1760627500000;
         sessionStorage.setItem('dbv_current_build_time', String(version));
       }
     }
     currentBuildTimeRef.current = version;
+
+    // Detecta se é a primeira vez que o usuário abre esta versão para exibir o aviso de versão instalada
+    const currentVer = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : APP_VERSION;
+    const lastSeen = localStorage.getItem('dbv_last_seen_version');
+    if (!lastSeen || isNewerVersion(currentVer, lastSeen)) {
+      const timer = setTimeout(() => {
+        setShowWelcomeNewVersion(true);
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
   }, []);
 
   const getInitialVersion = (): number => {
-    return currentBuildTimeRef.current || Date.now();
+    return currentBuildTimeRef.current || 1760626800000;
   };
 
   // Disparar notificação nativa no celular/computador
@@ -113,12 +147,16 @@ export const UpdateNotification: React.FC<UpdateNotificationProps> = ({ onOpenVe
 
       const data = await res.json();
       const serverVersion = Number(data?.version || data?.timestamp);
-      const serverVersionName = data?.versionName || '';
+      const serverVersionName = (data?.versionName || '').trim();
       const highlights = Array.isArray(data?.highlights) ? data.highlights : [];
-      const localVersion = getInitialVersion();
+      const localVersion = currentBuildTimeRef.current || getInitialVersion();
+      const currentVer = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : APP_VERSION;
 
-      if (serverVersion && localVersion && serverVersion > localVersion) {
-        triggerUpdateFound(serverVersionName, highlights);
+      const isSemanticNewer = Boolean(serverVersionName && isNewerVersion(serverVersionName, currentVer));
+      const isTimestampNewer = Boolean(serverVersion && localVersion && serverVersion > localVersion);
+
+      if (isSemanticNewer || isTimestampNewer) {
+        triggerUpdateFound(serverVersionName || undefined, highlights);
       }
     } catch {
       // Falha silenciosa
@@ -348,10 +386,83 @@ export const UpdateNotification: React.FC<UpdateNotificationProps> = ({ onOpenVe
               <button
                 onClick={handleUpdateNow}
                 disabled={isUpdating}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-600/20 transition-all cursor-pointer disabled:opacity-75"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-md shadow-indigo-600/20 transition-all cursor-pointer disabled:opacity-75"
               >
                 <RefreshCw size={13} className={isUpdating ? "animate-spin" : ""} />
-                <span>{isUpdating ? "Atualizando..." : "Atualizar"}</span>
+                <span>{isUpdating ? "Atualizando..." : "Atualizar App"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Banner de Boas-Vindas da Versão Instalada / Atualizada */}
+      {showWelcomeNewVersion && !hasUpdate && (
+        <div className="fixed top-4 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-md z-[9999] animate-slide-up pointer-events-auto">
+          <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl shadow-2xl border border-indigo-500/40 p-3.5 flex flex-col gap-2.5">
+            <div className="flex items-start justify-between gap-2.5">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-indigo-500 flex items-center justify-center text-white shrink-0 shadow-md">
+                  <Sparkles size={18} className="animate-pulse" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="font-extrabold text-sm text-white leading-tight">
+                      DBV Tudo Atualizado!
+                    </h4>
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      v{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : APP_VERSION}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 mt-0.5 leading-snug">
+                    Gerador de slides com IA, respostas oficiais completas e notificações aprimoradas.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowWelcomeNewVersion(false);
+                  const cur = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : APP_VERSION;
+                  localStorage.setItem('dbv_last_seen_version', cur);
+                }}
+                className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors shrink-0"
+                title="Fechar"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10 flex-wrap sm:flex-nowrap">
+              <button
+                onClick={() => {
+                  setShowWelcomeNewVersion(false);
+                  const cur = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : APP_VERSION;
+                  localStorage.setItem('dbv_last_seen_version', cur);
+                }}
+                className="px-2.5 py-1.5 text-xs font-bold text-slate-400 hover:text-white transition-colors"
+              >
+                Dispensar
+              </button>
+              {onOpenVersionHistory && (
+                <button
+                  onClick={() => {
+                    setShowWelcomeNewVersion(false);
+                    const cur = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : APP_VERSION;
+                    localStorage.setItem('dbv_last_seen_version', cur);
+                    onOpenVersionHistory();
+                  }}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-all cursor-pointer"
+                >
+                  Ver Novidades
+                </button>
+              )}
+              <button
+                onClick={handleUpdateNow}
+                disabled={isUpdating}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-md shadow-emerald-600/30 transition-all cursor-pointer disabled:opacity-75"
+              >
+                <RefreshCw size={13} className={isUpdating ? "animate-spin" : ""} />
+                <span>{isUpdating ? "Atualizando..." : "Atualizar App"}</span>
               </button>
             </div>
           </div>

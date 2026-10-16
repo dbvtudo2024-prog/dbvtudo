@@ -36,6 +36,14 @@ export interface Especialidade {
   codigo?: string;
 }
 
+export interface LiveExamQuestion {
+  id: string;
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation?: string;
+}
+
 export interface Member {
   id: string;
   name: string;

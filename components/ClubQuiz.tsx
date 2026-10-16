@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { ClubType, Especialidade } from '../types';
 import { fetchEspecialidades, resolveGeminiApiKey } from '../services/supabaseService';
+import { GoogleGenAI } from '@google/genai';
 import {
   Trophy, Timer, Zap, BookOpen, Award, Shield, Sparkles, Check, X,
   RefreshCw, Play, HelpCircle, ChevronRight, RotateCcw, Flame,
@@ -1025,55 +1026,74 @@ REGRAS OBRIGATÓRIAS:
 ]`;
 
       let parsedArray: any[] = [];
+      const modelsToTry = [
+        'gemini-3.8-flash',
+        'gemini-3.5-flash',
+        'gemini-3.1-flash-lite',
+        'gemini-3.5-flash-lite'
+      ];
 
-      // 1. Tenta via rota server-side (/api/gemini/generate-didactic)
-      try {
-        const res = await fetch('/api/gemini/generate-didactic', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt,
-            responseMimeType: 'application/json',
-            temperature: 0.55
-          })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.text) {
-            const clean = data.text.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
-            const first = clean.indexOf('[');
-            const last = clean.lastIndexOf(']');
-            if (first !== -1 && last > first) {
-              parsedArray = JSON.parse(clean.substring(first, last + 1));
-            }
+      const apiKey = await resolveGeminiApiKey();
+      if (apiKey) {
+        // 1. Tenta via SDK GoogleGenAI
+        try {
+          const ai = new GoogleGenAI({ apiKey });
+          for (const modelName of modelsToTry) {
+            try {
+              const res = await ai.models.generateContent({
+                model: modelName,
+                contents: prompt,
+                config: {
+                  responseMimeType: 'application/json',
+                  temperature: 0.45
+                }
+              });
+              if (res.text) {
+                const clean = res.text.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+                const first = clean.indexOf('[');
+                const last = clean.lastIndexOf(']');
+                if (first !== -1 && last > first) {
+                  const arr = JSON.parse(clean.substring(first, last + 1));
+                  if (Array.isArray(arr) && arr.length > 0) {
+                    parsedArray = arr;
+                    break;
+                  }
+                }
+              }
+            } catch {}
           }
-        }
-      } catch {}
+        } catch {}
 
-      // 2. Fallback REST caso necessário
-      if (!Array.isArray(parsedArray) || parsedArray.length === 0) {
-        const apiKey = await resolveGeminiApiKey();
-        if (apiKey) {
-          const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { responseMimeType: 'application/json', temperature: 0.55 }
-              })
-            }
-          );
-          if (res.ok) {
-            const data = await res.json();
-            const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-            const clean = rawText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
-            const first = clean.indexOf('[');
-            const last = clean.lastIndexOf(']');
-            if (first !== -1 && last > first) {
-              parsedArray = JSON.parse(clean.substring(first, last + 1));
-            }
+        // 2. Fallback REST direto
+        if (!Array.isArray(parsedArray) || parsedArray.length === 0) {
+          for (const modelName of modelsToTry) {
+            try {
+              const res = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
+                {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: { responseMimeType: 'application/json', temperature: 0.45 }
+                  })
+                }
+              );
+              if (res.ok) {
+                const data = await res.json();
+                const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                const clean = rawText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+                const first = clean.indexOf('[');
+                const last = clean.lastIndexOf(']');
+                if (first !== -1 && last > first) {
+                  const arr = JSON.parse(clean.substring(first, last + 1));
+                  if (Array.isArray(arr) && arr.length > 0) {
+                    parsedArray = arr;
+                    break;
+                  }
+                }
+              }
+            } catch {}
           }
         }
       }
