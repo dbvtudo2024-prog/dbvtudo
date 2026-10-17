@@ -2029,6 +2029,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   });
   const [hasActiveLiveExamRoom, setHasActiveLiveExamRoom] = useState<boolean>(false);
   const [isLogoWobbling, setIsLogoWobbling] = useState<boolean>(false);
+  const [zoomedSpecialty, setZoomedSpecialty] = useState<Especialidade | null>(null);
 
   const triggerLogoWobble = () => {
     try {
@@ -3399,9 +3400,20 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                   }}
                   className="flex items-center space-x-4 flex-grow text-left active:scale-[0.98] transition-all"
                 >
-                  <div className="w-16 h-16 bg-transparent rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0">
+                  <div 
+                    onClick={(e) => {
+                      if (esp.logo) {
+                        e.stopPropagation();
+                        setZoomedSpecialty(esp);
+                      }
+                    }}
+                    className={`w-16 h-16 bg-transparent rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0 transition-transform ${
+                      esp.logo ? 'cursor-pointer hover:scale-110 active:scale-95' : ''
+                    }`}
+                    title={esp.logo ? "Clique para ampliar a imagem" : undefined}
+                  >
                     {esp.logo ? (
-                      <img src={esp.logo} loading="lazy" decoding="async" className="w-14 h-14 object-contain" alt={esp.nome} />
+                      <img src={esp.logo} loading="lazy" decoding="async" className="w-14 h-14 object-contain pointer-events-none" alt={esp.nome} />
                     ) : (
                       <Award size={24} className="text-slate-200 dark:text-slate-600" />
                     )}
@@ -3565,7 +3577,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     });
   };
 
-  // Fechar modal do PowerPoint ou Gerador de Provas com a tecla Escape
+  // Fechar modal do PowerPoint, Gerador de Provas ou Zoom de Especialidade com a tecla Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isPptxModalOpen && !isGeneratingPptx) {
@@ -3574,10 +3586,13 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       if (e.key === 'Escape' && isExamModalOpen && !isGeneratingExam) {
         setIsExamModalOpen(false);
       }
+      if (e.key === 'Escape' && zoomedSpecialty) {
+        setZoomedSpecialty(null);
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPptxModalOpen, isGeneratingPptx, isExamModalOpen, isGeneratingExam]);
+  }, [isPptxModalOpen, isGeneratingPptx, isExamModalOpen, isGeneratingExam, zoomedSpecialty]);
 
   const handleGeneratePptx = async () => {
     if (!selectedSpecialty || isGeneratingPptx) return;
@@ -3625,20 +3640,20 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         }}
       >
         <div 
-          className="relative w-full max-w-md bg-white dark:bg-slate-800 rounded-3xl p-4 sm:p-5 shadow-2xl border border-slate-100 dark:border-slate-700/80 m-auto max-h-[92vh] overflow-y-auto flex flex-col space-y-3"
+          className="relative w-full max-w-md bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-700/80 m-auto max-h-[88vh] sm:max-h-[85vh] flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Topo do Modal */}
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center space-x-2.5">
+          {/* Topo do Modal (Fixo) */}
+          <div className="p-4 sm:p-5 pb-3 border-b border-slate-100 dark:border-slate-700/60 flex items-center justify-between gap-3 shrink-0 bg-white dark:bg-slate-800">
+            <div className="flex items-center space-x-2.5 min-w-0">
               <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 text-white flex items-center justify-center shadow-md shadow-orange-500/20 shrink-0">
                 <Presentation size={20} />
               </div>
-              <div>
-                <h3 className="font-black text-slate-800 dark:text-white text-sm sm:text-base uppercase tracking-tight leading-snug">
+              <div className="min-w-0">
+                <h3 className="font-black text-slate-800 dark:text-white text-sm sm:text-base uppercase tracking-tight leading-snug truncate">
                   Apresentação PowerPoint
                 </h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">
                   Gerar slides didáticos e instrutivos (.pptx)
                 </p>
               </div>
@@ -3646,205 +3661,208 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             <button 
               onClick={() => !isGeneratingPptx && setIsPptxModalOpen(false)}
               disabled={isGeneratingPptx}
-              className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center justify-center text-slate-500 dark:text-slate-300 transition-colors shrink-0 disabled:opacity-40"
+              className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center justify-center text-slate-500 dark:text-slate-300 transition-colors shrink-0 disabled:opacity-40"
               title="Fechar"
             >
-              <X size={15} />
+              <X size={16} />
             </button>
           </div>
 
-          {/* Card Resumo da Especialidade */}
-          <div className="p-2.5 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-700/60 flex items-center space-x-3">
-            <div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl p-1 border border-slate-200/60 dark:border-slate-700 flex items-center justify-center shrink-0">
-              {selectedSpecialty.logo ? (
-                <img src={getImageUrl(selectedSpecialty.logo)} alt={selectedSpecialty.nome} className="w-full h-full object-contain" />
-              ) : (
-                <Award size={18} className="text-amber-500" />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <h4 className="font-black text-slate-800 dark:text-white text-xs uppercase tracking-tight truncate">
-                {selectedSpecialty.nome}
-              </h4>
-              <div className="flex items-center space-x-2 mt-0.5">
-                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase truncate">
-                  {selectedSpecialty.area}
-                </span>
-                <span className="text-slate-300 dark:text-slate-600">•</span>
-                <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 whitespace-nowrap">
-                  {totalRealReqs} Requisitos Oficiais
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Informações da Geração Didática Unificada */}
-          <div className="p-3 bg-gradient-to-r from-orange-50/90 to-amber-50/80 dark:from-orange-950/40 dark:to-slate-900/60 rounded-2xl border border-orange-200/70 dark:border-orange-900/50 space-y-1.5">
-            <div className="flex items-center space-x-2">
-              <div className="w-6 h-6 rounded-lg bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-sm">
-                <Sparkles size={13} />
-              </div>
-              <span className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-tight">
-                Geração Didática Completa (.pptx)
-              </span>
-            </div>
-            <p className="text-[10px] leading-relaxed text-slate-600 dark:text-slate-300">
-              Todas as <strong>{totalRealReqs} questões oficiais</strong> com respostas explicativas completas, pontos fundamentais de fixação, dinâmicas práticas na unidade, conselhos pedagógicos ao instrutor e slides dedicados para cada sub-item.
-            </p>
-          </div>
-
-          {/* Visualizador dos Itens Oficiais do Banco de Dados no Modal */}
-          <div className="border border-slate-200 dark:border-slate-700/80 rounded-2xl overflow-hidden bg-slate-50/60 dark:bg-slate-900/50 shadow-xs transition-all">
-            <button
-              type="button"
-              onClick={() => setShowPptxItemsList(prev => !prev)}
-              className="w-full px-3.5 py-2.5 flex items-center justify-between text-left text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100/60 dark:hover:bg-slate-800/60 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-md bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-                  <ListChecks size={13} />
-                </div>
-                <div className="flex flex-col text-left">
-                  <span className="text-[11px] font-black uppercase tracking-tight text-slate-800 dark:text-white">
-                    Visualizador de Itens do Banco ({parsedSpecialty.items.length} Requisitos)
-                  </span>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-                      Itens Oficiais Conectados
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                <span>{showPptxItemsList ? 'Ocultar' : 'Expandir'}</span>
-                {showPptxItemsList ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              </div>
-            </button>
-            
-            {showPptxItemsList && (
-              <div className="p-3 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
-                {isLoadingRequirements ? (
-                  <div className="py-6 flex flex-col items-center justify-center space-y-2">
-                    <div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                      Sincronizando itens oficiais do banco...
-                    </span>
-                  </div>
-                ) : parsedSpecialty.items.length === 0 ? (
-                  <div className="py-4 text-center space-y-2">
-                    <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
-                      Nenhum item detectado no banco de dados para esta especialidade.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => reloadSpecialtyRequirements(selectedSpecialty)}
-                      className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1 border border-indigo-200 dark:border-indigo-800 transition-colors"
-                    >
-                      <RefreshCw size={11} />
-                      <span>Buscar Itens no Banco</span>
-                    </button>
-                  </div>
+          {/* Corpo do Modal (Rolável com min-h-0 para garantir que tudo caiba na tela) */}
+          <div className="p-4 sm:p-5 flex-1 min-h-0 overflow-y-auto space-y-3.5 scrollbar-thin">
+            {/* Card Resumo da Especialidade */}
+            <div className="p-2.5 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-700/60 flex items-center space-x-3">
+              <div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl p-1 border border-slate-200/60 dark:border-slate-700 flex items-center justify-center shrink-0">
+                {selectedSpecialty.logo ? (
+                  <img src={getImageUrl(selectedSpecialty.logo)} alt={selectedSpecialty.nome} className="w-full h-full object-contain" />
                 ) : (
-                  <div className="max-h-56 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
-                    {parsedSpecialty.items.map((it, idx) => (
-                      <div key={idx} className="bg-white dark:bg-slate-800 rounded-xl p-2.5 border border-slate-100 dark:border-slate-700/80 shadow-xs text-[10px]">
-                        <div className="flex items-start gap-2">
-                          <span className="px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 font-black text-[9px] shrink-0 mt-0.5">
-                            Item {it.itemNumber}
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-bold text-slate-800 dark:text-slate-200 leading-snug">
-                              {it.cleanQuestion}
-                            </p>
-                            {it.subItems.length > 0 && (
-                              <div className="mt-1.5 pl-2 border-l-2 border-indigo-200 dark:border-indigo-800 space-y-1 text-slate-600 dark:text-slate-300 text-[9.5px]">
-                                {it.subItems.map((sub, sIdx) => (
-                                  <div key={sIdx} className="leading-tight flex items-start gap-1">
-                                    <span className="text-indigo-500 font-bold shrink-0">•</span>
-                                    <span>{sub}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                  <Award size={18} className="text-amber-500" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="font-black text-slate-800 dark:text-white text-xs uppercase tracking-tight truncate">
+                  {selectedSpecialty.nome}
+                </h4>
+                <div className="flex items-center space-x-2 mt-0.5">
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase truncate">
+                    {selectedSpecialty.area}
+                  </span>
+                  <span className="text-slate-300 dark:text-slate-600">•</span>
+                  <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 whitespace-nowrap">
+                    {totalRealReqs} Requisitos Oficiais
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Informações da Geração Didática Unificada */}
+            <div className="p-3 bg-gradient-to-r from-orange-50/90 to-amber-50/80 dark:from-orange-950/40 dark:to-slate-900/60 rounded-2xl border border-orange-200/70 dark:border-orange-900/50 space-y-1.5">
+              <div className="flex items-center space-x-2">
+                <div className="w-6 h-6 rounded-lg bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+                  <Sparkles size={13} />
+                </div>
+                <span className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-tight">
+                  Geração Didática Completa (.pptx)
+                </span>
+              </div>
+              <p className="text-[10px] leading-relaxed text-slate-600 dark:text-slate-300">
+                Todas as <strong>{totalRealReqs} questões oficiais</strong> com respostas explicativas completas, pontos fundamentais de fixação, dinâmicas práticas na unidade, conselhos pedagógicos ao instrutor e slides dedicados para cada sub-item.
+              </p>
+            </div>
+
+            {/* Visualizador dos Itens Oficiais do Banco de Dados no Modal */}
+            <div className="border border-slate-200 dark:border-slate-700/80 rounded-2xl overflow-hidden bg-slate-50/60 dark:bg-slate-900/50 shadow-xs transition-all">
+              <button
+                type="button"
+                onClick={() => setShowPptxItemsList(prev => !prev)}
+                className="w-full px-3.5 py-2.5 flex items-center justify-between text-left text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100/60 dark:hover:bg-slate-800/60 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-md bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <ListChecks size={13} />
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span className="text-[11px] font-black uppercase tracking-tight text-slate-800 dark:text-white">
+                      Visualizador de Itens do Banco ({parsedSpecialty.items.length} Requisitos)
+                    </span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                        Itens Oficiais Conectados
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                  <span>{showPptxItemsList ? 'Ocultar' : 'Expandir'}</span>
+                  {showPptxItemsList ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                </div>
+              </button>
+              
+              {showPptxItemsList && (
+                <div className="p-3 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                  {isLoadingRequirements ? (
+                    <div className="py-6 flex flex-col items-center justify-center space-y-2">
+                      <div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                        Sincronizando itens oficiais do banco...
+                      </span>
+                    </div>
+                  ) : parsedSpecialty.items.length === 0 ? (
+                    <div className="py-4 text-center space-y-2">
+                      <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                        Nenhum item detectado no banco de dados para esta especialidade.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => reloadSpecialtyRequirements(selectedSpecialty)}
+                        className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1 border border-indigo-200 dark:border-indigo-800 transition-colors"
+                      >
+                        <RefreshCw size={11} />
+                        <span>Buscar Itens no Banco</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="max-h-48 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+                      {parsedSpecialty.items.map((it, idx) => (
+                        <div key={idx} className="bg-white dark:bg-slate-800 rounded-xl p-2.5 border border-slate-100 dark:border-slate-700/80 shadow-xs text-[10px]">
+                          <div className="flex items-start gap-2">
+                            <span className="px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 font-black text-[9px] shrink-0 mt-0.5">
+                              Item {it.itemNumber}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold text-slate-800 dark:text-slate-200 leading-snug break-words">
+                                {it.cleanQuestion}
+                              </p>
+                              {it.subItems.length > 0 && (
+                                <div className="mt-1.5 pl-2 border-l-2 border-indigo-200 dark:border-indigo-800 space-y-1 text-slate-600 dark:text-slate-300 text-[9.5px]">
+                                  {it.subItems.map((sub, sIdx) => (
+                                    <div key={sIdx} className="leading-tight flex items-start gap-1">
+                                      <span className="text-indigo-500 font-bold shrink-0">•</span>
+                                      <span className="break-words">{sub}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Campos de Personalização da Apresentação */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                Personalização dos Slides:
+              </label>
+              <div className="space-y-1.5">
+                <input 
+                  type="text"
+                  placeholder="Nome do Instrutor(a) / Conselheiro(a)"
+                  value={pptxInstructorName}
+                  onChange={(e) => setPptxInstructorName(e.target.value)}
+                  disabled={isGeneratingPptx}
+                  className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/40"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <input 
+                    type="text"
+                    placeholder="Nome do Clube"
+                    value={pptxClubName}
+                    onChange={(e) => setPptxClubName(e.target.value)}
+                    disabled={isGeneratingPptx}
+                    className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/40"
+                  />
+                  <input 
+                    type="text"
+                    placeholder="Nome da Unidade"
+                    value={pptxUnitName}
+                    onChange={(e) => setPptxUnitName(e.target.value)}
+                    disabled={isGeneratingPptx}
+                    className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/40"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Barra de Progresso durante a Geração */}
+            {isGeneratingPptx && (
+              <div className="p-2.5 bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900/60 rounded-xl space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-bold text-orange-900 dark:text-orange-200">
+                  <span className="flex items-center gap-1.5 truncate">
+                    <span className="inline-block w-2 h-2 rounded-full bg-orange-500 animate-ping"></span>
+                    <span className="truncate">{pptxProgressMsg || 'Processando apresentação...'}</span>
+                  </span>
+                  <span className="shrink-0 ml-2">{pptxProgressPercent}%</span>
+                </div>
+                <div className="w-full h-1.5 bg-orange-200/80 dark:bg-orange-900/60 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-300 rounded-full"
+                    style={{ width: `${Math.max(5, pptxProgressPercent)}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Mensagem de Erro (se houver) */}
+            {pptxError && (
+              <div className="p-2.5 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900 rounded-xl text-xs text-red-700 dark:text-red-300 font-medium">
+                {pptxError}
               </div>
             )}
           </div>
 
-          {/* Campos de Personalização da Apresentação */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
-              Personalização dos Slides:
-            </label>
-            <div className="space-y-1.5">
-              <input 
-                type="text"
-                placeholder="Nome do Instrutor(a) / Conselheiro(a)"
-                value={pptxInstructorName}
-                onChange={(e) => setPptxInstructorName(e.target.value)}
-                disabled={isGeneratingPptx}
-                className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/40"
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <input 
-                  type="text"
-                  placeholder="Nome do Clube"
-                  value={pptxClubName}
-                  onChange={(e) => setPptxClubName(e.target.value)}
-                  disabled={isGeneratingPptx}
-                  className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/40"
-                />
-                <input 
-                  type="text"
-                  placeholder="Nome da Unidade"
-                  value={pptxUnitName}
-                  onChange={(e) => setPptxUnitName(e.target.value)}
-                  disabled={isGeneratingPptx}
-                  className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/40"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Barra de Progresso durante a Geração */}
-          {isGeneratingPptx && (
-            <div className="p-2.5 bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900/60 rounded-xl space-y-1.5">
-              <div className="flex items-center justify-between text-xs font-bold text-orange-900 dark:text-orange-200">
-                <span className="flex items-center gap-1.5 truncate">
-                  <span className="inline-block w-2 h-2 rounded-full bg-orange-500 animate-ping"></span>
-                  <span className="truncate">{pptxProgressMsg || 'Processando apresentação...'}</span>
-                </span>
-                <span className="shrink-0 ml-2">{pptxProgressPercent}%</span>
-              </div>
-              <div className="w-full h-1.5 bg-orange-200/80 dark:bg-orange-900/60 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-300 rounded-full"
-                  style={{ width: `${Math.max(5, pptxProgressPercent)}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Mensagem de Erro (se houver) */}
-          {pptxError && (
-            <div className="p-2.5 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900 rounded-xl text-xs text-red-700 dark:text-red-300 font-medium">
-              {pptxError}
-            </div>
-          )}
-
-          {/* Botões do Rodapé */}
-          <div className="flex items-center justify-end space-x-2 pt-1">
+          {/* Rodapé Fixo (Sempre Visível no espaço útil do programa) */}
+          <div className="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/95 border-t border-slate-100 dark:border-slate-700/80 flex items-center justify-end space-x-2 shrink-0">
             <button
               type="button"
               onClick={() => setIsPptxModalOpen(false)}
               disabled={isGeneratingPptx}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-40"
+              className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-40 cursor-pointer"
             >
               Cancelar
             </button>
@@ -3852,7 +3870,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               type="button"
               onClick={handleGeneratePptx}
               disabled={isGeneratingPptx}
-              className="px-4 py-2 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-md hover:shadow-orange-500/20 active:scale-95 transition-all flex items-center space-x-1.5 disabled:opacity-50"
+              className="px-4 py-2 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-md hover:shadow-orange-500/20 active:scale-95 transition-all flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer"
             >
               <Presentation size={15} />
               <span>{isGeneratingPptx ? 'Gerando...' : 'Baixar (.pptx)'}</span>
@@ -4224,37 +4242,41 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
             {examPreviewQuestions.length > 0 && (
               <div className="p-3 max-h-60 overflow-y-auto space-y-2.5 scrollbar-thin">
-                {examPreviewQuestions.map((q) => (
+                {examPreviewQuestions.map((q: any) => (
                   <div
                     key={q.number}
                     className="bg-white dark:bg-slate-800 rounded-xl p-3 border border-slate-200/80 dark:border-slate-700 text-[11px] space-y-1.5 shadow-2xs"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 font-black text-[9.5px] uppercase">
-                        Questão {String(q.number).padStart(2, '0')} • {q.requirementRef}
+                        Questão {String(q.number).padStart(2, '0')} {q.requirementRef ? `• ${q.requirementRef}` : ''}
                       </span>
-                      <span className="text-[9.5px] font-bold text-slate-400 uppercase">
-                        {q.weight.toFixed(1).replace('.', ',')} pt
-                      </span>
+                      {typeof q.weight === 'number' && (
+                        <span className="text-[9.5px] font-bold text-slate-400 uppercase">
+                          {q.weight.toFixed(1).replace('.', ',')} pt
+                        </span>
+                      )}
                     </div>
                     <p className="font-bold text-slate-800 dark:text-slate-100 leading-snug">
-                      {q.stem}
+                      {q.stem || q.question}
                     </p>
                     {q.type === 'MULTIPLA_ESCOLHA' && q.options && (
                       <div className="space-y-1 pt-1">
-                        {q.options.map((opt) => {
-                          const isCorrect = showExamPreviewGabarito && q.correctOption === opt.letter;
+                        {q.options.map((opt: any, optIdx: number) => {
+                          const letter = opt?.letter || String.fromCharCode(65 + optIdx);
+                          const text = opt?.text || (typeof opt === 'string' ? opt : String(opt));
+                          const isCorrect = showExamPreviewGabarito && (q.correctOption === letter || q.correctIndex === optIdx);
                           return (
                             <div
-                              key={opt.letter}
+                              key={letter + optIdx}
                               className={`px-2 py-1 rounded-lg text-[10px] flex items-start gap-1.5 ${
                                 isCorrect
                                   ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-900 dark:text-emerald-200 font-bold border border-emerald-300 dark:border-emerald-800'
                                   : 'text-slate-600 dark:text-slate-300'
                               }`}
                             >
-                              <span className="font-black shrink-0">{opt.letter})</span>
-                              <span>{opt.text}</span>
+                              <span className="font-black shrink-0">{letter})</span>
+                              <span>{text}</span>
                             </div>
                           );
                         })}
@@ -4262,7 +4284,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     )}
                     {q.type === 'VERDADEIRO_FALSO' && q.vfStatements && (
                       <div className="space-y-1 pt-1">
-                        {q.vfStatements.map((st, sIdx) => (
+                        {q.vfStatements.map((st: any, sIdx: number) => (
                           <div key={sIdx} className="text-[10px] text-slate-600 dark:text-slate-300 flex items-start gap-1.5">
                             <span className="font-black text-emerald-700 dark:text-emerald-400 shrink-0">
                               ({showExamPreviewGabarito ? (st.isTrue ? 'V' : 'F') : ' '})
@@ -4272,12 +4294,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                         ))}
                       </div>
                     )}
-                    {showExamPreviewGabarito && (
+                    {showExamPreviewGabarito && (q.expectedAnswer || q.answer) && (
                       <div className="mt-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-700/70 text-[10px] text-emerald-800 dark:text-emerald-300 bg-emerald-50/60 dark:bg-emerald-950/30 p-2 rounded-lg">
                         <span className="font-black uppercase tracking-wider block text-[9px] text-emerald-600 dark:text-emerald-400">
                           Gabarito Oficial do Instrutor:
                         </span>
-                        <span className="font-medium leading-relaxed">{q.expectedAnswer}</span>
+                        <span className="font-medium leading-relaxed">{q.expectedAnswer || q.answer}</span>
                       </div>
                     )}
                   </div>
@@ -4445,10 +4467,20 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           {/* Header da Especialidade: No Celular (Imagem no Topo e Textos Abaixo) / No PC (Imagem à Esquerda e Textos à Direita) */}
           <div id="specialty-header" className="bg-white dark:bg-slate-800 rounded-[28px] sm:rounded-[36px] p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-slate-700 relative">
             <div className="flex flex-col md:flex-row items-center gap-3 sm:gap-4 md:gap-6 text-center md:text-left w-full">
-              {/* Imagem da Especialidade (Centralizada no topo no celular, à esquerda no PC) */}
-              <div className="w-24 h-24 sm:w-28 sm:h-28 md:w-28 md:h-28 shrink-0 flex items-center justify-center mb-1 md:mb-0">
+              {/* Imagem da Especialidade (Centralizada no topo no celular, à esquerda no PC) - Clique direto para ampliação sem botão extra */}
+              <div 
+                onClick={() => {
+                  if (selectedSpecialty.logo) {
+                    setZoomedSpecialty(selectedSpecialty);
+                  }
+                }}
+                className={`w-24 h-24 sm:w-28 sm:h-28 md:w-28 md:h-28 shrink-0 flex items-center justify-center mb-1 md:mb-0 ${
+                  selectedSpecialty.logo ? 'cursor-pointer hover:scale-105 active:scale-95 transition-transform' : ''
+                }`}
+                title={selectedSpecialty.logo ? "Clique na imagem para ampliar" : undefined}
+              >
                 {selectedSpecialty.logo ? (
-                  <img src={getImageUrl(selectedSpecialty.logo)} className="w-full h-full object-contain filter drop-shadow-sm" alt={selectedSpecialty.nome} referrerPolicy="no-referrer" />
+                  <img src={getImageUrl(selectedSpecialty.logo)} className="w-full h-full object-contain filter drop-shadow-sm select-none" alt={selectedSpecialty.nome} referrerPolicy="no-referrer" />
                 ) : (
                   <Award size={40} className="text-slate-200 dark:text-slate-600" />
                 )}

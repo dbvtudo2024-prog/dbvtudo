@@ -105,17 +105,31 @@ let _realtimeChannel: any = null;
 let _syncInProgress = false;
 let _lastSyncTimestamp = 0;
 
-// Cliente Realtime dedicado para sincronização multi-dispositivo
-const supabaseCloudSyncRealtime = createClient(QFPY_URL, QFPY_KEY, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false
-  },
-  global: {
-    fetch: safeSupabaseFetch
+// Cliente Realtime dedicado para sincronização multi-dispositivo (lazy/resiliente)
+let _realtimeClientInstance: any = null;
+function getRealtimeSyncClient() {
+  if (_realtimeClientInstance) return _realtimeClientInstance;
+  if (supabaseQfpy) {
+    _realtimeClientInstance = supabaseQfpy;
+    return _realtimeClientInstance;
   }
-});
+  if (typeof createClient === 'function') {
+    try {
+      _realtimeClientInstance = createClient(QFPY_URL, QFPY_KEY, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false
+        },
+        global: {
+          fetch: safeSupabaseFetch
+        }
+      });
+      return _realtimeClientInstance;
+    } catch {}
+  }
+  return supabase;
+}
 
 function ensureNativeStorageRefs() {
   if (typeof window === 'undefined' || !window.localStorage) return;
@@ -929,7 +943,8 @@ export function initUserCloudSync(): void {
   // 2. Canal Realtime WebSocket para atualização instantânea quando Celular e PC estão abertos juntos
   try {
     const myDeviceId = getDeviceId();
-    const ch = supabaseCloudSyncRealtime
+    const client = getRealtimeSyncClient();
+    const ch = client
       .channel('dbv_universal_cloud_sync_v1', {
         config: { broadcast: { self: false } }
       })

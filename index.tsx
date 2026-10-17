@@ -20,7 +20,7 @@ root.render(
 );
 
 if ('serviceWorker' in navigator) {
-  if (import.meta.env.PROD) {
+  if ((import.meta as any).env?.PROD) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW error:', err));
     });

@@ -2,15 +2,22 @@ import { jsPDF } from 'jspdf';
 import { Especialidade, ClubType } from '../types';
 import { parseAndNormalizeRequirements } from './presentationService';
 
-export type ExamFormatMode = 'MULTIPLE_CHOICE' | 'DISCURSIVE' | 'MIXED';
+export type ExamFormatMode = 'MULTIPLE_CHOICE' | 'DISCURSIVE' | 'MIXED' | 'MISTA';
 
 export interface ExamQuestion {
   number: number;
   question: string;
-  options?: string[];
+  options?: any[];
   correctIndex?: number;
   answer?: string;
   referenceRequirement?: string;
+  requirementRef?: string;
+  weight?: number;
+  stem?: string;
+  type?: string;
+  correctOption?: string;
+  vfStatements?: any[];
+  expectedAnswer?: string;
 }
 
 export interface GenerateExamOptions {
@@ -18,8 +25,8 @@ export interface GenerateExamOptions {
   clubName?: string;
   unitName?: string;
   examDate?: string;
-  minPassingGrade?: number;
-  questionCount?: number;
+  minPassingGrade?: number | string;
+  questionCount?: number | 'ALL';
   formatMode?: ExamFormatMode;
   includeAnswerKey?: boolean;
   includePracticalChecklist?: boolean;

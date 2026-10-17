@@ -100,13 +100,17 @@ export const UpdateNotification: React.FC<UpdateNotificationProps> = ({ onOpenVe
       if ('Notification' in window && Notification.permission === 'granted') {
         const vText = versionLabel ? ` v${versionLabel}` : '';
         const title = `✨ Nova Versão${vText} Disponível!`;
-        const options: NotificationOptions & { renotify?: boolean } = {
-          body: `A versão${vText} do DBV Tudo foi publicada com novas melhorias. Toque para atualizar.`,
+        const options: NotificationOptions & { renotify?: boolean; actions?: any[] } = {
+          body: `A versão${vText} do DBV Tudo foi publicada com novas melhorias. Clique em Atualizar App para aplicar agora.`,
           icon: '/favicon.ico',
           badge: '/favicon.ico',
           tag: 'dbv-tudo-update',
           renotify: true,
-          requireInteraction: true
+          requireInteraction: true,
+          actions: [
+            { action: 'update', title: '🔄 Atualizar App Agora' },
+            { action: 'dismiss', title: 'Depois' }
+          ]
         };
 
         if ('serviceWorker' in navigator) {
@@ -231,6 +235,26 @@ export const UpdateNotification: React.FC<UpdateNotificationProps> = ({ onOpenVe
       window.removeEventListener('online', handleOnline);
     };
   }, [checkForUpdates, triggerUpdateFound]);
+
+  // Listener para evento de clique em notificação ou parâmetro URL para atualizar imediatamente
+  useEffect(() => {
+    const handleSwMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'FORCE_UPDATE_NOW') {
+        handleUpdateNow();
+      }
+    };
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleSwMessage);
+    }
+    if (typeof window !== 'undefined' && window.location.search.includes('update_now=1')) {
+      handleUpdateNow();
+    }
+    return () => {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handleSwMessage);
+      }
+    };
+  }, []);
 
   // Solicitar permissão de notificação nativa do navegador/celular
   const requestNotificationPermission = async () => {
@@ -393,6 +417,21 @@ export const UpdateNotification: React.FC<UpdateNotificationProps> = ({ onOpenVe
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Botão Flutuante Persistente de Atualização (caso o usuário tenha fechado o card acima) */}
+      {hasUpdate && isDismissed && (
+        <div className="fixed bottom-4 right-4 z-[9999] pointer-events-auto animate-bounce">
+          <button
+            onClick={handleUpdateNow}
+            disabled={isUpdating}
+            className="flex items-center gap-2 px-3.5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-2xl shadow-indigo-600/40 border border-indigo-400/40 cursor-pointer active:scale-95 transition-all"
+            title="Atualizar o aplicativo agora"
+          >
+            <RefreshCw size={14} className={isUpdating ? "animate-spin" : ""} />
+            <span>Atualizar App {newVersionName ? `v${newVersionName}` : ''}</span>
+          </button>
         </div>
       )}
 

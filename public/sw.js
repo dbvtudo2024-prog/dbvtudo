@@ -28,19 +28,23 @@ self.addEventListener('notificationclick', (event) => {
       if (clientList.length > 0) {
         const client = clientList[0];
         client.focus();
+        if (event.action === 'update') {
+          client.postMessage({ type: 'FORCE_UPDATE_NOW' });
+        }
         client.navigate(client.url);
       } else {
-        self.clients.openWindow('/');
+        self.clients.openWindow('/?update_now=1');
       }
     })
   );
 });
 
 self.addEventListener('fetch', (event) => {
-  // Não interceptar requisições POST, rotas de API ou chamadas ao Supabase/Google
+  // Não interceptar requisições POST, rotas de API, version.json ou chamadas ao Supabase/Google
   if (
     event.request.method !== 'GET' ||
     event.request.url.includes('/api/') ||
+    event.request.url.includes('version.json') ||
     event.request.url.includes('supabase.co') ||
     event.request.url.includes('googleapis.com')
   ) {

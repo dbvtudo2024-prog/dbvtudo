@@ -234,10 +234,9 @@ async function generateDidacticAnswersWithGemini(
       const ai = new GoogleGenAI({ apiKey });
 
       const modelsToTry = [
-        'gemini-3.8-flash',
-        'gemini-3.5-flash',
         'gemini-3.1-flash-lite',
-        'gemini-3.5-flash-lite'
+        'gemini-flash-latest',
+        'gemini-3.8-flash'
       ];
 
       // Particiona em lotes de até 5 requisitos para garantir respostas detalhadas sem estourar limites de tokens
@@ -422,7 +421,9 @@ export async function generateSpecialtyPowerPoint(
   options?: GeneratePptxOptions
 ): Promise<void> {
   const pptx = new pptxgen();
-  pptx.layout = 'LAYOUT_16x9';
+  // Configura layout 16:9 widescreen real (13.333 x 7.5 polegadas) para compatibilidade nativa perfeita com o Microsoft PowerPoint
+  pptx.defineLayout({ name: 'WIDESCREEN_16_9', width: 13.333, height: 7.5 });
+  pptx.layout = 'WIDESCREEN_16_9';
 
   const palette = getAreaColorPalette(specialty.area);
   const parsed = parseAndNormalizeRequirements(specialty.requisitos || []);
@@ -517,19 +518,20 @@ export async function generateSpecialtyPowerPoint(
     `Apresentação Didática Completa com Todas as ${total} Questões Respondidas, Pontos Fundamentais de Fixação e Dinâmicas Práticas.`,
     {
       x: 0.8,
-      y: 2.9,
-      w: 11.5,
-      h: 0.8,
-      fontSize: 14,
+      y: 2.85,
+      w: 11.6,
+      h: 0.9,
+      fontSize: 13.5,
       color: 'E2E8F0',
-      valign: 'top'
+      valign: 'top',
+      wrap: true
     }
   );
 
   // Cards de Metadados (Instrutor, Clube, Unidade)
-  const metaY = 4.2;
-  const cardW = 3.6;
-  const cardH = 1.6;
+  const metaY = 4.15;
+  const cardW = 3.65;
+  const cardH = 1.7;
 
   // Card 1: Instrutor(a)
   coverSlide.addShape('roundRect', {
@@ -630,93 +632,114 @@ export async function generateSpecialtyPowerPoint(
   });
 
   // -------------------------------------------------------------
-  // SLIDE 2: SUMÁRIO E MAPA DOS REQUISITOS
+  // SLIDE 2: SUMÁRIO E MAPA DOS REQUISITOS (PAGINADO E SEGURO)
   // -------------------------------------------------------------
-  const summarySlide = pptx.addSlide();
-  summarySlide.background = { color: palette.lightBg };
+  const ITEMS_PER_SUMMARY_PAGE = 10;
+  const summaryPagesCount = Math.max(1, Math.ceil(total / ITEMS_PER_SUMMARY_PAGE));
 
-  // Cabeçalho
-  summarySlide.addShape('rect', {
-    x: 0,
-    y: 0,
-    w: '100%',
-    h: 0.9,
-    fill: { color: palette.primary }
-  });
-  summarySlide.addText('ESTRUTURA DA ESPECIALIDADE: REQUISITOS OFICIAIS', {
-    x: 0.8,
-    y: 0.15,
-    w: 9,
-    h: 0.6,
-    fontSize: 18,
-    bold: true,
-    color: 'FFFFFF'
-  });
-  summarySlide.addText(`${specialty.nome} • Total: ${total} Itens`, {
-    x: 8.5,
-    y: 0.2,
-    w: 4.0,
-    h: 0.5,
-    fontSize: 11,
-    bold: true,
-    color: 'E2E8F0',
-    align: 'right'
-  });
+  for (let page = 0; page < summaryPagesCount; page++) {
+    const summarySlide = pptx.addSlide();
+    summarySlide.background = { color: palette.lightBg };
 
-  // Listagem em Grade Resumida
-  const cols = total > 8 ? 2 : 1;
-  const itemsPerCol = Math.ceil(total / cols);
+    const pageItems = parsed.items.slice(page * ITEMS_PER_SUMMARY_PAGE, (page + 1) * ITEMS_PER_SUMMARY_PAGE);
+    const pageTitleSuffix = summaryPagesCount > 1 ? ` (PARTE ${page + 1} DE ${summaryPagesCount})` : '';
 
-  for (let c = 0; c < cols; c++) {
-    const colX = c === 0 ? 0.8 : 6.8;
-    const colW = cols === 1 ? 11.7 : 5.7;
+    // Cabeçalho
+    summarySlide.addShape('rect', {
+      x: 0,
+      y: 0,
+      w: '100%',
+      h: 0.85,
+      fill: { color: palette.primary }
+    });
+    summarySlide.addText(`ESTRUTURA DA ESPECIALIDADE: REQUISITOS OFICIAIS${pageTitleSuffix}`, {
+      x: 0.8,
+      y: 0.15,
+      w: 8.5,
+      h: 0.55,
+      fontSize: 16,
+      bold: true,
+      color: 'FFFFFF'
+    });
+    summarySlide.addText(`${specialty.nome} • Total: ${total} Itens`, {
+      x: 8.5,
+      y: 0.18,
+      w: 4.0,
+      h: 0.5,
+      fontSize: 11,
+      bold: true,
+      color: 'E2E8F0',
+      align: 'right'
+    });
 
-    const sliceItems = parsed.items.slice(c * itemsPerCol, (c + 1) * itemsPerCol);
-    const itemHeight = Math.min(0.65, 5.4 / Math.max(1, sliceItems.length));
+    // Listagem em Grade Resumida (até 2 colunas com no máximo 5 itens cada)
+    const pageCols = pageItems.length > 5 ? 2 : 1;
+    const itemsPerCol = Math.ceil(pageItems.length / pageCols);
 
-    sliceItems.forEach((it, idx) => {
-      const itY = 1.3 + idx * itemHeight;
+    for (let c = 0; c < pageCols; c++) {
+      const colX = c === 0 ? 0.8 : 6.8;
+      const colW = pageCols === 1 ? 11.7 : 5.7;
 
-      summarySlide.addShape('roundRect', {
-        x: colX,
-        y: itY,
-        w: colW,
-        h: itemHeight - 0.1,
-        fill: { color: 'FFFFFF' },
-        line: { color: palette.cardBorder, width: 1 }
+      const sliceItems = pageItems.slice(c * itemsPerCol, (c + 1) * itemsPerCol);
+      const cardHeight = 0.82;
+      const cardGap = 0.16;
+
+      sliceItems.forEach((it, idx) => {
+        const itY = 1.15 + idx * (cardHeight + cardGap);
+
+        summarySlide.addShape('roundRect', {
+          x: colX,
+          y: itY,
+          w: colW,
+          h: cardHeight,
+          fill: { color: 'FFFFFF' },
+          line: { color: palette.cardBorder, width: 1 }
+        });
+
+        // Pílula do número
+        summarySlide.addShape('roundRect', {
+          x: colX + 0.12,
+          y: itY + 0.18,
+          w: 0.82,
+          h: 0.44,
+          fill: { color: palette.areaBadgeBg }
+        });
+        summarySlide.addText(`Item ${it.number}`, {
+          x: colX + 0.12,
+          y: itY + 0.18,
+          w: 0.82,
+          h: 0.44,
+          fontSize: 9,
+          bold: true,
+          color: palette.areaBadgeText,
+          align: 'center',
+          valign: 'middle'
+        });
+
+        // Texto do requisito resumido
+        summarySlide.addText(it.cleanQuestion, {
+          x: colX + 1.05,
+          y: itY + 0.08,
+          w: colW - 1.2,
+          h: cardHeight - 0.16,
+          fontSize: 9.5,
+          bold: true,
+          color: '334155',
+          valign: 'middle',
+          wrap: true
+        });
       });
+    }
 
-      // Pílula do número
-      summarySlide.addShape('roundRect', {
-        x: colX + 0.1,
-        y: itY + 0.08,
-        w: 0.75,
-        h: itemHeight - 0.26,
-        fill: { color: palette.areaBadgeBg }
-      });
-      summarySlide.addText(`Item ${it.number}`, {
-        x: colX + 0.1,
-        y: itY + 0.08,
-        w: 0.75,
-        h: itemHeight - 0.26,
-        fontSize: 9,
-        bold: true,
-        color: palette.areaBadgeText,
-        align: 'center',
-        valign: 'middle'
-      });
-
-      // Texto do requisito resumido
-      summarySlide.addText(it.cleanQuestion, {
-        x: colX + 0.95,
-        y: itY + 0.05,
-        w: colW - 1.1,
-        h: itemHeight - 0.2,
-        fontSize: 10,
-        bold: true,
-        color: '334155',
-        valign: 'middle'
-      });
+    // Rodapé do slide de sumário
+    summarySlide.addText('DBV Tudo • Apresentação Didática Completa de Especialidades', {
+      x: 0.8,
+      y: 6.8,
+      w: 11.7,
+      h: 0.3,
+      fontSize: 9,
+      color: '94A3B8',
+      align: 'center'
     });
   }
 
@@ -738,23 +761,23 @@ export async function generateSpecialtyPowerPoint(
       x: 0,
       y: 0,
       w: '100%',
-      h: 0.85,
+      h: 0.80,
       fill: { color: palette.primary }
     });
 
     // Badge Requisito
     slide.addShape('roundRect', {
       x: 0.8,
-      y: 0.18,
+      y: 0.16,
       w: 2.5,
-      h: 0.48,
+      h: 0.46,
       fill: { color: 'FFFFFF' }
     });
     slide.addText(`REQUISITO ${it.number} DE ${total}`, {
       x: 0.8,
-      y: 0.18,
+      y: 0.16,
       w: 2.5,
-      h: 0.48,
+      h: 0.46,
       fontSize: 10,
       bold: true,
       color: palette.primary,
@@ -765,10 +788,10 @@ export async function generateSpecialtyPowerPoint(
     // Nome da Especialidade no cabeçalho
     slide.addText(specialty.nome || 'Especialidade', {
       x: 3.5,
-      y: 0.15,
+      y: 0.14,
       w: 8.8,
-      h: 0.55,
-      fontSize: 14,
+      h: 0.50,
+      fontSize: 13,
       bold: true,
       color: 'FFFFFF',
       align: 'right',
@@ -778,39 +801,40 @@ export async function generateSpecialtyPowerPoint(
     // 1. Enunciado Oficial da Questão (Card de Destaque)
     slide.addShape('roundRect', {
       x: 0.8,
-      y: 1.05,
+      y: 0.95,
       w: 11.7,
-      h: 1.1,
+      h: 1.05,
       fill: { color: 'FFFFFF' },
       line: { color: palette.accent, width: 1.5 }
     });
     slide.addText('PERGUNTA / ENUNCIADO OFICIAL:', {
       x: 1.0,
-      y: 1.15,
+      y: 1.02,
       w: 11.3,
-      h: 0.25,
-      fontSize: 9,
+      h: 0.20,
+      fontSize: 8.5,
       bold: true,
       color: palette.primary
     });
     slide.addText(it.cleanQuestion, {
       x: 1.0,
-      y: 1.4,
+      y: 1.24,
       w: 11.3,
-      h: 0.65,
-      fontSize: 13,
+      h: 0.70,
+      fontSize: 11,
       bold: true,
       color: '0F172A',
-      valign: 'top'
+      valign: 'top',
+      wrap: true
     });
 
     // 2. Resposta Explicativa Didática (Card Principal)
     const hasSubItems = it.subItems.length > 0;
-    const answerHeight = hasSubItems ? 2.1 : 2.5;
+    const answerHeight = hasSubItems ? 1.95 : 2.85;
 
     slide.addShape('roundRect', {
       x: 0.8,
-      y: 2.3,
+      y: 2.10,
       w: 11.7,
       h: answerHeight,
       fill: { color: 'FFFFFF' },
@@ -819,17 +843,17 @@ export async function generateSpecialtyPowerPoint(
 
     slide.addShape('roundRect', {
       x: 1.0,
-      y: 2.42,
+      y: 2.18,
       w: 3.8,
-      h: 0.35,
+      h: 0.30,
       fill: { color: palette.areaBadgeBg }
     });
     slide.addText('📖 RESPOSTA DIDÁTICA E EXPLICAÇÃO:', {
       x: 1.0,
-      y: 2.42,
+      y: 2.18,
       w: 3.8,
-      h: 0.35,
-      fontSize: 9,
+      h: 0.30,
+      fontSize: 8.5,
       bold: true,
       color: palette.areaBadgeText,
       align: 'center',
@@ -839,19 +863,20 @@ export async function generateSpecialtyPowerPoint(
     const answerContent = ans?.answer || `Explicação didática detalhada do requisito ${it.cleanQuestion}.`;
     slide.addText(answerContent, {
       x: 1.0,
-      y: 2.85,
+      y: 2.52,
       w: 11.3,
-      h: answerHeight - 0.7,
-      fontSize: 11.5,
+      h: answerHeight - 0.48,
+      fontSize: hasSubItems ? 10 : 10.5,
       color: '334155',
-      valign: 'top'
+      valign: 'top',
+      wrap: true
     });
 
     // Se tiver sub-itens (a, b, c), exibe um card com os sub-itens respondidos
     if (hasSubItems) {
       slide.addShape('roundRect', {
         x: 0.8,
-        y: 4.5,
+        y: 4.15,
         w: 11.7,
         h: 1.15,
         fill: { color: 'F8FAFC' },
@@ -859,9 +884,9 @@ export async function generateSpecialtyPowerPoint(
       });
       slide.addText('SUB-ITENS OFICIAIS:', {
         x: 1.0,
-        y: 4.55,
+        y: 4.20,
         w: 11.3,
-        h: 0.22,
+        h: 0.20,
         fontSize: 8.5,
         bold: true,
         color: palette.primary
@@ -870,17 +895,18 @@ export async function generateSpecialtyPowerPoint(
       const subItemsText = it.subItems.map(s => `• ${s}`).join('\n');
       slide.addText(subItemsText, {
         x: 1.0,
-        y: 4.8,
+        y: 4.42,
         w: 11.3,
-        h: 0.75,
-        fontSize: 9.5,
-        color: '475569'
+        h: 0.80,
+        fontSize: 9,
+        color: '475569',
+        wrap: true
       });
     }
 
     // 3. Cards Inferiores: Pontos de Fixação & Dinâmica Prática
-    const bottomCardsY = hasSubItems ? 5.75 : 4.95;
-    const bottomCardH = hasSubItems ? 1.15 : 1.6;
+    const bottomCardsY = hasSubItems ? 5.40 : 5.05;
+    const bottomCardH = hasSubItems ? 1.30 : 1.65;
 
     // Card Esquerda: Pontos de Fixação
     slide.addShape('roundRect', {
@@ -893,9 +919,9 @@ export async function generateSpecialtyPowerPoint(
     });
     slide.addText('🎯 PONTOS DE FIXAÇÃO & MEMORIZAÇÃO', {
       x: 1.0,
-      y: bottomCardsY + 0.1,
+      y: bottomCardsY + 0.08,
       w: 5.3,
-      h: 0.25,
+      h: 0.22,
       fontSize: 8.5,
       bold: true,
       color: palette.primary
@@ -907,11 +933,12 @@ export async function generateSpecialtyPowerPoint(
 
     slide.addText(keyPoints, {
       x: 1.0,
-      y: bottomCardsY + 0.35,
+      y: bottomCardsY + 0.32,
       w: 5.3,
-      h: bottomCardH - 0.45,
-      fontSize: 9,
-      color: '475569'
+      h: bottomCardH - 0.40,
+      fontSize: 8.5,
+      color: '475569',
+      wrap: true
     });
 
     // Card Direita: Dinâmica Prática na Unidade
@@ -925,9 +952,9 @@ export async function generateSpecialtyPowerPoint(
     });
     slide.addText('🏕️ DINÂMICA PRÁTICA NA UNIDADE', {
       x: 7.0,
-      y: bottomCardsY + 0.1,
+      y: bottomCardsY + 0.08,
       w: 5.3,
-      h: 0.25,
+      h: 0.22,
       fontSize: 8.5,
       bold: true,
       color: palette.primary
@@ -938,11 +965,12 @@ export async function generateSpecialtyPowerPoint(
 
     slide.addText(practicalText, {
       x: 7.0,
-      y: bottomCardsY + 0.35,
+      y: bottomCardsY + 0.32,
       w: 5.3,
-      h: bottomCardH - 0.45,
-      fontSize: 9,
-      color: '475569'
+      h: bottomCardH - 0.40,
+      fontSize: 8.5,
+      color: '475569',
+      wrap: true
     });
 
     // Rodapé
@@ -950,21 +978,21 @@ export async function generateSpecialtyPowerPoint(
       `💡 Dica ao Instrutor: ${ans?.instructorTip || 'Conecte o requisito com lições espirituais e vivências práticas de campo.'}`,
       {
         x: 0.8,
-        y: 7.05,
-        w: 10.0,
-        h: 0.35,
-        fontSize: 8.5,
+        y: 6.82,
+        w: 9.8,
+        h: 0.30,
+        fontSize: 8,
         italic: true,
         color: '64748B'
       }
     );
 
     slide.addText(`Slide ${i + 3} de ${total + 4}`, {
-      x: 11.0,
-      y: 7.05,
-      w: 1.5,
-      h: 0.35,
-      fontSize: 8.5,
+      x: 10.8,
+      y: 6.82,
+      w: 1.7,
+      h: 0.30,
+      fontSize: 8,
       bold: true,
       color: '64748B',
       align: 'right'

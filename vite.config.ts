@@ -6,7 +6,26 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
   plugins: [
     react(),
-    tailwindcss()
+    tailwindcss(),
+    {
+      name: 'api-server-middleware',
+      configureServer(server) {
+        server.middlewares.use(async (req, res, next) => {
+          if (req.url && req.url.startsWith('/api/live-exam')) {
+            try {
+              const { default: handler } = await import('./api/live-exam.ts');
+              await handler(req, res);
+            } catch (err: any) {
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: err?.message || 'Internal Server Error' }));
+            }
+            return;
+          }
+          next();
+        });
+      }
+    }
   ],
   define: {
     __APP_VERSION__: JSON.stringify('3.1.2'),

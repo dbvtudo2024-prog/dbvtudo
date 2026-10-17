@@ -10897,18 +10897,18 @@ REGRAS OBRIGATÓRIAS:
                   )}
 
                   <div className="w-full min-w-0 flex flex-col gap-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="w-full overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl py-2 px-2.5 text-center border border-slate-200 dark:border-slate-800">
-                        <span className="text-[8.5px] sm:text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block truncate">
+                    <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+                      <div className="w-full min-w-0 overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl py-2 px-2 text-center border border-slate-200 dark:border-slate-800">
+                        <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block truncate">
                           Código PIN da Sala
                         </span>
-                        <p className="text-base sm:text-xl font-black tracking-widest text-amber-600 dark:text-amber-400 leading-tight truncate">
+                        <p className="text-sm sm:text-base md:text-lg font-black tracking-widest text-amber-600 dark:text-amber-400 leading-tight truncate">
                           {activeRoom.pin}
                         </p>
                       </div>
 
-                      <div className="w-full overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl py-2 px-2.5 text-center border border-slate-200 dark:border-slate-800">
-                        <span className="text-[8.5px] sm:text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block truncate">
+                      <div className="w-full min-w-0 overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl py-2 px-2 text-center border border-slate-200 dark:border-slate-800">
+                        <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block truncate">
                           {activeRoom.status === 'FINISHED'
                             ? 'Status'
                             : isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime)
@@ -10916,16 +10916,16 @@ REGRAS OBRIGATÓRIAS:
                             : 'Tempo Restante'}
                         </span>
                         <div
-                          className={`text-lg sm:text-xl font-black tabular-nums leading-tight flex items-center justify-center gap-1 ${
+                          className={`text-xs sm:text-sm md:text-base font-black tabular-nums leading-tight flex items-center justify-center gap-1 ${
                             activeRoom.status === 'FINISHED'
                               ? 'text-red-500 dark:text-red-400'
                               : 'text-sky-600 dark:text-sky-400'
                           }`}
                         >
-                          <Timer size={14} className="shrink-0" />
-                          <span>
+                          <Timer size={13} className="shrink-0" />
+                          <span className="truncate">
                             {activeRoom.status === 'FINISHED'
-                              ? 'Prova Encerrada'
+                              ? 'Encerrada'
                               : isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime)
                               ? '∞ Sem Limite'
                               : formatTimeMMSS(hostRemainingSeconds)}
@@ -10937,14 +10937,14 @@ REGRAS OBRIGATÓRIAS:
                     <button
                       type="button"
                       onClick={() => setSoundAlertsEnabled((prev) => !prev)}
-                      className={`w-full py-2 px-3 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-1.5 border cursor-pointer whitespace-nowrap truncate ${
+                      className={`w-full py-2 px-2.5 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-1.5 border cursor-pointer ${
                         soundAlertsEnabled
                           ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800'
                           : 'bg-slate-100 dark:bg-slate-900 text-slate-400 border-slate-200 dark:border-slate-700'
                       }`}
                     >
                       {soundAlertsEnabled ? <Volume2 size={12} className="shrink-0" /> : <VolumeX size={12} className="shrink-0" />}
-                      <span className="truncate">{soundAlertsEnabled ? 'Som Anti-Cola: Ativado' : 'Som Anti-Cola: Mudo'}</span>
+                      <span className="truncate">{soundAlertsEnabled ? 'Som Anti-Cola Ativo' : 'Som Anti-Cola Mudo'}</span>
                     </button>
                   </div>
                 </div>
@@ -11087,30 +11087,30 @@ REGRAS OBRIGATÓRIAS:
                   {activeRoom.status === 'ACTIVE' && (
                     <div className="space-y-2 w-full">
                       {!isUnlimitedRoomDuration(activeRoom.durationMinutes, activeRoom.unlimitedTime) ? (
-                        <div className="grid grid-cols-3 gap-1.5 w-full">
+                        <div className="grid grid-cols-3 gap-1 sm:gap-1.5 w-full">
                           <button
                             type="button"
                             onClick={() => handleAddExtraTime(5)}
-                            className="py-2 px-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-[10px] font-black uppercase flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap"
+                            className="py-2 px-1 sm:px-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-[9px] sm:text-[10px] font-black uppercase flex items-center justify-center gap-1 cursor-pointer"
                           >
-                            <Clock size={12} className="shrink-0" />
-                            <span>+5 Min</span>
+                            <Clock size={11} className="shrink-0" />
+                            <span>+5m</span>
                           </button>
                           <button
                             type="button"
                             onClick={() => handleAddExtraTime(15)}
-                            className="py-2 px-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-[10px] font-black uppercase flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap"
+                            className="py-2 px-1 sm:px-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-[9px] sm:text-[10px] font-black uppercase flex items-center justify-center gap-1 cursor-pointer"
                           >
-                            <Clock size={12} className="shrink-0" />
-                            <span>+15 Min</span>
+                            <Clock size={11} className="shrink-0" />
+                            <span>+15m</span>
                           </button>
                           <button
                             type="button"
                             onClick={handleSetRoomUnlimitedTime}
-                            className="py-2 px-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-black uppercase flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap"
+                            className="py-2 px-1 sm:px-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[9px] sm:text-[10px] font-black uppercase flex items-center justify-center gap-1 cursor-pointer"
                             title="Deixar esta prova sem tempo limite"
                           >
-                            <span>∞ Sem Limite</span>
+                            <span>∞ Livre</span>
                           </button>
                         </div>
                       ) : (

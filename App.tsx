@@ -568,13 +568,23 @@ const App: React.FC = () => {
       if (res.ok) {
         const data = await res.json();
         const serverVersion = Number(data?.version || data?.timestamp);
+        const serverVersionName = (data?.versionName || '').trim();
         const storedTime = Number(sessionStorage.getItem('dbv_current_build_time') || 0);
 
-        if (serverVersion && storedTime && serverVersion > storedTime) {
-          setUpdateCheckMessage(`Nova versão v${data?.versionName || ''} encontrada! Recarregando...`);
+        if ((serverVersion && storedTime && serverVersion > storedTime) || (serverVersionName && serverVersionName !== APP_VERSION)) {
+          setUpdateCheckMessage(`Nova versão v${serverVersionName || data?.versionName || ''} encontrada! Atualizando...`);
+          try {
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+              navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+            }
+            if ('caches' in window && window.caches) {
+              const keys = await window.caches.keys();
+              await Promise.all(keys.map((k) => window.caches.delete(k)));
+            }
+          } catch {}
           setTimeout(() => {
             window.location.reload();
-          }, 1200);
+          }, 1000);
           return;
         }
       }
@@ -1562,6 +1572,32 @@ const App: React.FC = () => {
                     <span>{updateCheckMessage}</span>
                   </div>
                 )}
+
+                {/* Botão de Atualizar Aplicativo Imediatamente */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setIsCheckingUpdate(true);
+                    setUpdateCheckMessage('Limpando dados antigos e atualizando...');
+                    try {
+                      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                        navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+                      }
+                      if ('caches' in window && window.caches) {
+                        const keys = await window.caches.keys();
+                        await Promise.all(keys.map((k) => window.caches.delete(k)));
+                      }
+                    } catch {}
+                    setTimeout(() => {
+                      window.location.reload();
+                    }, 600);
+                  }}
+                  disabled={isCheckingUpdate}
+                  className="w-full mb-3 py-2.5 px-3 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md shadow-indigo-600/20 active:scale-98 transition-all cursor-pointer disabled:opacity-70"
+                >
+                  <RefreshCw size={14} className={isCheckingUpdate ? "animate-spin" : ""} />
+                  <span>Atualizar Aplicativo Agora</span>
+                </button>
 
                 {/* Botão para Abrir a Página Completa de Histórico de Versões */}
                 <button

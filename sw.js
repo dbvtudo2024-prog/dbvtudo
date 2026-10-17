@@ -28,9 +28,12 @@ self.addEventListener('notificationclick', (event) => {
       if (clientList.length > 0) {
         const client = clientList[0];
         client.focus();
+        if (event.action === 'update') {
+          client.postMessage({ type: 'FORCE_UPDATE_NOW' });
+        }
         client.navigate(client.url);
       } else {
-        self.clients.openWindow('/');
+        self.clients.openWindow('/?update_now=1');
       }
     })
   );
