@@ -1776,7 +1776,8 @@ export type SubViewType =
   | 'DESBRAVA_PLUS' | 'DESBRAVA_PLUS_DETAILS' | 'DESBRAVA_PLUS_PDF' 
   | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' 
   | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS' | 'PDF_VIEWER' | 'LIBRARY_BOOKS_MENU' 
-  | 'VIDEOS' | 'VIDEO_ADMIN' | 'FORM_ADMIN' | 'VIDEO_PLAYER' | 'LINKS_ADMIN' | 'ACHIEVEMENTS_ADMIN' | 'TRUNFOS' | 'TRUNFOS_ADMIN' | 'WEB_VIEWER' | 'FAIXA_ADMIN' | 'FIELD_TRAINING' | 'QUIZ' | 'LIVE_EXAM' | 'UNIT_CORNER' | 'FIELD_MANUAL' | 'ORDEM_UNIDA' | 'VERSION_HISTORY';
+  | 'VIDEOS' | 'VIDEO_ADMIN' | 'FORM_ADMIN' | 'VIDEO_PLAYER' | 'LINKS_ADMIN' | 'ACHIEVEMENTS_ADMIN' | 'TRUNFOS' | 'TRUNFOS_ADMIN' | 'WEB_VIEWER' | 'FAIXA_ADMIN' | 'FIELD_TRAINING' | 'QUIZ' | 'LIVE_EXAM' | 'UNIT_CORNER' | 'FIELD_MANUAL' | 'ORDEM_UNIDA' | 'VERSION_HISTORY'
+  | 'CERTIFICADOS_GENERATOR';
 
 interface ClubManagementProps {
   club: ClubType;
@@ -1889,13 +1890,17 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     ministry: club === ClubType.ADVENTURER ? 'AVT' : 'DBV',
     clubName: '',
     associationName: '',
-    certificateTitle: 'CERTIFICADO OFICIAL DE INVESTIDURA',
+    certificateTitle: 'CERTIFICADO DE INVESTIDURA',
     achievementName: club === ClubType.ADVENTURER ? 'Classes e Especialidades de Aventureiros' : 'Classes e Especialidades de Desbravadores',
     recipientName: '',
     locationAndDate: `Emitido em ${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}`,
     directorName: '',
     regionalName: '',
-    pastorName: ''
+    pastorName: '',
+    includeRegionalSignature: true,
+    includePastorSignature: true,
+    specialtyLogoUrl: null,
+    clubLogoUrl: null
   });
   const [selectedLibraryCategory, setSelectedLibraryCategory] = useState<'CLASSES' | 'ANO' | 'OUTROS' | 'MANUAIS' | 'BOOKS_AVT' | 'MANUAIS_AVT' | 'MATERIALS' | null>(null);
   const [selectedPdfUrl, setSelectedPdfUrl] = useState<string | null>(null);
@@ -3410,10 +3415,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     className={`w-16 h-16 bg-transparent rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0 transition-transform ${
                       esp.logo ? 'cursor-pointer hover:scale-110 active:scale-95' : ''
                     }`}
-                    title={esp.logo ? "Clique para ampliar a imagem" : undefined}
+                    title={esp.logo ? "Clique na imagem para ampliar" : undefined}
                   >
                     {esp.logo ? (
-                      <img src={esp.logo} loading="lazy" decoding="async" className="w-14 h-14 object-contain pointer-events-none" alt={esp.nome} />
+                      <img src={getImageUrl(esp.logo)} loading="lazy" decoding="async" className="w-14 h-14 object-contain pointer-events-none select-none" alt={esp.nome} />
                     ) : (
                       <Award size={24} className="text-slate-200 dark:text-slate-600" />
                     )}
@@ -5973,234 +5978,26 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     SEÇÃO ESPECIAL DE CERTIFICADOS: PADRÃO OFICIAL + PERSONALIZAÇÃO NO DOWNLOAD
                    ========================================================================= */}
                 {cat.id === 'certificados' && (
-                  <div id="cert-customizer-anchor" className="bg-white dark:bg-slate-800 rounded-[20px] p-4 sm:p-5 border border-amber-200 dark:border-amber-800/60 shadow-sm space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-700 pb-3">
-                      <div>
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-[9px] font-black uppercase tracking-widest">
-                          Padrão Oficial {isAvtArea ? 'Aventureiros' : 'Desbravadores'} • Personalizável na Hora de Baixar
-                        </span>
-                        <h4 className="text-xs sm:text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight mt-1">
-                          Modelo Padrão de Certificado & Personalização ({isAvtArea ? 'Clube de Aventureiros' : 'Clube de Desbravadores'})
-                        </h4>
-                        <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-bold">
-                          Visualize o modelo padrão abaixo e personalize com o nome do seu Clube e Associação/Missão antes de baixar em PDF A4 ou PNG.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setIsCertCustomizerOpen(!isCertCustomizerOpen)}
-                        className="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider shrink-0 transition-colors cursor-pointer"
-                      >
-                        {isCertCustomizerOpen ? 'Ocultar Personalizador' : 'Personalizar Certificado'}
-                      </button>
+                  <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-red-600 rounded-[22px] p-5 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1.5">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-white text-[9px] font-black uppercase tracking-widest backdrop-blur-xs">
+                        Página Exclusiva • Padrão Oficial DSA
+                      </span>
+                      <h4 className="text-sm sm:text-base md:text-lg font-black uppercase tracking-tight">
+                        Criador & Gerador de Certificados Personalizados
+                      </h4>
+                      <p className="text-xs text-white/90 font-medium max-w-xl leading-relaxed">
+                        Crie e personalize certificados para Investidura de Classes, Especialidades, Mestrado e Ano Bíblico com brasão do clube e assinaturas selecionáveis.
+                      </p>
                     </div>
-
-                    {/* PRÉ-VISUALIZAÇÃO DO CERTIFICADO PADRÃO (ATUALIZA AO VIVO COM CLUBE E ASSOCIAÇÃO) */}
-                    <div className="relative rounded-2xl p-4 sm:p-6 bg-gradient-to-br from-[#fffdf9] via-white to-[#fef9ee] border-4 border-double border-red-700 shadow-inner text-center space-y-2 overflow-hidden">
-                      <div className="border border-amber-500/60 rounded-xl p-3 sm:p-5 space-y-2">
-                        <div className="flex justify-center">
-                          <img
-                            src={
-                              isAvtArea
-                                ? 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png'
-                                : 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png'
-                            }
-                            alt="Emblema Oficial"
-                            className="w-11 h-11 sm:w-14 sm:h-14 object-contain mx-auto"
-                          />
-                        </div>
-                        <p className="text-[8px] sm:text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
-                          Igreja Adventista do Sétimo Dia • Divisão Sul-Americana
-                        </p>
-                        <p className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-blue-900">
-                          {customCertConfig.associationName.trim() || 'ASSOCIAÇÃO / MISSÃO DA IASD (PADRÃO)'}
-                        </p>
-                        <div className="inline-block px-4 py-1 rounded-full bg-amber-100 border border-amber-400 text-red-800 text-[11px] sm:text-xs font-black uppercase tracking-wider">
-                          {customCertConfig.clubName.trim() ||
-                            (isAvtArea
-                              ? 'CLUBE DE AVENTUREIROS (NOME DO CLUBE)'
-                              : 'CLUBE DE DESBRAVADORES (NOME DO CLUBE)')}
-                        </div>
-                        <h5 className="text-sm sm:text-lg font-black text-slate-900 uppercase tracking-tight pt-1 font-serif">
-                          {customCertConfig.certificateTitle || 'CERTIFICADO OFICIAL DE INVESTIDURA'}
-                        </h5>
-                        <p className="text-[10px] sm:text-xs italic text-slate-600 font-serif">
-                          Certificamos para os devidos fins de registro e mérito que
-                        </p>
-                        <div className="max-w-md mx-auto border-b border-slate-400 pb-0.5 text-xs sm:text-sm font-black text-red-800 uppercase">
-                          {customCertConfig.recipientName.trim() || '____________________________________________________'}
-                        </div>
-                        <p className="text-[10px] sm:text-[11px] text-slate-600">
-                          cumpriu todos os requisitos oficiais exigidos pelo Ministério de{' '}
-                          {isAvtArea ? 'Aventureiros' : 'Desbravadores'} da DSA para:
-                        </p>
-                        <p className="text-xs sm:text-sm font-black text-blue-950 uppercase tracking-wide">
-                          {customCertConfig.achievementName || 'CLASSE / ESPECIALIDADE OFICIAL DSA'}
-                        </p>
-                        <div className="grid grid-cols-3 gap-2 pt-4 max-w-lg mx-auto text-[8px] sm:text-[9px] text-slate-600 font-bold">
-                          <div className="border-t border-slate-400 pt-1 truncate">
-                            {customCertConfig.directorName.trim() || 'Diretor(a) do Clube'}
-                          </div>
-                          <div className="border-t border-slate-400 pt-1 truncate">
-                            {customCertConfig.regionalName.trim() || 'Regional / Coordenador(a)'}
-                          </div>
-                          <div className="border-t border-slate-400 pt-1 truncate">
-                            {customCertConfig.pastorName.trim() || 'Pastor / Departamental'}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* FORMULÁRIO DE PERSONALIZAÇÃO DO CERTIFICADO NA HORA DE BAIXAR */}
-                    {isCertCustomizerOpen && (
-                      <div className="space-y-3 pt-1">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                          <div>
-                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-1">
-                              Nome do Clube (Personalizar) *
-                            </label>
-                            <input
-                              type="text"
-                              value={customCertConfig.clubName}
-                              onChange={(e) =>
-                                setCustomCertConfig((prev) => ({ ...prev, clubName: e.target.value }))
-                              }
-                              placeholder={
-                                isAvtArea
-                                  ? 'Ex: Clube de Aventureiros Pequenos Brilhantes'
-                                  : 'Ex: Clube de Desbravadores Estrela de Davi'
-                              }
-                              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-1">
-                              Associação / Missão (Campo) *
-                            </label>
-                            <input
-                              type="text"
-                              value={customCertConfig.associationName}
-                              onChange={(e) =>
-                                setCustomCertConfig((prev) => ({ ...prev, associationName: e.target.value }))
-                              }
-                              placeholder="Ex: Associação Paulistana — AP / UCB"
-                              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                          <div>
-                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-1">
-                              Classe / Especialidade / Mérito
-                            </label>
-                            <input
-                              type="text"
-                              value={customCertConfig.achievementName}
-                              onChange={(e) =>
-                                setCustomCertConfig((prev) => ({ ...prev, achievementName: e.target.value }))
-                              }
-                              placeholder={
-                                isAvtArea
-                                  ? 'Ex: Classe de Abelhinhas Laboriosas / Especialidade'
-                                  : 'Ex: Classe de Amigo / Especialidade'
-                              }
-                              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-1">
-                              Nome do Investido (Opcional)
-                            </label>
-                            <input
-                              type="text"
-                              value={customCertConfig.recipientName}
-                              onChange={(e) =>
-                                setCustomCertConfig((prev) => ({ ...prev, recipientName: e.target.value }))
-                              }
-                              placeholder="Deixe vazio p/ preencher à mão"
-                              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                          <div>
-                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-1">
-                              Cidade e Data (Opcional)
-                            </label>
-                            <input
-                              type="text"
-                              value={customCertConfig.locationAndDate}
-                              onChange={(e) =>
-                                setCustomCertConfig((prev) => ({ ...prev, locationAndDate: e.target.value }))
-                              }
-                              placeholder="Ex: São Paulo, 04 de Outubro de 2026"
-                              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-1">
-                              Nome do Diretor(a) do Clube (Opcional)
-                            </label>
-                            <input
-                              type="text"
-                              value={customCertConfig.directorName}
-                              onChange={(e) =>
-                                setCustomCertConfig((prev) => ({ ...prev, directorName: e.target.value }))
-                              }
-                              placeholder="Ex: Diretor(a) do Clube"
-                              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-2.5 pt-1">
-                          <button
-                            type="button"
-                            disabled={isDownloadingCustomCert}
-                            onClick={async () => {
-                              setIsDownloadingCustomCert(true);
-                              try {
-                                await downloadCustomizedCertificatePdf({
-                                  ...customCertConfig,
-                                  ministry: activeMinistry
-                                });
-                              } finally {
-                                setIsDownloadingCustomCert(false);
-                              }
-                            }}
-                            className="flex-1 min-w-[200px] py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50"
-                          >
-                            <Download size={15} />
-                            <span>
-                              {isDownloadingCustomCert
-                                ? 'Gerando Certificado...'
-                                : 'Baixar Certificado Personalizado (PDF A4)'}
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            disabled={isDownloadingCustomCert}
-                            onClick={async () => {
-                              setIsDownloadingCustomCert(true);
-                              try {
-                                await downloadCustomizedCertificatePng({
-                                  ...customCertConfig,
-                                  ministry: activeMinistry
-                                });
-                              } finally {
-                                setIsDownloadingCustomCert(false);
-                              }
-                            }}
-                            className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50"
-                          >
-                            <Download size={15} />
-                            <span>Baixar em PNG (Alta Resolução)</span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setActiveSubView('CERTIFICADOS_GENERATOR')}
+                      className="px-5 py-3 rounded-2xl bg-white text-red-800 hover:bg-amber-50 text-xs font-black uppercase tracking-wider shrink-0 transition-all shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <Award size={18} />
+                      <span>Abrir Criador de Certificados</span>
+                    </button>
                   </div>
                 )}
 
@@ -6353,10 +6150,13 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     const ministryBadgeColor = isAvtArea
                       ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
                       : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300';
-                    const displayTitle = (form.titulo || '').replace(
-                      /Desbravadores e Aventureiros/gi,
-                      isAvtArea ? 'Clube de Aventureiros' : 'Clube de Desbravadores'
-                    );
+                    const displayTitle = (form.titulo || '')
+                      .replace(/Certificado\s+Oficial\s+de/gi, 'Certificado de')
+                      .replace(/CERTIFICADO\s+OFICIAL\s+DE/gi, 'CERTIFICADO DE')
+                      .replace(
+                        /Desbravadores e Aventureiros/gi,
+                        isAvtArea ? 'Clube de Aventureiros' : 'Clube de Desbravadores'
+                      );
                     const isExternalPortalOrCdr =
                       form.link.includes('downloads.adventistas.org') ||
                       form.link.includes('.cdr') ||
@@ -6421,17 +6221,39 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                const cleanTitle = displayTitle
+                                  .replace(/Certificado\s+Oficial\s+de/gi, 'Certificado de')
+                                  .replace(/CERTIFICADO\s+OFICIAL\s+DE/gi, 'CERTIFICADO DE')
+                                  .replace(/\s*\(DSA\)\s*/gi, '')
+                                  .trim()
+                                  .toUpperCase();
+                                const achName = displayTitle
+                                  .replace(/Certificado\s+(Oficial|Individual)?\s*(de)?\s*[—-]?\s*/i, '')
+                                  .replace(/\s*\(DSA\)\s*/gi, '')
+                                  .trim();
+
+                                // Se for certificado de especialidade, detecta o logo correspondente
+                                let specLogo: string | null = null;
+                                const pool = allSpecialtiesList.length > 0 ? allSpecialtiesList : specialties;
+                                const normAch = achName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+                                if (normAch.length >= 2) {
+                                  const matched = pool.find((s) => {
+                                    const sNorm = s.nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+                                    return sNorm === normAch || sNorm.includes(normAch) || normAch.includes(sNorm);
+                                  });
+                                  if (matched && (matched.logo || (matched as any).imagem)) {
+                                    specLogo = getImageUrl(matched.logo || (matched as any).imagem);
+                                  }
+                                }
+
                                 setCustomCertConfig((prev) => ({
                                   ...prev,
                                   ministry: activeMinistry,
-                                  certificateTitle: displayTitle.replace(/\s*\(DSA\)\s*/gi, '').toUpperCase(),
-                                  achievementName: displayTitle
-                                    .replace(/Certificado (Oficial|Individual)\s*[—-]?\s*/i, '')
-                                    .replace(/\s*\(DSA\)\s*/gi, '')
+                                  certificateTitle: cleanTitle,
+                                  achievementName: achName,
+                                  specialtyLogoUrl: specLogo !== null ? specLogo : prev.specialtyLogoUrl
                                 }));
-                                setIsCertCustomizerOpen(true);
-                                const el = document.getElementById('cert-customizer-anchor');
-                                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                setActiveSubView('CERTIFICADOS_GENERATOR');
                               }}
                               className="px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer"
                               title="Personalizar este Certificado com Nome do Clube e Associação para Baixar"
@@ -6508,6 +6330,707 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                 )}
               </p>
             </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderCertificadosGenerator = () => {
+    const isAvtArea = activeMinistry === 'AVT';
+    const isDbv = !isAvtArea;
+
+    // Modelos pré-definidos para as opções no topo
+    const certOptions = [
+      {
+        id: 'CLASSES',
+        icon: <Award className="w-5 h-5" />,
+        label: 'Investidura de Classes',
+        sublabel: isAvtArea ? 'Classes de Aventureiros' : 'Classes Regulares e Avançadas',
+        apply: () => {
+          setCustomCertConfig((prev) => ({
+            ...prev,
+            certificateTitle: 'CERTIFICADO DE INVESTIDURA',
+            achievementName: isAvtArea ? 'Classe de Abelhinhas Laboriosas' : 'Classe de Amigo',
+            specialtyLogoUrl: null
+          }));
+        }
+      },
+      {
+        id: 'SPECIALTIES',
+        icon: <Sparkles className="w-5 h-5" />,
+        label: 'Especialidades',
+        sublabel: 'Com insígnia automática ao digitar',
+        apply: () => {
+          const sampleSpec = (allSpecialtiesList.length > 0 ? allSpecialtiesList : specialties)[0];
+          const sampleLogo = sampleSpec ? getImageUrl(sampleSpec.logo || (sampleSpec as any).imagem) : null;
+          setCustomCertConfig((prev) => ({
+            ...prev,
+            certificateTitle: 'CERTIFICADO DE ESPECIALIDADES',
+            achievementName: sampleSpec ? `Especialidade de ${sampleSpec.nome}` : 'Especialidade de Nós',
+            specialtyLogoUrl: sampleLogo || prev.specialtyLogoUrl
+          }));
+        }
+      },
+      {
+        id: 'MASTERY',
+        icon: <Crown className="w-5 h-5" />,
+        label: 'Mestrado',
+        sublabel: 'Insígnias de Mestrado',
+        apply: () => {
+          setCustomCertConfig((prev) => ({
+            ...prev,
+            certificateTitle: 'CERTIFICADO DE MESTRADO',
+            achievementName: 'Mestrado em Artes e Habilidades Manuais',
+            specialtyLogoUrl: null
+          }));
+        }
+      },
+      {
+        id: 'BIBLE',
+        icon: <BookOpen className="w-5 h-5" />,
+        label: 'Ano Bíblico',
+        sublabel: 'Juvenil, Jovem e Infantil',
+        apply: () => {
+          setCustomCertConfig((prev) => ({
+            ...prev,
+            certificateTitle: 'CERTIFICADO DO ANO BÍBLICO',
+            achievementName: isAvtArea ? 'Ano Bíblico Infantil' : 'Ano Bíblico Juvenil',
+            specialtyLogoUrl: null
+          }));
+        }
+      },
+      {
+        id: 'CUSTOM',
+        icon: <Edit2 className="w-5 h-5" />,
+        label: 'Personalizado',
+        sublabel: 'Título e Conquista Livres',
+        apply: () => {
+          setCustomCertConfig((prev) => ({
+            ...prev,
+            certificateTitle: 'CERTIFICADO DE MÉRITO',
+            achievementName: 'Honra ao Mérito'
+          }));
+        }
+      }
+    ];
+
+    const currentTitleUpper = (customCertConfig.certificateTitle || '').toUpperCase();
+    const isSpecialtyCert = currentTitleUpper.includes('ESPECIALIDADE') || Boolean(customCertConfig.specialtyLogoUrl);
+
+    // Título limpo sem OFICIAL e sem redundância de Desbravadores DSA
+    const cleanCertTitle = (customCertConfig.certificateTitle || 'CERTIFICADO DE INVESTIDURA')
+      .replace(/CERTIFICADO\s+OFICIAL\s+DE/gi, 'CERTIFICADO DE')
+      .replace(/\s*\((DESBRAVADORES|AVENTUREIROS)\s*(DSA)?\)\s*/gi, '')
+      .replace(/\s*—\s*(CLUBE\s+DE\s+)?(DESBRAVADORES|AVENTUREIROS)\s*(\(DSA\))?/gi, '')
+      .replace(/\s*\(DSA\)\s*/gi, '')
+      .trim();
+
+    const cleanAchievement = (customCertConfig.achievementName || (isDbv ? 'CLASSE / ESPECIALIDADE' : 'CLASSE / ESPECIALIDADE'))
+      .replace(/\s*\((DESBRAVADORES|AVENTUREIROS)\s*(DSA)?\)\s*/gi, '')
+      .replace(/\s*—\s*(CLUBE\s+DE\s+)?(DESBRAVADORES|AVENTUREIROS)\s*(\(DSA\))?/gi, '')
+      .replace(/\s*\(DSA\)\s*/gi, '')
+      .trim();
+
+    return (
+      <div className="space-y-6 animate-slide-in pb-28 pt-1 max-w-5xl mx-auto px-2 sm:px-4">
+        {/* CABEÇALHO DA PÁGINA EXCLUSIVA */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-800 rounded-3xl p-5 sm:p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
+          <div className="flex items-center gap-3.5">
+            <button
+              type="button"
+              onClick={() => setActiveSubView('FORMULARIOS')}
+              className="w-11 h-11 rounded-2xl bg-slate-100 dark:bg-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+              title="Voltar aos Formulários"
+            >
+              <ChevronLeft size={22} />
+            </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 text-[9px] font-black uppercase tracking-widest">
+                  Página Exclusiva • Padrão Oficial DSA
+                </span>
+                <span className="text-[10px] font-bold text-slate-400">
+                  {isAvtArea ? 'Aventureiros' : 'Desbravadores'}
+                </span>
+              </div>
+              <h2 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight mt-0.5">
+                Criador de Certificados
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                Personalize com o brasão do seu clube, configure assinaturas e baixe em PDF A4 ou PNG.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={isDownloadingCustomCert}
+              onClick={async () => {
+                setIsDownloadingCustomCert(true);
+                try {
+                  await downloadCustomizedCertificatePdf({
+                    ...customCertConfig,
+                    ministry: activeMinistry
+                  });
+                } finally {
+                  setIsDownloadingCustomCert(false);
+                }
+              }}
+              className="flex-1 sm:flex-none py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+            >
+              <Download size={15} />
+              <span>{isDownloadingCustomCert ? 'Gerando...' : 'Baixar PDF'}</span>
+            </button>
+            <button
+              type="button"
+              disabled={isDownloadingCustomCert}
+              onClick={async () => {
+                setIsDownloadingCustomCert(true);
+                try {
+                  await downloadCustomizedCertificatePng({
+                    ...customCertConfig,
+                    ministry: activeMinistry
+                  });
+                } finally {
+                  setIsDownloadingCustomCert(false);
+                }
+              }}
+              className="flex-1 sm:flex-none py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 text-white text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+            >
+              <Download size={15} />
+              <span>Baixar PNG</span>
+            </button>
+          </div>
+        </div>
+
+        {/* OPÇÕES NO TOPO: PARA QUE É O CERTIFICADO */}
+        <div className="bg-white dark:bg-slate-800 rounded-3xl p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <Layers size={14} className="text-amber-500" />
+              <span>Para que é o certificado? Selecione a opção no topo:</span>
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+            {certOptions.map((opt) => {
+              const isSelected =
+                (opt.id === 'CLASSES' && currentTitleUpper.includes('INVESTIDURA') && !isSpecialtyCert) ||
+                (opt.id === 'SPECIALTIES' && isSpecialtyCert) ||
+                (opt.id === 'MASTERY' && currentTitleUpper.includes('MESTRADO')) ||
+                (opt.id === 'BIBLE' && currentTitleUpper.includes('BÍBLICO')) ||
+                (opt.id === 'CUSTOM' && currentTitleUpper.includes('MÉRITO'));
+
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={opt.apply}
+                  className={`p-3 rounded-2xl border text-left transition-all active:scale-95 cursor-pointer flex flex-col justify-between min-h-[76px] ${
+                    isSelected
+                      ? 'bg-amber-500/10 dark:bg-amber-500/20 border-amber-500 text-amber-900 dark:text-amber-300 ring-2 ring-amber-500/30'
+                      : 'bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-700 hover:border-amber-300 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <div className={`${isSelected ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`}>
+                      {opt.icon}
+                    </div>
+                    {isSelected && (
+                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                    )}
+                  </div>
+                  <div className="mt-2">
+                    <h5 className="text-[11px] font-black uppercase tracking-tight leading-tight truncate">
+                      {opt.label}
+                    </h5>
+                    <p className="text-[9px] text-slate-500 dark:text-slate-400 font-medium truncate mt-0.5">
+                      {opt.sublabel}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* PRÉ-VISUALIZAÇÃO DO CERTIFICADO EM TEMPO REAL */}
+        <div className="relative rounded-3xl p-5 sm:p-8 bg-gradient-to-br from-[#fffdf9] via-white to-[#fef9ee] border-4 border-double border-red-700 shadow-xl text-center space-y-3 overflow-hidden">
+          <div className="border border-amber-500/60 rounded-2xl p-4 sm:p-7 space-y-3">
+            {/* Emblemas / Logos no Topo (SEM texto embaixo dos brasões) */}
+            <div className="flex items-center justify-center">
+              {customCertConfig.clubLogoUrl ? (
+                /* Layout com Brasão do Clube enviado:
+                   Logo dos Desbravadores à ESQUERDA e Brasão do Clube à DIREITA no topo (SEM texto embaixo) */
+                <div className="w-full flex items-center justify-between px-3 sm:px-8">
+                  <div className="flex items-center justify-center">
+                    <img
+                      src={
+                        isAvtArea
+                          ? 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png'
+                          : 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png'
+                      }
+                      alt="Logo Oficial"
+                      className="w-14 h-14 sm:w-20 sm:h-20 object-contain drop-shadow-sm"
+                    />
+                  </div>
+
+                  {customCertConfig.specialtyLogoUrl && (
+                    <div className="flex items-center justify-center">
+                      <img
+                        src={customCertConfig.specialtyLogoUrl}
+                        alt="Especialidade"
+                        className="w-14 h-14 sm:w-20 sm:h-20 object-contain drop-shadow-sm"
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-center">
+                    <img
+                      src={customCertConfig.clubLogoUrl}
+                      alt="Brasão do Clube"
+                      className="w-14 h-14 sm:w-20 sm:h-20 object-contain drop-shadow-sm"
+                    />
+                  </div>
+                </div>
+              ) : (
+                /* Layout sem Brasão do Clube:
+                   Especialidade no lugar do emblema ao centro, ou Emblema dos Desbravadores ao centro (SEM texto embaixo) */
+                <div className="flex items-center justify-center">
+                  <img
+                    src={
+                      customCertConfig.specialtyLogoUrl ||
+                      (isAvtArea
+                        ? 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png'
+                        : 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png')
+                    }
+                    alt="Emblema Oficial"
+                    className="w-16 h-16 sm:w-24 sm:h-24 object-contain mx-auto drop-shadow-sm"
+                  />
+                </div>
+              )}
+            </div>
+
+            <p className="text-[9px] sm:text-xs font-black uppercase tracking-[0.2em] text-slate-500">
+              Igreja Adventista do Sétimo Dia • Divisão Sul-Americana
+            </p>
+            <p className="text-xs sm:text-sm font-black uppercase tracking-wider text-blue-900">
+              {customCertConfig.associationName.trim() || 'ASSOCIAÇÃO / MISSÃO DA IASD (PADRÃO)'}
+            </p>
+            <div className="inline-block px-5 py-1.5 rounded-full bg-amber-100 border border-amber-400 text-red-800 text-xs sm:text-sm font-black uppercase tracking-wider">
+              {customCertConfig.clubName.trim() ||
+                (isAvtArea ? 'CLUBE DE AVENTUREIROS (NOME DO CLUBE)' : 'CLUBE DE DESBRAVADORES (NOME DO CLUBE)')}
+            </div>
+            <h3 className="text-lg sm:text-2xl md:text-3xl font-black text-slate-900 uppercase tracking-tight pt-1 font-serif">
+              {cleanCertTitle}
+            </h3>
+            <p className="text-xs sm:text-sm italic text-slate-600 font-serif">
+              Certificamos para os devidos fins de registro e mérito que
+            </p>
+            <div className="max-w-lg mx-auto border-b-2 border-slate-400 pb-1 text-sm sm:text-lg font-black text-red-800 uppercase tracking-wide">
+              {customCertConfig.recipientName.trim() || '____________________________________________________'}
+            </div>
+            <p className="text-xs sm:text-sm text-slate-600">
+              cumpriu todos os requisitos oficiais exigidos pelo Ministério de{' '}
+              {isAvtArea ? 'Aventureiros' : 'Desbravadores'} da DSA para:
+            </p>
+            <p className="text-sm sm:text-lg md:text-xl font-black text-blue-950 uppercase tracking-wide">
+              {cleanAchievement}
+            </p>
+
+            <p className="text-xs text-slate-500 italic pt-1">
+              {customCertConfig.locationAndDate.trim() ||
+                `Emitido em ${new Date().toLocaleDateString('pt-BR', {
+                  day: '2-digit',
+                  month: 'long',
+                  year: 'numeric'
+                })}`}
+            </p>
+
+            {/* Linhas de Assinaturas (Configuráveis) */}
+            <div
+              className={`gap-4 pt-6 max-w-xl mx-auto text-[9px] sm:text-[11px] text-slate-600 font-bold ${
+                customCertConfig.includeRegionalSignature !== false && customCertConfig.includePastorSignature !== false
+                  ? 'grid grid-cols-3'
+                  : customCertConfig.includeRegionalSignature !== false || customCertConfig.includePastorSignature !== false
+                  ? 'grid grid-cols-2 max-w-md'
+                  : 'flex justify-center max-w-xs'
+              }`}
+            >
+              <div className="border-t-2 border-slate-400 pt-1.5 truncate text-center">
+                {customCertConfig.directorName.trim() || 'Diretor(a) do Clube'}
+              </div>
+              {customCertConfig.includeRegionalSignature !== false && (
+                <div className="border-t-2 border-slate-400 pt-1.5 truncate text-center">
+                  {customCertConfig.regionalName.trim() || 'Regional / Coordenador(a)'}
+                </div>
+              )}
+              {customCertConfig.includePastorSignature !== false && (
+                <div className="border-t-2 border-slate-400 pt-1.5 truncate text-center">
+                  {customCertConfig.pastorName.trim() || 'Pastor / Departamental'}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* PAINEL DE PERSONALIZAÇÃO */}
+        <div className="bg-white dark:bg-slate-800 rounded-3xl p-5 sm:p-6 border border-slate-100 dark:border-slate-700 shadow-sm space-y-4">
+          <div className="border-b border-slate-100 dark:border-slate-700 pb-3">
+            <h4 className="text-xs sm:text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight flex items-center gap-2">
+              <Edit2 size={16} className="text-amber-500" />
+              <span>Personalizar Dados do Certificado</span>
+            </h4>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+              Ajuste as informações abaixo para atualizar a prévia e gerar seu certificado sob medida.
+            </p>
+          </div>
+
+          {/* Upload do Brasão do Clube */}
+          <div className="p-4 bg-amber-50/70 dark:bg-amber-950/30 rounded-2xl border border-amber-200/80 dark:border-amber-800/60 space-y-2.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <label className="text-xs font-black uppercase tracking-wider text-amber-900 dark:text-amber-300 block">
+                  Brasão / Logomarca do seu Clube (Opcional)
+                </label>
+                <p className="text-[10px] sm:text-xs text-slate-600 dark:text-slate-400 font-medium">
+                  Ao enviar o brasão do seu clube, o logo oficial dos Desbravadores fica à esquerda e o brasão do clube à direita no topo.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <label className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all shadow-xs">
+                  <ImageIcon size={14} />
+                  <span>{customCertConfig.clubLogoUrl ? 'Trocar Brasão' : 'Enviar Brasão do Clube'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          if (typeof reader.result === 'string') {
+                            setCustomCertConfig((prev) => ({
+                              ...prev,
+                              clubLogoUrl: reader.result as string
+                            }));
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </label>
+
+                {customCertConfig.clubLogoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setCustomCertConfig((prev) => ({ ...prev, clubLogoUrl: null }))}
+                    className="px-2.5 py-2 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-700 text-[11px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer"
+                    title="Remover Brasão do Clube"
+                  >
+                    <X size={14} />
+                    <span className="hidden sm:inline">Remover</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {customCertConfig.clubLogoUrl && (
+              <div className="flex items-center gap-3 pt-1">
+                <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 p-1 border border-amber-300 dark:border-amber-700 flex items-center justify-center shrink-0">
+                  <img src={customCertConfig.clubLogoUrl} alt="Brasão do Clube" className="w-full h-full object-contain" />
+                </div>
+                <span className="text-[11px] font-bold text-amber-800 dark:text-amber-300">
+                  ✓ Brasão do clube carregado com sucesso! Exibido à direita no topo.
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Nome do Clube e Associação */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-1">
+                Nome do Clube *
+              </label>
+              <input
+                type="text"
+                value={customCertConfig.clubName}
+                onChange={(e) => setCustomCertConfig((prev) => ({ ...prev, clubName: e.target.value }))}
+                placeholder={
+                  isAvtArea ? 'Ex: Clube de Aventureiros Pequenos Brilhantes' : 'Ex: Clube de Desbravadores Estrela de Davi'
+                }
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-1">
+                Associação / Missão (Campo) *
+              </label>
+              <input
+                type="text"
+                value={customCertConfig.associationName}
+                onChange={(e) => setCustomCertConfig((prev) => ({ ...prev, associationName: e.target.value }))}
+                placeholder="Ex: Associação Paulistana — AP / UCB"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
+              />
+            </div>
+          </div>
+
+          {/* Título do Certificado e Conquista / Especialidade */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-1">
+                Título do Certificado *
+              </label>
+              <input
+                type="text"
+                value={cleanCertTitle}
+                onChange={(e) => setCustomCertConfig((prev) => ({ ...prev, certificateTitle: e.target.value }))}
+                placeholder="Ex: CERTIFICADO DE INVESTIDURA / CERTIFICADO DE ESPECIALIDADES"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
+              />
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block">
+                  Classe / Especialidade / Conquista *
+                </label>
+                {customCertConfig.specialtyLogoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setCustomCertConfig((prev) => ({ ...prev, specialtyLogoUrl: null }))}
+                    className="text-[9.5px] font-bold text-rose-600 dark:text-rose-400 hover:underline inline-flex items-center gap-0.5 cursor-pointer"
+                  >
+                    <X size={11} /> Usar emblema padrão
+                  </button>
+                )}
+              </div>
+              <input
+                type="text"
+                list="generator-cert-specialties-suggestions"
+                value={cleanAchievement}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const normVal = val
+                    .toLowerCase()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/^(certificado\s*(de)?|especialidade\s*(de)?|classe\s*(de)?)\s*/i, '')
+                    .trim();
+                  let matchedLogo: string | null = null;
+                  if (normVal.length >= 2) {
+                    const pool = allSpecialtiesList.length > 0 ? allSpecialtiesList : specialties;
+                    const matched = pool.find((s) => {
+                      const sNorm = s.nome
+                        .toLowerCase()
+                        .normalize('NFD')
+                        .replace(/[\u0300-\u036f]/g, '')
+                        .trim();
+                      return sNorm === normVal || sNorm.includes(normVal) || normVal.includes(sNorm);
+                    });
+                    if (matched && (matched.logo || (matched as any).imagem)) {
+                      matchedLogo = getImageUrl(matched.logo || (matched as any).imagem);
+                    }
+                  }
+                  setCustomCertConfig((prev) => ({
+                    ...prev,
+                    achievementName: val,
+                    specialtyLogoUrl: matchedLogo !== null ? matchedLogo : prev.specialtyLogoUrl
+                  }));
+                }}
+                placeholder={
+                  isAvtArea ? 'Ex: Especialidade de Amigo da Natureza / Classe' : 'Ex: Especialidade de Nós / Classe de Amigo'
+                }
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
+              />
+              <datalist id="generator-cert-specialties-suggestions">
+                {(allSpecialtiesList.length > 0 ? allSpecialtiesList : specialties).slice(0, 100).map((s) => (
+                  <option key={s.id || s.nome} value={`Especialidade de ${s.nome}`} />
+                ))}
+              </datalist>
+              {customCertConfig.specialtyLogoUrl && (
+                <div className="flex items-center gap-2 mt-1.5 p-2 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800/50">
+                  <img src={customCertConfig.specialtyLogoUrl} alt="" className="w-7 h-7 object-contain shrink-0" />
+                  <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 truncate">
+                    ✓ Insígnia da especialidade identificada e inserida no topo do certificado!
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Nome do Investido e Local/Data */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-1">
+                Nome do Investido (Opcional)
+              </label>
+              <input
+                type="text"
+                value={customCertConfig.recipientName}
+                onChange={(e) => setCustomCertConfig((prev) => ({ ...prev, recipientName: e.target.value }))}
+                placeholder="Deixe vazio para preencher à mão após imprimir"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-1">
+                Cidade e Data (Opcional)
+              </label>
+              <input
+                type="text"
+                value={customCertConfig.locationAndDate}
+                onChange={(e) => setCustomCertConfig((prev) => ({ ...prev, locationAndDate: e.target.value }))}
+                placeholder="Ex: São Paulo, 19 de Outubro de 2026"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
+              />
+            </div>
+          </div>
+
+          {/* Seleção de Assinaturas */}
+          <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
+            <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 block">
+              Configuração das Assinaturas
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <label className="flex items-center gap-3 p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer select-none hover:border-amber-400 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={customCertConfig.includeRegionalSignature !== false}
+                  onChange={(e) =>
+                    setCustomCertConfig((prev) => ({
+                      ...prev,
+                      includeRegionalSignature: e.target.checked
+                    }))
+                  }
+                  className="w-4 h-4 accent-amber-500 rounded"
+                />
+                <div className="min-w-0">
+                  <span className="font-bold text-slate-800 dark:text-white block text-xs">
+                    Assinatura do Regional / Coordenador(a)
+                  </span>
+                  <span className="text-[10px] text-slate-500 block truncate">
+                    Exibe a linha de assinatura do Coordenador de Área
+                  </span>
+                </div>
+              </label>
+
+              <label className="flex items-center gap-3 p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer select-none hover:border-amber-400 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={customCertConfig.includePastorSignature !== false}
+                  onChange={(e) =>
+                    setCustomCertConfig((prev) => ({
+                      ...prev,
+                      includePastorSignature: e.target.checked
+                    }))
+                  }
+                  className="w-4 h-4 accent-amber-500 rounded"
+                />
+                <div className="min-w-0">
+                  <span className="font-bold text-slate-800 dark:text-white block text-xs">
+                    Assinatura do Pastor / Departamental
+                  </span>
+                  <span className="text-[10px] text-slate-500 block truncate">
+                    Exibe a linha ministerial oficial
+                  </span>
+                </div>
+              </label>
+            </div>
+
+            {/* Nomes dos signatários */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+              <div>
+                <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                  Nome do Diretor(a) do Clube
+                </label>
+                <input
+                  type="text"
+                  value={customCertConfig.directorName}
+                  onChange={(e) => setCustomCertConfig((prev) => ({ ...prev, directorName: e.target.value }))}
+                  placeholder="Ex: Diretor(a) do Clube"
+                  className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
+                />
+              </div>
+
+              {customCertConfig.includeRegionalSignature !== false && (
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                    Nome do Regional / Coordenador(a)
+                  </label>
+                  <input
+                    type="text"
+                    value={customCertConfig.regionalName}
+                    onChange={(e) => setCustomCertConfig((prev) => ({ ...prev, regionalName: e.target.value }))}
+                    placeholder="Ex: Regional / Coordenador(a)"
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
+                  />
+                </div>
+              )}
+
+              {customCertConfig.includePastorSignature !== false && (
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                    Nome do Pastor / Departamental
+                  </label>
+                  <input
+                    type="text"
+                    value={customCertConfig.pastorName}
+                    onChange={(e) => setCustomCertConfig((prev) => ({ ...prev, pastorName: e.target.value }))}
+                    placeholder="Ex: Pastor / Departamental"
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Botões de Ação no Rodapé */}
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <button
+              type="button"
+              disabled={isDownloadingCustomCert}
+              onClick={async () => {
+                setIsDownloadingCustomCert(true);
+                try {
+                  await downloadCustomizedCertificatePdf({
+                    ...customCertConfig,
+                    ministry: activeMinistry
+                  });
+                } finally {
+                  setIsDownloadingCustomCert(false);
+                }
+              }}
+              className="flex-1 min-w-[220px] py-3 px-5 rounded-2xl bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+            >
+              <Download size={16} />
+              <span>{isDownloadingCustomCert ? 'Gerando Certificado...' : 'Baixar Certificado em PDF (A4 Paisagem)'}</span>
+            </button>
+            <button
+              type="button"
+              disabled={isDownloadingCustomCert}
+              onClick={async () => {
+                setIsDownloadingCustomCert(true);
+                try {
+                  await downloadCustomizedCertificatePng({
+                    ...customCertConfig,
+                    ministry: activeMinistry
+                  });
+                } finally {
+                  setIsDownloadingCustomCert(false);
+                }
+              }}
+              className="py-3 px-5 rounded-2xl bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+            >
+              <Download size={16} />
+              <span>Baixar em Imagem PNG</span>
+            </button>
           </div>
         </div>
       </div>
@@ -11421,7 +11944,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                 <span className="relative z-10 truncate">Aventureiros</span>
               </button>
 
-              {/* Botão Prova Ao Vivo no Menu Principal do PC (afastado dos outros 3 botões) */}
+              {/* Botão Prova Ao Vivo no Menu Principal do PC (com QR Code sombreado de fundo estilo botões de cima e sem redundâncias) */}
               <div className="pt-4 mt-4 border-t border-slate-200/60 dark:border-slate-800/70">
                 <button
                   type="button"
@@ -11429,24 +11952,21 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     setSelectedSpecialty(null);
                     setActiveSubView('LIVE_EXAM');
                   }}
-                  className={`w-full relative overflow-hidden flex items-center justify-between px-5 py-3.5 rounded-2xl font-black text-xs lg:text-sm uppercase tracking-wider transition-all text-left group active:scale-[0.98] cursor-pointer ${
+                  className={`w-full relative overflow-hidden flex items-center px-5 py-4 rounded-2xl font-black text-xs lg:text-sm uppercase tracking-wider transition-all text-left group active:scale-[0.98] cursor-pointer ${
                     activeSubView === 'LIVE_EXAM'
                       ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/35 border border-rose-400/40 scale-[1.02]'
                       : 'bg-rose-50/70 hover:bg-rose-100/80 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 border border-rose-200/60 dark:border-rose-800/50'
                   }`}
-                  title="Prova Ao Vivo (Salas, QR Code e Anti-Cola)"
+                  title="Prova Ao Vivo"
                 >
-                  <div className="flex items-center gap-3 relative z-10 min-w-0">
-                    <QrCode className="w-5 h-5 shrink-0 stroke-[2.2]" />
-                    <span className="truncate">Prova Ao Vivo</span>
-                  </div>
-                  <span className={`relative z-10 text-[8.5px] font-black uppercase px-2 py-0.5 rounded-full ${
-                    activeSubView === 'LIVE_EXAM'
-                      ? 'bg-white/20 text-white'
-                      : 'bg-rose-600/15 text-rose-700 dark:text-rose-200'
+                  {/* Ícone de QR Code sombreado de fundo à direita (estilo botões de cima: Início, Desbravadores, Aventureiros) */}
+                  <div className={`absolute -right-2 -bottom-2 grayscale pointer-events-none group-hover:scale-125 transition-transform duration-700 ${
+                    activeSubView === 'LIVE_EXAM' ? 'opacity-25' : 'opacity-15 dark:opacity-15'
                   }`}>
-                    Ao Vivo
-                  </span>
+                    <QrCode className="w-16 h-16 stroke-[1.75]" />
+                  </div>
+
+                  <span className="relative z-10 truncate">Prova Ao Vivo</span>
                 </button>
               </div>
             </nav>
@@ -11605,14 +12125,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                       ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/40 border border-rose-400/35 scale-105'
                       : 'bg-rose-50/80 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 border border-rose-200/60 dark:border-rose-800/50'
                   }`}
-                  title="Prova Ao Vivo (QR Code e Anti-Cola)"
-                  aria-label="Prova Ao Vivo"
+                  title="Prova (QR Code e Anti-Cola)"
+                  aria-label="Prova"
                 >
                   <QrCode size={18} strokeWidth={2.4} className="group-hover:scale-110 transition-transform" />
                   <span className={`text-[7.5px] font-black uppercase leading-none mt-1 ${
                     activeSubView === 'LIVE_EXAM' ? 'text-white' : 'text-rose-600 dark:text-rose-400'
                   }`}>
-                    Ao Vivo
+                    Prova
                   </span>
                 </button>
               </div>
@@ -12865,14 +13385,25 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                           setActiveSubView('SPECIALTY_DETAILS');
                         }}
                       >
-                        <div className="w-13 h-13 sm:w-14 sm:h-14 bg-slate-50 dark:bg-slate-900/60 rounded-2xl flex items-center justify-center p-1.5 flex-shrink-0 border border-slate-100 dark:border-slate-800">
+                        <div 
+                          onClick={(e) => {
+                            if (esp.logo) {
+                              e.stopPropagation();
+                              setZoomedSpecialty(esp);
+                            }
+                          }}
+                          className={`w-13 h-13 sm:w-14 sm:h-14 bg-slate-50 dark:bg-slate-900/60 rounded-2xl flex items-center justify-center p-1.5 flex-shrink-0 border border-slate-100 dark:border-slate-800 ${
+                            esp.logo ? 'cursor-pointer hover:scale-110 active:scale-95 transition-transform' : ''
+                          }`}
+                          title={esp.logo ? "Clique na imagem para ampliar" : undefined}
+                        >
                           {esp.logo ? (
                             <img 
                               src={getImageUrl(esp.logo)} 
                               alt={esp.nome} 
                               loading="lazy"
                               decoding="async"
-                              className="w-full h-full object-contain filter drop-shadow-sm group-hover:scale-105 transition-transform" 
+                              className="w-full h-full object-contain filter drop-shadow-sm select-none" 
                               referrerPolicy="no-referrer"
                             />
                           ) : (
@@ -12925,6 +13456,48 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     </button>
                   )}
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Ampliação da Imagem da Especialidade (Apenas Nome, Botão Fechar e a Imagem) */}
+      {zoomedSpecialty && (
+        <div 
+          className="fixed inset-0 z-[100000] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setZoomedSpecialty(null)}
+        >
+          <div 
+            className="relative w-full max-w-sm sm:max-w-md bg-white dark:bg-slate-900 rounded-[32px] p-5 sm:p-6 shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col items-center animate-slide-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Botão Fechar */}
+            <button 
+              type="button"
+              onClick={() => setZoomedSpecialty(null)}
+              className="absolute top-4 right-4 w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-300 flex items-center justify-center transition-all active:scale-90 cursor-pointer"
+              title="Fechar"
+            >
+              <X size={18} strokeWidth={2.5} />
+            </button>
+
+            {/* Apenas o Nome */}
+            <h3 className="text-base sm:text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight text-center pr-8 pl-2 leading-tight">
+              {zoomedSpecialty.nome}
+            </h3>
+
+            {/* Imagem Ampliada */}
+            <div className="w-56 h-56 sm:w-72 sm:h-72 my-5 flex items-center justify-center">
+              {zoomedSpecialty.logo ? (
+                <img 
+                  src={getImageUrl(zoomedSpecialty.logo)} 
+                  alt={zoomedSpecialty.nome} 
+                  className="w-full h-full object-contain filter drop-shadow-2xl select-none" 
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <Award size={80} className="text-slate-300 dark:text-slate-600" />
               )}
             </div>
           </div>

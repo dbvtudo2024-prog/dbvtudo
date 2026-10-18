@@ -1325,46 +1325,46 @@ export const DEFAULT_FORMULARIOS: Formulario[] = [
   {
     id: 26,
     created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Certificado Oficial de Investidura de Classes (Desbravadores DSA)',
+    titulo: 'Certificado de Investidura de Classes (Desbravadores DSA)',
     categoria: 'certificados',
     link: 'https://drive.google.com/file/d/1A72o2_Z_Pzdk8cyhEOZV-Ys4Q8KtT3T1/view',
-    descricao: 'Certificado Oficial para Cerimônia de Investidura das Classes Regulares e Avançadas (DSA)',
+    descricao: 'Certificado para Cerimônia de Investidura das Classes Regulares e Avançadas (DSA)',
     icone: 'DBV'
   },
   {
     id: 27,
     created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Certificado Oficial de Especialidades (Desbravadores DSA)',
+    titulo: 'Certificado de Especialidades (Desbravadores DSA)',
     categoria: 'certificados',
     link: 'https://drive.google.com/file/d/1iv2F0ToWCEWTYWAJse3JRf_LOXQAARR4/view',
-    descricao: 'Certificado Oficial de Conclusão e Outorga de Especialidades (Ministério de Desbravadores DSA)',
+    descricao: 'Certificado de Conclusão e Outorga de Especialidades (Ministério de Desbravadores DSA)',
     icone: 'DBV'
   },
   {
     id: 28,
     created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Certificado Oficial de Mestrado em Especialidades (DSA)',
+    titulo: 'Certificado de Mestrado em Especialidades (DSA)',
     categoria: 'certificados',
     link: 'https://drive.google.com/file/d/109Ihh35_azZJSd1-GC41ygJ9CQaH8fPx/view',
-    descricao: 'Certificado Oficial de Outorga de Insígnia de Mestrado (Ministério de Desbravadores DSA)',
+    descricao: 'Certificado de Outorga de Insígnia de Mestrado (Ministério de Desbravadores DSA)',
     icone: 'DBV'
   },
   {
     id: 29,
     created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Certificado Oficial de Conclusão do Ano Bíblico Juvenil — Desbravadores (DSA)',
+    titulo: 'Certificado de Conclusão do Ano Bíblico Juvenil — Desbravadores (DSA)',
     categoria: 'certificados',
     link: 'https://drive.google.com/file/d/1zbAFN0gmAaRak6paZe7mHrR9mheP2KBR/view',
-    descricao: 'Certificado Oficial de Leitura Completa do Ano Bíblico Juvenil/Jovem para Desbravadores (DSA)',
+    descricao: 'Certificado de Leitura Completa do Ano Bíblico Juvenil/Jovem para Desbravadores (DSA)',
     icone: 'DBV'
   },
   {
     id: 30,
     created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Certificado Oficial — Classes Agrupadas Formato A4 (DSA)',
+    titulo: 'Certificado — Classes Agrupadas Formato A4 (DSA)',
     categoria: 'certificados',
     link: 'https://drive.google.com/file/d/1XJJrgHtA_VcTYPvGT0i-OMhtHCgRTfG7/view',
-    descricao: 'Certificado Oficial para Investidura Integrada de Classes Agrupadas (DSA)',
+    descricao: 'Certificado para Investidura Integrada de Classes Agrupadas (DSA)',
     icone: 'DBV'
   },
   {
@@ -1433,10 +1433,10 @@ export const DEFAULT_FORMULARIOS: Formulario[] = [
   {
     id: 38,
     created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Certificado Oficial de Especialidades — Clube de Aventureiros (DSA)',
+    titulo: 'Certificado de Especialidades — Clube de Aventureiros (DSA)',
     categoria: 'certificados',
     link: 'https://ministerioaventureirosases.org/wp-content/uploads/2023/03/certificado-especialidades-av.pdf',
-    descricao: 'Certificado Oficial de Conclusão de Especialidades Infantis (Ministério de Aventureiros DSA)',
+    descricao: 'Certificado de Conclusão de Especialidades Infantis (Ministério de Aventureiros DSA)',
     icone: 'AVT'
   },
   {
@@ -1595,10 +1595,10 @@ export const DEFAULT_FORMULARIOS: Formulario[] = [
   {
     id: 70,
     created_at: '2026-10-04T00:00:00Z',
-    titulo: 'Certificado Oficial de Conclusão do Ano Bíblico Infantil — Aventureiros (DSA)',
+    titulo: 'Certificado de Conclusão do Ano Bíblico Infantil — Aventureiros (DSA)',
     categoria: 'certificados',
     link: 'https://arquivosadventistas.org/arquivos/Aventureiros/certificados%20aventureiros.pdf',
-    descricao: 'Certificado Oficial de Leitura do Ano Bíblico Infantil e Histórias Bíblicas do Clube de Aventureiros (DSA)',
+    descricao: 'Certificado de Leitura do Ano Bíblico Infantil e Histórias Bíblicas do Clube de Aventureiros (DSA)',
     icone: 'AVT'
   }
 ];

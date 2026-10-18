@@ -6,14 +6,27 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.1.2';
-export const APP_BUILD_DATE = '16 de Outubro de 2026';
+export const APP_VERSION = '3.1.3';
+export const APP_BUILD_DATE = '19 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '3.1.3',
+    date: '19/10/2026',
+    tag: 'NOVO',
+    title: 'Personalização de Certificados com Brasão do Clube, Seleção de Assinaturas e Insígnia Automática de Especialidades',
+    changes: [
+      'Upload do Brasão do Clube: Adicionada opção de enviar o brasão ou logomarca oficial do seu clube, exibindo o logo oficial dos Desbravadores à esquerda e o brasão do clube à direita no topo do certificado.',
+      'Detecção Automática da Insígnia da Especialidade: Ao digitar o nome da especialidade no certificado, o sistema busca e insere automaticamente a imagem oficial da especialidade no lugar do emblema do clube, com autocompletar e sugestões inteligentes.',
+      'Seleção Flexível de Assinaturas: Opção de selecionar se haverá a assinatura do Regional/Coordenador e do Pastor Departamental MDA, com reorganização automática e harmoniosa das linhas de assinatura.',
+      'Padronização da Nomenclatura dos Certificados: Remoção do termo "Oficial" na frase "Certificado Oficial de..." nos modelos e geração de certificados.',
+      'Botão "Prova" Otimizado no Menu: Nome completo exibido sem truncamentos e inclusão do ícone de QR Code sombreado de fundo com rotação e escala no mesmo padrão dos botões superiores.'
+    ]
+  },
+  {
     version: '3.1.2',
     date: '16/10/2026',
-    tag: 'NOVO',
+    tag: 'ATUAL',
     title: 'Gerador Didático de Slides com IA (PowerPoint), Respostas Oficiais Completas e Notificações de Versões Ativas',
     changes: [
       'Gerador de Slides Didáticos com IA em Especialidades: Todas as questões e requisitos oficiais agora são respondidos de forma completa e explicativa com IA didática (Gemini 3.5 Flash Lite), acompanhados de pontos fundamentais de fixação, dinâmicas práticas para a unidade e conselhos pedagógicos ao instrutor.',

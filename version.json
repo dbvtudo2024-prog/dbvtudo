@@ -1,11 +1,12 @@
 {
-  "version": 1760627500000,
-  "versionName": "3.1.2",
-  "buildDate": "2026-10-16T14:45:00.000Z",
-  "timestamp": 1760627500000,
+  "version": 1760892000000,
+  "versionName": "3.1.3",
+  "buildDate": "2026-10-19T15:50:00.000Z",
+  "timestamp": 1760892000000,
   "highlights": [
-    "Gerador Didático de Slides (.pptx) em Especialidades com IA Gemini: Respostas didáticas completas para todas as questões e requisitos oficiais, pontos fundamentais de fixação, dinâmicas práticas na unidade, conselhos pedagógicos ao instrutor e design temático por área dos Desbravadores",
-    "Central de Notificações de Versões Ativada: Detecção automática e imediata de novas versões com alerta na tela, aviso nativo no celular/PC e boas-vindas com o que há de novo ao abrir o app",
-    "Estabilidade e Sincronização: Visualizador de itens oficiais no modal de apresentação sincronizado com o banco e suporte aprimorado aos modelos Gemini 3.5 Flash Lite"
+    "Personalização de Certificados com Brasão do Clube: Envie o brasão/logo do seu próprio clube para exibição à direita no topo e o logo dos Desbravadores à esquerda.",
+    "Insígnia Automática de Especialidades: Ao digitar o nome da especialidade no certificado, a insígnia oficial é adicionada automaticamente no topo no lugar do emblema.",
+    "Seleção de Assinaturas & Padronização: Escolha individual da inclusão das assinaturas do Regional e Pastor, e remoção da palavra Oficial na frase Certificado de...",
+    "Menu com Botão Prova Aprimorado: QR Code sombreado de fundo e visualização do nome completo sem cortes."
   ]
 }

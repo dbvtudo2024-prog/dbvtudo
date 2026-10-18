@@ -271,11 +271,32 @@ export interface CustomCertificateConfig {
   directorName: string;
   regionalName: string;
   pastorName: string;
+  includeRegionalSignature?: boolean;
+  includePastorSignature?: boolean;
+  specialtyLogoUrl?: string | null;
+  clubLogoUrl?: string | null;
+}
+
+async function loadCanvasImg(url: string | undefined | null): Promise<HTMLImageElement | null> {
+  if (!url || typeof url !== 'string') return null;
+  return new Promise<HTMLImageElement | null>((resolve) => {
+    const image = new Image();
+    image.crossOrigin = 'anonymous';
+    image.onload = () => resolve(image);
+    image.onerror = () => {
+      // Fallback sem crossOrigin para evitar restrições em imagens locais / base64
+      const fallbackImg = new Image();
+      fallbackImg.onload = () => resolve(fallbackImg);
+      fallbackImg.onerror = () => resolve(null);
+      fallbackImg.src = url;
+    };
+    image.src = url;
+  });
 }
 
 /**
- * Desenha o Certificado Oficial Personalizado em um Canvas A4 Paisagem de Alta Resolução (2480 x 1754 px)
- * com o Nome do Clube, Associação/Missão e dados escolhidos pelo usuário.
+ * Desenha o Certificado Personalizado em um Canvas A4 Paisagem de Alta Resolução (2480 x 1754 px)
+ * com suporte a Brasão do Clube, Imagem da Especialidade, Seleção de Assinaturas e Padrão Visual Oficial.
  */
 export async function renderCertificateToCanvas(config: CustomCertificateConfig): Promise<HTMLCanvasElement> {
   const canvas = document.createElement('canvas');
@@ -340,41 +361,75 @@ export async function renderCertificateToCanvas(config: CustomCertificateConfig)
   ctx.fill();
   ctx.restore();
 
-  // 4. Carregar Emblema Oficial (D1 ou A1) se possível
-  const emblemUrl = isDbv
+  // 4. Carregar Imagens do Topo (Logo dos Desbravadores, Especialidade e/ou Brasão do Clube)
+  const defaultOrgEmblemUrl = isDbv
     ? 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png'
     : 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png';
 
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const image = new Image();
-      image.crossOrigin = 'anonymous';
-      image.onload = () => resolve(image);
-      image.onerror = reject;
-      image.src = emblemUrl;
-    });
-    const targetH = 210;
-    const targetW = (img.width / img.height) * targetH || 210;
-    ctx.drawImage(img, canvas.width / 2 - targetW / 2, 135, targetW, targetH);
-  } catch {
-    // Escudo vetorial de fallback caso imagem externa não carregue com CORS
-    ctx.save();
-    ctx.fillStyle = primaryColor;
-    ctx.beginPath();
-    ctx.moveTo(canvas.width / 2, 140);
-    ctx.lineTo(canvas.width / 2 + 95, 190);
-    ctx.lineTo(canvas.width / 2, 330);
-    ctx.lineTo(canvas.width / 2 - 95, 190);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = goldColor;
-    ctx.lineWidth = 6;
-    ctx.stroke();
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 44px Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(isDbv ? 'DBV' : 'AVT', canvas.width / 2, 245);
-    ctx.restore();
+  const hasClubLogo = Boolean(config.clubLogoUrl && config.clubLogoUrl.trim().length > 0);
+  const hasSpecialtyLogo = Boolean(config.specialtyLogoUrl && config.specialtyLogoUrl.trim().length > 0);
+
+  const orgImg = await loadCanvasImg(defaultOrgEmblemUrl);
+  const clubImg = hasClubLogo ? await loadCanvasImg(config.clubLogoUrl) : null;
+  const specialtyImg = hasSpecialtyLogo ? await loadCanvasImg(config.specialtyLogoUrl) : null;
+
+  const targetH = 210;
+
+  if (hasClubLogo && clubImg) {
+    // LAYOUT COM BRASÃO DO CLUBE ENVIADO:
+    // Logo dos Desbravadores (ou Aventureiros) à ESQUERDA e Brasão do Clube à DIREITA no topo
+    if (orgImg) {
+      const orgW = (orgImg.width / orgImg.height) * targetH || targetH;
+      ctx.drawImage(orgImg, 320 - orgW / 2, 135, orgW, targetH);
+    } else {
+      ctx.save();
+      ctx.fillStyle = primaryColor;
+      ctx.beginPath();
+      ctx.arc(320, 240, 85, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 38px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(isDbv ? 'DBV' : 'AVT', 320, 252);
+      ctx.restore();
+    }
+
+    // Brasão do Clube à DIREITA no topo
+    const clubW = (clubImg.width / clubImg.height) * targetH || targetH;
+    ctx.drawImage(clubImg, canvas.width - 320 - clubW / 2, 135, clubW, targetH);
+
+    // Se também houver especialidade, desenha a insígnia da especialidade ao centro no topo
+    if (specialtyImg) {
+      const specW = (specialtyImg.width / specialtyImg.height) * targetH || targetH;
+      ctx.drawImage(specialtyImg, canvas.width / 2 - specW / 2, 135, specW, targetH);
+    }
+  } else {
+    // LAYOUT SEM BRASÃO DO CLUBE:
+    // Se for certificado de especialidade, coloca a imagem da especialidade no lugar do emblema do clube (ao centro)
+    const centerImg = specialtyImg || orgImg;
+    if (centerImg) {
+      const targetW = (centerImg.width / centerImg.height) * targetH || targetH;
+      ctx.drawImage(centerImg, canvas.width / 2 - targetW / 2, 135, targetW, targetH);
+    } else {
+      // Escudo vetorial de fallback caso imagem externa não carregue
+      ctx.save();
+      ctx.fillStyle = primaryColor;
+      ctx.beginPath();
+      ctx.moveTo(canvas.width / 2, 140);
+      ctx.lineTo(canvas.width / 2 + 95, 190);
+      ctx.lineTo(canvas.width / 2, 330);
+      ctx.lineTo(canvas.width / 2 - 95, 190);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = goldColor;
+      ctx.lineWidth = 6;
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 44px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(isDbv ? 'DBV' : 'AVT', canvas.width / 2, 245);
+      ctx.restore();
+    }
   }
 
   // 5. Cabeçalho Institucional (IASD / DSA + Associação/Missão + Nome do Clube)
@@ -419,10 +474,15 @@ export async function renderCertificateToCanvas(config: CustomCertificateConfig)
   ctx.fillStyle = primaryColor;
   ctx.fillText(clubText, canvas.width / 2, pillY + 54);
 
-  // 6. Título Principal do Certificado
-  const certTitle = (
-    config.certificateTitle.trim() || 'CERTIFICADO OFICIAL DE INVESTIDURA'
-  ).toUpperCase();
+  // 6. Título Principal do Certificado (Sem o termo "OFICIAL" e sem "(DESBRAVADORES DSA)")
+  let certTitle = (config.certificateTitle.trim() || 'CERTIFICADO DE INVESTIDURA').toUpperCase();
+  certTitle = certTitle
+    .replace(/CERTIFICADO\s+OFICIAL\s+DE/gi, 'CERTIFICADO DE')
+    .replace(/\s*\((DESBRAVADORES|AVENTUREIROS)\s*(DSA)?\)\s*/gi, '')
+    .replace(/\s*—\s*(CLUBE\s+DE\s+)?(DESBRAVADORES|AVENTUREIROS)\s*(\(DSA\))?/gi, '')
+    .replace(/\s*\(DSA\)\s*/gi, '')
+    .trim();
+
   ctx.fillStyle = '#0f172a';
   ctx.font = 'bold 68px Georgia, "Times New Roman", serif';
   ctx.fillText(certTitle, canvas.width / 2, 650);
@@ -473,11 +533,17 @@ export async function renderCertificateToCanvas(config: CustomCertificateConfig)
     950
   );
 
-  // Conquista / Classe / Especialidade em destaque
-  const achievement = (
+  // Conquista / Classe / Especialidade em destaque (sem redundâncias de "Desbravadores DSA")
+  let achievement = (
     config.achievementName.trim() ||
-    (isDbv ? 'CLASSE / ESPECIALIDADE OFICIAL DSA' : 'CLASSE / ESPECIALIDADE AVENTUREIROS DSA')
+    (isDbv ? 'CLASSE / ESPECIALIDADE DSA' : 'CLASSE / ESPECIALIDADE AVENTUREIROS DSA')
   ).toUpperCase();
+  achievement = achievement
+    .replace(/\s*\((DESBRAVADORES|AVENTUREIROS)\s*(DSA)?\)\s*/gi, '')
+    .replace(/\s*—\s*(CLUBE\s+DE\s+)?(DESBRAVADORES|AVENTUREIROS)\s*(\(DSA\))?/gi, '')
+    .replace(/\s*\(DSA\)\s*/gi, '')
+    .trim();
+
   ctx.fillStyle = secondaryColor;
   ctx.font = 'bold 54px Arial, Helvetica, sans-serif';
   ctx.fillText(achievement, canvas.width / 2, 1035);
@@ -504,43 +570,68 @@ export async function renderCertificateToCanvas(config: CustomCertificateConfig)
   ctx.font = 'bold 32px Arial, Helvetica, sans-serif';
   ctx.fillText(locDate, canvas.width / 2, 1215);
 
-  // 9. Três Linhas de Assinatura Oficial (Diretor do Clube, Regional/Distrital, Pastor/Departamental)
-  const sigY = 1450;
-  const sigPositions = [
+  // 9. Linhas de Assinatura Selecionáveis (Diretor sempre presente, Regional e Pastor opcionais)
+  const includeRegional = config.includeRegionalSignature !== false;
+  const includePastor = config.includePastorSignature !== false;
+
+  const activeSignatures: Array<{ name: string; role: string }> = [
     {
-      x: 540,
       name: config.directorName.trim() || 'Diretor(a) do Clube',
       role: config.clubName.trim() ? `Diretor(a) — ${config.clubName.trim()}` : 'Diretor(a) do Clube'
-    },
-    {
-      x: canvas.width / 2,
+    }
+  ];
+
+  if (includeRegional) {
+    activeSignatures.push({
       name: config.regionalName.trim() || 'Coordenador(a) / Regional',
       role: config.associationName.trim()
         ? `Regional — ${config.associationName.trim()}`
         : 'Regional / Coordenador(a) de Área'
-    },
-    {
-      x: canvas.width - 540,
+    });
+  }
+
+  if (includePastor) {
+    activeSignatures.push({
       name: config.pastorName.trim() || 'Pastor / Departamental MDA',
       role: 'Ministério de Desbravadores e Aventureiros'
-    }
-  ];
+    });
+  }
 
-  sigPositions.forEach((sig) => {
+  const sigY = 1450;
+  const sigCount = activeSignatures.length;
+
+  activeSignatures.forEach((sig, index) => {
+    let posX = canvas.width / 2;
+    let lineWidth = 280;
+
+    if (sigCount === 3) {
+      if (index === 0) posX = 540;
+      else if (index === 1) posX = canvas.width / 2;
+      else posX = canvas.width - 540;
+    } else if (sigCount === 2) {
+      lineWidth = 320;
+      if (index === 0) posX = canvas.width / 2 - 440;
+      else posX = canvas.width / 2 + 440;
+    } else {
+      // Apenas 1 assinatura (Diretor centralizado)
+      lineWidth = 360;
+      posX = canvas.width / 2;
+    }
+
     ctx.strokeStyle = '#334155';
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(sig.x - 280, sigY);
-    ctx.lineTo(sig.x + 280, sigY);
+    ctx.moveTo(posX - lineWidth, sigY);
+    ctx.lineTo(posX + lineWidth, sigY);
     ctx.stroke();
 
     ctx.fillStyle = '#0f172a';
     ctx.font = 'bold 28px Arial, Helvetica, sans-serif';
-    ctx.fillText(sig.name, sig.x, sigY + 42);
+    ctx.fillText(sig.name, posX, sigY + 42);
 
     ctx.fillStyle = '#64748b';
     ctx.font = '22px Arial, Helvetica, sans-serif';
-    ctx.fillText(sig.role, sig.x, sigY + 76);
+    ctx.fillText(sig.role, posX, sigY + 76);
   });
 
   // 10. Selo Oficial no Rodapé

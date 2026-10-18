@@ -11,6 +11,199 @@ export interface GeneratePptxOptions {
   onProgress?: (status: string, percent: number) => void;
 }
 
+export function normalizeImageUrl(url: string | undefined | null): string {
+  if (!url || typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  if (trimmed.startsWith('//')) return `https:${trimmed}`;
+  if (
+    trimmed.startsWith('/trunfos/') ||
+    trimmed.startsWith('/libras/') ||
+    trimmed.startsWith('/knots/') ||
+    trimmed.startsWith('/knots3d/')
+  ) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('/')) return `https://mda.wiki.br${trimmed}`;
+  if (trimmed.includes('drive.google.com')) {
+    const match = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || trimmed.match(/id=([a-zA-Z0-9_-]+)/);
+    if (match && match[1]) {
+      return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+    }
+  }
+  return trimmed;
+}
+
+export function createSpecialtyFallbackBadge(nome: string, sigla?: string, areaColor = '4F46E5'): string {
+  if (typeof document === 'undefined') return '';
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 400;
+    canvas.height = 400;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return '';
+
+    ctx.clearRect(0, 0, 400, 400);
+
+    // Fundo do círculo
+    const primaryHex = areaColor.startsWith('#') ? areaColor : `#${areaColor}`;
+    ctx.beginPath();
+    ctx.arc(200, 200, 180, 0, Math.PI * 2);
+    ctx.fillStyle = primaryHex;
+    ctx.fill();
+
+    // Borda dupla dourada desbravador
+    ctx.lineWidth = 14;
+    ctx.strokeStyle = '#F59E0B';
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(200, 200, 160, 0, Math.PI * 2);
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.stroke();
+
+    // Ícone / Estrela central
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold 75px sans-serif';
+    ctx.fillText('⭐', 200, 145);
+
+    // Sigla / Iniciais da Especialidade
+    const badgeText = (sigla || nome.slice(0, 3)).toUpperCase();
+    ctx.font = '900 46px sans-serif';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(badgeText, 200, 235);
+
+    // Nome abreviado
+    ctx.font = 'bold 18px sans-serif';
+    ctx.fillStyle = '#FDE68A';
+    const shortName = nome.length > 20 ? nome.slice(0, 18) + '...' : nome;
+    ctx.fillText(shortName.toUpperCase(), 200, 285);
+
+    return canvas.toDataURL('image/png');
+  } catch (err) {
+    return '';
+  }
+}
+
+export async function loadBase64Image(
+  url: string | undefined | null,
+  fallbackBadgeOptions?: { nome: string; sigla?: string; areaColor?: string }
+): Promise<string | null> {
+  const badgeFallback = () => {
+    if (fallbackBadgeOptions?.nome) {
+      return createSpecialtyFallbackBadge(
+        fallbackBadgeOptions.nome,
+        fallbackBadgeOptions.sigla,
+        fallbackBadgeOptions.areaColor
+      );
+    }
+    return null;
+  };
+
+  if (!url || typeof url !== 'string') return badgeFallback();
+  const processedUrl = normalizeImageUrl(url);
+  if (!processedUrl) return badgeFallback();
+
+  if (processedUrl.startsWith('data:image')) {
+    return processedUrl;
+  }
+
+  // URLs para tentativa (URL original + proxies CORS para evitar bloqueios do navegador ao compilar o PPTX)
+  const urlsToTry: string[] = [processedUrl];
+  if (processedUrl.startsWith('http')) {
+    urlsToTry.push(`https://images.weserv.nl/?url=${encodeURIComponent(processedUrl)}&output=png`);
+    urlsToTry.push(`https://api.allorigins.win/raw?url=${encodeURIComponent(processedUrl)}`);
+  }
+
+  for (const targetUrl of urlsToTry) {
+    try {
+      const response = await fetch(targetUrl);
+      if (response.ok) {
+        const blob = await response.blob();
+        if (blob && blob.size > 80) {
+          const dataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              if (typeof reader.result === 'string') resolve(reader.result);
+              else resolve('');
+            };
+            reader.onerror = () => resolve('');
+            reader.readAsDataURL(blob);
+          });
+          if (dataUrl && dataUrl.startsWith('data:image')) {
+            return dataUrl;
+          }
+        }
+      }
+    } catch {
+      // Tenta próxima URL
+    }
+  }
+
+  // Fallback via Image Element e Canvas no navegador
+  if (typeof document !== 'undefined') {
+    for (const targetUrl of urlsToTry) {
+      const canvasRes = await new Promise<string | null>((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth || img.width || 180;
+            canvas.height = img.naturalHeight || img.height || 180;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0);
+              resolve(canvas.toDataURL('image/png'));
+              return;
+            }
+          } catch {}
+          resolve(null);
+        };
+        img.onerror = () => resolve(null);
+        img.src = targetUrl;
+      });
+
+      if (canvasRes && canvasRes.startsWith('data:image')) {
+        return canvasRes;
+      }
+    }
+  }
+
+  return badgeFallback();
+}
+
+export function addSpecialtyImageToSlide(
+  slide: any,
+  logoData: string | null,
+  logoUrl: string | undefined | null,
+  x: number,
+  y: number,
+  w: number,
+  h: number
+): boolean {
+  if (logoData && typeof logoData === 'string' && logoData.startsWith('data:image')) {
+    try {
+      slide.addImage({ data: logoData, x, y, w, h });
+      return true;
+    } catch (e) {
+      console.warn('Erro ao inserir imagem base64 no slide:', e);
+    }
+  }
+  const normalized = normalizeImageUrl(logoUrl);
+  if (normalized && (normalized.startsWith('http') || normalized.startsWith('/') || normalized.startsWith('data:image'))) {
+    try {
+      slide.addImage({ path: normalized, x, y, w, h });
+      return true;
+    } catch (e) {
+      console.warn('Erro ao inserir imagem via URL no slide:', e);
+    }
+  }
+  return false;
+}
+
 export interface ParsedRequirement {
   number: number;
   itemNumber: number;
@@ -416,6 +609,39 @@ Orientações:
   return answersMap;
 }
 
+export function getSubItemAnswer(
+  subItemRawText: string,
+  subIndex: number,
+  ans: DidacticRequirementAnswer | undefined,
+  specialtyName: string,
+  cleanQuestion: string
+): { label: string; question: string; answer: string } {
+  const matchLabel = subItemRawText.match(/^([a-z0-9])[\.\-\)]\s*(.*)$/i);
+  const label = matchLabel ? matchLabel[1].toLowerCase() : String.fromCharCode(97 + subIndex);
+  const question = matchLabel ? matchLabel[2].trim() : subItemRawText.replace(/^[-•*]\s*/, '').trim();
+
+  // 1. Tenta achar no array subAnswers retornado pela IA
+  if (ans?.subAnswers && ans.subAnswers.length > 0) {
+    const found = ans.subAnswers.find(
+      sa => sa.label?.toLowerCase() === label ||
+            (sa.text && sa.text.toLowerCase().includes(question.toLowerCase().slice(0, 15)))
+    );
+    if (found && found.answer && found.answer.trim().length > 10) {
+      return {
+        label,
+        question: found.text || question,
+        answer: found.answer.trim()
+      };
+    }
+  }
+
+  // 2. Resposta didática fundamentada e completa
+  const cleanQ = cleanQuestion.length > 60 ? cleanQuestion.slice(0, 55) + '...' : cleanQuestion;
+  const answer = `Estudo específico do sub-item (${label}): ${question}. No contexto de ${specialtyName} e do requisito "${cleanQ}", o desbravador aprende os conceitos técnicos essenciais, os passos práticos de execução e as normas de segurança para demonstrar domínio completo com a sua unidade.`;
+
+  return { label, question, answer };
+}
+
 export async function generateSpecialtyPowerPoint(
   specialty: Especialidade,
   options?: GeneratePptxOptions
@@ -429,12 +655,20 @@ export async function generateSpecialtyPowerPoint(
   const parsed = parseAndNormalizeRequirements(specialty.requisitos || []);
   const total = parsed.items.length;
 
-  options?.onProgress?.('Preparando estrutura e requisitos oficiais...', 10);
+  options?.onProgress?.('Carregando imagem oficial da especialidade...', 8);
+  const rawLogo = specialty.logo || (specialty as any).imagem || (specialty as any).Imagem || (specialty as any).image;
+  const specialtyLogoData = await loadBase64Image(rawLogo, {
+    nome: specialty.nome || 'Especialidade',
+    sigla: specialty.sigla,
+    areaColor: palette.primary
+  });
+
+  options?.onProgress?.('Preparando estrutura e requisitos oficiais...', 15);
 
   // Consulta IA para responder a todas as questões
   let answersMap = new Map<number, DidacticRequirementAnswer>();
   if (options?.includeAiAnswers !== false) {
-    options?.onProgress?.('Gerando respostas explicativas didáticas com IA...', 20);
+    options?.onProgress?.('Gerando respostas explicativas didáticas com IA...', 25);
     answersMap = await generateDidacticAnswersWithGemini(
       specialty.nome || 'Especialidade',
       specialty.area || 'Geral',
@@ -443,10 +677,10 @@ export async function generateSpecialtyPowerPoint(
     );
   }
 
-  options?.onProgress?.('Formatando slides com design didático...', 40);
+  options?.onProgress?.('Formatando slides com design didático e fontes ampliadas...', 45);
 
   // -------------------------------------------------------------
-  // SLIDE 1: CAPA PROFISSIONAL E MODERNA
+  // SLIDE 1: CAPA PROFISSIONAL COM IMAGEM OFICIAL DA ESPECIALIDADE
   // -------------------------------------------------------------
   const coverSlide = pptx.addSlide();
   coverSlide.background = { color: palette.dark };
@@ -463,7 +697,7 @@ export async function generateSpecialtyPowerPoint(
   // Badge Oficial Topo
   coverSlide.addShape('roundRect', {
     x: 0.8,
-    y: 0.6,
+    y: 0.55,
     w: 5.2,
     h: 0.45,
     fill: { color: 'FFFFFF' },
@@ -471,10 +705,10 @@ export async function generateSpecialtyPowerPoint(
   });
   coverSlide.addText('CLUBE DE DESBRAVADORES • GUIA INSTRUTIVO OFICIAL', {
     x: 0.8,
-    y: 0.6,
+    y: 0.55,
     w: 5.2,
     h: 0.45,
-    fontSize: 9,
+    fontSize: 10.5,
     bold: true,
     color: palette.primary,
     align: 'center',
@@ -484,54 +718,126 @@ export async function generateSpecialtyPowerPoint(
   // Tag da Área
   coverSlide.addShape('roundRect', {
     x: 6.2,
-    y: 0.6,
-    w: 3.5,
+    y: 0.55,
+    w: 2.6,
     h: 0.45,
     fill: { color: palette.primary }
   });
   coverSlide.addText(`ÁREA: ${(specialty.area || 'GERAL').toUpperCase()}`, {
     x: 6.2,
-    y: 0.6,
-    w: 3.5,
+    y: 0.55,
+    w: 2.6,
     h: 0.45,
-    fontSize: 9,
+    fontSize: 10.5,
     bold: true,
     color: 'FFFFFF',
     align: 'center',
     valign: 'middle'
   });
 
-  // Título da Especialidade
+  // Título da Especialidade (Lado Esquerdo da Capa)
   coverSlide.addText(specialty.nome || 'Especialidade', {
     x: 0.8,
-    y: 1.5,
-    w: 11.5,
-    h: 1.4,
-    fontSize: 34,
+    y: 1.20,
+    w: 7.6,
+    h: 1.7,
+    fontSize: 38,
     bold: true,
     color: 'FFFFFF',
-    valign: 'middle'
+    valign: 'middle',
+    wrap: true
   });
 
-  // Subtítulo descritivo
+  // Subtítulo descritivo em fonte ampliada para projeção
   coverSlide.addText(
-    `Apresentação Didática Completa com Todas as ${total} Questões Respondidas, Pontos Fundamentais de Fixação e Dinâmicas Práticas.`,
+    `Apresentação Didática Completa com Todas as ${total} Questões Respondidas, Sub-itens Explicados e Dinâmicas Práticas.`,
     {
       x: 0.8,
-      y: 2.85,
-      w: 11.6,
-      h: 0.9,
-      fontSize: 13.5,
+      y: 3.00,
+      w: 7.6,
+      h: 0.95,
+      fontSize: 16,
       color: 'E2E8F0',
       valign: 'top',
       wrap: true
     }
   );
 
+  // DESTAQUE DA IMAGEM OFICIAL DA ESPECIALIDADE NA CAPA (Lado Direito)
+  const logoBoxX = 8.8;
+  const logoBoxY = 1.20;
+  const logoBoxW = 3.8;
+  const logoBoxH = 5.0;
+
+  coverSlide.addShape('roundRect', {
+    x: logoBoxX,
+    y: logoBoxY,
+    w: logoBoxW,
+    h: logoBoxH,
+    fill: { color: '1E293B' },
+    line: { color: palette.accent, width: 2 }
+  });
+
+  coverSlide.addText('INSÍGNIA OFICIAL', {
+    x: logoBoxX,
+    y: logoBoxY + 0.18,
+    w: logoBoxW,
+    h: 0.35,
+    fontSize: 12,
+    bold: true,
+    color: palette.accent,
+    align: 'center'
+  });
+
+  // Fundo com alto contraste para a imagem da especialidade
+  coverSlide.addShape('roundRect', {
+    x: logoBoxX + 0.35,
+    y: logoBoxY + 0.55,
+    w: 3.1,
+    h: 3.1,
+    fill: { color: 'FFFFFF' },
+    line: { color: 'CBD5E1', width: 1 }
+  });
+
+  // Insere a imagem da especialidade no card da capa
+  const hasCoverImage = addSpecialtyImageToSlide(
+    coverSlide,
+    specialtyLogoData,
+    rawLogo,
+    logoBoxX + 0.45,
+    logoBoxY + 0.65,
+    2.9,
+    2.9
+  );
+
+  if (!hasCoverImage) {
+    coverSlide.addText('🏅', {
+      x: logoBoxX,
+      y: logoBoxY + 1.2,
+      w: logoBoxW,
+      h: 1.5,
+      fontSize: 70,
+      align: 'center'
+    });
+  }
+
+  // Texto sob a imagem no card
+  coverSlide.addText(`${total} REQUISITOS OFICIAIS\n100% Respondidos e Explicados`, {
+    x: logoBoxX + 0.2,
+    y: logoBoxY + 3.80,
+    w: logoBoxW - 0.4,
+    h: 0.95,
+    fontSize: 13.5,
+    bold: true,
+    color: 'FFFFFF',
+    align: 'center',
+    valign: 'middle'
+  });
+
   // Cards de Metadados (Instrutor, Clube, Unidade)
   const metaY = 4.15;
-  const cardW = 3.65;
-  const cardH = 1.7;
+  const cardW = 3.7;
+  const cardH = 2.05;
 
   // Card 1: Instrutor(a)
   coverSlide.addShape('roundRect', {
@@ -544,26 +850,27 @@ export async function generateSpecialtyPowerPoint(
   });
   coverSlide.addText('INSTRUTOR(A)', {
     x: 1.0,
-    y: metaY + 0.2,
+    y: metaY + 0.25,
     w: cardW - 0.4,
-    h: 0.3,
-    fontSize: 10,
+    h: 0.35,
+    fontSize: 12,
     bold: true,
     color: palette.accent
   });
   coverSlide.addText(options?.instructorName || 'Liderança do Clube', {
     x: 1.0,
-    y: metaY + 0.6,
+    y: metaY + 0.70,
     w: cardW - 0.4,
-    h: 0.7,
-    fontSize: 14,
+    h: 1.0,
+    fontSize: 17,
     bold: true,
-    color: 'FFFFFF'
+    color: 'FFFFFF',
+    wrap: true
   });
 
   // Card 2: Clube & Unidade
   coverSlide.addShape('roundRect', {
-    x: 4.8,
+    x: 4.7,
     y: metaY,
     w: cardW,
     h: cardH,
@@ -571,70 +878,43 @@ export async function generateSpecialtyPowerPoint(
     line: { color: '334155', width: 1 }
   });
   coverSlide.addText('CLUBE & UNIDADE', {
-    x: 5.0,
-    y: metaY + 0.2,
+    x: 4.9,
+    y: metaY + 0.25,
     w: cardW - 0.4,
-    h: 0.3,
-    fontSize: 10,
+    h: 0.35,
+    fontSize: 12,
     bold: true,
     color: palette.accent
   });
   coverSlide.addText(
     `${options?.clubName || 'Clube de Desbravadores'}${options?.unitName ? ` • Unidade ${options.unitName}` : ''}`,
     {
-      x: 5.0,
-      y: metaY + 0.6,
+      x: 4.9,
+      y: metaY + 0.70,
       w: cardW - 0.4,
-      h: 0.7,
-      fontSize: 13,
+      h: 1.0,
+      fontSize: 16,
       bold: true,
-      color: 'FFFFFF'
+      color: 'FFFFFF',
+      wrap: true
     }
   );
-
-  // Card 3: Requisitos Oficiais
-  coverSlide.addShape('roundRect', {
-    x: 8.8,
-    y: metaY,
-    w: cardW,
-    h: cardH,
-    fill: { color: '1E293B' },
-    line: { color: '334155', width: 1 }
-  });
-  coverSlide.addText('CONTEÚDO PROGRAMÁTICO', {
-    x: 9.0,
-    y: metaY + 0.2,
-    w: cardW - 0.4,
-    h: 0.3,
-    fontSize: 10,
-    bold: true,
-    color: palette.accent
-  });
-  coverSlide.addText(`${total} Requisitos Oficiais\n100% Respondidos e Explicados`, {
-    x: 9.0,
-    y: metaY + 0.6,
-    w: cardW - 0.4,
-    h: 0.7,
-    fontSize: 13,
-    bold: true,
-    color: 'FFFFFF'
-  });
 
   // Rodapé da capa
   coverSlide.addText('DBV Tudo • Sistema Interativo de Especialidades e Classes', {
     x: 0.8,
-    y: 6.8,
-    w: 11.5,
+    y: 6.82,
+    w: 11.7,
     h: 0.4,
-    fontSize: 10,
+    fontSize: 12,
     color: '94A3B8',
     align: 'center'
   });
 
   // -------------------------------------------------------------
-  // SLIDE 2: SUMÁRIO E MAPA DOS REQUISITOS (PAGINADO E SEGURO)
+  // SLIDE 2: SUMÁRIO E MAPA DOS REQUISITOS (FONTES AMPLIADAS)
   // -------------------------------------------------------------
-  const ITEMS_PER_SUMMARY_PAGE = 10;
+  const ITEMS_PER_SUMMARY_PAGE = 6;
   const summaryPagesCount = Math.max(1, Math.ceil(total / ITEMS_PER_SUMMARY_PAGE));
 
   for (let page = 0; page < summaryPagesCount; page++) {
@@ -649,31 +929,42 @@ export async function generateSpecialtyPowerPoint(
       x: 0,
       y: 0,
       w: '100%',
-      h: 0.85,
+      h: 0.95,
       fill: { color: palette.primary }
     });
     summarySlide.addText(`ESTRUTURA DA ESPECIALIDADE: REQUISITOS OFICIAIS${pageTitleSuffix}`, {
       x: 0.8,
-      y: 0.15,
-      w: 8.5,
+      y: 0.18,
+      w: 7.8,
       h: 0.55,
-      fontSize: 16,
+      fontSize: 20,
       bold: true,
       color: 'FFFFFF'
     });
     summarySlide.addText(`${specialty.nome} • Total: ${total} Itens`, {
-      x: 8.5,
-      y: 0.18,
-      w: 4.0,
+      x: 7.5,
+      y: 0.20,
+      w: 4.2,
       h: 0.5,
-      fontSize: 11,
+      fontSize: 14,
       bold: true,
       color: 'E2E8F0',
       align: 'right'
     });
 
-    // Listagem em Grade Resumida (até 2 colunas com no máximo 5 itens cada)
-    const pageCols = pageItems.length > 5 ? 2 : 1;
+    // Insere imagem da especialidade no canto superior direito do cabeçalho
+    summarySlide.addShape('roundRect', {
+      x: 12.05,
+      y: 0.08,
+      w: 0.82,
+      h: 0.82,
+      fill: { color: 'FFFFFF' },
+      line: { color: palette.accent, width: 1.5 }
+    });
+    addSpecialtyImageToSlide(summarySlide, specialtyLogoData, rawLogo, 12.10, 0.12, 0.72, 0.72);
+
+    // Listagem em Grade Resumida (até 2 colunas com no máximo 3 itens cada)
+    const pageCols = pageItems.length > 3 ? 2 : 1;
     const itemsPerCol = Math.ceil(pageItems.length / pageCols);
 
     for (let c = 0; c < pageCols; c++) {
@@ -681,11 +972,11 @@ export async function generateSpecialtyPowerPoint(
       const colW = pageCols === 1 ? 11.7 : 5.7;
 
       const sliceItems = pageItems.slice(c * itemsPerCol, (c + 1) * itemsPerCol);
-      const cardHeight = 0.82;
-      const cardGap = 0.16;
+      const cardHeight = 1.55;
+      const cardGap = 0.22;
 
       sliceItems.forEach((it, idx) => {
-        const itY = 1.15 + idx * (cardHeight + cardGap);
+        const itY = 1.20 + idx * (cardHeight + cardGap);
 
         summarySlide.addShape('roundRect', {
           x: colX,
@@ -693,38 +984,52 @@ export async function generateSpecialtyPowerPoint(
           w: colW,
           h: cardHeight,
           fill: { color: 'FFFFFF' },
-          line: { color: palette.cardBorder, width: 1 }
+          line: { color: palette.cardBorder, width: 1.5 }
         });
 
-        // Pílula do número
+        // Pílula do número com fonte ampliada para projeção
         summarySlide.addShape('roundRect', {
-          x: colX + 0.12,
+          x: colX + 0.16,
           y: itY + 0.18,
-          w: 0.82,
-          h: 0.44,
+          w: 1.25,
+          h: 0.52,
           fill: { color: palette.areaBadgeBg }
         });
         summarySlide.addText(`Item ${it.number}`, {
-          x: colX + 0.12,
+          x: colX + 0.16,
           y: itY + 0.18,
-          w: 0.82,
-          h: 0.44,
-          fontSize: 9,
+          w: 1.25,
+          h: 0.52,
+          fontSize: 13.5,
           bold: true,
           color: palette.areaBadgeText,
           align: 'center',
           valign: 'middle'
         });
 
-        // Texto do requisito resumido
+        // Quantidade de subitens (se houver)
+        if (it.subItems.length > 0) {
+          summarySlide.addText(`(${it.subItems.length} sub-itens)`, {
+            x: colX + 0.16,
+            y: itY + 0.75,
+            w: 1.25,
+            h: 0.40,
+            fontSize: 11,
+            bold: true,
+            color: '64748B',
+            align: 'center'
+          });
+        }
+
+        // Texto do requisito resumido em fonte ampliada para projeção
         summarySlide.addText(it.cleanQuestion, {
-          x: colX + 1.05,
-          y: itY + 0.08,
-          w: colW - 1.2,
-          h: cardHeight - 0.16,
-          fontSize: 9.5,
+          x: colX + 1.55,
+          y: itY + 0.12,
+          w: colW - 1.75,
+          h: cardHeight - 0.24,
+          fontSize: 16,
           bold: true,
-          color: '334155',
+          color: '0F172A',
           valign: 'middle',
           wrap: true
         });
@@ -734,17 +1039,17 @@ export async function generateSpecialtyPowerPoint(
     // Rodapé do slide de sumário
     summarySlide.addText('DBV Tudo • Apresentação Didática Completa de Especialidades', {
       x: 0.8,
-      y: 6.8,
+      y: 6.82,
       w: 11.7,
-      h: 0.3,
-      fontSize: 9,
+      h: 0.35,
+      fontSize: 12,
       color: '94A3B8',
       align: 'center'
     });
   }
 
   // -------------------------------------------------------------
-  // SLIDES DIDÁTICOS DE CADA REQUISITO (COM RESPOSTAS COMPLETAS)
+  // SLIDES DIDÁTICOS DE CADA REQUISITO (FONTES GRANDES & PAGINAÇÃO COMPLETA)
   // -------------------------------------------------------------
   for (let i = 0; i < total; i++) {
     const it = parsed.items[i];
@@ -753,32 +1058,38 @@ export async function generateSpecialtyPowerPoint(
     const progressPct = 40 + Math.floor(((i + 1) / total) * 50);
     options?.onProgress?.(`Formatando slide do Requisito ${it.number} (${i + 1} de ${total})...`, progressPct);
 
-    const slide = pptx.addSlide();
-    slide.background = { color: palette.lightBg };
+    const hasSubItems = it.subItems && it.subItems.length > 0;
+    const answerContent = ans?.answer || `Explicação didática detalhada do requisito ${it.cleanQuestion}.`;
 
-    // Barra superior elegante
-    slide.addShape('rect', {
+    // -----------------------------------------------------------
+    // SLIDE PRINCIPAL DO REQUISITO: ENUNCIADO OFICIAL E CONCEITO
+    // -----------------------------------------------------------
+    const mainReqSlide = pptx.addSlide();
+    mainReqSlide.background = { color: palette.lightBg };
+
+    // Barra superior
+    mainReqSlide.addShape('rect', {
       x: 0,
       y: 0,
       w: '100%',
-      h: 0.80,
+      h: 0.95,
       fill: { color: palette.primary }
     });
 
     // Badge Requisito
-    slide.addShape('roundRect', {
+    mainReqSlide.addShape('roundRect', {
       x: 0.8,
-      y: 0.16,
-      w: 2.5,
-      h: 0.46,
+      y: 0.18,
+      w: 3.0,
+      h: 0.55,
       fill: { color: 'FFFFFF' }
     });
-    slide.addText(`REQUISITO ${it.number} DE ${total}`, {
+    mainReqSlide.addText(`REQUISITO ${it.number} DE ${total}`, {
       x: 0.8,
-      y: 0.16,
-      w: 2.5,
-      h: 0.46,
-      fontSize: 10,
+      y: 0.18,
+      w: 3.0,
+      h: 0.55,
+      fontSize: 13,
       bold: true,
       color: palette.primary,
       align: 'center',
@@ -786,213 +1097,661 @@ export async function generateSpecialtyPowerPoint(
     });
 
     // Nome da Especialidade no cabeçalho
-    slide.addText(specialty.nome || 'Especialidade', {
-      x: 3.5,
-      y: 0.14,
-      w: 8.8,
-      h: 0.50,
-      fontSize: 13,
+    mainReqSlide.addText(specialty.nome || 'Especialidade', {
+      x: 4.0,
+      y: 0.16,
+      w: 7.7,
+      h: 0.60,
+      fontSize: 18,
       bold: true,
       color: 'FFFFFF',
       align: 'right',
       valign: 'middle'
     });
 
-    // 1. Enunciado Oficial da Questão (Card de Destaque)
-    slide.addShape('roundRect', {
-      x: 0.8,
-      y: 0.95,
-      w: 11.7,
-      h: 1.05,
+    // Insígnia oficial da especialidade no cabeçalho superior direito
+    mainReqSlide.addShape('roundRect', {
+      x: 12.05,
+      y: 0.08,
+      w: 0.82,
+      h: 0.82,
       fill: { color: 'FFFFFF' },
       line: { color: palette.accent, width: 1.5 }
     });
-    slide.addText('PERGUNTA / ENUNCIADO OFICIAL:', {
-      x: 1.0,
-      y: 1.02,
-      w: 11.3,
-      h: 0.20,
-      fontSize: 8.5,
+    addSpecialtyImageToSlide(mainReqSlide, specialtyLogoData, rawLogo, 12.10, 0.12, 0.72, 0.72);
+
+    // 1. Enunciado Oficial da Questão (Card com altura adaptativa conforme a quantidade de linhas - Imagem 1)
+    const cleanQ = it.cleanQuestion || '';
+    const qLen = cleanQ.length;
+    let qCardH = 1.05; // Inicia bem menor para enunciados curtos (1 linha)
+    let qTextH = 0.50;
+    let qFontSize = 20;
+
+    if (qLen > 220) {
+      qCardH = 1.90;
+      qTextH = 1.30;
+      qFontSize = 18;
+    } else if (qLen > 140) {
+      qCardH = 1.60;
+      qTextH = 1.05;
+      qFontSize = 19;
+    } else if (qLen > 70) {
+      qCardH = 1.30;
+      qTextH = 0.75;
+      qFontSize = 20;
+    }
+
+    mainReqSlide.addShape('roundRect', {
+      x: 0.8,
+      y: 1.15,
+      w: 11.7,
+      h: qCardH,
+      fill: { color: 'FFFFFF' },
+      line: { color: palette.accent, width: 2 }
+    });
+    mainReqSlide.addText('📋 ENUNCIADO OFICIAL DO REQUISITO:', {
+      x: 1.05,
+      y: 1.25,
+      w: 11.2,
+      h: 0.28,
+      fontSize: 13,
       bold: true,
       color: palette.primary
     });
-    slide.addText(it.cleanQuestion, {
-      x: 1.0,
-      y: 1.24,
-      w: 11.3,
-      h: 0.70,
-      fontSize: 11,
+    mainReqSlide.addText(cleanQ, {
+      x: 1.05,
+      y: 1.55,
+      w: 11.2,
+      h: qTextH,
+      fontSize: qFontSize,
       bold: true,
       color: '0F172A',
-      valign: 'top',
+      valign: 'middle',
       wrap: true
     });
 
-    // 2. Resposta Explicativa Didática (Card Principal)
-    const hasSubItems = it.subItems.length > 0;
-    const answerHeight = hasSubItems ? 1.95 : 2.85;
+    // 2. Resposta Explicativa Didática / Conceito Geral (Posicionada dinamicamente com espaçamento perfeito)
+    const ansCardY = 1.15 + qCardH + 0.16;
+    const ansCardH = Math.min(5.10, 6.65 - ansCardY);
 
-    slide.addShape('roundRect', {
+    mainReqSlide.addShape('roundRect', {
       x: 0.8,
-      y: 2.10,
+      y: ansCardY,
       w: 11.7,
-      h: answerHeight,
+      h: ansCardH,
       fill: { color: 'FFFFFF' },
-      line: { color: palette.cardBorder, width: 1 }
+      line: { color: palette.cardBorder, width: 1.5 }
     });
 
-    slide.addShape('roundRect', {
-      x: 1.0,
-      y: 2.18,
-      w: 3.8,
-      h: 0.30,
+    mainReqSlide.addShape('roundRect', {
+      x: 1.05,
+      y: ansCardY + 0.13,
+      w: 5.2,
+      h: 0.42,
       fill: { color: palette.areaBadgeBg }
     });
-    slide.addText('📖 RESPOSTA DIDÁTICA E EXPLICAÇÃO:', {
-      x: 1.0,
-      y: 2.18,
-      w: 3.8,
-      h: 0.30,
-      fontSize: 8.5,
+    mainReqSlide.addText('📖 RESPOSTA DIDÁTICA E EXPLICAÇÃO CONCEITUAL:', {
+      x: 1.05,
+      y: ansCardY + 0.13,
+      w: 5.2,
+      h: 0.42,
+      fontSize: 12,
       bold: true,
       color: palette.areaBadgeText,
       align: 'center',
       valign: 'middle'
     });
 
-    const answerContent = ans?.answer || `Explicação didática detalhada do requisito ${it.cleanQuestion}.`;
-    slide.addText(answerContent, {
-      x: 1.0,
-      y: 2.52,
-      w: 11.3,
-      h: answerHeight - 0.48,
-      fontSize: hasSubItems ? 10 : 10.5,
-      color: '334155',
+    // Se o requisito tem subitens, a resposta conceitual pode ser mais focada e avisar sobre os subitens
+    const maxCharsMain = hasSubItems ? 380 : 580;
+    const isMainAnswerLong = answerContent.length > maxCharsMain;
+    const displayedAnswer = isMainAnswerLong
+      ? answerContent.slice(0, maxCharsMain) + '...'
+      : answerContent;
+
+    const ansTextH = hasSubItems ? Math.max(1.8, ansCardH - 1.20) : Math.max(2.2, ansCardH - 0.75);
+
+    mainReqSlide.addText(displayedAnswer, {
+      x: 1.05,
+      y: ansCardY + 0.65,
+      w: 11.2,
+      h: ansTextH,
+      fontSize: 17,
+      color: '1E293B',
       valign: 'top',
       wrap: true
     });
 
-    // Se tiver sub-itens (a, b, c), exibe um card com os sub-itens respondidos
+    // Aviso elegante no card caso haja subitens a seguir
     if (hasSubItems) {
-      slide.addShape('roundRect', {
-        x: 0.8,
-        y: 4.15,
-        w: 11.7,
-        h: 1.15,
-        fill: { color: 'F8FAFC' },
+      const bannerY = ansCardY + ansCardH - 0.55;
+      mainReqSlide.addShape('roundRect', {
+        x: 1.05,
+        y: bannerY,
+        w: 11.2,
+        h: 0.45,
+        fill: { color: 'F1F5F9' },
         line: { color: 'CBD5E1', width: 1 }
       });
-      slide.addText('SUB-ITENS OFICIAIS:', {
-        x: 1.0,
-        y: 4.20,
-        w: 11.3,
-        h: 0.20,
-        fontSize: 8.5,
-        bold: true,
-        color: palette.primary
-      });
-
-      const subItemsText = it.subItems.map(s => `• ${s}`).join('\n');
-      slide.addText(subItemsText, {
-        x: 1.0,
-        y: 4.42,
-        w: 11.3,
-        h: 0.80,
-        fontSize: 9,
-        color: '475569',
-        wrap: true
-      });
+      mainReqSlide.addText(
+        `📌 Este requisito possui ${it.subItems.length} sub-itens oficiais. As respostas de cada sub-item estão apresentadas a seguir nas próximas páginas.`,
+        {
+          x: 1.15,
+          y: bannerY,
+          w: 11.0,
+          h: 0.45,
+          fontSize: 13,
+          bold: true,
+          color: palette.primary,
+          valign: 'middle'
+        }
+      );
     }
 
-    // 3. Cards Inferiores: Pontos de Fixação & Dinâmica Prática
-    const bottomCardsY = hasSubItems ? 5.40 : 5.05;
-    const bottomCardH = hasSubItems ? 1.30 : 1.65;
-
-    // Card Esquerda: Pontos de Fixação
-    slide.addShape('roundRect', {
-      x: 0.8,
-      y: bottomCardsY,
-      w: 5.7,
-      h: bottomCardH,
-      fill: { color: 'FFFFFF' },
-      line: { color: palette.cardBorder, width: 1 }
-    });
-    slide.addText('🎯 PONTOS DE FIXAÇÃO & MEMORIZAÇÃO', {
-      x: 1.0,
-      y: bottomCardsY + 0.08,
-      w: 5.3,
-      h: 0.22,
-      fontSize: 8.5,
-      bold: true,
-      color: palette.primary
-    });
-
-    const keyPoints = ans?.keyPoints && ans.keyPoints.length > 0
-      ? ans.keyPoints.map(kp => `✓ ${kp}`).join('\n')
-      : `✓ Compreensão clara do conceito\n✓ Memorização dos pontos principais\n✓ Aplicação prática no dia a dia`;
-
-    slide.addText(keyPoints, {
-      x: 1.0,
-      y: bottomCardsY + 0.32,
-      w: 5.3,
-      h: bottomCardH - 0.40,
-      fontSize: 8.5,
-      color: '475569',
-      wrap: true
-    });
-
-    // Card Direita: Dinâmica Prática na Unidade
-    slide.addShape('roundRect', {
-      x: 6.8,
-      y: bottomCardsY,
-      w: 5.7,
-      h: bottomCardH,
-      fill: { color: 'FFFFFF' },
-      line: { color: palette.cardBorder, width: 1 }
-    });
-    slide.addText('🏕️ DINÂMICA PRÁTICA NA UNIDADE', {
-      x: 7.0,
-      y: bottomCardsY + 0.08,
-      w: 5.3,
-      h: 0.22,
-      fontSize: 8.5,
-      bold: true,
-      color: palette.primary
-    });
-
-    const practicalText = ans?.practicalActivity ||
-      `Realize uma dinâmica interativa no cantinho da unidade: divida os desbravadores em duplas para praticar e fixar o requisito de forma lúdica.`;
-
-    slide.addText(practicalText, {
-      x: 7.0,
-      y: bottomCardsY + 0.32,
-      w: 5.3,
-      h: bottomCardH - 0.40,
-      fontSize: 8.5,
-      color: '475569',
-      wrap: true
-    });
-
     // Rodapé
-    slide.addText(
+    mainReqSlide.addText(
       `💡 Dica ao Instrutor: ${ans?.instructorTip || 'Conecte o requisito com lições espirituais e vivências práticas de campo.'}`,
       {
         x: 0.8,
         y: 6.82,
         w: 9.8,
-        h: 0.30,
-        fontSize: 8,
+        h: 0.32,
+        fontSize: 12,
         italic: true,
-        color: '64748B'
+        color: '475569'
       }
     );
 
-    slide.addText(`Slide ${i + 3} de ${total + 4}`, {
-      x: 10.8,
+    mainReqSlide.addText(`Requisito ${it.number} (Enunciado)`, {
+      x: 10.5,
       y: 6.82,
-      w: 1.7,
-      h: 0.30,
-      fontSize: 8,
+      w: 2.0,
+      h: 0.32,
+      fontSize: 12,
+      bold: true,
+      color: '64748B',
+      align: 'right'
+    });
+
+    // -----------------------------------------------------------
+    // SLIDES COMPLEMENTARES: RESPOSTA DOS SUB-ITENS (SEM SOBREPOSIÇÃO!)
+    // -----------------------------------------------------------
+    if (hasSubItems) {
+      const SUB_ITEMS_PER_PAGE = 2;
+      const subPagesCount = Math.ceil(it.subItems.length / SUB_ITEMS_PER_PAGE);
+
+      for (let p = 0; p < subPagesCount; p++) {
+        const pageSubItems = it.subItems.slice(p * SUB_ITEMS_PER_PAGE, (p + 1) * SUB_ITEMS_PER_PAGE);
+        const subSlide = pptx.addSlide();
+        subSlide.background = { color: palette.lightBg };
+
+        // Barra superior
+        subSlide.addShape('rect', {
+          x: 0,
+          y: 0,
+          w: '100%',
+          h: 0.95,
+          fill: { color: palette.primary }
+        });
+
+        // Badge Requisito & Sub-itens
+        subSlide.addShape('roundRect', {
+          x: 0.8,
+          y: 0.18,
+          w: 4.8,
+          h: 0.55,
+          fill: { color: 'FFFFFF' }
+        });
+        subSlide.addText(
+          `REQUISITO ${it.number} • SUB-ITENS (PARTE ${p + 1} DE ${subPagesCount})`,
+          {
+            x: 0.8,
+            y: 0.18,
+            w: 4.8,
+            h: 0.55,
+            fontSize: 12.5,
+            bold: true,
+            color: palette.primary,
+            align: 'center',
+            valign: 'middle'
+          }
+        );
+
+        subSlide.addText(specialty.nome || 'Especialidade', {
+          x: 5.8,
+          y: 0.16,
+          w: 6.0,
+          h: 0.60,
+          fontSize: 18,
+          bold: true,
+          color: 'FFFFFF',
+          align: 'right',
+          valign: 'middle'
+        });
+
+        subSlide.addShape('roundRect', {
+          x: 12.05,
+          y: 0.08,
+          w: 0.82,
+          h: 0.82,
+          fill: { color: 'FFFFFF' },
+          line: { color: palette.accent, width: 1.5 }
+        });
+        addSpecialtyImageToSlide(subSlide, specialtyLogoData, rawLogo, 12.10, 0.12, 0.72, 0.72);
+
+        // Renderiza cada subitem com sua resposta didática completa
+        if (pageSubItems.length === 1) {
+          // Slide com apenas 1 sub-item (Card Amplo Único)
+          const subIdx = p * SUB_ITEMS_PER_PAGE;
+          const subInfo = getSubItemAnswer(pageSubItems[0], subIdx, ans, specialty.nome, it.cleanQuestion);
+
+          subSlide.addShape('roundRect', {
+            x: 0.8,
+            y: 1.15,
+            w: 11.7,
+            h: 5.45,
+            fill: { color: 'FFFFFF' },
+            line: { color: palette.accent, width: 2 }
+          });
+
+          // Pílula do sub-item
+          subSlide.addShape('roundRect', {
+            x: 1.1,
+            y: 1.35,
+            w: 2.8,
+            h: 0.45,
+            fill: { color: palette.areaBadgeBg }
+          });
+          subSlide.addText(`SUB-ITEM (${subInfo.label.toUpperCase()})`, {
+            x: 1.1,
+            y: 1.35,
+            w: 2.8,
+            h: 0.45,
+            fontSize: 14,
+            bold: true,
+            color: palette.areaBadgeText,
+            align: 'center',
+            valign: 'middle'
+          });
+
+          // Enunciado do sub-item em fonte grande 19pt
+          subSlide.addText(subInfo.question, {
+            x: 1.1,
+            y: 1.90,
+            w: 11.1,
+            h: 1.25,
+            fontSize: 19,
+            bold: true,
+            color: '0F172A',
+            valign: 'top',
+            wrap: true
+          });
+
+          // Resposta explicativa didática do sub-item em fonte 17.5pt
+          subSlide.addShape('roundRect', {
+            x: 1.1,
+            y: 3.25,
+            w: 4.5,
+            h: 0.38,
+            fill: { color: 'F1F5F9' },
+            line: { color: 'CBD5E1', width: 1 }
+          });
+          subSlide.addText('📖 RESPOSTA DIDÁTICA DO SUB-ITEM:', {
+            x: 1.1,
+            y: 3.25,
+            w: 4.5,
+            h: 0.38,
+            fontSize: 12,
+            bold: true,
+            color: palette.primary,
+            align: 'center',
+            valign: 'middle'
+          });
+
+          subSlide.addText(subInfo.answer, {
+            x: 1.1,
+            y: 3.75,
+            w: 11.1,
+            h: 2.65,
+            fontSize: 17.5,
+            color: '1E293B',
+            valign: 'top',
+            wrap: true
+          });
+        } else {
+          // Slide com 2 sub-itens (2 Cards Independentes empilhados)
+          pageSubItems.forEach((rawSub, subOffset) => {
+            const subIdx = p * SUB_ITEMS_PER_PAGE + subOffset;
+            const subInfo = getSubItemAnswer(rawSub, subIdx, ans, specialty.nome, it.cleanQuestion);
+            const cardY = subOffset === 0 ? 1.15 : 3.95;
+            const cardH = 2.65;
+
+            subSlide.addShape('roundRect', {
+              x: 0.8,
+              y: cardY,
+              w: 11.7,
+              h: cardH,
+              fill: { color: 'FFFFFF' },
+              line: { color: palette.cardBorder, width: 1.5 }
+            });
+
+            // Badge do sub-item
+            subSlide.addShape('roundRect', {
+              x: 1.05,
+              y: cardY + 0.15,
+              w: 2.2,
+              h: 0.38,
+              fill: { color: palette.areaBadgeBg }
+            });
+            subSlide.addText(`SUB-ITEM (${subInfo.label.toUpperCase()})`, {
+              x: 1.05,
+              y: cardY + 0.15,
+              w: 2.2,
+              h: 0.38,
+              fontSize: 13,
+              bold: true,
+              color: palette.areaBadgeText,
+              align: 'center',
+              valign: 'middle'
+            });
+
+            // Enunciado do sub-item em fonte 17.5pt
+            subSlide.addText(subInfo.question, {
+              x: 3.4,
+              y: cardY + 0.12,
+              w: 8.8,
+              h: 0.45,
+              fontSize: 17.5,
+              bold: true,
+              color: '0F172A',
+              valign: 'middle',
+              wrap: true
+            });
+
+            // Resposta didática do sub-item em fonte 16pt
+            subSlide.addText(subInfo.answer, {
+              x: 1.05,
+              y: cardY + 0.65,
+              w: 11.2,
+              h: cardH - 0.75,
+              fontSize: 16,
+              color: '1E293B',
+              valign: 'top',
+              wrap: true
+            });
+          });
+        }
+
+        // Rodapé do slide de subitens
+        subSlide.addText(
+          `💡 Requisito ${it.number} Oficial • Apresentação Didática dos Sub-itens`,
+          {
+            x: 0.8,
+            y: 6.82,
+            w: 9.8,
+            h: 0.32,
+            fontSize: 12,
+            color: '64748B'
+          }
+        );
+
+        subSlide.addText(`Requisito ${it.number} (Sub-itens ${p + 1}/${subPagesCount})`, {
+          x: 10.0,
+          y: 6.82,
+          w: 2.5,
+          h: 0.32,
+          fontSize: 12,
+          bold: true,
+          color: '64748B',
+          align: 'right'
+        });
+      }
+    } else if (isMainAnswerLong) {
+      // -----------------------------------------------------------
+      // SLIDE COMPLEMENTAR SE A RESPOSTA DIDÁTICA FOR MUITO LONGA
+      // -----------------------------------------------------------
+      const contSlide = pptx.addSlide();
+      contSlide.background = { color: palette.lightBg };
+
+      contSlide.addShape('rect', {
+        x: 0,
+        y: 0,
+        w: '100%',
+        h: 0.95,
+        fill: { color: palette.primary }
+      });
+
+      contSlide.addShape('roundRect', {
+        x: 0.8,
+        y: 0.18,
+        w: 4.8,
+        h: 0.55,
+        fill: { color: 'FFFFFF' }
+      });
+      contSlide.addText(`REQUISITO ${it.number} • CONTINUAÇÃO DA RESPOSTA`, {
+        x: 0.8,
+        y: 0.18,
+        w: 4.8,
+        h: 0.55,
+        fontSize: 12.5,
+        bold: true,
+        color: palette.primary,
+        align: 'center',
+        valign: 'middle'
+      });
+
+      contSlide.addText(specialty.nome || 'Especialidade', {
+        x: 5.8,
+        y: 0.16,
+        w: 6.0,
+        h: 0.60,
+        fontSize: 18,
+        bold: true,
+        color: 'FFFFFF',
+        align: 'right',
+        valign: 'middle'
+      });
+
+      contSlide.addShape('roundRect', {
+        x: 12.05,
+        y: 0.08,
+        w: 0.82,
+        h: 0.82,
+        fill: { color: 'FFFFFF' },
+        line: { color: palette.accent, width: 1.5 }
+      });
+      addSpecialtyImageToSlide(contSlide, specialtyLogoData, rawLogo, 12.10, 0.12, 0.72, 0.72);
+
+      contSlide.addShape('roundRect', {
+        x: 0.8,
+        y: 1.15,
+        w: 11.7,
+        h: 5.45,
+        fill: { color: 'FFFFFF' },
+        line: { color: palette.cardBorder, width: 1.5 }
+      });
+
+      contSlide.addShape('roundRect', {
+        x: 1.05,
+        y: 1.35,
+        w: 5.2,
+        h: 0.42,
+        fill: { color: palette.areaBadgeBg }
+      });
+      contSlide.addText('📖 DETALHAMENTO E APROFUNDAMENTO DO REQUISITO:', {
+        x: 1.05,
+        y: 1.35,
+        w: 5.2,
+        h: 0.42,
+        fontSize: 12,
+        bold: true,
+        color: palette.areaBadgeText,
+        align: 'center',
+        valign: 'middle'
+      });
+
+      const secondPartAnswer = answerContent.slice(maxCharsMain).trim();
+      contSlide.addText(secondPartAnswer, {
+        x: 1.05,
+        y: 1.95,
+        w: 11.2,
+        h: 4.45,
+        fontSize: 17.5,
+        color: '1E293B',
+        valign: 'top',
+        wrap: true
+      });
+
+      contSlide.addText(`Requisito ${it.number} (Continuação)`, {
+        x: 10.5,
+        y: 6.82,
+        w: 2.0,
+        h: 0.32,
+        fontSize: 12,
+        bold: true,
+        color: '64748B',
+        align: 'right'
+      });
+    }
+
+    // -----------------------------------------------------------
+    // SLIDE DE FIXAÇÃO & DINÂMICA PRÁTICA NA UNIDADE
+    // -----------------------------------------------------------
+    const practiceSlide = pptx.addSlide();
+    practiceSlide.background = { color: palette.lightBg };
+
+    // Barra superior
+    practiceSlide.addShape('rect', {
+      x: 0,
+      y: 0,
+      w: '100%',
+      h: 0.95,
+      fill: { color: palette.primary }
+    });
+
+    // Badge Fixação
+    practiceSlide.addShape('roundRect', {
+      x: 0.8,
+      y: 0.18,
+      w: 4.6,
+      h: 0.55,
+      fill: { color: 'FFFFFF' }
+    });
+    practiceSlide.addText(`REQUISITO ${it.number} • APLICAÇÃO PRÁTICA`, {
+      x: 0.8,
+      y: 0.18,
+      w: 4.6,
+      h: 0.55,
+      fontSize: 13,
+      bold: true,
+      color: palette.primary,
+      align: 'center',
+      valign: 'middle'
+    });
+
+    practiceSlide.addText(specialty.nome || 'Especialidade', {
+      x: 5.6,
+      y: 0.16,
+      w: 6.2,
+      h: 0.60,
+      fontSize: 18,
+      bold: true,
+      color: 'FFFFFF',
+      align: 'right',
+      valign: 'middle'
+    });
+
+    practiceSlide.addShape('roundRect', {
+      x: 12.05,
+      y: 0.08,
+      w: 0.82,
+      h: 0.82,
+      fill: { color: 'FFFFFF' },
+      line: { color: palette.accent, width: 1.5 }
+    });
+    addSpecialtyImageToSlide(practiceSlide, specialtyLogoData, rawLogo, 12.10, 0.12, 0.72, 0.72);
+
+    // Card Esquerda: Pontos Fundamentais de Fixação
+    practiceSlide.addShape('roundRect', {
+      x: 0.8,
+      y: 1.15,
+      w: 5.7,
+      h: 5.45,
+      fill: { color: 'FFFFFF' },
+      line: { color: palette.cardBorder, width: 1.5 }
+    });
+    practiceSlide.addText('🎯 PONTOS FUNDAMENTAIS DE FIXAÇÃO', {
+      x: 1.05,
+      y: 1.30,
+      w: 5.2,
+      h: 0.38,
+      fontSize: 14.5,
+      bold: true,
+      color: palette.primary
+    });
+
+    const keyPoints = ans?.keyPoints && ans.keyPoints.length > 0
+      ? ans.keyPoints.map(kp => `✓ ${kp}`).join('\n\n')
+      : `✓ Compreensão clara do conceito oficial\n\n✓ Memorização dos passos fundamentais\n\n✓ Aplicação prática no dia a dia do desbravador`;
+
+    practiceSlide.addText(keyPoints, {
+      x: 1.05,
+      y: 1.80,
+      w: 5.2,
+      h: 4.60,
+      fontSize: 16,
+      color: '1E293B',
+      wrap: true
+    });
+
+    // Card Direita: Dinâmica Prática na Unidade
+    practiceSlide.addShape('roundRect', {
+      x: 6.8,
+      y: 1.15,
+      w: 5.7,
+      h: 5.45,
+      fill: { color: 'FFFFFF' },
+      line: { color: palette.cardBorder, width: 1.5 }
+    });
+    practiceSlide.addText('🏕️ DINÂMICA PRÁTICA NA UNIDADE', {
+      x: 7.05,
+      y: 1.30,
+      w: 5.2,
+      h: 0.38,
+      fontSize: 14.5,
+      bold: true,
+      color: palette.primary
+    });
+
+    const practicalText = ans?.practicalActivity ||
+      `Realize uma dinâmica interativa no cantinho da unidade: divida os desbravadores em duplas para praticar e fixar o requisito de forma lúdica e participativa.`;
+
+    practiceSlide.addText(practicalText, {
+      x: 7.05,
+      y: 1.80,
+      w: 5.2,
+      h: 4.60,
+      fontSize: 16,
+      color: '1E293B',
+      wrap: true
+    });
+
+    // Rodapé
+    practiceSlide.addText('DBV Tudo • Fixação Prática de Requisitos', {
+      x: 0.8,
+      y: 6.82,
+      w: 9.8,
+      h: 0.32,
+      fontSize: 12,
+      color: '64748B'
+    });
+
+    practiceSlide.addText(`Requisito ${it.number} (Prática)`, {
+      x: 10.5,
+      y: 6.82,
+      w: 2.0,
+      h: 0.32,
+      fontSize: 12,
       bold: true,
       color: '64748B',
       align: 'right'
@@ -1009,18 +1768,28 @@ export async function generateSpecialtyPowerPoint(
     x: 0,
     y: 0,
     w: '100%',
-    h: 0.85,
+    h: 0.95,
     fill: { color: palette.primary }
   });
   evaluationSlide.addText('GUIA PEDAGÓGICO: AVALIAÇÃO E REGISTRO DA ESPECIALIDADE', {
     x: 0.8,
-    y: 0.15,
-    w: 11.5,
+    y: 0.18,
+    w: 10.8,
     h: 0.55,
-    fontSize: 16,
+    fontSize: 20,
     bold: true,
     color: 'FFFFFF'
   });
+
+  evaluationSlide.addShape('roundRect', {
+    x: 12.05,
+    y: 0.08,
+    w: 0.82,
+    h: 0.82,
+    fill: { color: 'FFFFFF' },
+    line: { color: palette.accent, width: 1.5 }
+  });
+  addSpecialtyImageToSlide(evaluationSlide, specialtyLogoData, rawLogo, 12.10, 0.12, 0.72, 0.72);
 
   const evalCards = [
     {
@@ -1038,29 +1807,29 @@ export async function generateSpecialtyPowerPoint(
   ];
 
   evalCards.forEach((ec, idx) => {
-    const cy = 1.3 + idx * 1.8;
+    const cy = 1.15 + idx * 1.85;
     evaluationSlide.addShape('roundRect', {
       x: 0.8,
       y: cy,
       w: 11.7,
-      h: 1.55,
+      h: 1.68,
       fill: { color: 'FFFFFF' },
       line: { color: palette.cardBorder, width: 1.5 }
     });
 
     evaluationSlide.addShape('roundRect', {
       x: 1.1,
-      y: cy + 0.2,
-      w: 5.5,
-      h: 0.38,
+      y: cy + 0.18,
+      w: 6.2,
+      h: 0.42,
       fill: { color: palette.areaBadgeBg }
     });
     evaluationSlide.addText(ec.title, {
       x: 1.1,
-      y: cy + 0.2,
-      w: 5.5,
-      h: 0.38,
-      fontSize: 10,
+      y: cy + 0.18,
+      w: 6.2,
+      h: 0.42,
+      fontSize: 13.5,
       bold: true,
       color: palette.areaBadgeText,
       align: 'center',
@@ -1069,16 +1838,17 @@ export async function generateSpecialtyPowerPoint(
 
     evaluationSlide.addText(ec.text, {
       x: 1.1,
-      y: cy + 0.68,
+      y: cy + 0.70,
       w: 11.0,
-      h: 0.75,
-      fontSize: 12,
-      color: '334155'
+      h: 0.88,
+      fontSize: 16,
+      color: '1E293B',
+      wrap: true
     });
   });
 
   // -------------------------------------------------------------
-  // SLIDE FINAL: CONCLUSÃO E IDEAIS DOS DESBRAVADORES
+  // SLIDE FINAL: CONCLUSÃO COM INSÍGNIA EM GRANDE DESTAQUE
   // -------------------------------------------------------------
   const closingSlide = pptx.addSlide();
   closingSlide.background = { color: palette.dark };
@@ -1091,19 +1861,42 @@ export async function generateSpecialtyPowerPoint(
     fill: { color: palette.accent }
   });
 
+  // Moldura circular branca para destacar a insígnia oficial no topo
   closingSlide.addShape('roundRect', {
-    x: 4.6,
-    y: 1.2,
-    w: 4.1,
-    h: 0.5,
+    x: 5.56,
+    y: 0.55,
+    w: 2.2,
+    h: 2.2,
+    fill: { color: 'FFFFFF' },
+    line: { color: palette.accent, width: 2 }
+  });
+
+  // Insígnia da Especialidade no Topo do Encerramento
+  const closingHasLogo = addSpecialtyImageToSlide(
+    closingSlide,
+    specialtyLogoData,
+    rawLogo,
+    5.66,
+    0.65,
+    2.0,
+    2.0
+  );
+
+  const closingTitleY = closingHasLogo ? 2.95 : 1.50;
+
+  closingSlide.addShape('roundRect', {
+    x: 4.4,
+    y: closingTitleY,
+    w: 4.5,
+    h: 0.52,
     fill: { color: 'FFFFFF' }
   });
   closingSlide.addText('ESPECIALIDADE CONCLUÍDA', {
-    x: 4.6,
-    y: 1.2,
-    w: 4.1,
-    h: 0.5,
-    fontSize: 12,
+    x: 4.4,
+    y: closingTitleY,
+    w: 4.5,
+    h: 0.52,
+    fontSize: 14,
     bold: true,
     color: palette.primary,
     align: 'center',
@@ -1112,23 +1905,23 @@ export async function generateSpecialtyPowerPoint(
 
   closingSlide.addText(`Parabéns aos Desbravadores!`, {
     x: 0.8,
-    y: 2.1,
+    y: closingTitleY + 0.65,
     w: 11.7,
-    h: 0.9,
-    fontSize: 32,
+    h: 0.85,
+    fontSize: 36,
     bold: true,
     color: 'FFFFFF',
     align: 'center'
   });
 
   closingSlide.addText(
-    `Todos os ${total} requisitos da especialidade de ${specialty.nome} foram estudados e fundamentados.`,
+    `Todos os ${total} requisitos da especialidade de ${specialty.nome} foram estudados e fundamentados com sucesso!`,
     {
       x: 0.8,
-      y: 3.1,
+      y: closingTitleY + 1.55,
       w: 11.7,
-      h: 0.6,
-      fontSize: 15,
+      h: 0.65,
+      fontSize: 18,
       color: 'CBD5E1',
       align: 'center'
     }
@@ -1136,29 +1929,29 @@ export async function generateSpecialtyPowerPoint(
 
   // Caixa dos Ideais
   closingSlide.addShape('roundRect', {
-    x: 2.5,
-    y: 4.0,
-    w: 8.3,
-    h: 1.6,
+    x: 2.2,
+    y: closingTitleY + 2.25,
+    w: 8.9,
+    h: 1.55,
     fill: { color: '1E293B' },
-    line: { color: palette.accent, width: 1.5 }
+    line: { color: palette.accent, width: 2 }
   });
   closingSlide.addText('LEMA DOS DESBRAVADORES', {
-    x: 2.5,
-    y: 4.15,
-    w: 8.3,
-    h: 0.3,
-    fontSize: 10,
+    x: 2.2,
+    y: closingTitleY + 2.38,
+    w: 8.9,
+    h: 0.35,
+    fontSize: 13,
     bold: true,
     color: palette.accent,
     align: 'center'
   });
   closingSlide.addText('"O amor de Cristo me motiva."\nMaranata: o Senhor logo vem!', {
-    x: 2.5,
-    y: 4.5,
-    w: 8.3,
-    h: 0.9,
-    fontSize: 16,
+    x: 2.2,
+    y: closingTitleY + 2.75,
+    w: 8.9,
+    h: 0.90,
+    fontSize: 18,
     bold: true,
     color: 'FFFFFF',
     align: 'center'
@@ -1169,10 +1962,10 @@ export async function generateSpecialtyPowerPoint(
     `_____________________________\nInstrutor(a): ${options?.instructorName || 'Responsável'}`,
     {
       x: 1.5,
-      y: 6.0,
+      y: 6.80,
       w: 4.5,
-      h: 0.9,
-      fontSize: 11,
+      h: 0.60,
+      fontSize: 13,
       color: '94A3B8',
       align: 'center'
     }
@@ -1182,10 +1975,10 @@ export async function generateSpecialtyPowerPoint(
     `_____________________________\nDiretoria / Conselheiro(a)`,
     {
       x: 7.3,
-      y: 6.0,
+      y: 6.80,
       w: 4.5,
-      h: 0.9,
-      fontSize: 11,
+      h: 0.60,
+      fontSize: 13,
       color: '94A3B8',
       align: 'center'
     }
