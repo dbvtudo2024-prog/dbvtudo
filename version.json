@@ -1,12 +1,12 @@
 {
-  "version": 1760892000000,
-  "versionName": "3.1.3",
-  "buildDate": "2026-10-19T15:50:00.000Z",
-  "timestamp": 1760892000000,
+  "version": 1760980000000,
+  "versionName": "3.1.4",
+  "buildDate": "2026-10-20T18:00:00.000Z",
+  "timestamp": 1760980000000,
   "highlights": [
-    "Personalização de Certificados com Brasão do Clube: Envie o brasão/logo do seu próprio clube para exibição à direita no topo e o logo dos Desbravadores à esquerda.",
-    "Insígnia Automática de Especialidades: Ao digitar o nome da especialidade no certificado, a insígnia oficial é adicionada automaticamente no topo no lugar do emblema.",
-    "Seleção de Assinaturas & Padronização: Escolha individual da inclusão das assinaturas do Regional e Pastor, e remoção da palavra Oficial na frase Certificado de...",
-    "Menu com Botão Prova Aprimorado: QR Code sombreado de fundo e visualização do nome completo sem cortes."
+    "Galeria de Amostras Oficiais: Amostras visuais e realistas dos certificados gerados pelo nosso próprio editor em substituição aos links externos genéricos.",
+    "Amostras com Download Direto: Baixe modelos prontos oficiais em PDF A4 Paisagem ou PNG diretamente na galeria.",
+    "Acesso Direto ao Editor: Personalize qualquer certificado no criador com o brasão do clube e assinaturas personalizáveis.",
+    "Certificados de Especialidades Aprimorados: Sem redundâncias textuais e com insígnia oficial automática."
   ]
 }

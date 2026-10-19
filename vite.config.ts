@@ -28,8 +28,8 @@ export default defineConfig({
     }
   ],
   define: {
-    __APP_VERSION__: JSON.stringify('3.1.3'),
-    __APP_BUILD_TIME__: JSON.stringify(1760892000000)
+    __APP_VERSION__: JSON.stringify('3.1.4'),
+    __APP_BUILD_TIME__: JSON.stringify(1760980000000)
   },
   server: {
     port: 3000,

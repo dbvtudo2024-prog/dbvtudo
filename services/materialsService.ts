@@ -474,7 +474,7 @@ export async function renderCertificateToCanvas(config: CustomCertificateConfig)
   ctx.fillStyle = primaryColor;
   ctx.fillText(clubText, canvas.width / 2, pillY + 54);
 
-  // 6. Título Principal do Certificado (Sem o termo "OFICIAL" e sem "(DESBRAVADORES DSA)")
+  // 6. Título Principal do Certificado (Sem o termo "OFICIAL" e sem redundâncias)
   let certTitle = (config.certificateTitle.trim() || 'CERTIFICADO DE INVESTIDURA').toUpperCase();
   certTitle = certTitle
     .replace(/CERTIFICADO\s+OFICIAL\s+DE/gi, 'CERTIFICADO DE')
@@ -482,6 +482,16 @@ export async function renderCertificateToCanvas(config: CustomCertificateConfig)
     .replace(/\s*—\s*(CLUBE\s+DE\s+)?(DESBRAVADORES|AVENTUREIROS)\s*(\(DSA\))?/gi, '')
     .replace(/\s*\(DSA\)\s*/gi, '')
     .trim();
+
+  const isSpecialty = certTitle.includes('ESPECIALIDADE') || Boolean(config.specialtyLogoUrl);
+  if (isSpecialty) {
+    certTitle = certTitle
+      .replace(/DE\s+DESBRAVADORES/gi, '')
+      .replace(/DOS\s+DESBRAVADORES/gi, '')
+      .replace(/DE\s+AVENTUREIROS/gi, '')
+      .replace(/DOS\s+AVENTUREIROS/gi, '')
+      .trim();
+  }
 
   ctx.fillStyle = '#0f172a';
   ctx.font = 'bold 68px Georgia, "Times New Roman", serif';
@@ -526,23 +536,37 @@ export async function renderCertificateToCanvas(config: CustomCertificateConfig)
   ctx.fillStyle = '#334155';
   ctx.font = '34px Arial, Helvetica, sans-serif';
   ctx.fillText(
-    `cumpriu fielmente todos os requisitos oficiais estabelecidos pelo Ministério de ${
-      isDbv ? 'Desbravadores' : 'Aventureiros'
-    } da DSA para:`,
+    isSpecialty
+      ? 'cumpriu com êxito todos os requisitos oficiais exigidos para a Especialidade de:'
+      : `cumpriu fielmente todos os requisitos oficiais estabelecidos pelo Ministério de ${
+          isDbv ? 'Desbravadores' : 'Aventureiros'
+        } da DSA para:`,
     canvas.width / 2,
     950
   );
 
-  // Conquista / Classe / Especialidade em destaque (sem redundâncias de "Desbravadores DSA")
+  // Conquista / Classe / Especialidade em destaque (sem redundâncias)
   let achievement = (
     config.achievementName.trim() ||
-    (isDbv ? 'CLASSE / ESPECIALIDADE DSA' : 'CLASSE / ESPECIALIDADE AVENTUREIROS DSA')
+    (isSpecialty
+      ? 'NOME DA ESPECIALIDADE'
+      : isDbv
+      ? 'CLASSE / ESPECIALIDADE'
+      : 'CLASSE / ESPECIALIDADE')
   ).toUpperCase();
   achievement = achievement
     .replace(/\s*\((DESBRAVADORES|AVENTUREIROS)\s*(DSA)?\)\s*/gi, '')
     .replace(/\s*—\s*(CLUBE\s+DE\s+)?(DESBRAVADORES|AVENTUREIROS)\s*(\(DSA\))?/gi, '')
     .replace(/\s*\(DSA\)\s*/gi, '')
     .trim();
+  if (isSpecialty) {
+    achievement = achievement
+      .replace(/DE\s+DESBRAVADORES/gi, '')
+      .replace(/DOS\s+DESBRAVADORES/gi, '')
+      .replace(/DE\s+AVENTUREIROS/gi, '')
+      .replace(/DOS\s+AVENTUREIROS/gi, '')
+      .trim();
+  }
 
   ctx.fillStyle = secondaryColor;
   ctx.font = 'bold 54px Arial, Helvetica, sans-serif';

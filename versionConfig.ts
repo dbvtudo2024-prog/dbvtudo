@@ -6,14 +6,27 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.1.3';
-export const APP_BUILD_DATE = '19 de Outubro de 2026';
+export const APP_VERSION = '3.1.4';
+export const APP_BUILD_DATE = '20 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '3.1.4',
+    date: '20/10/2026',
+    tag: 'NOVO',
+    title: 'Galeria de Amostras do Editor de Certificados & Página Exclusiva Dedicada',
+    changes: [
+      'Galeria de Amostras do Editor de Certificados: Substituição de links genéricos externos da internet por amostras visuais oficiais e interativas geradas pelo nosso próprio editor de certificados.',
+      'Amostras em Alta Resolução com Miniaturas: Pré-visualização realista de cada certificado (Investidura de Classes, Especialidades, Mestrado, Ano Bíblico e Honra ao Mérito) no padrão oficial DSA com moldura dourada e borda dupla.',
+      'Acesso Imediato ao Editor Exclusivo: Botão direto em cada modelo para abrir e personalizar instantaneamente com os dados do clube e assinaturas.',
+      'Download Direto de Amostras: Possibilidade de baixar as amostras oficiais em PDF A4 Paisagem ou Imagem PNG com um único clique.',
+      'Refinamento do Certificado de Especialidade: Título limpo e texto de concessão sem repetição desnecessária de Desbravadores, valorizando o logo oficial no cabeçalho.'
+    ]
+  },
+  {
     version: '3.1.3',
     date: '19/10/2026',
-    tag: 'NOVO',
+    tag: 'ESTÁVEL',
     title: 'Personalização de Certificados com Brasão do Clube, Seleção de Assinaturas e Insígnia Automática de Especialidades',
     changes: [
       'Upload do Brasão do Clube: Adicionada opção de enviar o brasão ou logomarca oficial do seu clube, exibindo o logo oficial dos Desbravadores à esquerda e o brasão do clube à direita no topo do certificado.',

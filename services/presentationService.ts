@@ -1122,28 +1122,35 @@ export async function generateSpecialtyPowerPoint(
 
     // 1. Enunciado Oficial da Questão (Card com altura adaptativa conforme a quantidade de linhas - Imagem 1)
     const cleanQ = it.cleanQuestion || '';
-    const qLen = cleanQ.length;
-    let qCardH = 1.05; // Inicia bem menor para enunciados curtos (1 linha)
-    let qTextH = 0.50;
-    let qFontSize = 20;
+    // Estimar quantidade de linhas baseado no comprimento (em média ~70 caracteres por linha em largura 11.2)
+    const estimatedLines = Math.max(1, Math.ceil(cleanQ.length / 70));
+    
+    let qCardH = 0.78; // Inicia bem menor para enunciados curtos de 1 linha
+    let qTextH = 0.38;
+    let qFontSize = 19;
 
-    if (qLen > 220) {
-      qCardH = 1.90;
-      qTextH = 1.30;
-      qFontSize = 18;
-    } else if (qLen > 140) {
-      qCardH = 1.60;
-      qTextH = 1.05;
+    if (cleanQ.length > 250 || estimatedLines >= 4) {
+      qCardH = 1.65;
+      qTextH = 1.15;
+      qFontSize = 16.5;
+    } else if (cleanQ.length > 150 || estimatedLines === 3) {
+      qCardH = 1.35;
+      qTextH = 0.88;
+      qFontSize = 17.5;
+    } else if (cleanQ.length > 70 || estimatedLines === 2) {
+      qCardH = 1.05;
+      qTextH = 0.60;
+      qFontSize = 18.5;
+    } else {
+      // 1 linha (início menor)
+      qCardH = 0.78;
+      qTextH = 0.38;
       qFontSize = 19;
-    } else if (qLen > 70) {
-      qCardH = 1.30;
-      qTextH = 0.75;
-      qFontSize = 20;
     }
 
     mainReqSlide.addShape('roundRect', {
       x: 0.8,
-      y: 1.15,
+      y: 1.05,
       w: 11.7,
       h: qCardH,
       fill: { color: 'FFFFFF' },
@@ -1151,16 +1158,16 @@ export async function generateSpecialtyPowerPoint(
     });
     mainReqSlide.addText('📋 ENUNCIADO OFICIAL DO REQUISITO:', {
       x: 1.05,
-      y: 1.25,
+      y: 1.12,
       w: 11.2,
-      h: 0.28,
-      fontSize: 13,
+      h: 0.22,
+      fontSize: 12,
       bold: true,
       color: palette.primary
     });
     mainReqSlide.addText(cleanQ, {
       x: 1.05,
-      y: 1.55,
+      y: 1.36,
       w: 11.2,
       h: qTextH,
       fontSize: qFontSize,
@@ -1171,8 +1178,8 @@ export async function generateSpecialtyPowerPoint(
     });
 
     // 2. Resposta Explicativa Didática / Conceito Geral (Posicionada dinamicamente com espaçamento perfeito)
-    const ansCardY = 1.15 + qCardH + 0.16;
-    const ansCardH = Math.min(5.10, 6.65 - ansCardY);
+    const ansCardY = 1.05 + qCardH + 0.14;
+    const ansCardH = Math.min(5.50, 6.75 - ansCardY);
 
     mainReqSlide.addShape('roundRect', {
       x: 0.8,

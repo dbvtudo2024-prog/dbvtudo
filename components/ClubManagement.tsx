@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { jsPDF } from 'jspdf';
 import { ClubType, Category, Especialidade, ClubClass, DesbravaMais, BibleBook, BibleVerse, BibleDictionaryEntry, BibleNote, Devocional, Cultura, UserProfile, CulturaItem, LivroClasse, LivroAno, OutroLivro, ManualDBV, CampingDBV, Formulario, Video as VideoType, VideoCategory, LivroAVT, ManualAVT, AppLink, Conquista, Trunfo } from '../types';
 import { 
-  fetchCategories, fetchEspecialidades, fetchEspecialidadeRequisitos, fetchClasses, fetchDesbravaMais, 
+  fetchCategories, fetchEspecialidades, getCachedEspecialidades, fetchEspecialidadeRequisitos, fetchClasses, fetchDesbravaMais, 
   fetchBibleBooks, fetchBibleVerses, fetchBibleDictionary, fetchDevocionais, 
   CANONICAL_BIBLE_BOOKS,
   createDevocional, updateDevocional, deleteDevocional, fetchUserSpecialties, updateUserSpecialties, 
@@ -44,7 +44,7 @@ import {
   Shield, Award, User, Layers, Sparkles, Home as HomeIcon, Search,
   ChevronRight, ChevronLeft, ChevronDown, ChevronUp, ListChecks, Info, Book, Settings, Zap, Music, Flag, Shirt, Globe, Key, FileText, Library, CreditCard, MapPin, Video, Folder, BookOpen, Heart, ArrowUp, ArrowDown,
   Trash2, Plus, Save, Share2, Calendar, X, Image as ImageIcon, Download, ArrowLeft, ExternalLink, Filter, Edit2, Edit3, Check,
-  AlignLeft, AlignCenter, AlignRight, ZoomIn, ZoomOut, Minus, Trophy, PanelLeftClose, PanelLeftOpen, Menu, Presentation, RefreshCw, ClipboardCheck, Tent, Compass, Radio, HeartPulse, CheckCircle2, History, Palette, Play, QrCode
+  AlignLeft, AlignCenter, AlignRight, ZoomIn, ZoomOut, Minus, Trophy, Crown, PanelLeftClose, PanelLeftOpen, Menu, Presentation, RefreshCw, ClipboardCheck, Tent, Compass, Radio, HeartPulse, CheckCircle2, History, Palette, Play, QrCode
 } from 'lucide-react';
 
 
@@ -119,6 +119,231 @@ const loadImageDataUrl = async (url: string | undefined | null): Promise<string 
     img.onerror = () => resolve(null);
     img.src = processedUrl;
   });
+};
+
+export const OFFICIAL_CLASSES_EMBLEMS = [
+  // Classes Regulares Desbravadores (DSA)
+  {
+    nome: 'Amigo',
+    aliases: ['amigo', 'classe de amigo', 'classe amigo', 'amigo e amigo da natureza'],
+    ministry: 'DBV',
+    logo: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/10.png'
+  },
+  {
+    nome: 'Amigo da Natureza',
+    aliases: ['amigo da natureza', 'classe amigo da natureza', 'classe de amigo da natureza', 'avancada amigo'],
+    ministry: 'DBV',
+    logo: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/11.png'
+  },
+  {
+    nome: 'Companheiro',
+    aliases: ['companheiro', 'classe de companheiro', 'classe companheiro', 'companheiro e companheiro de excursionismo'],
+    ministry: 'DBV',
+    logo: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/20.png'
+  },
+  {
+    nome: 'Companheiro de Excursionismo',
+    aliases: ['companheiro de excursionismo', 'classe companheiro de excursionismo', 'avancada companheiro'],
+    ministry: 'DBV',
+    logo: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/21.png'
+  },
+  {
+    nome: 'Pesquisador',
+    aliases: ['pesquisador', 'classe de pesquisador', 'classe pesquisador', 'pesquisador e pesquisador de campo'],
+    ministry: 'DBV',
+    logo: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/30.png'
+  },
+  {
+    nome: 'Pesquisador de Campo e Bosque',
+    aliases: ['pesquisador de campo e bosque', 'pesquisador de campo', 'avancada pesquisador'],
+    ministry: 'DBV',
+    logo: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/31.png'
+  },
+  {
+    nome: 'Pioneiro',
+    aliases: ['pioneiro', 'classe de pioneiro', 'classe pioneiro', 'pioneiro e novas fronteiras'],
+    ministry: 'DBV',
+    logo: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/40.png'
+  },
+  {
+    nome: 'Pioneiro de Novas Fronteiras',
+    aliases: ['pioneiro de novas fronteiras', 'novas fronteiras', 'avancada pioneiro'],
+    ministry: 'DBV',
+    logo: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/41.png'
+  },
+  {
+    nome: 'Excursionista',
+    aliases: ['excursionista', 'classe de excursionista', 'classe excursionista', 'excursionista e na mata'],
+    ministry: 'DBV',
+    logo: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/50.png'
+  },
+  {
+    nome: 'Excursionista na Mata',
+    aliases: ['excursionista na mata', 'na mata', 'avancada excursionista'],
+    ministry: 'DBV',
+    logo: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/51.png'
+  },
+  {
+    nome: 'Guia',
+    aliases: ['guia', 'classe de guia', 'classe guia', 'guia e exploracao'],
+    ministry: 'DBV',
+    logo: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/60.png'
+  },
+  {
+    nome: 'Guia de Exploração',
+    aliases: ['guia de exploracao', 'guia e exploracao', 'avancada guia'],
+    ministry: 'DBV',
+    logo: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/61.png'
+  },
+  // Liderança Desbravadores
+  {
+    nome: 'Líder',
+    aliases: ['lider', 'classe de lider', 'investidura de lider', 'lider desbravador'],
+    ministry: 'DBV',
+    logo: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/70.png'
+  },
+  {
+    nome: 'Líder Master',
+    aliases: ['lider master', 'classe de lider master', 'master'],
+    ministry: 'DBV',
+    logo: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/80.png'
+  },
+  {
+    nome: 'Líder Master Avançado',
+    aliases: ['lider master avancado', 'master avancado', 'lma'],
+    ministry: 'DBV',
+    logo: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/90.png'
+  },
+  {
+    nome: 'Medalha de Excelência',
+    aliases: ['medalha de excelencia', 'excelencia', 'boa conduta'],
+    ministry: 'DBV',
+    logo: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/100.png'
+  },
+  // Classes Aventureiros (DSA)
+  {
+    nome: 'Abelhinhas Laboriosas',
+    aliases: ['abelhinhas laboriosas', 'abelhinha', 'abelhinhas', 'classe de abelhinhas laboriosas', 'classe abelhinhas'],
+    ministry: 'AVT',
+    logo: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Classes/Abelhinhas%20Laboriosas.png'
+  },
+  {
+    nome: 'Luminares',
+    aliases: ['luminares', 'luminar', 'classe de luminares', 'classe luminares'],
+    ministry: 'AVT',
+    logo: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Classes/Luminares.png'
+  },
+  {
+    nome: 'Edificadores',
+    aliases: ['edificadores', 'edificador', 'classe de edificadores', 'classe edificadores'],
+    ministry: 'AVT',
+    logo: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Classes/Edificadores.png'
+  },
+  {
+    nome: 'Mãos Ajudadoras',
+    aliases: ['maos ajudadoras', 'mao ajudadora', 'classe de maos ajudadoras', 'classe maos ajudadoras'],
+    ministry: 'AVT',
+    logo: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Classes/Maos%20Ajudadoras.png'
+  },
+  {
+    nome: 'Líder de Aventureiros',
+    aliases: ['lider de aventureiros', 'lider avt', 'classe de lider de aventureiros'],
+    ministry: 'AVT',
+    logo: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png'
+  }
+];
+
+export const resolveAchievementLogoUrl = (
+  rawInput: string | undefined | null,
+  specialtiesPool: Especialidade[] = [],
+  classesPool: ClubClass[] = [],
+  fallbackClub?: ClubType
+): string | null => {
+  if (!rawInput || typeof rawInput !== 'string') return null;
+  const trimmed = rawInput.trim();
+  if (trimmed.length < 2) return null;
+
+  // Normalização sem acentos e em caixa baixa
+  const norm = trimmed
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s]/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // Remove prefixos como "especialidade de", "classe de", "certificado de", etc.
+  const cleanTerm = norm
+    .replace(/^(certificado\s*(de|oficial\s+de)?|especialidade\s*(de)?|classe\s*(de)?|conclusao\s*(de)?|investidura\s*(de)?|mestrado\s*(em)?)\s*/i, '')
+    .trim();
+
+  // 1. Classes oficiais estáticas (DBV e AVT)
+  for (const cls of OFFICIAL_CLASSES_EMBLEMS) {
+    const clsNorm = cls.nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+    if (clsNorm === cleanTerm || clsNorm === norm) {
+      return cls.logo;
+    }
+    for (const alias of cls.aliases) {
+      const aliasNorm = alias.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+      if (aliasNorm === cleanTerm || aliasNorm === norm || cleanTerm.includes(aliasNorm) || aliasNorm.includes(cleanTerm)) {
+        return cls.logo;
+      }
+    }
+  }
+
+  // 2. Classes do banco de dados (ClubClass)
+  if (classesPool && classesPool.length > 0) {
+    const matchedClass = classesPool.find((c) => {
+      const cNorm = (c.titulo || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+      return cNorm === cleanTerm || cNorm === norm || cNorm.includes(cleanTerm) || cleanTerm.includes(cNorm);
+    });
+    if (matchedClass && (matchedClass.imagem || (matchedClass as any).logo)) {
+      return getImageUrl(matchedClass.imagem || (matchedClass as any).logo);
+    }
+  }
+
+  // 3. Pool de especialidades (allSpecialtiesList ou cache)
+  let pool = specialtiesPool;
+  if (!pool || pool.length === 0) {
+    const cachedDbv = getCachedEspecialidades(ClubType.PATHFINDER, true) || [];
+    const cachedAvt = getCachedEspecialidades(ClubType.ADVENTURER, true) || [];
+    pool = [...cachedDbv, ...cachedAvt];
+  }
+
+  if (pool && pool.length > 0) {
+    // 3a. Busca exata
+    const exact = pool.find((s) => {
+      const sNorm = (s.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+      return sNorm === cleanTerm || sNorm === norm;
+    });
+    if (exact && (exact.logo || (exact as any).imagem)) {
+      return getImageUrl(exact.logo || (exact as any).imagem);
+    }
+
+    // 3b. Busca por inclusão se termo tiver 3 ou mais letras
+    if (cleanTerm.length >= 3) {
+      const included = pool.find((s) => {
+        const sNorm = (s.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+        return sNorm.includes(cleanTerm) || cleanTerm.includes(sNorm);
+      });
+      if (included && (included.logo || (included as any).imagem)) {
+        return getImageUrl(included.logo || (included as any).imagem);
+      }
+    }
+  }
+
+  // 4. Casos especiais de alta demanda com URL direta oficial (fallback instantâneo)
+  if (cleanTerm.includes('amigurumi')) {
+    return 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Especialidades/Artes%20e%20Habilidades%20Manuais/imagem@hm089.PNG';
+  }
+  if (cleanTerm.includes('no') || cleanTerm.includes('amarras')) {
+    return 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Especialidades/Habilidades%20Campestres/imagem@am001.PNG';
+  }
+  if (cleanTerm.includes('cae') || cleanTerm.includes('cao') || cleanTerm.includes('cachorro')) {
+    return 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Especialidades/Estudo%20da%20Natureza/imagem@en034.png';
+  }
+
+  return null;
 };
 
 interface CultureAdminProps {
@@ -1779,6 +2004,44 @@ export type SubViewType =
   | 'VIDEOS' | 'VIDEO_ADMIN' | 'FORM_ADMIN' | 'VIDEO_PLAYER' | 'LINKS_ADMIN' | 'ACHIEVEMENTS_ADMIN' | 'TRUNFOS' | 'TRUNFOS_ADMIN' | 'WEB_VIEWER' | 'FAIXA_ADMIN' | 'FIELD_TRAINING' | 'QUIZ' | 'LIVE_EXAM' | 'UNIT_CORNER' | 'FIELD_MANUAL' | 'ORDEM_UNIDA' | 'VERSION_HISTORY'
   | 'CERTIFICADOS_GENERATOR';
 
+interface OfficialClassEmblemItem {
+  name: string;
+  aliases: string[];
+  club: 'DBV' | 'AVT';
+  image: string;
+}
+
+const OFFICIAL_CLASSES_EMBLEMS_LIST: OfficialClassEmblemItem[] = [
+  // Desbravadores - Classes Regulares
+  { name: 'Amigo', aliases: ['amigo', 'classe de amigo'], club: 'DBV', image: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/01.png' },
+  { name: 'Companheiro', aliases: ['companheiro', 'classe de companheiro'], club: 'DBV', image: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/02.png' },
+  { name: 'Pesquisador', aliases: ['pesquisador', 'classe de pesquisador'], club: 'DBV', image: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/03.png' },
+  { name: 'Pioneiro', aliases: ['pioneiro', 'classe de pioneiro'], club: 'DBV', image: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/04.png' },
+  { name: 'Excursionista', aliases: ['excursionista', 'classe de excursionista'], club: 'DBV', image: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/05.png' },
+  { name: 'Guia', aliases: ['guia', 'classe de guia'], club: 'DBV', image: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/06.png' },
+  
+  // Desbravadores - Classes Avançadas
+  { name: 'Amigo da Natureza', aliases: ['amigo da natureza', 'classe de amigo da natureza'], club: 'DBV', image: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/11.png' },
+  { name: 'Companheiro de Excursionismo', aliases: ['companheiro de excursionismo', 'classe de companheiro de excursionismo'], club: 'DBV', image: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/12.png' },
+  { name: 'Pesquisador de Campos e Bosques', aliases: ['pesquisador de campos e bosques', 'classe de pesquisador de campos e bosques', 'pesquisador de campos'], club: 'DBV', image: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/13.png' },
+  { name: 'Pioneiro de Novas Fronteiras', aliases: ['pioneiro de novas fronteiras', 'classe de pioneiro de novas fronteiras', 'novas fronteiras'], club: 'DBV', image: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/14.png' },
+  { name: 'Excursionista na Mata', aliases: ['excursionista na mata', 'classe de excursionista na mata'], club: 'DBV', image: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/15.png' },
+  { name: 'Guia de Exploração', aliases: ['guia de exploracao', 'guia de exploracao', 'classe de guia de exploracao'], club: 'DBV', image: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/16.png' },
+
+  // Desbravadores - Liderança
+  { name: 'Líder', aliases: ['lider', 'classe de lider', 'investidura de lider'], club: 'DBV', image: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/07.png' },
+  { name: 'Líder Master', aliases: ['lider master', 'classe de lider master'], club: 'DBV', image: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/08.png' },
+  { name: 'Líder Master Avançado', aliases: ['lider master avancado', 'classe de lider master avancado'], club: 'DBV', image: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/09.png' },
+  { name: 'Excelência', aliases: ['excelencia', 'insignia de excelencia', 'boa conduta'], club: 'DBV', image: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/conquistas/excelencia.png' },
+
+  // Aventureiros - Classes
+  { name: 'Abelhinhas Laboriosas', aliases: ['abelhinhas laboriosas', 'abelhinha', 'abelhinhas', 'classe de abelhinhas laboriosas'], club: 'AVT', image: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Classes/abelinhas.png' },
+  { name: 'Luminares', aliases: ['luminares', 'luminar', 'classe de luminares'], club: 'AVT', image: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Classes/Luminares.png' },
+  { name: 'Edificadores', aliases: ['edificadores', 'edificador', 'classe de edificadores'], club: 'AVT', image: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Classes/edificadores.png' },
+  { name: 'Mãos Ajudadoras', aliases: ['maos ajudadoras', 'mao ajudadora', 'classe de maos ajudadoras'], club: 'AVT', image: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Classes/maos.png' },
+  { name: 'Líder de Aventureiros', aliases: ['lider de aventureiros', 'lider avt', 'classe de lider de aventureiros'], club: 'AVT', image: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Classes/Av-Emblema-LA1.png' }
+];
+
 interface ClubManagementProps {
   club: ClubType;
   pinSidebar?: boolean;
@@ -1820,7 +2083,13 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   // Specialty Search Modal State
   const [isSpecialtySearchOpen, setIsSpecialtySearchOpen] = useState(false);
   const [specialtySearchQuery, setSpecialtySearchQuery] = useState('');
-  const [allSpecialtiesList, setAllSpecialtiesList] = useState<Especialidade[]>([]);
+  const [allSpecialtiesList, setAllSpecialtiesList] = useState<Especialidade[]>(() => {
+    try {
+      return getCachedEspecialidades(club, true) || [];
+    } catch {
+      return [];
+    }
+  });
   const [isLoadingSearchSpecialties, setIsLoadingSearchSpecialties] = useState(false);
   const [selectedSearchArea, setSelectedSearchArea] = useState<string>('TODAS');
   const [visibleSearchCount, setVisibleSearchCount] = useState<number>(40);
@@ -1886,6 +2155,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   const [pdfReturnSubView, setPdfReturnSubView] = useState<'LIBRARY' | 'FORMULARIOS' | 'CAMPING'>('LIBRARY');
   const [isCertCustomizerOpen, setIsCertCustomizerOpen] = useState<boolean>(true);
   const [isDownloadingCustomCert, setIsDownloadingCustomCert] = useState<boolean>(false);
+  const [downloadingTemplateId, setDownloadingTemplateId] = useState<string | null>(null);
+  const [previewCertTemplate, setPreviewCertTemplate] = useState<any | null>(null);
+  const [isFullscreenCertPreview, setIsFullscreenCertPreview] = useState<boolean>(false);
+  const [selectedCertOptionId, setSelectedCertOptionId] = useState<'CLASSES' | 'SPECIALTIES' | 'MASTERY' | 'BIBLE' | 'CUSTOM'>('CLASSES');
   const [customCertConfig, setCustomCertConfig] = useState<CustomCertificateConfig>({
     ministry: club === ClubType.ADVENTURER ? 'AVT' : 'DBV',
     clubName: '',
@@ -2569,6 +2842,90 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       .catch(err => console.warn("Erro ao buscar dados de cultura:", err));
   }, [club]);
 
+  const findEmblemForAchievement = useCallback((val: string): string | null => {
+    if (!val || typeof val !== 'string') return null;
+    const rawClean = val.trim();
+    if (rawClean.length < 2) return null;
+    
+    const normClean = rawClean
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/^(certificado\s*(de)?|especialidade\s*(de)?|classe\s*(de)?|conquista\s*(de)?)\s*/i, '')
+      .trim();
+
+    // 1. Procurar nas classes e conquistas estáticas oficiais (Amigo, Companheiro, Líder, Abelhinhas, etc.)
+    const isAvt = club === ClubType.ADVENTURER;
+    const staticClasses = isAvt 
+      ? [...OFFICIAL_CLASSES_EMBLEMS_LIST.filter(c => c.club === 'AVT'), ...OFFICIAL_CLASSES_EMBLEMS_LIST.filter(c => c.club === 'DBV')]
+      : [...OFFICIAL_CLASSES_EMBLEMS_LIST.filter(c => c.club === 'DBV'), ...OFFICIAL_CLASSES_EMBLEMS_LIST.filter(c => c.club === 'AVT')];
+    
+    for (const item of staticClasses) {
+      const itemNorm = item.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+      if (itemNorm === normClean || item.aliases.some(a => a === normClean || normClean.includes(a) || a.includes(normClean))) {
+        return item.image;
+      }
+    }
+
+    // 2. Procurar nas classes carregadas do banco (ClubClass[])
+    if (classes && classes.length > 0) {
+      const matchedClass = classes.find((c) => {
+        const cNorm = (c.titulo || '')
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/^(classe\s*(de)?)\s*/i, '')
+          .trim();
+        return cNorm === normClean || (cNorm.length >= 3 && (cNorm.includes(normClean) || normClean.includes(cNorm)));
+      });
+      if (matchedClass && matchedClass.imagem) {
+        return getImageUrl(matchedClass.imagem);
+      }
+    }
+
+    // 3. Procurar em especialidades (allSpecialtiesList ou specialties)
+    const pool = allSpecialtiesList.length > 0 ? allSpecialtiesList : specialties;
+    if (pool && pool.length > 0) {
+      // Busca exata primeiro
+      let matchedSpec = pool.find((s) => {
+        const sNorm = (s.nome || '')
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .trim();
+        return sNorm === normClean;
+      });
+      // Busca por contenção
+      if (!matchedSpec) {
+        matchedSpec = pool.find((s) => {
+          const sNorm = (s.nome || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim();
+          return (sNorm.length >= 3 && sNorm.includes(normClean)) || (normClean.length >= 3 && normClean.includes(sNorm));
+        });
+      }
+      if (matchedSpec && (matchedSpec.logo || (matchedSpec as any).imagem)) {
+        return getImageUrl(matchedSpec.logo || (matchedSpec as any).imagem);
+      }
+    }
+
+    return null;
+  }, [allSpecialtiesList, specialties, classes, club]);
+
+  // Atualização reativa de insígnia quando as especialidades ou classes terminam de carregar em background
+  useEffect(() => {
+    if (activeSubView === 'CERTIFICADOS_GENERATOR' && customCertConfig.achievementName) {
+      if (!customCertConfig.specialtyLogoUrl) {
+        const found = findEmblemForAchievement(customCertConfig.achievementName);
+        if (found) {
+          setCustomCertConfig((prev) => ({ ...prev, specialtyLogoUrl: found }));
+        }
+      }
+    }
+  }, [activeSubView, allSpecialtiesList.length, classes.length, customCertConfig.achievementName, findEmblemForAchievement]);
+
   const toggleSpecialty = async (specialtyId: string) => {
     const sId = specialtyId.toString();
     const isCompleted = completedSpecialties.includes(sId);
@@ -2943,6 +3300,27 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         .then(setFormularios)
         .catch(err => console.warn("Erro ao carregar formulários:", err))
         .finally(() => setIsLoading(false));
+      if (allSpecialtiesList.length === 0) {
+        fetchEspecialidades(club, undefined, { excludeQuestions: true })
+          .then(setAllSpecialtiesList)
+          .catch(err => console.warn("Erro ao carregar especialidades:", err));
+      }
+      if (classes.length === 0) {
+        fetchClasses(club)
+          .then(setClasses)
+          .catch(err => console.warn("Erro ao carregar classes:", err));
+      }
+    } else if (activeSubView === 'CERTIFICADOS_GENERATOR') {
+      if (allSpecialtiesList.length === 0) {
+        fetchEspecialidades(club, undefined, { excludeQuestions: true })
+          .then(setAllSpecialtiesList)
+          .catch(err => console.warn("Erro ao carregar especialidades no gerador:", err));
+      }
+      if (classes.length === 0) {
+        fetchClasses(club)
+          .then(setClasses)
+          .catch(err => console.warn("Erro ao carregar classes no gerador:", err));
+      }
     } else if (activeSubView === 'BIBLE_BOOKS') {
       setIsLoading(true);
       fetchBibleBooks()
@@ -2993,6 +3371,28 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       }
     }
   }, [activeSubView, club, selectedCategory, completedSpecialties]);
+
+  // Sincroniza e resolve automaticamente a insígnia da especialidade ou classe no editor
+  useEffect(() => {
+    if (
+      activeSubView === 'CERTIFICADOS_GENERATOR' &&
+      customCertConfig.achievementName &&
+      !customCertConfig.specialtyLogoUrl
+    ) {
+      const detected = resolveAchievementLogoUrl(
+        customCertConfig.achievementName,
+        allSpecialtiesList,
+        classes,
+        club
+      );
+      if (detected) {
+        setCustomCertConfig((prev) => ({
+          ...prev,
+          specialtyLogoUrl: detected
+        }));
+      }
+    }
+  }, [activeSubView, allSpecialtiesList.length, classes.length, customCertConfig.achievementName, customCertConfig.specialtyLogoUrl, club]);
 
   useEffect(() => {
     if (activeSubView === 'CLASS_DETAILS' && selectedClass) {
@@ -5916,6 +6316,113 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
     const totalItemsCount = filteredAll.length + filteredCorelEmblemsAll.length;
 
+    const certificateEditorTemplates = [
+      {
+        id: 'tmpl-classes',
+        title: isAvtArea
+          ? 'Certificado de Investidura de Classes (Aventureiros)'
+          : 'Certificado de Investidura de Classes (Desbravadores)',
+        shortTitle: 'Investidura de Classes',
+        badge: isAvtArea ? 'Classes de Aventureiros • 6 a 9 anos' : 'Classes Regulares e Avançadas • 10 a 15 anos',
+        certTitle: 'CERTIFICADO DE INVESTIDURA',
+        achievement: isAvtArea ? 'Classe de Abelhinhas Laboriosas' : 'Classe de Amigo e Amigo da Natureza',
+        recipientSample: 'JOÃO PEDRO SILVA DOS SANTOS',
+        clubSample: isAvtArea ? 'CLUBE DE AVENTUREIROS ESTRELA GUIA' : 'CLUBE DE DESBRAVADORES PIONEIROS DA COLINA',
+        assocSample: 'ASSOCIAÇÃO PAULISTANA — UCB',
+        description: isAvtArea
+          ? 'Modelo oficial para outorga e celebração de conclusão das Classes de Abelhinhas, Luminares, Edificadores e Mãos Ajudadoras.'
+          : 'Modelo oficial para a cerimônia de investidura das Classes de Amigo, Companheiro, Pesquisador, Pioneiro, Excursionista e Guia.',
+        features: ['Brasão do Clube personalizável', 'Assinaturas do Regional e Pastor', 'Layout A4 Paisagem de Alta Resolução'],
+        specialtyLogoUrl: isAvtArea
+          ? 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Classes/Abelhinhas%20Laboriosas.png'
+          : 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/10.png',
+        categoryType: 'CLASSES'
+      },
+      {
+        id: 'tmpl-especialidades',
+        title: isAvtArea
+          ? 'Certificado de Especialidades de Aventureiros'
+          : 'Certificado de Especialidades de Desbravadores',
+        shortTitle: 'Especialidades Oficiais',
+        badge: 'Insígnia Automática • Especialidades Oficiais',
+        certTitle: 'CERTIFICADO DE ESPECIALIDADES',
+        achievement: isAvtArea ? 'Especialidade de Amigo da Natureza' : 'Especialidade de Nós e Amarras',
+        recipientSample: 'GABRIEL DE OLIVEIRA SANTOS',
+        clubSample: isAvtArea ? 'CLUBE DE AVENTUREIROS BRILHO CELESTE' : 'CLUBE DE DESBRAVADORES ÁGUIAS DO VALE',
+        assocSample: 'ASSOCIAÇÃO PAULISTANA — UCB',
+        description:
+          'Ao digitar o nome de qualquer especialidade, a insígnia oficial é identificada e inserida automaticamente no topo do certificado.',
+        features: ['Insígnia da especialidade automática', 'Nome e área oficiais da DSA', 'Sem redundâncias textuais'],
+        specialtyLogoUrl: isAvtArea
+          ? 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png'
+          : 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Especialidades/Habilidades%20Campestres/imagem@am001.PNG',
+        categoryType: 'SPECIALTIES'
+      },
+      {
+        id: 'tmpl-mestrado',
+        title: 'Certificado de Mestrado em Especialidades (DSA)',
+        shortTitle: 'Mestrado em Especialidades',
+        badge: 'Distinção & Excelência Prática',
+        certTitle: 'CERTIFICADO DE MESTRADO',
+        achievement: 'Mestrado em Artes e Habilidades Manuais',
+        recipientSample: 'BEATRIZ FERREIRA LIMA',
+        clubSample: isAvtArea ? 'CLUBE DE AVENTUREIROS HERÓIS DA FÉ' : 'CLUBE DE DESBRAVADORES FALCÕES DA SERRA',
+        assocSample: 'ASSOCIAÇÃO PAULISTANA — UCB',
+        description:
+          'Outorga oficial para membros e líderes que completaram com distinção o grupo completo de especialidades da mesma área do conhecimento.',
+        features: ['Insígnia de Mestrado Oficial', 'Texto de distinção nobre', 'Homologação pelo Regional e Pastor'],
+        specialtyLogoUrl: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Especialidades/Mestrados/imagem@me016.PNG',
+        categoryType: 'MASTERY'
+      },
+      {
+        id: 'tmpl-ano-biblico',
+        title: isAvtArea
+          ? 'Certificado do Ano Bíblico Infantil (Aventureiros)'
+          : 'Certificado do Ano Bíblico Juvenil / Jovem (Desbravadores)',
+        shortTitle: 'Ano Bíblico Oficial',
+        badge: 'Espiritualidade • Palavra de Deus',
+        certTitle: 'CERTIFICADO DO ANO BÍBLICO',
+        achievement: isAvtArea ? 'Conclusão do Ano Bíblico Infantil' : 'Conclusão do Ano Bíblico Juvenil',
+        recipientSample: 'LUCAS MENDES ALBUQUERQUE',
+        clubSample: isAvtArea ? 'CLUBE DE AVENTUREIROS PEQUENOS MISSIONÁRIOS' : 'CLUBE DE DESBRAVADORES ARAUTOS DO REI',
+        assocSample: 'ASSOCIAÇÃO PAULISTANA — UCB',
+        description:
+          'Homenagem oficial e outorga para o membro que cumpriu fielmente o plano de leitura diária da Bíblia Sagrada durante o ano do clube.',
+        features: ['Citação e lema espiritual', 'Reconhecimento eclesiástico', 'Assinatura do Pastor Departamental'],
+        specialtyLogoUrl: null,
+        categoryType: 'BIBLE'
+      },
+      {
+        id: 'tmpl-honra-merito',
+        title: 'Certificado de Honra ao Mérito e Liderança',
+        shortTitle: 'Honra ao Mérito',
+        badge: 'Reconhecimento Especial & Destaque',
+        certTitle: 'CERTIFICADO DE HONRA AO MÉRITO',
+        achievement: 'Dedicação Exemplar, Liderança e Mérito no Clube',
+        recipientSample: 'ANA PAULA RODRIGUES',
+        clubSample: isAvtArea ? 'CLUBE DE AVENTUREIROS JARDIM DE DEUS' : 'CLUBE DE DESBRAVADORES MENSAGEIROS DA PAZ',
+        assocSample: 'ASSOCIAÇÃO PAULISTANA — UCB',
+        description:
+          'Modelo versátil e nobre para premiar membros do ano, desbravadores nota 10, instrutores dedicados, capitães e diretoria.',
+        features: ['Texto personalizável de homenagem', 'Reconhecimento anual do clube', 'Selo visual de honra ao mérito'],
+        specialtyLogoUrl: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Classes/100.png',
+        categoryType: 'CUSTOM'
+      }
+    ];
+
+          const filteredCertificateTemplates = certificateEditorTemplates.filter((tmpl) => {
+            const q = formularioSearchQuery.trim().toLowerCase();
+            if (!q) return true;
+            return (
+              tmpl.title.toLowerCase().includes(q) ||
+              tmpl.shortTitle.toLowerCase().includes(q) ||
+              tmpl.badge.toLowerCase().includes(q) ||
+              tmpl.description.toLowerCase().includes(q) ||
+              tmpl.certTitle.toLowerCase().includes(q) ||
+              tmpl.achievement.toLowerCase().includes(q)
+            );
+          });
+
     return (
       <div className="animate-slide-in space-y-6 pt-2 pb-28">
         {/* Cabeçalho Oficial do Ministério Atual (Desbravadores ou Aventureiros) e Busca */}
@@ -5947,10 +6454,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           </div>
         </div>
 
+                  
         {categories.map((cat) => {
           const catItems = filteredAll.filter((f) => f.categoria === cat.id);
           const filteredCorelEmblems = filteredCorelEmblemsAll;
-          const displayCount = cat.id === 'graficos' ? filteredCorelEmblems.length : catItems.length;
+          const displayCount = cat.id === 'graficos' ? filteredCorelEmblems.length : cat.id === 'certificados' ? filteredCertificateTemplates.length : catItems.length;
 
           return (
             <div key={cat.id} className="space-y-3">
@@ -5975,58 +6483,32 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
               <div className="bg-slate-50 dark:bg-slate-900 rounded-[24px] p-3 border-l-4 border-red-500 space-y-3 shadow-sm">
                 {/* =========================================================================
-                    SEÇÃO ESPECIAL DE CERTIFICADOS: PADRÃO OFICIAL + PERSONALIZAÇÃO NO DOWNLOAD
-                   ========================================================================= */}
-                {cat.id === 'certificados' && (
-                  <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-red-600 rounded-[22px] p-5 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="space-y-1.5">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-white text-[9px] font-black uppercase tracking-widest backdrop-blur-xs">
-                        Página Exclusiva • Padrão Oficial DSA
-                      </span>
-                      <h4 className="text-sm sm:text-base md:text-lg font-black uppercase tracking-tight">
-                        Criador & Gerador de Certificados Personalizados
-                      </h4>
-                      <p className="text-xs text-white/90 font-medium max-w-xl leading-relaxed">
-                        Crie e personalize certificados para Investidura de Classes, Especialidades, Mestrado e Ano Bíblico com brasão do clube e assinaturas selecionáveis.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setActiveSubView('CERTIFICADOS_GENERATOR')}
-                      className="px-5 py-3 rounded-2xl bg-white text-red-800 hover:bg-amber-50 text-xs font-black uppercase tracking-wider shrink-0 transition-all shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-2"
-                    >
-                      <Award size={18} />
-                      <span>Abrir Criador de Certificados</span>
-                    </button>
-                  </div>
-                )}
-
-                {/* =========================================================================
                     SEÇÃO ESPECIAL DE MATERIAIS GRÁFICOS: EMBLEMAS NO FORMATO CORELDRAW (IASD)
                    ========================================================================= */}
                 {cat.id === 'graficos' && (
-                  <div className="bg-white dark:bg-slate-800 rounded-[20px] p-4 sm:p-5 border border-indigo-200 dark:border-indigo-900/60 shadow-sm space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-700 pb-3">
-                      <div>
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 text-[9px] font-black uppercase tracking-widest">
-                          Vetores em Curvas • CorelDRAW (.CDR / .SVG / .EPS) • Portal IASD
+                  <div className="bg-white dark:bg-slate-800 rounded-3xl p-4 sm:p-6 border border-indigo-200 dark:border-indigo-900/60 shadow-sm space-y-4">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-700 pb-4">
+                      <div className="space-y-1">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-[9.5px] font-black uppercase tracking-wider">
+                          <Sparkles size={13} className="text-indigo-600" />
+                          <span>Vetores Oficiais • CorelDRAW (.CDR / .SVG / .EPS)</span>
                         </span>
-                        <h4 className="text-xs sm:text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight mt-1">
-                          Emblemas Oficiais de {isAvtArea ? 'Aventureiros (A1 a A5)' : 'Desbravadores (D1 a D5)'} em Formato CorelDRAW
+                        <h4 className="text-sm sm:text-base font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                          Emblemas Oficiais de {isAvtArea ? 'Aventureiros (A1 a A5)' : 'Desbravadores (D1 a D5)'}
                         </h4>
-                        <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-bold">
-                          Baixe o pacote oficial aberto (.CDR / .EPS / .AI) do Portal Adventistas.org ou baixe cada emblema individualmente pronto para abrir no CorelDRAW.
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                          Arquivos abertos em curvas com dimensões oficiais da DSA. Baixe cada emblema pronto para uso ou acesse o pacote completo.
                         </p>
                       </div>
-                      <div className="flex flex-wrap gap-2 shrink-0">
+                      <div className="shrink-0">
                         {isAvtArea ? (
                           <a
                             href="https://downloads.adventistas.org/pt/aventureiros/logomarcas/logos-aberto-aventureiros/"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs transition-colors"
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black uppercase tracking-wider shadow-sm transition-all active:scale-95 cursor-pointer"
                           >
-                            <Download size={13} />
+                            <Download size={15} />
                             <span>Pacote .CDR Aventureiros (IASD)</span>
                           </a>
                         ) : (
@@ -6034,33 +6516,32 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                             href="https://downloads.adventistas.org/pt/desbravadores/logomarcas/logos-abertos-desbravadores/"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs transition-colors"
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black uppercase tracking-wider shadow-sm transition-all active:scale-95 cursor-pointer"
                           >
-                            <Download size={13} />
+                            <Download size={15} />
                             <span>Pacote .CDR Desbravadores (IASD)</span>
                           </a>
                         )}
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                       {filteredCorelEmblems.length === 0 ? (
-                        <div className="col-span-full bg-slate-50 dark:bg-slate-900 rounded-[18px] p-4 flex items-center space-x-3 border border-slate-100 dark:border-slate-700">
-                          <div className="w-10 h-10 bg-red-50 dark:bg-red-950/40 rounded-xl flex items-center justify-center text-red-400">
-                            <Calendar size={20} />
-                          </div>
-                          <span className="text-xs font-black text-slate-400 uppercase tracking-tight">
-                            Nenhum emblema encontrado para este filtro
-                          </span>
+                        <div className="col-span-full bg-slate-50 dark:bg-slate-900 rounded-2xl p-6 text-center border border-slate-100 dark:border-slate-700">
+                          <Sparkles size={32} className="mx-auto text-slate-300 dark:text-slate-600 mb-2" />
+                          <p className="text-xs font-bold text-slate-500">
+                            Nenhum emblema gráfico encontrado para este filtro
+                          </p>
                         </div>
                       ) : (
                         filteredCorelEmblems.map((emb) => (
                           <div
                             key={emb.id}
-                            className="rounded-2xl p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 flex items-center justify-between gap-3"
+                            className="bg-slate-50 dark:bg-slate-900 rounded-2xl p-4 border border-slate-200/90 dark:border-slate-700/90 hover:border-indigo-400 dark:hover:border-indigo-500 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between gap-3 group"
                           >
-                            <div className="flex items-center gap-3 min-w-0 flex-1">
-                              <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1.5 flex items-center justify-center shrink-0">
+                            {/* Topo do Card: Imagem grande e títulos completos */}
+                            <div className="flex items-start gap-3.5">
+                              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 p-2 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
                                 <img
                                   src={emb.imageUrl}
                                   alt={emb.title}
@@ -6068,10 +6549,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                                   referrerPolicy="no-referrer"
                                 />
                               </div>
+
                               <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-1">
+                                <div className="flex flex-wrap items-center gap-1.5 mb-1">
                                   <span
-                                    className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                                    className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${
                                       emb.ministry === 'DBV'
                                         ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
                                         : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
@@ -6079,49 +6561,58 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                                   >
                                     {emb.ministry} • {emb.code}
                                   </span>
-                                  <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 text-[8px] font-black uppercase">
-                                    CorelDRAW
+                                  <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 text-[9px] font-black uppercase tracking-wider">
+                                    Vetor Corel
                                   </span>
                                 </div>
-                                <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-tight truncate mt-0.5">
+
+                                <h5 className="text-xs sm:text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight leading-snug">
                                   {emb.title}
-                                </p>
-                                <p className="text-[9.5px] font-bold text-slate-500 dark:text-slate-400 truncate">
-                                  {emb.dimensions}
+                                </h5>
+
+                                <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
+                                  <span className="text-slate-400 dark:text-slate-500 font-medium">Medidas DSA:</span>
+                                  <span className="text-slate-700 dark:text-slate-300 font-black">{emb.dimensions}</span>
                                 </p>
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              {emb.directCdrUrl && (
-                                <a
-                                  href={emb.directCdrUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors"
-                                  title="Baixar Arquivo Nativo .CDR CorelDRAW"
+                            {/* Base do Card: Botões claros e confortáveis */}
+                            <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-slate-200/60 dark:border-slate-700/60">
+                              <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                                <button
+                                  type="button"
+                                  onClick={() => downloadEmblemForCorelDraw(emb)}
+                                  className="flex-1 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[10.5px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
+                                  title="Baixar Arquivo Vetorial para CorelDRAW"
                                 >
-                                  <Download size={12} />
-                                  <span>.CDR</span>
-                                </a>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => downloadEmblemForCorelDraw(emb)}
-                                className="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer"
-                                title="Baixar Vetor em Curvas para abrir no CorelDRAW"
-                              >
-                                <Download size={12} />
-                                <span>Baixar Corel</span>
-                              </button>
+                                  <Download size={13} />
+                                  <span>Baixar Vetor Corel</span>
+                                </button>
+
+                                {emb.directCdrUrl && (
+                                  <a
+                                    href={emb.directCdrUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[10.5px] font-black uppercase tracking-wider flex items-center gap-1 shadow-2xs transition-all active:scale-95"
+                                    title="Baixar arquivo nativo .CDR"
+                                  >
+                                    <Download size={12} />
+                                    <span>.CDR</span>
+                                  </a>
+                                )}
+                              </div>
+
                               <a
                                 href={emb.corelPortalUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="w-7 h-7 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-700 dark:text-slate-200 flex items-center justify-center transition-colors"
-                                title="Abrir Pacote Oficial .CDR no Portal Adventistas.org (IASD)"
+                                className="py-2 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10.5px] font-bold flex items-center gap-1 transition-colors"
+                                title="Abrir página oficial no Portal Adventistas.org (DSA)"
                               >
-                                <ExternalLink size={12} />
+                                <ExternalLink size={13} />
+                                <span className="hidden sm:inline">Portal DSA</span>
                               </a>
                             </div>
                           </div>
@@ -6131,57 +6622,195 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                   </div>
                 )}
 
-                {cat.id !== 'graficos' && (catItems.length === 0 ? (
-                  <div className="bg-white dark:bg-slate-800 rounded-[18px] p-4 flex items-center justify-between shadow-sm border border-slate-100 dark:border-slate-700">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-red-50 dark:bg-red-950/40 rounded-xl flex items-center justify-center text-red-400">
-                        <Calendar size={20} />
+                {/* =========================================================================
+                    SEÇÃO EXCLUSIVA DE CERTIFICADOS: GALERIA DE AMOSTRAS DO NOSSO EDITOR
+                   ========================================================================= */}
+                {cat.id === 'certificados' ? (
+                  <div className="space-y-4 pt-1">
+                    {/* Banner CTA para Criador de Certificados */}
+                    <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[9px] font-black uppercase tracking-wider backdrop-blur-xs">
+                          <Sparkles size={12} />
+                          <span>Editor Exclusivo do Clube</span>
+                        </div>
+                        <h4 className="text-sm sm:text-base font-black uppercase tracking-tight">
+                          Criador de Certificados Personalizados
+                        </h4>
+                        <p className="text-xs text-amber-50 font-medium">
+                          Gere e imprima certificados com o nome de cada membro, datas, brasão do seu clube e assinaturas oficiais.
+                        </p>
                       </div>
-                      <span className="text-xs font-black text-slate-400 uppercase tracking-tight">
-                        Nenhum documento encontrado para este filtro
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomCertConfig((prev) => ({
+                            ...prev,
+                            ministry: isPathfinder ? 'DBV' : 'AVT'
+                          }));
+                          setActiveSubView('CERTIFICADOS_GENERATOR');
+                        }}
+                        className="px-4 py-2.5 rounded-xl bg-white text-amber-700 hover:bg-amber-50 text-xs font-black uppercase tracking-wider shadow-sm flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer shrink-0"
+                      >
+                        <Edit3 size={15} />
+                        <span>Abrir Editor Completo</span>
+                      </button>
                     </div>
+
+                    {filteredCertificateTemplates.length === 0 ? (
+                      <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 text-center border border-slate-100 dark:border-slate-700">
+                        <Award size={32} className="mx-auto text-slate-300 dark:text-slate-600 mb-2" />
+                        <p className="text-xs font-bold text-slate-500">
+                          Nenhum modelo de certificado encontrado para esta busca
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                        {filteredCertificateTemplates.map((tmpl) => {
+                          const isDownloadingCurrent = downloadingTemplateId === tmpl.id;
+                          return (
+                            <div
+                              key={tmpl.id}
+                              className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200/90 dark:border-slate-700 hover:border-amber-400 dark:hover:border-amber-500 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-3 group"
+                            >
+                              <div className="flex items-start gap-3.5">
+                                {/* Miniatura Paisagem Autêntica de Certificado */}
+                                <div
+                                  onClick={() => setPreviewCertTemplate(tmpl)}
+                                  className="w-16 h-12 sm:w-20 sm:h-14 rounded-xl bg-gradient-to-br from-[#fffdf9] to-[#fef5e7] border-2 border-double border-red-700/80 p-1 flex items-center justify-center relative cursor-pointer shrink-0 shadow-2xs group-hover:scale-105 transition-transform"
+                                  title="Clique para ampliar a prévia"
+                                >
+                                  {tmpl.specialtyLogoUrl ? (
+                                    <img
+                                      src={tmpl.specialtyLogoUrl}
+                                      alt="Insígnia"
+                                      className="w-full h-full object-contain"
+                                    />
+                                  ) : (
+                                    <Award size={22} className="text-amber-600" />
+                                  )}
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center text-white">
+                                    <ZoomIn size={15} />
+                                  </div>
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                                      {tmpl.shortTitle}
+                                    </span>
+                                  </div>
+                                  <h4 className="text-xs sm:text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight leading-snug">
+                                    {tmpl.title}
+                                  </h4>
+                                  <p className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2 leading-relaxed">
+                                    {tmpl.description}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Ações inferiores */}
+                              <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-slate-100 dark:border-slate-700/70">
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewCertTemplate(tmpl)}
+                                  className="text-[10.5px] font-bold text-slate-600 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 inline-flex items-center gap-1 cursor-pointer transition-colors"
+                                >
+                                  <ZoomIn size={14} />
+                                  <span>Ampliar prévia</span>
+                                </button>
+
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    disabled={isDownloadingCurrent}
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      setDownloadingTemplateId(tmpl.id);
+                                      try {
+                                        await downloadCustomizedCertificatePdf({
+                                          ministry: isPathfinder ? 'DBV' : 'AVT',
+                                          clubName: tmpl.clubSample,
+                                          associationName: tmpl.assocSample,
+                                          certificateTitle: tmpl.certTitle,
+                                          achievementName: tmpl.achievement,
+                                          specialtyLogoUrl: tmpl.specialtyLogoUrl,
+                                          recipientName: '',
+                                          locationAndDate: '',
+                                          directorName: 'Diretor(a) do Clube',
+                                          regionalName: 'Regional / Coordenador(a)',
+                                          pastorName: 'Pastor / Departamental',
+                                          includeRegionalSignature: true,
+                                          includePastorSignature: true
+                                        });
+                                      } finally {
+                                        setDownloadingTemplateId(null);
+                                      }
+                                    }}
+                                    className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer disabled:opacity-50"
+                                    title="Baixar PDF de Amostra"
+                                  >
+                                    <Download size={14} />
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setCustomCertConfig((prev) => ({
+                                        ...prev,
+                                        ministry: isPathfinder ? 'DBV' : 'AVT',
+                                        certificateTitle: tmpl.certTitle,
+                                        achievementName: tmpl.achievement,
+                                        specialtyLogoUrl: tmpl.specialtyLogoUrl
+                                      }));
+                                      setActiveSubView('CERTIFICADOS_GENERATOR');
+                                    }}
+                                    className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs active:scale-95"
+                                  >
+                                    <Edit2 size={12} />
+                                    <span>Personalizar</span>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ) : cat.id !== 'graficos' && (catItems.length === 0 ? (
+                  <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 text-center border border-slate-100 dark:border-slate-700">
+                    <FileText size={28} className="mx-auto text-slate-300 dark:text-slate-600 mb-2" />
+                    <p className="text-xs font-bold text-slate-500">
+                      Nenhum documento encontrado para este filtro
+                    </p>
                   </div>
                 ) : (
-                  catItems.map((form) => {
-                    const ministryLabel = isAvtArea
-                      ? 'Oficial DSA • Aventureiros'
-                      : 'Oficial DSA • Desbravadores';
-                    const ministryBadgeColor = isAvtArea
-                      ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
-                      : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300';
-                    const displayTitle = (form.titulo || '')
-                      .replace(/Certificado\s+Oficial\s+de/gi, 'Certificado de')
-                      .replace(/CERTIFICADO\s+OFICIAL\s+DE/gi, 'CERTIFICADO DE')
-                      .replace(
-                        /Desbravadores e Aventureiros/gi,
-                        isAvtArea ? 'Clube de Aventureiros' : 'Clube de Desbravadores'
-                      );
-                    const isExternalPortalOrCdr =
-                      form.link.includes('downloads.adventistas.org') ||
-                      form.link.includes('.cdr') ||
-                      form.link.endsWith('.svg');
+                  <div className="space-y-2.5">
+                    {catItems.map((form) => {
+                      const displayTitle = (form.titulo || '')
+                        .replace(/Certificado\s+Oficial\s+de/gi, 'Certificado de')
+                        .replace(/CERTIFICADO\s+OFICIAL\s+DE/gi, 'CERTIFICADO DE')
+                        .replace(/\s*\((DESBRAVADORES|AVENTUREIROS)\s*(DSA)?\)\s*/gi, '')
+                        .replace(/\s*—\s*(CLUBE\s+DE\s+)?(DESBRAVADORES|AVENTUREIROS)\s*(\(DSA\))?/gi, '')
+                        .replace(
+                          /Desbravadores e Aventureiros/gi,
+                          isAvtArea ? 'Clube de Aventureiros' : 'Clube de Desbravadores'
+                        );
+                      const isExternalPortalOrCdr =
+                        form.link.includes('downloads.adventistas.org') ||
+                        form.link.includes('.cdr') ||
+                        form.link.endsWith('.svg');
+                      const isFicha = cat.id === 'fichas';
 
-                    return (
-                      <div
-                        key={form.id}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => {
-                          if (!form.link) return;
-                          if (isExternalPortalOrCdr) {
-                            window.open(form.link, '_blank', 'noopener,noreferrer');
-                          } else {
-                            setPdfTitle(displayTitle);
-                            setSelectedPdfUrl(formatDriveUrl(form.link));
-                            setSelectedPdfThumbnail(null);
-                            setPdfReturnSubView('FORMULARIOS');
-                            setActiveSubView('PDF_VIEWER');
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if ((e.key === 'Enter' || e.key === ' ') && form.link) {
-                            e.preventDefault();
+                      return (
+                        <div
+                          key={form.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => {
+                            if (!form.link) return;
                             if (isExternalPortalOrCdr) {
                               window.open(form.link, '_blank', 'noopener,noreferrer');
                             } else {
@@ -6191,97 +6820,67 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                               setPdfReturnSubView('FORMULARIOS');
                               setActiveSubView('PDF_VIEWER');
                             }
-                          }
-                        }}
-                        className="w-full bg-white dark:bg-slate-800 rounded-[18px] p-3.5 sm:p-4 flex items-center justify-between gap-3 shadow-sm border border-slate-100 dark:border-slate-700 hover:border-red-300 dark:hover:border-red-800 active:scale-[0.99] transition-all group cursor-pointer"
-                      >
-                        <div className="flex items-start sm:items-center space-x-3 min-w-0 flex-1">
-                          <div className="w-10 h-10 bg-red-50 dark:bg-red-950/40 rounded-xl flex items-center justify-center text-red-500 group-hover:scale-105 transition-transform shrink-0">
-                            <FileText size={20} />
-                          </div>
-                          <div className="text-left min-w-0 flex-1 space-y-1">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <span className={`px-2 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-wider ${ministryBadgeColor}`}>
-                                {ministryLabel}
-                              </span>
-                            </div>
-                            <span className="text-xs sm:text-[13px] font-black text-slate-800 dark:text-white uppercase tracking-tight block leading-snug">
-                              {displayTitle}
-                            </span>
-                            {form.descricao && (
-                              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold block leading-snug">
-                                {form.descricao}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-1.5 shrink-0">
-                          {cat.id === 'certificados' && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const cleanTitle = displayTitle
-                                  .replace(/Certificado\s+Oficial\s+de/gi, 'Certificado de')
-                                  .replace(/CERTIFICADO\s+OFICIAL\s+DE/gi, 'CERTIFICADO DE')
-                                  .replace(/\s*\(DSA\)\s*/gi, '')
-                                  .trim()
-                                  .toUpperCase();
-                                const achName = displayTitle
-                                  .replace(/Certificado\s+(Oficial|Individual)?\s*(de)?\s*[—-]?\s*/i, '')
-                                  .replace(/\s*\(DSA\)\s*/gi, '')
-                                  .trim();
-
-                                // Se for certificado de especialidade, detecta o logo correspondente
-                                let specLogo: string | null = null;
-                                const pool = allSpecialtiesList.length > 0 ? allSpecialtiesList : specialties;
-                                const normAch = achName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-                                if (normAch.length >= 2) {
-                                  const matched = pool.find((s) => {
-                                    const sNorm = s.nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-                                    return sNorm === normAch || sNorm.includes(normAch) || normAch.includes(sNorm);
-                                  });
-                                  if (matched && (matched.logo || (matched as any).imagem)) {
-                                    specLogo = getImageUrl(matched.logo || (matched as any).imagem);
-                                  }
-                                }
-
-                                setCustomCertConfig((prev) => ({
-                                  ...prev,
-                                  ministry: activeMinistry,
-                                  certificateTitle: cleanTitle,
-                                  achievementName: achName,
-                                  specialtyLogoUrl: specLogo !== null ? specLogo : prev.specialtyLogoUrl
-                                }));
-                                setActiveSubView('CERTIFICADOS_GENERATOR');
-                              }}
-                              className="px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer"
-                              title="Personalizar este Certificado com Nome do Clube e Associação para Baixar"
+                          }}
+                          onKeyDown={(e) => {
+                            if ((e.key === 'Enter' || e.key === ' ') && form.link) {
+                              e.preventDefault();
+                              if (isExternalPortalOrCdr) {
+                                window.open(form.link, '_blank', 'noopener,noreferrer');
+                              } else {
+                                setPdfTitle(displayTitle);
+                                setSelectedPdfUrl(formatDriveUrl(form.link));
+                                setSelectedPdfThumbnail(null);
+                                setPdfReturnSubView('FORMULARIOS');
+                                setActiveSubView('PDF_VIEWER');
+                              }
+                            }
+                          }}
+                          className="w-full bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 flex items-center justify-between gap-3 shadow-2xs hover:shadow-md border border-slate-200/80 dark:border-slate-700/80 hover:border-red-400 dark:hover:border-red-500 transition-all group cursor-pointer"
+                        >
+                          <div className="flex items-start sm:items-center space-x-3.5 min-w-0 flex-1">
+                            <div
+                              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105 shrink-0 ${
+                                isFicha
+                                  ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-900/40'
+                                  : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-900/40'
+                              }`}
                             >
-                              <Edit2 size={12} />
-                              <span className="hidden sm:inline">Personalizar</span>
-                            </button>
-                          )}
-                          <a
-                            href={form.link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="w-9 h-9 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-500 dark:text-slate-300 hover:bg-red-500 hover:text-white transition-colors"
-                            title="Baixar / Abrir Arquivo Oficial"
-                          >
-                            <Download size={16} />
-                          </a>
-                          <div
-                            className="w-9 h-9 bg-red-50 dark:bg-red-950/50 rounded-full flex items-center justify-center text-red-500 group-hover:bg-red-500 group-hover:text-white transition-colors"
-                            title="Visualizar Padrão"
-                          >
-                            <BookOpen size={16} />
+                              {isFicha ? <FileText size={20} /> : <Layers size={20} />}
+                            </div>
+                            <div className="text-left min-w-0 flex-1">
+                              <h4 className="text-xs sm:text-[13px] font-black text-slate-800 dark:text-white uppercase tracking-tight block leading-snug">
+                                {displayTitle}
+                              </h4>
+                              {form.descricao && (
+                                <p className="text-[10px] sm:text-[10.5px] text-slate-500 dark:text-slate-400 font-medium line-clamp-1 mt-0.5 leading-relaxed">
+                                  {form.descricao}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2 shrink-0">
+                            <a
+                              href={form.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors"
+                              title="Baixar Arquivo"
+                            >
+                              <Download size={13} />
+                              <span className="hidden sm:inline">Baixar</span>
+                            </a>
+                            <div
+                              className="w-8 h-8 rounded-xl bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-colors"
+                              title="Visualizar no App"
+                            >
+                              <BookOpen size={14} />
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })
+                      );
+                    })}
+                  </div>
                 ))}
               </div>
             </div>
@@ -6332,22 +6931,226 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             </div>
           </div>
         </div>
+
+        {/* MODAL DE PRÉVIA AMPLIADA DO CERTIFICADO (ATTACHED VIA PORTAL TO BODY & CENTRADO NO CELULAR) */}
+        {previewCertTemplate && typeof document !== 'undefined' && createPortal(
+          <div
+            className="fixed inset-0 z-[99999] bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-2 sm:p-4 overflow-hidden animate-fade-in"
+            onClick={() => setPreviewCertTemplate(null)}
+          >
+            <div
+              className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl max-w-3xl w-full max-h-[92dvh] p-2.5 sm:p-4 border border-slate-200 dark:border-slate-700 shadow-2xl flex flex-col justify-between gap-2 my-auto overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Topo do Modal */}
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-1.5 shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+                    <Award size={16} />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 text-[8px] sm:text-[8.5px] font-black uppercase tracking-wider">
+                      {previewCertTemplate.badge || 'Modelo Oficial'}
+                    </span>
+                    <h3 className="text-xs sm:text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight truncate">
+                      {previewCertTemplate.title}
+                    </h3>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPreviewCertTemplate(null)}
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                  title="Fechar Prévia"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              {/* CERTIFICADO AMPLIADO NO FORMATO AUTÊNTICO DE CERTIFICADO (A4 PAISAGEM ASPECT 297/210) */}
+              <div className="w-full flex-1 flex items-center justify-center overflow-hidden min-h-0 my-auto py-0.5">
+                <div className="w-full max-w-[620px] aspect-[297/210] max-h-[58dvh] relative rounded-lg sm:rounded-xl p-1.5 sm:p-3 bg-gradient-to-br from-[#fffdf9] via-white to-[#fef9ee] border-[2px] sm:border-4 border-double border-red-700 shadow-xl text-center flex flex-col justify-between overflow-hidden select-none mx-auto">
+                  <div className="border border-amber-500/60 rounded sm:rounded-lg p-1 sm:p-2.5 flex flex-col justify-between h-full w-full">
+                    {/* Topo: Logos com proporção perfeita */}
+                    <div className="flex items-center justify-between px-2 sm:px-4 shrink-0">
+                      <div className="w-6 h-6 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center shrink-0">
+                        <img
+                          src={
+                            isAvtArea
+                              ? 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png'
+                              : 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png'
+                          }
+                          alt="Logo Oficial"
+                          className="max-w-full max-h-full object-contain aspect-square drop-shadow-xs"
+                        />
+                      </div>
+
+                      <div className="w-6 h-6 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center shrink-0">
+                        {previewCertTemplate.specialtyLogoUrl ? (
+                          <img
+                            src={previewCertTemplate.specialtyLogoUrl}
+                            alt="Especialidade / Classe"
+                            className="max-w-full max-h-full object-contain aspect-square drop-shadow-sm"
+                          />
+                        ) : (
+                          <div className="w-5 h-5 sm:w-8 sm:h-8 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-600">
+                            <Award className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="w-6 h-6 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center shrink-0">
+                        <div className="w-5 h-5 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 p-[1.5px] shadow-xs flex items-center justify-center">
+                          <div className="w-full h-full rounded-full bg-[#fffdf9] flex flex-col items-center justify-center text-center p-0.5 border border-dashed border-amber-600">
+                            <Award className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 text-amber-700" />
+                            <span className="text-[3px] sm:text-[4.5px] font-black uppercase tracking-tighter text-amber-900 leading-none">
+                              DSA
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Textos Institucionais */}
+                    <div className="space-y-0.2 sm:space-y-0.5 shrink-0">
+                      <p className="text-[4px] sm:text-[6.5px] md:text-[8.5px] font-black uppercase tracking-[0.1em] sm:tracking-[0.15em] text-slate-500 leading-tight">
+                        Igreja Adventista do Sétimo Dia • Divisão Sul-Americana
+                      </p>
+                      <p className="text-[5px] sm:text-[9.5px] md:text-xs font-black uppercase tracking-wider text-blue-900 leading-tight">
+                        {previewCertTemplate.assocSample}
+                      </p>
+                      <div className="inline-block px-1.5 sm:px-2.5 py-0.2 sm:py-0.5 rounded-full bg-amber-100 border border-amber-400 text-red-800 text-[4.5px] sm:text-[8px] md:text-[10px] font-black uppercase tracking-wider leading-none">
+                        {previewCertTemplate.clubSample}
+                      </div>
+                    </div>
+
+                    {/* Título */}
+                    <div className="shrink-0">
+                      <h3 className="text-[7.5px] sm:text-sm md:text-lg font-black text-slate-900 uppercase tracking-tight font-serif leading-none sm:leading-tight">
+                        {previewCertTemplate.certTitle}
+                      </h3>
+                      <p className="text-[4px] sm:text-[7.5px] md:text-[9.5px] italic text-slate-600 font-serif leading-tight mt-0.2">
+                        Certificamos para os devidos fins de registro e mérito que
+                      </p>
+                    </div>
+
+                    {/* Linha do Investido */}
+                    <div className="max-w-[85%] sm:max-w-md mx-auto border-b sm:border-b-2 border-slate-400 pb-0.2 sm:pb-0.5 text-[6.5px] sm:text-xs md:text-sm font-black text-red-800 uppercase tracking-wide leading-tight truncate shrink-0">
+                      {previewCertTemplate.recipientSample}
+                    </div>
+
+                    {/* Concessão e Conquista */}
+                    <div className="space-y-0.2 sm:space-y-0.5 shrink-0">
+                      <p className="text-[4px] sm:text-[7.5px] md:text-[9px] text-slate-600 leading-tight">
+                        {previewCertTemplate.categoryType === 'SPECIALTIES'
+                          ? 'cumpriu com êxito todos os requisitos oficiais exigidos para a Especialidade de:'
+                          : (isAvtArea ? 'cumpriu todos os requisitos oficiais de Aventureiros da DSA para:' : 'cumpriu todos os requisitos oficiais de Desbravadores da DSA para:')}
+                      </p>
+                      <p className="text-[6.5px] sm:text-xs md:text-sm font-black text-blue-950 uppercase tracking-wide leading-tight truncate">
+                        {previewCertTemplate.achievement}
+                      </p>
+                    </div>
+
+                    {/* Data */}
+                    <p className="text-[4px] sm:text-[6.5px] md:text-[8px] text-slate-500 italic leading-tight shrink-0">
+                      Emitido em {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                    </p>
+
+                    {/* Assinaturas */}
+                    <div className="grid grid-cols-3 gap-1.5 sm:gap-3 max-w-md mx-auto text-[4px] sm:text-[6.5px] md:text-[8px] text-slate-600 font-bold w-full shrink-0">
+                      <div className="border-t border-slate-400 pt-0.2 sm:pt-0.5 truncate text-center">
+                        Diretor(a) do Clube
+                      </div>
+                      <div className="border-t border-slate-400 pt-0.2 sm:pt-0.5 truncate text-center">
+                        Regional / Coordenador(a)
+                      </div>
+                      <div className="border-t border-slate-400 pt-0.2 sm:pt-0.5 truncate text-center">
+                        Pastor / Departamental
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Rodapé com Ações */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 shrink-0">
+                <span className="hidden sm:inline text-[10.5px] text-slate-500 dark:text-slate-400 font-medium truncate">
+                  Personalize no criador com o nome do membro e o brasão do clube.
+                </span>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomCertConfig((prev) => ({
+                        ...prev,
+                        ministry: isPathfinder ? 'DBV' : 'AVT',
+                        certificateTitle: previewCertTemplate.certTitle,
+                        achievementName: previewCertTemplate.achievement,
+                        specialtyLogoUrl: previewCertTemplate.specialtyLogoUrl
+                      }));
+                      setPreviewCertTemplate(null);
+                      setActiveSubView('CERTIFICADOS_GENERATOR');
+                    }}
+                    className="flex-1 sm:flex-none py-2 px-3.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+                  >
+                    <Edit2 size={13} />
+                    <span>Personalizar no Criador</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setDownloadingTemplateId(previewCertTemplate.id);
+                      try {
+                        await downloadCustomizedCertificatePdf({
+                          ministry: isPathfinder ? 'DBV' : 'AVT',
+                          clubName: previewCertTemplate.clubSample,
+                          associationName: previewCertTemplate.assocSample,
+                          certificateTitle: previewCertTemplate.certTitle,
+                          achievementName: previewCertTemplate.achievement,
+                          specialtyLogoUrl: previewCertTemplate.specialtyLogoUrl,
+                          recipientName: previewCertTemplate.recipientSample,
+                          locationAndDate: '',
+                          directorName: 'Diretor(a) do Clube',
+                          regionalName: 'Regional / Coordenador(a)',
+                          pastorName: 'Pastor / Departamental',
+                          includeRegionalSignature: true,
+                          includePastorSignature: true
+                        });
+                      } finally {
+                        setDownloadingTemplateId(null);
+                      }
+                    }}
+                    className="py-2 px-3.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+                  >
+                    <Download size={13} />
+                    <span>Baixar PDF</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
       </div>
     );
   };
 
   const renderCertificadosGenerator = () => {
-    const isAvtArea = activeMinistry === 'AVT';
+    const isAvtArea = !isPathfinder;
+    const activeMinistry = isPathfinder ? 'DBV' : 'AVT';
     const isDbv = !isAvtArea;
 
     // Modelos pré-definidos para as opções no topo
     const certOptions = [
       {
-        id: 'CLASSES',
+        id: 'CLASSES' as const,
         icon: <Award className="w-5 h-5" />,
         label: 'Investidura de Classes',
         sublabel: isAvtArea ? 'Classes de Aventureiros' : 'Classes Regulares e Avançadas',
         apply: () => {
+          setSelectedCertOptionId('CLASSES');
           setCustomCertConfig((prev) => ({
             ...prev,
             certificateTitle: 'CERTIFICADO DE INVESTIDURA',
@@ -6357,11 +7160,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         }
       },
       {
-        id: 'SPECIALTIES',
+        id: 'SPECIALTIES' as const,
         icon: <Sparkles className="w-5 h-5" />,
         label: 'Especialidades',
         sublabel: 'Com insígnia automática ao digitar',
         apply: () => {
+          setSelectedCertOptionId('SPECIALTIES');
           const sampleSpec = (allSpecialtiesList.length > 0 ? allSpecialtiesList : specialties)[0];
           const sampleLogo = sampleSpec ? getImageUrl(sampleSpec.logo || (sampleSpec as any).imagem) : null;
           setCustomCertConfig((prev) => ({
@@ -6373,11 +7177,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         }
       },
       {
-        id: 'MASTERY',
+        id: 'MASTERY' as const,
         icon: <Crown className="w-5 h-5" />,
         label: 'Mestrado',
         sublabel: 'Insígnias de Mestrado',
         apply: () => {
+          setSelectedCertOptionId('MASTERY');
           setCustomCertConfig((prev) => ({
             ...prev,
             certificateTitle: 'CERTIFICADO DE MESTRADO',
@@ -6387,11 +7192,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         }
       },
       {
-        id: 'BIBLE',
+        id: 'BIBLE' as const,
         icon: <BookOpen className="w-5 h-5" />,
         label: 'Ano Bíblico',
         sublabel: 'Juvenil, Jovem e Infantil',
         apply: () => {
+          setSelectedCertOptionId('BIBLE');
           setCustomCertConfig((prev) => ({
             ...prev,
             certificateTitle: 'CERTIFICADO DO ANO BÍBLICO',
@@ -6401,11 +7207,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         }
       },
       {
-        id: 'CUSTOM',
+        id: 'CUSTOM' as const,
         icon: <Edit2 className="w-5 h-5" />,
         label: 'Personalizado',
         sublabel: 'Título e Conquista Livres',
         apply: () => {
+          setSelectedCertOptionId('CUSTOM');
           setCustomCertConfig((prev) => ({
             ...prev,
             certificateTitle: 'CERTIFICADO DE MÉRITO',
@@ -6416,21 +7223,41 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     ];
 
     const currentTitleUpper = (customCertConfig.certificateTitle || '').toUpperCase();
-    const isSpecialtyCert = currentTitleUpper.includes('ESPECIALIDADE') || Boolean(customCertConfig.specialtyLogoUrl);
+    const isSpecialtyCert =
+      selectedCertOptionId === 'SPECIALTIES' ||
+      (selectedCertOptionId !== 'CLASSES' && selectedCertOptionId !== 'MASTERY' && selectedCertOptionId !== 'BIBLE' && selectedCertOptionId !== 'CUSTOM' && currentTitleUpper.includes('ESPECIALIDADE'));
 
     // Título limpo sem OFICIAL e sem redundância de Desbravadores DSA
-    const cleanCertTitle = (customCertConfig.certificateTitle || 'CERTIFICADO DE INVESTIDURA')
+    let cleanCertTitle = (customCertConfig.certificateTitle || 'CERTIFICADO DE INVESTIDURA')
       .replace(/CERTIFICADO\s+OFICIAL\s+DE/gi, 'CERTIFICADO DE')
       .replace(/\s*\((DESBRAVADORES|AVENTUREIROS)\s*(DSA)?\)\s*/gi, '')
       .replace(/\s*—\s*(CLUBE\s+DE\s+)?(DESBRAVADORES|AVENTUREIROS)\s*(\(DSA\))?/gi, '')
       .replace(/\s*\(DSA\)\s*/gi, '')
       .trim();
 
-    const cleanAchievement = (customCertConfig.achievementName || (isDbv ? 'CLASSE / ESPECIALIDADE' : 'CLASSE / ESPECIALIDADE'))
+    if (isSpecialtyCert) {
+      cleanCertTitle = cleanCertTitle
+        .replace(/DE\s+DESBRAVADORES/gi, '')
+        .replace(/DOS\s+DESBRAVADORES/gi, '')
+        .replace(/DE\s+AVENTUREIROS/gi, '')
+        .replace(/DOS\s+AVENTUREIROS/gi, '')
+        .trim();
+    }
+
+    let cleanAchievement = (customCertConfig.achievementName || (isDbv ? 'CLASSE / ESPECIALIDADE' : 'CLASSE / ESPECIALIDADE'))
       .replace(/\s*\((DESBRAVADORES|AVENTUREIROS)\s*(DSA)?\)\s*/gi, '')
       .replace(/\s*—\s*(CLUBE\s+DE\s+)?(DESBRAVADORES|AVENTUREIROS)\s*(\(DSA\))?/gi, '')
       .replace(/\s*\(DSA\)\s*/gi, '')
       .trim();
+
+    if (isSpecialtyCert) {
+      cleanAchievement = cleanAchievement
+        .replace(/DE\s+DESBRAVADORES/gi, '')
+        .replace(/DOS\s+DESBRAVADORES/gi, '')
+        .replace(/DE\s+AVENTUREIROS/gi, '')
+        .replace(/DOS\s+AVENTUREIROS/gi, '')
+        .trim();
+    }
 
     return (
       <div className="space-y-6 animate-slide-in pb-28 pt-1 max-w-5xl mx-auto px-2 sm:px-4">
@@ -6516,12 +7343,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
             {certOptions.map((opt) => {
-              const isSelected =
-                (opt.id === 'CLASSES' && currentTitleUpper.includes('INVESTIDURA') && !isSpecialtyCert) ||
-                (opt.id === 'SPECIALTIES' && isSpecialtyCert) ||
-                (opt.id === 'MASTERY' && currentTitleUpper.includes('MESTRADO')) ||
-                (opt.id === 'BIBLE' && currentTitleUpper.includes('BÍBLICO')) ||
-                (opt.id === 'CUSTOM' && currentTitleUpper.includes('MÉRITO'));
+              const isSelected = selectedCertOptionId === opt.id;
 
               return (
                 <button
@@ -6556,125 +7378,323 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           </div>
         </div>
 
-        {/* PRÉ-VISUALIZAÇÃO DO CERTIFICADO EM TEMPO REAL */}
-        <div className="relative rounded-3xl p-5 sm:p-8 bg-gradient-to-br from-[#fffdf9] via-white to-[#fef9ee] border-4 border-double border-red-700 shadow-xl text-center space-y-3 overflow-hidden">
-          <div className="border border-amber-500/60 rounded-2xl p-4 sm:p-7 space-y-3">
-            {/* Emblemas / Logos no Topo (SEM texto embaixo dos brasões) */}
-            <div className="flex items-center justify-center">
-              {customCertConfig.clubLogoUrl ? (
-                /* Layout com Brasão do Clube enviado:
-                   Logo dos Desbravadores à ESQUERDA e Brasão do Clube à DIREITA no topo (SEM texto embaixo) */
-                <div className="w-full flex items-center justify-between px-3 sm:px-8">
-                  <div className="flex items-center justify-center">
-                    <img
-                      src={
-                        isAvtArea
-                          ? 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png'
-                          : 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png'
-                      }
-                      alt="Logo Oficial"
-                      className="w-14 h-14 sm:w-20 sm:h-20 object-contain drop-shadow-sm"
-                    />
-                  </div>
+        {/* PRÉ-VISUALIZAÇÃO DO CERTIFICADO EM TEMPO REAL (FORMATO DE CERTIFICADO REAL / PROPORÇÃO PAISAGEM A4) */}
+        <div className="w-full max-w-4xl mx-auto overflow-hidden space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <Award size={14} className="text-amber-500" />
+              <span>Formato Oficial Paisagem (A4 Proporcional)</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsFullscreenCertPreview(true)}
+              className="px-2.5 py-1 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[10.5px] font-black uppercase tracking-wider flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
+              title="Ampliar certificado em tela cheia"
+            >
+              <ZoomIn size={13} />
+              <span>Ampliar / Tela Cheia</span>
+            </button>
+          </div>
 
-                  {customCertConfig.specialtyLogoUrl && (
-                    <div className="flex items-center justify-center">
-                      <img
-                        src={customCertConfig.specialtyLogoUrl}
-                        alt="Especialidade"
-                        className="w-14 h-14 sm:w-20 sm:h-20 object-contain drop-shadow-sm"
-                      />
+          <div className="w-full aspect-[297/210] relative rounded-lg sm:rounded-2xl md:rounded-3xl p-1.5 sm:p-4 md:p-6 bg-gradient-to-br from-[#fffdf9] via-white to-[#fef9ee] border-[2.5px] sm:border-4 border-double border-red-700 shadow-md sm:shadow-xl text-center flex flex-col justify-between overflow-hidden select-none">
+            <div className="border border-amber-500/60 rounded sm:rounded-xl md:rounded-2xl p-1 sm:p-3 md:p-4 flex flex-col justify-between h-full w-full">
+              {/* Emblemas / Logos no Topo */}
+              <div className="flex items-center justify-between px-2 sm:px-6 md:px-8 shrink-0">
+                {/* 1. Logo Oficial (DBV ou AVT) */}
+                <div className="w-6 h-6 sm:w-11 sm:h-11 md:w-14 md:h-14 flex items-center justify-center shrink-0">
+                  <img
+                    src={
+                      isAvtArea
+                        ? 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png'
+                        : 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png'
+                    }
+                    alt="Logo Oficial"
+                    className="max-w-full max-h-full object-contain aspect-square drop-shadow-xs"
+                  />
+                </div>
+
+                {/* 2. Insígnia da Especialidade / Classe / Conquista ao Centro */}
+                <div className="w-6 h-6 sm:w-11 sm:h-11 md:w-14 md:h-14 flex items-center justify-center shrink-0">
+                  {customCertConfig.specialtyLogoUrl ? (
+                    <img
+                      src={customCertConfig.specialtyLogoUrl}
+                      alt="Especialidade / Classe"
+                      className="max-w-full max-h-full object-contain aspect-square drop-shadow-sm"
+                    />
+                  ) : (
+                    <div className="w-5 h-5 sm:w-8 sm:h-8 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-600">
+                      <Award className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
                     </div>
                   )}
+                </div>
 
-                  <div className="flex items-center justify-center">
+                {/* 3. Brasão do Clube (se enviado) OU Selo Oficial de Autenticidade DSA */}
+                <div className="w-6 h-6 sm:w-11 sm:h-11 md:w-14 md:h-14 flex items-center justify-center shrink-0">
+                  {customCertConfig.clubLogoUrl ? (
                     <img
                       src={customCertConfig.clubLogoUrl}
                       alt="Brasão do Clube"
-                      className="w-14 h-14 sm:w-20 sm:h-20 object-contain drop-shadow-sm"
+                      className="max-w-full max-h-full object-contain aspect-square drop-shadow-xs"
                     />
-                  </div>
+                  ) : (
+                    <div className="w-5 h-5 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 p-[1.5px] shadow-xs flex items-center justify-center">
+                      <div className="w-full h-full rounded-full bg-[#fffdf9] flex flex-col items-center justify-center text-center p-0.5 border border-dashed border-amber-600">
+                        <Award className="w-2.5 h-2.5 sm:w-4 sm:h-4 text-amber-700" />
+                        <span className="text-[3px] sm:text-[5px] font-black uppercase tracking-tighter text-amber-900 leading-none">
+                          DSA
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                /* Layout sem Brasão do Clube:
-                   Especialidade no lugar do emblema ao centro, ou Emblema dos Desbravadores ao centro (SEM texto embaixo) */
-                <div className="flex items-center justify-center">
-                  <img
-                    src={
-                      customCertConfig.specialtyLogoUrl ||
-                      (isAvtArea
-                        ? 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png'
-                        : 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png')
-                    }
-                    alt="Emblema Oficial"
-                    className="w-16 h-16 sm:w-24 sm:h-24 object-contain mx-auto drop-shadow-sm"
-                  />
-                </div>
-              )}
-            </div>
-
-            <p className="text-[9px] sm:text-xs font-black uppercase tracking-[0.2em] text-slate-500">
-              Igreja Adventista do Sétimo Dia • Divisão Sul-Americana
-            </p>
-            <p className="text-xs sm:text-sm font-black uppercase tracking-wider text-blue-900">
-              {customCertConfig.associationName.trim() || 'ASSOCIAÇÃO / MISSÃO DA IASD (PADRÃO)'}
-            </p>
-            <div className="inline-block px-5 py-1.5 rounded-full bg-amber-100 border border-amber-400 text-red-800 text-xs sm:text-sm font-black uppercase tracking-wider">
-              {customCertConfig.clubName.trim() ||
-                (isAvtArea ? 'CLUBE DE AVENTUREIROS (NOME DO CLUBE)' : 'CLUBE DE DESBRAVADORES (NOME DO CLUBE)')}
-            </div>
-            <h3 className="text-lg sm:text-2xl md:text-3xl font-black text-slate-900 uppercase tracking-tight pt-1 font-serif">
-              {cleanCertTitle}
-            </h3>
-            <p className="text-xs sm:text-sm italic text-slate-600 font-serif">
-              Certificamos para os devidos fins de registro e mérito que
-            </p>
-            <div className="max-w-lg mx-auto border-b-2 border-slate-400 pb-1 text-sm sm:text-lg font-black text-red-800 uppercase tracking-wide">
-              {customCertConfig.recipientName.trim() || '____________________________________________________'}
-            </div>
-            <p className="text-xs sm:text-sm text-slate-600">
-              cumpriu todos os requisitos oficiais exigidos pelo Ministério de{' '}
-              {isAvtArea ? 'Aventureiros' : 'Desbravadores'} da DSA para:
-            </p>
-            <p className="text-sm sm:text-lg md:text-xl font-black text-blue-950 uppercase tracking-wide">
-              {cleanAchievement}
-            </p>
-
-            <p className="text-xs text-slate-500 italic pt-1">
-              {customCertConfig.locationAndDate.trim() ||
-                `Emitido em ${new Date().toLocaleDateString('pt-BR', {
-                  day: '2-digit',
-                  month: 'long',
-                  year: 'numeric'
-                })}`}
-            </p>
-
-            {/* Linhas de Assinaturas (Configuráveis) */}
-            <div
-              className={`gap-4 pt-6 max-w-xl mx-auto text-[9px] sm:text-[11px] text-slate-600 font-bold ${
-                customCertConfig.includeRegionalSignature !== false && customCertConfig.includePastorSignature !== false
-                  ? 'grid grid-cols-3'
-                  : customCertConfig.includeRegionalSignature !== false || customCertConfig.includePastorSignature !== false
-                  ? 'grid grid-cols-2 max-w-md'
-                  : 'flex justify-center max-w-xs'
-              }`}
-            >
-              <div className="border-t-2 border-slate-400 pt-1.5 truncate text-center">
-                {customCertConfig.directorName.trim() || 'Diretor(a) do Clube'}
               </div>
-              {customCertConfig.includeRegionalSignature !== false && (
-                <div className="border-t-2 border-slate-400 pt-1.5 truncate text-center">
-                  {customCertConfig.regionalName.trim() || 'Regional / Coordenador(a)'}
+
+              {/* Textos Institucionais */}
+              <div className="space-y-0.2 sm:space-y-0.5 shrink-0">
+                <p className="text-[4px] sm:text-[7.5px] md:text-[9.5px] font-black uppercase tracking-[0.12em] sm:tracking-[0.2em] text-slate-500 leading-tight">
+                  Igreja Adventista do Sétimo Dia • Divisão Sul-Americana
+                </p>
+                <p className="text-[5px] sm:text-[11px] md:text-sm font-black uppercase tracking-wider text-blue-900 leading-tight">
+                  {customCertConfig.associationName.trim() || 'ASSOCIAÇÃO / MISSÃO DA IASD (PADRÃO)'}
+                </p>
+                <div className="inline-block px-1.5 sm:px-3 py-0.2 sm:py-0.5 rounded-full bg-amber-100 border border-amber-400 text-red-800 text-[4.5px] sm:text-[9px] md:text-xs font-black uppercase tracking-wider leading-none">
+                  {customCertConfig.clubName.trim() ||
+                    (isAvtArea ? 'CLUBE DE AVENTUREIROS (NOME DO CLUBE)' : 'CLUBE DE DESBRAVADORES (NOME DO CLUBE)')}
                 </div>
-              )}
-              {customCertConfig.includePastorSignature !== false && (
-                <div className="border-t-2 border-slate-400 pt-1.5 truncate text-center">
-                  {customCertConfig.pastorName.trim() || 'Pastor / Departamental'}
+              </div>
+
+              {/* Título do Certificado */}
+              <div className="shrink-0">
+                <h3 className="text-[7.5px] sm:text-base md:text-2xl font-black text-slate-900 uppercase tracking-tight font-serif leading-none sm:leading-tight">
+                  {cleanCertTitle}
+                </h3>
+                <p className="text-[4px] sm:text-[8px] md:text-xs italic text-slate-600 font-serif leading-tight mt-0.2">
+                  Certificamos para os devidos fins de registro e mérito que
+                </p>
+              </div>
+
+              {/* Linha do Investido */}
+              <div className="max-w-[88%] sm:max-w-md md:max-w-lg mx-auto border-b sm:border-b-2 border-slate-400 pb-0.2 sm:pb-0.5 text-[6.5px] sm:text-xs md:text-base font-black text-red-800 uppercase tracking-wide leading-tight truncate shrink-0">
+                {customCertConfig.recipientName.trim() || '____________________________________________________'}
+              </div>
+
+              {/* Concessão e Conquista */}
+              <div className="space-y-0.2 sm:space-y-0.5 shrink-0">
+                <p className="text-[4px] sm:text-[8px] md:text-[10.5px] text-slate-600 leading-tight">
+                  {isSpecialtyCert
+                    ? 'cumpriu com êxito todos os requisitos oficiais exigidos para a Especialidade de:'
+                    : `cumpriu todos os requisitos oficiais exigidos pelo Ministério de ${
+                        isAvtArea ? 'Aventureiros' : 'Desbravadores'
+                      } da DSA para:`}
+                </p>
+                <p className="text-[6.5px] sm:text-xs md:text-lg font-black text-blue-950 uppercase tracking-wide leading-tight truncate">
+                  {cleanAchievement}
+                </p>
+              </div>
+
+              {/* Data de Emissão */}
+              <p className="text-[4px] sm:text-[7.5px] md:text-[9.5px] text-slate-500 italic leading-tight shrink-0">
+                {customCertConfig.locationAndDate.trim() ||
+                  `Emitido em ${new Date().toLocaleDateString('pt-BR', {
+                    day: '2-digit',
+                    month: 'long',
+                    year: 'numeric'
+                  })}`}
+              </p>
+
+              {/* Linhas de Assinaturas (Configuráveis) */}
+              <div
+                className={`gap-1.5 sm:gap-4 max-w-xl mx-auto text-[4px] sm:text-[7.5px] md:text-[10px] text-slate-600 font-bold w-full shrink-0 ${
+                  customCertConfig.includeRegionalSignature !== false && customCertConfig.includePastorSignature !== false
+                    ? 'grid grid-cols-3'
+                    : customCertConfig.includeRegionalSignature !== false || customCertConfig.includePastorSignature !== false
+                    ? 'grid grid-cols-2 max-w-md'
+                    : 'flex justify-center max-w-xs'
+                }`}
+              >
+                <div className="border-t border-slate-400 pt-0.2 sm:pt-1 truncate text-center">
+                  {customCertConfig.directorName.trim() || 'Diretor(a) do Clube'}
                 </div>
-              )}
+                {customCertConfig.includeRegionalSignature !== false && (
+                  <div className="border-t border-slate-400 pt-0.2 sm:pt-1 truncate text-center">
+                    {customCertConfig.regionalName.trim() || 'Regional / Coordenador(a)'}
+                  </div>
+                )}
+                {customCertConfig.includePastorSignature !== false && (
+                  <div className="border-t border-slate-400 pt-0.2 sm:pt-1 truncate text-center">
+                    {customCertConfig.pastorName.trim() || 'Pastor / Departamental'}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
+
+        {/* MODAL DE PRÉVIA EM TELA CHEIA PARA CELULAR OU DESKTOP */}
+        {isFullscreenCertPreview && typeof document !== 'undefined' && createPortal(
+          <div
+            className="fixed inset-0 z-[99999] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-2 sm:p-5 overflow-hidden animate-fade-in"
+            onClick={() => setIsFullscreenCertPreview(false)}
+          >
+            <div
+              className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl max-w-4xl w-full max-h-[92dvh] p-2.5 sm:p-5 border border-slate-200 dark:border-slate-700 shadow-2xl flex flex-col justify-between gap-2 my-auto overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-1.5 shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Award size={18} className="text-amber-500 shrink-0" />
+                  <h4 className="text-xs sm:text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight truncate">
+                    Visualização em Tela Cheia • {cleanCertTitle}
+                  </h4>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsFullscreenCertPreview(false)}
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              <div className="w-full flex-1 flex items-center justify-center overflow-hidden min-h-0 my-auto py-0.5">
+                <div className="w-full max-w-[650px] aspect-[297/210] max-h-[58dvh] relative rounded-lg sm:rounded-2xl p-1.5 sm:p-4 md:p-6 bg-gradient-to-br from-[#fffdf9] via-white to-[#fef9ee] border-[2.5px] sm:border-4 border-double border-red-700 shadow-xl text-center flex flex-col justify-between overflow-hidden select-none mx-auto">
+                  <div className="border border-amber-500/60 rounded sm:rounded-xl p-1 sm:p-3 md:p-4 flex flex-col justify-between h-full w-full">
+                    {/* Logos */}
+                    <div className="flex items-center justify-between px-2 sm:px-6 shrink-0">
+                      <div className="w-8 h-8 sm:w-12 sm:h-12 md:w-14 md:h-14 flex items-center justify-center shrink-0">
+                        <img
+                          src={
+                            isAvtArea
+                              ? 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png'
+                              : 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png'
+                          }
+                          alt="Logo Oficial"
+                          className="max-w-full max-h-full object-contain aspect-square drop-shadow-sm"
+                        />
+                      </div>
+
+                      <div className="w-8 h-8 sm:w-12 sm:h-12 md:w-14 md:h-14 flex items-center justify-center shrink-0">
+                        {customCertConfig.specialtyLogoUrl ? (
+                          <img
+                            src={customCertConfig.specialtyLogoUrl}
+                            alt="Especialidade / Classe"
+                            className="max-w-full max-h-full object-contain aspect-square drop-shadow-sm"
+                          />
+                        ) : (
+                          <div className="w-6 h-6 sm:w-10 sm:h-10 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-600">
+                            <Award className="w-4 h-4 sm:w-6 sm:h-6" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="w-8 h-8 sm:w-12 sm:h-12 md:w-14 md:h-14 flex items-center justify-center shrink-0">
+                        {customCertConfig.clubLogoUrl ? (
+                          <img
+                            src={customCertConfig.clubLogoUrl}
+                            alt="Brasão do Clube"
+                            className="max-w-full max-h-full object-contain aspect-square drop-shadow-sm"
+                          />
+                        ) : (
+                          <div className="w-6 h-6 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 p-[2px] shadow-xs flex items-center justify-center">
+                            <div className="w-full h-full rounded-full bg-[#fffdf9] flex flex-col items-center justify-center text-center p-0.5 border border-dashed border-amber-600">
+                              <Award className="w-3 h-3 sm:w-4 sm:h-4 text-amber-700" />
+                              <span className="text-[3.5px] sm:text-[5px] font-black uppercase tracking-tighter text-amber-900 leading-none">
+                                DSA
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                  <div className="space-y-0.5 sm:space-y-1 shrink-0">
+                    <p className="text-[5.5px] sm:text-[8px] md:text-[10px] font-black uppercase tracking-[0.15em] sm:tracking-[0.2em] text-slate-500 leading-tight">
+                      Igreja Adventista do Sétimo Dia • Divisão Sul-Americana
+                    </p>
+                    <p className="text-[7px] sm:text-xs md:text-sm font-black uppercase tracking-wider text-blue-900 leading-tight">
+                      {customCertConfig.associationName.trim() || 'ASSOCIAÇÃO / MISSÃO DA IASD (PADRÃO)'}
+                    </p>
+                    <div className="inline-block px-2 sm:px-4 py-0.5 rounded-full bg-amber-100 border border-amber-400 text-red-800 text-[6.5px] sm:text-[10px] md:text-xs font-black uppercase tracking-wider leading-tight">
+                      {customCertConfig.clubName.trim() ||
+                        (isAvtArea ? 'CLUBE DE AVENTUREIROS (NOME DO CLUBE)' : 'CLUBE DE DESBRAVADORES (NOME DO CLUBE)')}
+                    </div>
+                  </div>
+
+                  <div className="shrink-0">
+                    <h3 className="text-[10px] sm:text-lg md:text-2xl font-black text-slate-900 uppercase tracking-tight font-serif leading-tight">
+                      {cleanCertTitle}
+                    </h3>
+                    <p className="text-[6px] sm:text-[9px] md:text-xs italic text-slate-600 font-serif leading-tight mt-0.5">
+                      Certificamos para os devidos fins de registro e mérito que
+                    </p>
+                  </div>
+
+                  <div className="max-w-[85%] sm:max-w-md md:max-w-lg mx-auto border-b sm:border-b-2 border-slate-400 pb-0.5 text-[8px] sm:text-sm md:text-lg font-black text-red-800 uppercase tracking-wide leading-tight truncate shrink-0">
+                    {customCertConfig.recipientName.trim() || '____________________________________________________'}
+                  </div>
+
+                  <div className="space-y-0.5 shrink-0">
+                    <p className="text-[6px] sm:text-[9px] md:text-xs text-slate-600 leading-tight">
+                      {isSpecialtyCert
+                        ? 'cumpriu com êxito todos os requisitos oficiais exigidos para a Especialidade de:'
+                        : `cumpriu todos os requisitos oficiais exigidos pelo Ministério de ${
+                            isAvtArea ? 'Aventureiros' : 'Desbravadores'
+                          } da DSA para:`}
+                    </p>
+                    <p className="text-[8px] sm:text-xs md:text-lg font-black text-blue-950 uppercase tracking-wide leading-tight truncate">
+                      {cleanAchievement}
+                    </p>
+                  </div>
+
+                  <p className="text-[5.5px] sm:text-[8px] md:text-[10px] text-slate-500 italic leading-tight shrink-0">
+                    {customCertConfig.locationAndDate.trim() ||
+                      `Emitido em ${new Date().toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: 'long',
+                        year: 'numeric'
+                      })}`}
+                  </p>
+
+                  <div
+                    className={`gap-2 sm:gap-4 max-w-xl mx-auto text-[5.5px] sm:text-[8px] md:text-[10.5px] text-slate-600 font-bold w-full shrink-0 ${
+                      customCertConfig.includeRegionalSignature !== false && customCertConfig.includePastorSignature !== false
+                        ? 'grid grid-cols-3'
+                        : customCertConfig.includeRegionalSignature !== false || customCertConfig.includePastorSignature !== false
+                        ? 'grid grid-cols-2 max-w-md'
+                        : 'flex justify-center max-w-xs'
+                    }`}
+                  >
+                    <div className="border-t border-slate-400 pt-0.5 sm:pt-1 truncate text-center">
+                      {customCertConfig.directorName.trim() || 'Diretor(a) do Clube'}
+                    </div>
+                    {customCertConfig.includeRegionalSignature !== false && (
+                      <div className="border-t border-slate-400 pt-0.5 sm:pt-1 truncate text-center">
+                        {customCertConfig.regionalName.trim() || 'Regional / Coordenador(a)'}
+                      </div>
+                    )}
+                    {customCertConfig.includePastorSignature !== false && (
+                      <div className="border-t border-slate-400 pt-0.5 sm:pt-1 truncate text-center">
+                        {customCertConfig.pastorName.trim() || 'Pastor / Departamental'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsFullscreenCertPreview(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-black uppercase tracking-wider cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
 
         {/* PAINEL DE PERSONALIZAÇÃO */}
         <div className="bg-white dark:bg-slate-800 rounded-3xl p-5 sm:p-6 border border-slate-100 dark:border-slate-700 shadow-sm space-y-4">
@@ -6790,7 +7810,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               </label>
               <input
                 type="text"
-                value={cleanCertTitle}
+                value={customCertConfig.certificateTitle}
                 onChange={(e) => setCustomCertConfig((prev) => ({ ...prev, certificateTitle: e.target.value }))}
                 placeholder="Ex: CERTIFICADO DE INVESTIDURA / CERTIFICADO DE ESPECIALIDADES"
                 className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
@@ -6814,51 +7834,36 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               <input
                 type="text"
                 list="generator-cert-specialties-suggestions"
-                value={cleanAchievement}
+                value={customCertConfig.achievementName}
                 onChange={(e) => {
                   const val = e.target.value;
-                  const normVal = val
-                    .toLowerCase()
-                    .normalize('NFD')
-                    .replace(/[\u0300-\u036f]/g, '')
-                    .replace(/^(certificado\s*(de)?|especialidade\s*(de)?|classe\s*(de)?)\s*/i, '')
-                    .trim();
-                  let matchedLogo: string | null = null;
-                  if (normVal.length >= 2) {
-                    const pool = allSpecialtiesList.length > 0 ? allSpecialtiesList : specialties;
-                    const matched = pool.find((s) => {
-                      const sNorm = s.nome
-                        .toLowerCase()
-                        .normalize('NFD')
-                        .replace(/[\u0300-\u036f]/g, '')
-                        .trim();
-                      return sNorm === normVal || sNorm.includes(normVal) || normVal.includes(sNorm);
-                    });
-                    if (matched && (matched.logo || (matched as any).imagem)) {
-                      matchedLogo = getImageUrl(matched.logo || (matched as any).imagem);
-                    }
-                  }
+                  const matchedLogo = resolveAchievementLogoUrl(val, allSpecialtiesList, classes, club);
                   setCustomCertConfig((prev) => ({
                     ...prev,
                     achievementName: val,
-                    specialtyLogoUrl: matchedLogo !== null ? matchedLogo : prev.specialtyLogoUrl
+                    specialtyLogoUrl: matchedLogo !== null ? matchedLogo : (val.trim() === '' ? null : prev.specialtyLogoUrl)
                   }));
                 }}
                 placeholder={
-                  isAvtArea ? 'Ex: Especialidade de Amigo da Natureza / Classe' : 'Ex: Especialidade de Nós / Classe de Amigo'
+                  isAvtArea ? 'Ex: Especialidade de Amigo da Natureza / Classe de Abelhinhas' : 'Ex: Especialidade de Nós / Amigurumi / Classe de Amigo'
                 }
                 className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500"
               />
               <datalist id="generator-cert-specialties-suggestions">
-                {(allSpecialtiesList.length > 0 ? allSpecialtiesList : specialties).slice(0, 100).map((s) => (
-                  <option key={s.id || s.nome} value={`Especialidade de ${s.nome}`} />
+                {/* Sugestões de Classes Oficiais */}
+                {OFFICIAL_CLASSES_EMBLEMS.map((c) => (
+                  <option key={`cls-${c.nome}`} value={`Classe de ${c.nome}`} />
+                ))}
+                {/* Sugestões de Especialidades */}
+                {(allSpecialtiesList.length > 0 ? allSpecialtiesList : getCachedEspecialidades(club, true) || []).map((s) => (
+                  <option key={`esp-${s.id || s.nome}`} value={`Especialidade de ${s.nome}`} />
                 ))}
               </datalist>
               {customCertConfig.specialtyLogoUrl && (
                 <div className="flex items-center gap-2 mt-1.5 p-2 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800/50">
                   <img src={customCertConfig.specialtyLogoUrl} alt="" className="w-7 h-7 object-contain shrink-0" />
                   <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 truncate">
-                    ✓ Insígnia da especialidade identificada e inserida no topo do certificado!
+                    ✓ Insígnia oficial identificada e inserida no topo do certificado!
                   </span>
                 </div>
               )}
@@ -11156,6 +12161,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       setActiveSubView('MATERIALS');
     } else if (activeSubView === 'FORMULARIOS') {
       setActiveSubView('MATERIALS');
+    } else if (activeSubView === 'CERTIFICADOS_GENERATOR') {
+      setActiveSubView('FORMULARIOS');
     } else if (activeSubView === 'BIBLE_ADMIN') {
       setActiveSubView('MAIN');
     } else if (activeSubView === 'BIBLE_ADMIN_ADD') {
@@ -12125,14 +13132,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                       ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/40 border border-rose-400/35 scale-105'
                       : 'bg-rose-50/80 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 border border-rose-200/60 dark:border-rose-800/50'
                   }`}
-                  title="Prova (QR Code e Anti-Cola)"
-                  aria-label="Prova"
+                  title="Prova Ao Vivo (QR Code e Anti-Cola)"
+                  aria-label="Prova Ao Vivo"
                 >
                   <QrCode size={18} strokeWidth={2.4} className="group-hover:scale-110 transition-transform" />
                   <span className={`text-[7.5px] font-black uppercase leading-none mt-1 ${
                     activeSubView === 'LIVE_EXAM' ? 'text-white' : 'text-rose-600 dark:text-rose-400'
                   }`}>
-                    Prova
+                    Ao Vivo
                   </span>
                 </button>
               </div>
@@ -12364,6 +13371,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     setActiveSubView('MATERIALS');
                   } else if (activeSubView === 'FORMULARIOS') {
                     setActiveSubView('MATERIALS');
+                  } else if (activeSubView === 'CERTIFICADOS_GENERATOR') {
+                    setActiveSubView('FORMULARIOS');
                   } else if (activeSubView === 'BIBLE_ADMIN') {
                     setActiveSubView('MAIN');
                   } else if (activeSubView === 'BIBLE_ADMIN_ADD') {
@@ -12460,6 +13469,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                activeSubView === 'MATERIALS' ? 'Materiais' :
                activeSubView === 'CAMPING' ? 'Camping' :
                activeSubView === 'FORMULARIOS' ? 'Formulários' :
+               activeSubView === 'CERTIFICADOS_GENERATOR' ? 'Criador de Certificados' :
                activeSubView === 'PDF_VIEWER' ? 'Visualizador de Documento' :
                activeSubView === 'DESBRAVA_PLUS' ? 'Desbrava +' :
                activeSubView === 'DESBRAVA_PLUS_DETAILS' ? selectedDesbravaPlusItem?.Nome :
@@ -12575,6 +13585,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         {activeSubView === 'MATERIALS' && renderMaterialsMenu()}
         {activeSubView === 'CAMPING' && renderCamping()}
         {activeSubView === 'FORMULARIOS' && renderFormularios()}
+        {activeSubView === 'CERTIFICADOS_GENERATOR' && renderCertificadosGenerator()}
         {activeSubView === 'PDF_VIEWER' && renderPdfViewer()}
         {activeSubView === 'DESBRAVA_PLUS' && renderDesbravaPlus()}
         {activeSubView === 'DESBRAVA_PLUS_DETAILS' && renderDesbravaPlusDetails()}
