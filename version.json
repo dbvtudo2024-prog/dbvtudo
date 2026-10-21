@@ -1,12 +1,12 @@
 {
-  "version": 1760980000000,
-  "versionName": "3.1.4",
-  "buildDate": "2026-10-20T18:00:00.000Z",
-  "timestamp": 1760980000000,
+  "version": 1761130000000,
+  "versionName": "3.1.5",
+  "buildDate": "2026-10-22T10:00:00.000Z",
+  "timestamp": 1761130000000,
   "highlights": [
-    "Galeria de Amostras Oficiais: Amostras visuais e realistas dos certificados gerados pelo nosso próprio editor em substituição aos links externos genéricos.",
-    "Amostras com Download Direto: Baixe modelos prontos oficiais em PDF A4 Paisagem ou PNG diretamente na galeria.",
-    "Acesso Direto ao Editor: Personalize qualquer certificado no criador com o brasão do clube e assinaturas personalizáveis.",
-    "Certificados de Especialidades Aprimorados: Sem redundâncias textuais e com insígnia oficial automática."
+    "Faixa Temática Oficial: Fundo com degradê e filetes na cor oficial da classe ou especialidade no certificado.",
+    "Marca d'Água de Autenticidade: Insígnia da classe ou especialidade inserida em marca d'água no canto inferior direito.",
+    "Eliminação de Redundâncias Textuais: Texto direto e conciso, sem duplicar a palavra 'Especialidade' na concessão.",
+    "Otimização do Seletor de Certificados: Botão 'Classes' simplificado e remoção de botões de voltar redundantes."
   ]
 }

@@ -6,14 +6,27 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.1.4';
-export const APP_BUILD_DATE = '20 de Outubro de 2026';
+export const APP_VERSION = '3.1.5';
+export const APP_BUILD_DATE = '22 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '3.1.5',
+    date: '22/10/2026',
+    tag: 'NOVO',
+    title: 'Faixa Temática Oficial por Classe e Especialidade, Marca d\'Água de Insígnia e Otimizações no Certificado',
+    changes: [
+      'Faixa Temática Oficial por Classe e Especialidade: Inclusão de faixa de fundo com gradiente e filetes nas cores oficiais DSA correspondentes a cada classe regular/avançada (Azul Amigo, Vermelho Companheiro, Verde Pesquisador, Cinza Pioneiro, Roxo Excursionista, Dourado Guia, etc.) e área de especialidade (Natureza em verde, Habilidades Manuais em azul, Atividades Recreativas em verde musgo, etc.), destacando com distinção a conquista do desbravador ou aventureiro.',
+      'Marca d\'Água de Autenticidade no Canto Inferior Direito: Exibição da insígnia da classe ou especialidade com transparência suave e elegante como elemento de segurança e design na parte inferior do certificado, tanto no editor quanto na renderização em alta resolução e PDF.',
+      'Eliminação de Redundâncias Textuais: Correção do texto de concessão em certificados de especialidades para evitar duplicações ("Especialidade de:" seguido diretamente pelo nome da especialidade, sem repetir a palavra "Especialidade").',
+      'Otimização do Seletor de Classes: Botão superior ajustado para "Classes", eliminando quebras e truncamento de texto em telas compactas e mobile.',
+      'Remoção de Botão Voltar Redundante: Limpeza de botões secundários desnecessários no cabeçalho interno do criador de certificados, mantendo a navegação limpa pelo botão de voltar nativo do aplicativo.'
+    ]
+  },
+  {
     version: '3.1.4',
     date: '20/10/2026',
-    tag: 'NOVO',
+    tag: 'ESTÁVEL',
     title: 'Galeria de Amostras do Editor de Certificados & Página Exclusiva Dedicada',
     changes: [
       'Galeria de Amostras do Editor de Certificados: Substituição de links genéricos externos da internet por amostras visuais oficiais e interativas geradas pelo nosso próprio editor de certificados.',

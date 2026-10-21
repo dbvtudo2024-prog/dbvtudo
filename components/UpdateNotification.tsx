@@ -69,6 +69,8 @@ export const UpdateNotification: React.FC<UpdateNotificationProps> = ({ onOpenVe
     if (!lastSeen || isNewerVersion(currentVer, lastSeen)) {
       const timer = setTimeout(() => {
         setShowWelcomeNewVersion(true);
+        // Persiste imediatamente para evitar reaparecimento indesejado em reloads sucessivos
+        localStorage.setItem('dbv_last_seen_version', currentVer);
       }, 1200);
       return () => clearTimeout(timer);
     }
@@ -285,6 +287,9 @@ export const UpdateNotification: React.FC<UpdateNotificationProps> = ({ onOpenVe
   const handleUpdateNow = async () => {
     setIsUpdating(true);
     try {
+      const currentVer = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : APP_VERSION;
+      localStorage.setItem('dbv_last_seen_version', currentVer);
+
       // Garante persistência das especialidades antes de recarregar a página
       const globalProfile = localStorage.getItem('dbv_tudo_global_user_profile');
       let userEmail = null;
@@ -454,7 +459,7 @@ export const UpdateNotification: React.FC<UpdateNotificationProps> = ({ onOpenVe
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-300 mt-0.5 leading-snug">
-                    Gerador de slides com IA, respostas oficiais completas e notificações aprimoradas.
+                    Faixa temática oficial no fundo dos certificados, marca d'água de autenticidade e melhorias visuais.
                   </p>
                 </div>
               </div>
@@ -496,12 +501,15 @@ export const UpdateNotification: React.FC<UpdateNotificationProps> = ({ onOpenVe
                 </button>
               )}
               <button
-                onClick={handleUpdateNow}
-                disabled={isUpdating}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-md shadow-emerald-600/30 transition-all cursor-pointer disabled:opacity-75"
+                onClick={() => {
+                  setShowWelcomeNewVersion(false);
+                  const cur = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : APP_VERSION;
+                  localStorage.setItem('dbv_last_seen_version', cur);
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-md shadow-emerald-600/30 transition-all cursor-pointer"
               >
-                <RefreshCw size={13} className={isUpdating ? "animate-spin" : ""} />
-                <span>{isUpdating ? "Atualizando..." : "Atualizar App"}</span>
+                <CheckCircle2 size={13} />
+                <span>Entendi!</span>
               </button>
             </div>
           </div>

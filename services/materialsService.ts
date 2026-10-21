@@ -277,6 +277,76 @@ export interface CustomCertificateConfig {
   clubLogoUrl?: string | null;
 }
 
+export interface AchievementThemeColor {
+  main: string;
+  light: string;
+  border: string;
+  label: string;
+}
+
+export function getAchievementThemeColor(
+  achievementName: string | undefined | null,
+  ministry: 'DBV' | 'AVT' = 'DBV'
+): AchievementThemeColor {
+  const norm = (achievementName || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  // 1. Classes de Desbravadores
+  if (norm.includes('amigo')) return { main: '#1d4ed8', light: '#eff6ff', border: '#93c5fd', label: 'Amigo (Azul)' };
+  if (norm.includes('companheiro')) return { main: '#dc2626', light: '#fef2f2', border: '#fca5a5', label: 'Companheiro (Vermelho)' };
+  if (norm.includes('pesquisador')) return { main: '#15803d', light: '#f0fdf4', border: '#86efac', label: 'Pesquisador (Verde)' };
+  if (norm.includes('pioneiro')) return { main: '#475569', light: '#f8fafc', border: '#cbd5e1', label: 'Pioneiro (Cinza)' };
+  if (norm.includes('excursionista')) return { main: '#7c3aed', light: '#faf5ff', border: '#d8b4fe', label: 'Excursionista (Roxo)' };
+  if (norm.includes('guia')) return { main: '#b45309', light: '#fffbeb', border: '#fde68a', label: 'Guia (Dourado)' };
+  if (norm.includes('lider')) return { main: '#1e3a8a', light: '#eff6ff', border: '#93c5fd', label: 'Líder (Azul e Vinho)' };
+
+  // 2. Classes de Aventureiros
+  if (norm.includes('abelhinha')) return { main: '#0284c7', light: '#f0f9ff', border: '#7dd3fc', label: 'Abelhinhas (Azul Celeste)' };
+  if (norm.includes('luminar')) return { main: '#ea580c', light: '#fff7ed', border: '#fdba74', label: 'Luminares (Laranja)' };
+  if (norm.includes('edificador')) return { main: '#1e3a8a', light: '#eff6ff', border: '#93c5fd', label: 'Edificadores (Azul Marinho)' };
+  if (norm.includes('maos') || norm.includes('ajudadora')) return { main: '#881337', light: '#fff1f2', border: '#fecdd3', label: 'Mãos Ajudadoras (Borgonha)' };
+
+  // 3. Mestrado
+  if (norm.includes('mestrado')) return { main: '#d97706', light: '#fef3c7', border: '#fcd34d', label: 'Mestrado (Ouro)' };
+
+  // 4. Áreas de Especialidades DSA
+  // Artes e Habilidades Manuais
+  if (norm.includes('arte') || norm.includes('manual') || norm.includes('amigurumi') || norm.includes('croche') || norm.includes('pintura') || norm.includes('desenho')) {
+    return { main: '#0284c7', light: '#f0f9ff', border: '#7dd3fc', label: 'Habilidades Manuais (Azul Celeste)' };
+  }
+  // Ciência e Saúde
+  if (norm.includes('saude') || norm.includes('medicin') || norm.includes('quimic') || norm.includes('fisic') || norm.includes('socorro') || norm.includes('nutri')) {
+    return { main: '#7e22ce', light: '#faf5ff', border: '#d8b4fe', label: 'Ciência e Saúde (Roxo)' };
+  }
+  // Atividades Missionárias
+  if (norm.includes('mission') || norm.includes('evangel') || norm.includes('pregac') || norm.includes('testemun') || norm.includes('igreja') || norm.includes('bibl')) {
+    return { main: '#1d4ed8', light: '#eff6ff', border: '#93c5fd', label: 'Atividades Missionárias (Azul Real)' };
+  }
+  // Atividades Agrícolas
+  if (norm.includes('agricol') || norm.includes('jardin') || norm.includes('pecuaria') || norm.includes('planta') || norm.includes('cultiv') || norm.includes('pomar')) {
+    return { main: '#854d0e', light: '#fefce8', border: '#fde047', label: 'Atividades Agrícolas (Marrom)' };
+  }
+  // Habilidades Profissionais
+  if (norm.includes('computa') || norm.includes('profiss') || norm.includes('eletric') || norm.includes('mecanic') || norm.includes('administra') || norm.includes('fotograf')) {
+    return { main: '#dc2626', light: '#fef2f2', border: '#fca5a5', label: 'Habilidades Profissionais (Vermelho)' };
+  }
+  // Atividades Recreativas / Habilidades Campestres / Nós
+  if (norm.includes('no') || norm.includes('amarras') || norm.includes('acampa') || norm.includes('fogo') || norm.includes('cozinha') || norm.includes('orienta') || norm.includes('caminhad') || norm.includes('excurs') || norm.includes('recrea')) {
+    return { main: '#16a34a', light: '#f0fdf4', border: '#86efac', label: 'Habilidades Campestres (Verde)' };
+  }
+  // Natureza
+  if (norm.includes('natureza') || norm.includes('arvore') || norm.includes('flor') || norm.includes('ave') || norm.includes('inseto') || norm.includes('mamifer') || norm.includes('rept') || norm.includes('anfib') || norm.includes('felin') || norm.includes('cao') || norm.includes('animal') || norm.includes('astronom') || norm.includes('clima') || norm.includes('geolog')) {
+    return { main: '#059669', light: '#ecfdf5', border: '#6ee7b7', label: 'Estudo da Natureza (Verde Menta)' };
+  }
+
+  // Fallback padrão
+  return ministry === 'AVT'
+    ? { main: '#881337', light: '#fff1f2', border: '#fecdd3', label: 'Aventureiros' }
+    : { main: '#b91c1c', light: '#fef2f2', border: '#fca5a5', label: 'Desbravadores' };
+}
+
 async function loadCanvasImg(url: string | undefined | null): Promise<HTMLImageElement | null> {
   if (!url || typeof url !== 'string') return null;
   return new Promise<HTMLImageElement | null>((resolve) => {
@@ -352,7 +422,47 @@ export async function renderCertificateToCanvas(config: CustomCertificateConfig)
     ctx.restore();
   });
 
-  // 3. Marca d'água sutil ao centro
+  // 3. Faixa Diagonal Temática no FUNDO do Certificado na Cor da Classe / Especialidade (conforme modelo de referência)
+  const theme = getAchievementThemeColor(config.achievementName, config.ministry);
+  ctx.save();
+  // Limitar o desenho dentro da moldura nobre do certificado
+  ctx.beginPath();
+  ctx.rect(86, 86, canvas.width - 172, canvas.height - 172);
+  ctx.clip();
+
+  // Coordenadas da faixa diagonal (inspirada na faixa de investidura oficial DSA)
+  const p1x = canvas.width * 0.46; // Topo esquerdo
+  const p2x = canvas.width * 0.63; // Topo direito
+  const p3x = canvas.width * 0.32; // Base direita
+  const p4x = canvas.width * 0.15; // Base esquerda
+
+  const diagGrad = ctx.createLinearGradient(p4x, canvas.height, p2x, 0);
+  diagGrad.addColorStop(0, `${theme.main}28`); // ~16% de opacidade na base
+  diagGrad.addColorStop(0.5, `${theme.main}44`); // ~27% ao centro
+  diagGrad.addColorStop(1, `${theme.main}6E`); // ~43% no topo
+  ctx.fillStyle = diagGrad;
+
+  ctx.beginPath();
+  ctx.moveTo(p1x, 0);
+  ctx.lineTo(p2x, 0);
+  ctx.lineTo(p3x, canvas.height);
+  ctx.lineTo(p4x, canvas.height);
+  ctx.closePath();
+  ctx.fill();
+
+  // Linhas de contorno elegantes nas bordas da faixa diagonal
+  ctx.strokeStyle = `${theme.main}80`;
+  ctx.lineWidth = 4.5;
+  ctx.beginPath();
+  ctx.moveTo(p1x, 0);
+  ctx.lineTo(p4x, canvas.height);
+  ctx.moveTo(p2x, 0);
+  ctx.lineTo(p3x, canvas.height);
+  ctx.stroke();
+
+  ctx.restore();
+
+  // Marca d'água sutil ao centro
   ctx.save();
   ctx.globalAlpha = 0.04;
   ctx.fillStyle = primaryColor;
@@ -555,6 +665,8 @@ export async function renderCertificateToCanvas(config: CustomCertificateConfig)
       : 'CLASSE / ESPECIALIDADE')
   ).toUpperCase();
   achievement = achievement
+    .replace(/^ESPECIALIDADE\s+(DE\s+|DOS?\s+|DAS?\s+)?/gi, '')
+    .replace(/^CLASSE\s+(DE\s+|DOS?\s+|DAS?\s+)?/gi, '')
     .replace(/\s*\((DESBRAVADORES|AVENTUREIROS)\s*(DSA)?\)\s*/gi, '')
     .replace(/\s*—\s*(CLUBE\s+DE\s+)?(DESBRAVADORES|AVENTUREIROS)\s*(\(DSA\))?/gi, '')
     .replace(/\s*\(DSA\)\s*/gi, '')
@@ -568,9 +680,10 @@ export async function renderCertificateToCanvas(config: CustomCertificateConfig)
       .trim();
   }
 
-  ctx.fillStyle = secondaryColor;
-  ctx.font = 'bold 54px Arial, Helvetica, sans-serif';
-  ctx.fillText(achievement, canvas.width / 2, 1035);
+  // Conquista em destaque nobre sobre o certificado
+  ctx.fillStyle = primaryColor;
+  ctx.font = 'bold 56px Arial, Helvetica, sans-serif';
+  ctx.fillText(achievement, canvas.width / 2, 1040);
 
   ctx.fillStyle = '#475569';
   ctx.font = 'italic 30px Georgia, "Times New Roman", serif';
@@ -658,14 +771,18 @@ export async function renderCertificateToCanvas(config: CustomCertificateConfig)
     ctx.fillText(sig.role, posX, sigY + 76);
   });
 
-  // 10. Selo Oficial no Rodapé
-  ctx.fillStyle = '#94a3b8';
-  ctx.font = 'bold 20px Arial, Helvetica, sans-serif';
-  ctx.fillText(
-    'MODELO OFICIAL PERSONALIZADO • MINISTÉRIO DE DESBRAVADORES E AVENTUREIROS (DSA / IASD)',
-    canvas.width / 2,
-    1635
-  );
+  // 10. Marca d'água oficial da Classe ou Especialidade no canto inferior direito
+  if (specialtyImg) {
+    ctx.save();
+    ctx.globalAlpha = 0.15; // Marca d'água suave e sofisticada
+    const wmSize = 420;
+    const wmX = canvas.width - 260 - wmSize;
+    const wmY = canvas.height - 240 - wmSize;
+    ctx.drawImage(specialtyImg, wmX, wmY, wmSize, wmSize);
+    ctx.restore();
+  }
+
+
 
   return canvas;
 }

@@ -1,3 +1,4 @@
 - Responda sempre em português (Brasil).
 - Mantenha sempre a versão do aplicativo atualizada a cada nova funcionalidade em package.json, versionConfig.ts, version.json e vite.config.ts, registrando o changelog com clareza.
 - Quando for apenas corrigir algo (bugfix) ou ajustar algo existente, NÃO mude/incremente o número da versão; mantenha a versão atual.
+- O aplicativo já possui um botão de voltar global/nativo no cabeçalho superior esquerdo; NUNCA coloque outro botão de voltar redundante dentro dos cards ou cabeçalhos internos das páginas/sub-views.
