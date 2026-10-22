@@ -2182,6 +2182,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   const [certRealPreviewUrl, setCertRealPreviewUrl] = useState<string>('');
   const [isRenderingCertPreview, setIsRenderingCertPreview] = useState<boolean>(false);
   const [templateRealPreviewUrl, setTemplateRealPreviewUrl] = useState<string>('');
+  const [certScrolled, setCertScrolled] = useState<boolean>(false);
+  const [isCertMobileCollapsed, setIsCertMobileCollapsed] = useState<boolean>(false);
 
   // Renderização em tempo real do certificado com Canvas para máxima fidelidade visual
   useEffect(() => {
@@ -2217,6 +2219,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     let isCancelled = false;
     renderCertificateToCanvas({
       ministry: club === ClubType.ADVENTURER ? 'AVT' : 'DBV',
+      categoryType: previewCertTemplate.categoryType,
       clubName: previewCertTemplate.clubSample,
       associationName: previewCertTemplate.assocSample,
       certificateTitle: previewCertTemplate.certTitle,
@@ -2569,6 +2572,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = 0;
     }
+    setCertScrolled(false);
+    setIsCertMobileCollapsed(false);
   }, [activeSubView]);
 
   // Ao abrir um tópico em Emblemas ou Uniformes (fechando o anterior), rolar automaticamente para posicionar o início do novo tópico no topo da tela
@@ -3091,6 +3096,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     const scrollTop = e.currentTarget.scrollTop;
     setShowScrollTop(scrollTop > 400);
     setIsHeaderScrolled(scrollTop > 150);
+    if (activeSubView === 'CERTIFICADOS_GENERATOR') {
+      const isScrolled = scrollTop > 50;
+      setCertScrolled(prev => (prev !== isScrolled ? isScrolled : prev));
+    }
   };
 
   const scrollToTop = () => {
@@ -6799,6 +6808,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                                       try {
                                         await downloadCustomizedCertificatePdf({
                                           ministry: isPathfinder ? 'DBV' : 'AVT',
+                                          categoryType: tmpl.categoryType as any,
                                           clubName: tmpl.clubSample,
                                           associationName: tmpl.assocSample,
                                           certificateTitle: tmpl.certTitle,
@@ -6831,6 +6841,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                                       }
                                       setCustomCertConfig((prev) => ({
                                         ...prev,
+                                        categoryType: tmpl.categoryType as any,
                                         ministry: isPathfinder ? 'DBV' : 'AVT',
                                         certificateTitle: tmpl.certTitle,
                                         achievementName: tmpl.achievement,
@@ -7039,111 +7050,21 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                 </button>
               </div>
 
-              {/* CERTIFICADO AMPLIADO NO FORMATO AUTÊNTICO DE CERTIFICADO (A4 PAISAGEM ASPECT 297/210) */}
-              <div className="w-full flex-1 flex items-center justify-center overflow-hidden min-h-0 my-auto py-0.5">
-                <div className="w-full max-w-[620px] aspect-[297/210] max-h-[58dvh] relative rounded-lg sm:rounded-xl p-1.5 sm:p-3 bg-gradient-to-br from-[#fffdf9] via-white to-[#fef9ee] border-[2px] sm:border-4 border-double border-red-700 shadow-xl text-center flex flex-col justify-between overflow-hidden select-none mx-auto">
-                  <div className="border border-amber-500/60 rounded sm:rounded-lg p-1 sm:p-2.5 flex flex-col justify-between h-full w-full">
-                    {/* Topo: Logos com proporção perfeita */}
-                    <div className="flex items-center justify-between px-2 sm:px-4 shrink-0">
-                      <div className="w-6 h-6 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center shrink-0">
-                        <img
-                          src={
-                            isAvtArea
-                              ? 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png'
-                              : 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png'
-                          }
-                          alt="Logo Oficial"
-                          className="max-w-full max-h-full object-contain aspect-square drop-shadow-xs"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLElement).style.display = 'none';
-                          }}
-                        />
-                      </div>
-
-                      {previewCertTemplate.categoryType !== 'BIBLE' && previewCertTemplate.categoryType !== 'CUSTOM' && previewCertTemplate.specialtyLogoUrl ? (
-                        <div className="w-6 h-6 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center shrink-0">
-                          <img
-                            src={previewCertTemplate.specialtyLogoUrl}
-                            alt="Insígnia"
-                            className="max-w-full max-h-full object-contain aspect-square drop-shadow-sm"
-                            onError={(e) => {
-                              (e.currentTarget as HTMLElement).style.display = 'none';
-                            }}
-                          />
-                        </div>
-                      ) : null}
-
-                      <div className="w-6 h-6 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center shrink-0">
-                        <div className="w-5 h-5 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 p-[1.5px] shadow-xs flex items-center justify-center">
-                          <div className="w-full h-full rounded-full bg-[#fffdf9] flex flex-col items-center justify-center text-center p-0.5 border border-dashed border-amber-600">
-                            <Award className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 text-amber-700" />
-                            <span className="text-[3px] sm:text-[4.5px] font-black uppercase tracking-tighter text-amber-900 leading-none">
-                              DSA
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Textos Institucionais */}
-                    <div className="space-y-0.2 sm:space-y-0.5 shrink-0">
-                      <p className="text-[4px] sm:text-[6.5px] md:text-[8.5px] font-black uppercase tracking-[0.1em] sm:tracking-[0.15em] text-slate-500 leading-tight">
-                        Igreja Adventista do Sétimo Dia • Divisão Sul-Americana
-                      </p>
-                      <p className="text-[5px] sm:text-[9.5px] md:text-xs font-black uppercase tracking-wider text-blue-900 leading-tight">
-                        {previewCertTemplate.assocSample}
-                      </p>
-                      <div className="inline-block px-1.5 sm:px-2.5 py-0.2 sm:py-0.5 rounded-full bg-amber-100 border border-amber-400 text-red-800 text-[4.5px] sm:text-[8px] md:text-[10px] font-black uppercase tracking-wider leading-none">
-                        {previewCertTemplate.clubSample}
-                      </div>
-                    </div>
-
-                    {/* Título */}
-                    <div className="shrink-0">
-                      <h3 className="text-[7.5px] sm:text-sm md:text-lg font-black text-slate-900 uppercase tracking-tight font-serif leading-none sm:leading-tight">
-                        {previewCertTemplate.certTitle}
-                      </h3>
-                      <p className="text-[4px] sm:text-[7.5px] md:text-[9.5px] italic text-slate-600 font-serif leading-tight mt-0.2">
-                        Certificamos para os devidos fins de registro e mérito que
-                      </p>
-                    </div>
-
-                    {/* Linha do Investido */}
-                    <div className="max-w-[85%] sm:max-w-md mx-auto border-b sm:border-b-2 border-slate-400 pb-0.2 sm:pb-0.5 text-[6.5px] sm:text-xs md:text-sm font-black text-red-800 uppercase tracking-wide leading-tight truncate shrink-0">
-                      {previewCertTemplate.recipientSample}
-                    </div>
-
-                    {/* Concessão e Conquista */}
-                    <div className="space-y-0.2 sm:space-y-0.5 shrink-0">
-                      <p className="text-[4px] sm:text-[7.5px] md:text-[9px] text-slate-600 leading-tight">
-                        {previewCertTemplate.categoryType === 'SPECIALTIES'
-                          ? 'cumpriu com êxito todos os requisitos oficiais exigidos para a Especialidade de:'
-                          : (isAvtArea ? 'cumpriu todos os requisitos oficiais de Aventureiros da DSA para:' : 'cumpriu todos os requisitos oficiais de Desbravadores da DSA para:')}
-                      </p>
-                      <p className="text-[6.5px] sm:text-xs md:text-sm font-black text-blue-950 uppercase tracking-wide leading-tight truncate">
-                        {previewCertTemplate.achievement}
-                      </p>
-                    </div>
-
-                    {/* Data */}
-                    <p className="text-[4px] sm:text-[6.5px] md:text-[8px] text-slate-500 italic leading-tight shrink-0">
-                      Emitido em {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
-                    </p>
-
-                    {/* Assinaturas */}
-                    <div className="grid grid-cols-3 gap-1.5 sm:gap-3 max-w-md mx-auto text-[4px] sm:text-[6.5px] md:text-[8px] text-slate-600 font-bold w-full shrink-0">
-                      <div className="border-t border-slate-400 pt-0.2 sm:pt-0.5 truncate text-center">
-                        Diretor(a) do Clube
-                      </div>
-                      <div className="border-t border-slate-400 pt-0.2 sm:pt-0.5 truncate text-center">
-                        Regional / Coordenador(a)
-                      </div>
-                      <div className="border-t border-slate-400 pt-0.2 sm:pt-0.5 truncate text-center">
-                        Pastor / Departamental
-                      </div>
-                    </div>
+              {/* MODELO REAL OFICIAL RENDERIZADO PELO CANVAS (SEM CORTES DE BORDAS) */}
+              <div className="w-full flex-1 flex items-center justify-center overflow-auto min-h-0 my-auto p-1 sm:p-2">
+                {templateRealPreviewUrl ? (
+                  <img
+                    src={templateRealPreviewUrl}
+                    alt={previewCertTemplate.title}
+                    className="max-w-full max-h-[62dvh] object-contain rounded-xl shadow-2xl mx-auto select-none pointer-events-none"
+                    style={{ aspectRatio: '2480 / 1754' }}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-2.5 py-16 text-slate-400">
+                    <div className="w-8 h-8 rounded-full border-3 border-amber-500 border-t-transparent animate-spin" />
+                    <span className="text-xs font-bold uppercase tracking-wider">Gerando modelo real do certificado...</span>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Rodapé com Ações */}
@@ -7161,6 +7082,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                       }
                       setCustomCertConfig((prev) => ({
                         ...prev,
+                        categoryType: previewCertTemplate.categoryType,
                         ministry: isPathfinder ? 'DBV' : 'AVT',
                         certificateTitle: previewCertTemplate.certTitle,
                         achievementName: previewCertTemplate.achievement,
@@ -7182,6 +7104,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                       try {
                         await downloadCustomizedCertificatePdf({
                           ministry: isPathfinder ? 'DBV' : 'AVT',
+                          categoryType: previewCertTemplate.categoryType,
                           clubName: previewCertTemplate.clubSample,
                           associationName: previewCertTemplate.assocSample,
                           certificateTitle: previewCertTemplate.certTitle,
@@ -7230,6 +7153,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           setSelectedCertOptionId('CLASSES');
           setCustomCertConfig((prev) => ({
             ...prev,
+            categoryType: 'CLASSES',
             certificateTitle: 'CERTIFICADO DE INVESTIDURA',
             achievementName: isAvtArea ? 'Classe de Abelhinhas Laboriosas' : 'Classe de Amigo',
             specialtyLogoUrl: isAvtArea
@@ -7251,8 +7175,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             : 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Especialidades/Atividades%20Recreativas/imagem@ar040.png';
           setCustomCertConfig((prev) => ({
             ...prev,
+            categoryType: 'SPECIALTIES',
             certificateTitle: 'CERTIFICADO DE ESPECIALIDADES',
-            achievementName: sampleSpec ? `Especialidade de ${sampleSpec.nome}` : 'Especialidade de Nós e Amarras',
+            achievementName: sampleSpec ? sampleSpec.nome : 'Nós e Amarras',
             specialtyLogoUrl: sampleLogo
           }));
         }
@@ -7266,6 +7191,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           setSelectedCertOptionId('MASTERY');
           setCustomCertConfig((prev) => ({
             ...prev,
+            categoryType: 'MASTERY',
             certificateTitle: 'CERTIFICADO DE MESTRADO',
             achievementName: 'Mestrado em Artes e Habilidades Manuais',
             specialtyLogoUrl: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Especialidades/Mestrados/imagem@me016.PNG'
@@ -7281,6 +7207,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           setSelectedCertOptionId('BIBLE');
           setCustomCertConfig((prev) => ({
             ...prev,
+            categoryType: 'BIBLE',
             certificateTitle: 'CERTIFICADO DO ANO BÍBLICO',
             achievementName: isAvtArea ? 'Ano Bíblico Infantil' : 'Ano Bíblico Juvenil',
             specialtyLogoUrl: null
@@ -7296,6 +7223,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           setSelectedCertOptionId('CUSTOM');
           setCustomCertConfig((prev) => ({
             ...prev,
+            categoryType: 'CUSTOM',
             certificateTitle: 'CERTIFICADO DE MÉRITO',
             achievementName: 'Honra ao Mérito',
             specialtyLogoUrl: null
@@ -7310,7 +7238,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       (selectedCertOptionId !== 'CLASSES' && selectedCertOptionId !== 'MASTERY' && selectedCertOptionId !== 'BIBLE' && selectedCertOptionId !== 'CUSTOM' && currentTitleUpper.includes('ESPECIALIDADE'));
 
     // Cor temática oficial por Classe ou Área de Especialidade da DSA
-    const themeColorInfo = getAchievementThemeColor(customCertConfig.achievementName, activeMinistry);
+    const themeColorInfo = getAchievementThemeColor(customCertConfig.achievementName, activeMinistry, customCertConfig.specialtyLogoUrl);
 
     // Título limpo sem OFICIAL e sem redundância de Desbravadores DSA
     let cleanCertTitle = (customCertConfig.certificateTitle || 'CERTIFICADO DE INVESTIDURA')
@@ -7347,7 +7275,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     }
 
     return (
-      <div className="space-y-6 animate-slide-in pb-28 pt-1 max-w-5xl mx-auto px-2 sm:px-4">
+      <div className="space-y-6 animate-fade-in pb-28 pt-1 max-w-5xl mx-auto px-2 sm:px-4">
         {/* CABEÇALHO DA PÁGINA EXCLUSIVA (Sem botão de voltar redundante, pois já existe o botão global do app) */}
         <div className="bg-white dark:bg-slate-800 rounded-3xl p-5 sm:p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
           <div className="flex items-center gap-2">
@@ -7366,260 +7294,185 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           </p>
         </div>
 
-        {/* OPÇÕES NO TOPO: PARA QUE É O CERTIFICADO */}
-        <div className="bg-white dark:bg-slate-800 rounded-3xl p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-sm space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-              <Layers size={14} className="text-amber-500" />
-              <span>Para que é o certificado? Selecione a opção no topo:</span>
-            </span>
-          </div>
+        {/* BARRA FIXA STICKY NO CELULAR AO ROLAR: 5 ÍCONES + PRÉVIA DO CERTIFICADO FIXADA LOGO ABAIXO */}
+        {certScrolled && (
+          <div className="sm:hidden sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md -mx-2 px-2 pt-1 pb-2 border-b border-slate-200/90 dark:border-slate-800 shadow-lg animate-fade-in space-y-1.5">
+            {/* LINHA DE APENAS ÍCONES: Classes, Especialidades, Mestrado, Ano Bíblico e Personalizado */}
+            <div className="flex items-center justify-between gap-1.5 p-1 bg-slate-100/90 dark:bg-slate-800/90 rounded-2xl border border-slate-200 dark:border-slate-700">
+              {certOptions.map((opt) => {
+                const isSelected = selectedCertOptionId === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={opt.apply}
+                    title={opt.label}
+                    aria-label={opt.label}
+                    className={`flex-1 h-9 rounded-xl flex items-center justify-center transition-all active:scale-90 cursor-pointer ${
+                      isSelected
+                        ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30 ring-2 ring-amber-400/50'
+                        : 'bg-white dark:bg-slate-700/60 text-slate-500 dark:text-slate-400 hover:text-amber-500'
+                    }`}
+                  >
+                    {opt.icon}
+                  </button>
+                );
+              })}
+            </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
-            {certOptions.map((opt) => {
-              const isSelected = selectedCertOptionId === opt.id;
-
-              return (
+            {/* BARRA DE STATUS E AÇÕES RÁPIDAS DA PRÉVIA FIXADA */}
+            <div className="flex items-center justify-between px-1 text-[10px] font-bold text-slate-500 dark:text-slate-400">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                <span className="truncate uppercase text-[9.5px] font-black text-amber-600 dark:text-amber-400">
+                  {certOptions.find(o => o.id === selectedCertOptionId)?.label || 'Certificado'}
+                </span>
+                <span className="text-[9px] text-slate-400 font-semibold">• Ao Vivo</span>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
                 <button
-                  key={opt.id}
                   type="button"
-                  onClick={opt.apply}
-                  className={`p-3 rounded-2xl border text-left transition-all active:scale-95 cursor-pointer flex flex-col justify-between min-h-[76px] ${
-                    isSelected
-                      ? 'bg-amber-500/10 dark:bg-amber-500/20 border-amber-500 text-amber-900 dark:text-amber-300 ring-2 ring-amber-500/30'
-                      : 'bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-700 hover:border-amber-300 text-slate-700 dark:text-slate-300'
-                  }`}
+                  onClick={() => setIsFullscreenCertPreview(true)}
+                  className="px-2 py-0.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[9.5px] font-black uppercase tracking-wider flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
+                  title="Ampliar certificado em tela cheia"
                 >
-                  <div className="flex items-center justify-between w-full">
-                    <div className={`${isSelected ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`}>
-                      {opt.icon}
-                    </div>
-                    {isSelected && (
-                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                    )}
-                  </div>
-                  <div className="mt-2">
-                    <h5 className="text-[11px] font-black uppercase tracking-tight leading-tight truncate">
-                      {opt.label}
-                    </h5>
-                    <p className="text-[9px] text-slate-500 dark:text-slate-400 font-medium truncate mt-0.5">
-                      {opt.sublabel}
-                    </p>
-                  </div>
+                  <ZoomIn size={11} />
+                  <span>Ampliar</span>
                 </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* PRÉ-VISUALIZAÇÃO DO CERTIFICADO EM TEMPO REAL (FORMATO DE CERTIFICADO REAL / PROPORÇÃO PAISAGEM A4) */}
-        <div className="w-full max-w-4xl mx-auto overflow-hidden space-y-2">
-          <div className="flex items-center justify-between px-1">
-            <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-              <Award size={14} className="text-amber-500" />
-              <span>Formato Oficial Paisagem (A4 Proporcional)</span>
-            </span>
-            <button
-              type="button"
-              onClick={() => setIsFullscreenCertPreview(true)}
-              className="px-2.5 py-1 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[10.5px] font-black uppercase tracking-wider flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
-              title="Ampliar certificado em tela cheia"
-            >
-              <ZoomIn size={13} />
-              <span>Ampliar / Tela Cheia</span>
-            </button>
-          </div>
-
-          <div className="w-full aspect-[297/210] relative rounded-lg sm:rounded-2xl md:rounded-3xl p-1.5 sm:p-4 md:p-6 bg-gradient-to-br from-[#fffdf9] via-white to-[#fef9ee] border-[2.5px] sm:border-4 border-double border-red-700 shadow-md sm:shadow-xl text-center flex flex-col justify-between overflow-hidden select-none">
-            {/* Faixa Diagonal Temática no FUNDO do Certificado na Cor da Classe / Especialidade (conforme referência) */}
-            <svg
-              className="absolute inset-0 w-full h-full pointer-events-none select-none z-0"
-              preserveAspectRatio="none"
-              viewBox="0 0 1000 707"
-            >
-              <defs>
-                <linearGradient id="cert-diag-band-editor" x1="0%" y1="100%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor={themeColorInfo.main} stopOpacity="0.18" />
-                  <stop offset="50%" stopColor={themeColorInfo.main} stopOpacity="0.28" />
-                  <stop offset="100%" stopColor={themeColorInfo.main} stopOpacity="0.45" />
-                </linearGradient>
-              </defs>
-              <polygon
-                points="150,707 320,707 630,0 460,0"
-                fill="url(#cert-diag-band-editor)"
-              />
-              <line
-                x1="150"
-                y1="707"
-                x2="460"
-                y2="0"
-                stroke={themeColorInfo.main}
-                strokeOpacity="0.55"
-                strokeWidth="2.5"
-              />
-              <line
-                x1="320"
-                y1="707"
-                x2="630"
-                y2="0"
-                stroke={themeColorInfo.main}
-                strokeOpacity="0.55"
-                strokeWidth="2.5"
-              />
-            </svg>
-
-            <div className="border border-amber-500/60 rounded sm:rounded-xl md:rounded-2xl p-1 sm:p-3 md:p-4 flex flex-col justify-between h-full w-full relative z-10">
-              {/* Emblemas / Logos no Topo */}
-              <div className="flex items-center justify-between px-2 sm:px-6 md:px-8 shrink-0">
-                {/* 1. Logo Oficial (DBV ou AVT) */}
-                <div className="w-6 h-6 sm:w-11 sm:h-11 md:w-14 md:h-14 flex items-center justify-center shrink-0">
-                  <img
-                    src={
-                      isAvtArea
-                        ? 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png'
-                        : 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png'
-                    }
-                    alt="Logo Oficial"
-                    className="max-w-full max-h-full object-contain aspect-square drop-shadow-xs"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLElement).style.display = 'none';
-                    }}
-                  />
-                </div>
-
-                {/* 2. Insígnia da Especialidade / Classe / Conquista ao Centro (Apenas quando aplicável) */}
-                {selectedCertOptionId !== 'BIBLE' && selectedCertOptionId !== 'CUSTOM' && customCertConfig.specialtyLogoUrl ? (
-                  <div className="w-6 h-6 sm:w-11 sm:h-11 md:w-14 md:h-14 flex items-center justify-center shrink-0">
-                    <img
-                      src={customCertConfig.specialtyLogoUrl}
-                      alt="Insígnia"
-                      className="max-w-full max-h-full object-contain aspect-square drop-shadow-sm"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLElement).style.display = 'none';
-                      }}
-                    />
-                  </div>
-                ) : null}
-
-                {/* 3. Brasão do Clube (se enviado) OU Selo Oficial de Autenticidade DSA */}
-                <div className="w-6 h-6 sm:w-11 sm:h-11 md:w-14 md:h-14 flex items-center justify-center shrink-0">
-                  {customCertConfig.clubLogoUrl ? (
-                    <img
-                      src={customCertConfig.clubLogoUrl}
-                      alt="Brasão do Clube"
-                      className="max-w-full max-h-full object-contain aspect-square drop-shadow-xs"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLElement).style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <div className="w-5 h-5 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 p-[1.5px] shadow-xs flex items-center justify-center">
-                      <div className="w-full h-full rounded-full bg-[#fffdf9] flex flex-col items-center justify-center text-center p-0.5 border border-dashed border-amber-600">
-                        <Award className="w-2.5 h-2.5 sm:w-4 sm:h-4 text-amber-700" />
-                        <span className="text-[3px] sm:text-[5px] font-black uppercase tracking-tighter text-amber-900 leading-none">
-                          DSA
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Textos Institucionais */}
-              <div className="space-y-0.2 sm:space-y-0.5 shrink-0">
-                <p className="text-[4px] sm:text-[7.5px] md:text-[9.5px] font-black uppercase tracking-[0.12em] sm:tracking-[0.2em] text-slate-500 leading-tight">
-                  Igreja Adventista do Sétimo Dia • Divisão Sul-Americana
-                </p>
-                <p className="text-[5px] sm:text-[11px] md:text-sm font-black uppercase tracking-wider text-blue-900 leading-tight">
-                  {customCertConfig.associationName.trim() || 'ASSOCIAÇÃO / MISSÃO DA IASD (PADRÃO)'}
-                </p>
-                <div className="inline-block px-1.5 sm:px-3 py-0.2 sm:py-0.5 rounded-full bg-amber-100 border border-amber-400 text-red-800 text-[4.5px] sm:text-[9px] md:text-xs font-black uppercase tracking-wider leading-none">
-                  {customCertConfig.clubName.trim() ||
-                    (isAvtArea ? 'CLUBE DE AVENTUREIROS (NOME DO CLUBE)' : 'CLUBE DE DESBRAVADORES (NOME DO CLUBE)')}
-                </div>
-              </div>
-
-              {/* Título do Certificado */}
-              <div className="shrink-0">
-                <h3 className="text-[7.5px] sm:text-base md:text-2xl font-black text-slate-900 uppercase tracking-tight font-serif leading-none sm:leading-tight">
-                  {cleanCertTitle}
-                </h3>
-                <p className="text-[4px] sm:text-[8px] md:text-xs italic text-slate-600 font-serif leading-tight mt-0.2">
-                  Certificamos para os devidos fins de registro e mérito que
-                </p>
-              </div>
-
-              {/* Linha do Investido */}
-              <div className="max-w-[88%] sm:max-w-md md:max-w-lg mx-auto border-b sm:border-b-2 border-slate-400 pb-0.2 sm:pb-0.5 text-[6.5px] sm:text-xs md:text-base font-black text-red-800 uppercase tracking-wide leading-tight truncate shrink-0">
-                {customCertConfig.recipientName.trim() || '____________________________________________________'}
-              </div>
-
-              {/* Concessão e Conquista (texto nobre sobre o certificado, sem caixa em volta) */}
-              <div className="space-y-0.2 sm:space-y-0.5 shrink-0 relative z-10">
-                <p className="text-[4px] sm:text-[8px] md:text-[10.5px] text-slate-600 leading-tight">
-                  {isSpecialtyCert
-                    ? 'cumpriu com êxito todos os requisitos oficiais exigidos para a Especialidade de:'
-                    : `cumpriu todos os requisitos oficiais exigidos pelo Ministério de ${
-                        isAvtArea ? 'Aventureiros' : 'Desbravadores'
-                      } da DSA para:`}
-                </p>
-                <p className="text-[7px] sm:text-xs md:text-lg font-black text-blue-950 uppercase tracking-wider leading-tight truncate">
-                  {cleanAchievement}
-                </p>
-              </div>
-
-              {/* Data de Emissão */}
-              <p className="text-[4px] sm:text-[7.5px] md:text-[9.5px] text-slate-500 italic leading-tight shrink-0 relative z-10">
-                {customCertConfig.locationAndDate.trim() ||
-                  `Emitido em ${new Date().toLocaleDateString('pt-BR', {
-                    day: '2-digit',
-                    month: 'long',
-                    year: 'numeric'
-                  })}`}
-              </p>
-
-              {/* Linhas de Assinaturas (Configuráveis) */}
-              <div
-                className={`gap-1.5 sm:gap-4 max-w-xl mx-auto text-[4px] sm:text-[7.5px] md:text-[10px] text-slate-600 font-bold w-full shrink-0 relative z-10 ${
-                  customCertConfig.includeRegionalSignature !== false && customCertConfig.includePastorSignature !== false
-                    ? 'grid grid-cols-3'
-                    : customCertConfig.includeRegionalSignature !== false || customCertConfig.includePastorSignature !== false
-                    ? 'grid grid-cols-2 max-w-md'
-                    : 'flex justify-center max-w-xs'
-                }`}
-              >
-                <div className="border-t border-slate-400 pt-0.2 sm:pt-1 truncate text-center">
-                  {customCertConfig.directorName.trim() || 'Diretor(a) do Clube'}
-                </div>
-                {customCertConfig.includeRegionalSignature !== false && (
-                  <div className="border-t border-slate-400 pt-0.2 sm:pt-1 truncate text-center">
-                    {customCertConfig.regionalName.trim() || 'Regional / Coordenador(a)'}
-                  </div>
-                )}
-                {customCertConfig.includePastorSignature !== false && (
-                  <div className="border-t border-slate-400 pt-0.2 sm:pt-1 truncate text-center">
-                    {customCertConfig.pastorName.trim() || 'Pastor / Departamental'}
-                  </div>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setIsCertMobileCollapsed(prev => !prev)}
+                  className="p-1 rounded-lg bg-slate-200/70 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all active:scale-95 cursor-pointer"
+                  title={isCertMobileCollapsed ? "Expandir prévia do certificado" : "Recolher prévia do certificado"}
+                  aria-label={isCertMobileCollapsed ? "Expandir prévia" : "Recolher prévia"}
+                >
+                  {isCertMobileCollapsed ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
+                </button>
               </div>
             </div>
 
-            {/* Marca d'água oficial da Classe ou Especialidade no canto inferior direito */}
-            {customCertConfig.specialtyLogoUrl && (
-              <div
-                className="absolute -bottom-3 -right-3 sm:-bottom-5 sm:-right-5 w-20 h-20 sm:w-36 sm:h-36 md:w-48 md:h-48 opacity-[0.16] pointer-events-none select-none overflow-hidden flex items-center justify-center z-0"
-                style={{ filter: 'grayscale(20%) contrast(110%)' }}
+            {/* PRÉVIA DO CERTIFICADO FIXADA LOGO ABAIXO DOS ÍCONES */}
+            {!isCertMobileCollapsed && (
+              <div 
+                onClick={() => setIsFullscreenCertPreview(true)}
+                className="w-full relative rounded-xl bg-slate-900/5 dark:bg-slate-950/40 p-1 border border-slate-200/80 dark:border-slate-800 flex items-center justify-center cursor-pointer active:opacity-95 transition-opacity"
+                title="Clique para ampliar o certificado"
               >
-                <img
-                  src={customCertConfig.specialtyLogoUrl}
-                  alt=""
-                  className="w-full h-full object-contain rotate-[-6deg]"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLElement).style.display = 'none';
-                  }}
-                />
+                {isRenderingCertPreview && !certRealPreviewUrl ? (
+                  <div className="flex items-center justify-center gap-2 py-5 text-slate-400 text-[10px] font-bold">
+                    <div className="w-4 h-4 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+                    <span>Atualizando modelo...</span>
+                  </div>
+                ) : certRealPreviewUrl ? (
+                  <div className="relative w-auto max-w-full shadow-md rounded-lg overflow-hidden bg-white">
+                    <img
+                      src={certRealPreviewUrl}
+                      alt="Prévia do Certificado"
+                      className="max-h-[145px] xs:max-h-[165px] w-auto object-contain block select-none pointer-events-none mx-auto"
+                      style={{ aspectRatio: '2480 / 1754' }}
+                    />
+                    {isRenderingCertPreview && (
+                      <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded-full bg-black/65 backdrop-blur-xs text-white text-[8px] font-bold flex items-center gap-1 shadow-md">
+                        <div className="w-2 h-2 rounded-full border border-amber-400 border-t-transparent animate-spin" />
+                        <span>Atualizando...</span>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
               </div>
             )}
+          </div>
+        )}
+
+        {/* OPÇÕES NO TOPO E PRÉ-VISUALIZAÇÃO PADRÃO (Ocultos no celular apenas quando a barra sticky estiver ativa para evitar duplicidade) */}
+        <div className={`space-y-6 ${certScrolled ? 'hidden sm:block' : 'block'}`}>
+          {/* OPÇÕES NO TOPO: PARA QUE É O CERTIFICADO */}
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Layers size={14} className="text-amber-500" />
+                <span>Para que é o certificado? Selecione a opção no topo:</span>
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+              {certOptions.map((opt) => {
+                const isSelected = selectedCertOptionId === opt.id;
+
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={opt.apply}
+                    className={`p-3 rounded-2xl border text-left transition-all active:scale-95 cursor-pointer flex flex-col justify-between min-h-[76px] ${
+                      isSelected
+                        ? 'bg-amber-500/10 dark:bg-amber-500/20 border-amber-500 text-amber-900 dark:text-amber-300 ring-2 ring-amber-500/30'
+                        : 'bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-700 hover:border-amber-300 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <div className={`${isSelected ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`}>
+                        {opt.icon}
+                      </div>
+                      {isSelected && (
+                        <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                      )}
+                    </div>
+                    <div className="mt-2">
+                      <h5 className="text-[11px] font-black uppercase tracking-tight leading-tight truncate">
+                        {opt.label}
+                      </h5>
+                      <p className="text-[9px] text-slate-500 dark:text-slate-400 font-medium truncate mt-0.5">
+                        {opt.sublabel}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* PRÉ-VISUALIZAÇÃO DO CERTIFICADO EM TEMPO REAL (FORMATO DE CERTIFICADO REAL / PROPORÇÃO PAISAGEM A4) */}
+          <div className="w-full max-w-4xl mx-auto overflow-hidden space-y-2">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                <Award size={14} className="text-amber-500" />
+                <span>Formato Oficial Paisagem (A4 Proporcional)</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsFullscreenCertPreview(true)}
+                className="px-2.5 py-1 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[10.5px] font-black uppercase tracking-wider flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
+                title="Ampliar certificado em tela cheia"
+              >
+                <ZoomIn size={13} />
+                <span>Ampliar / Tela Cheia</span>
+              </button>
+            </div>
+
+            <div className="w-full relative rounded-2xl bg-slate-900/5 dark:bg-slate-950/40 p-2 sm:p-4 border border-slate-200/80 dark:border-slate-800 flex items-center justify-center min-h-[220px] sm:min-h-[360px]">
+              {isRenderingCertPreview && !certRealPreviewUrl ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-16 text-slate-400">
+                  <div className="w-8 h-8 rounded-full border-3 border-amber-500 border-t-transparent animate-spin" />
+                  <span className="text-xs font-bold uppercase tracking-wider">Gerando modelo real do certificado...</span>
+                </div>
+              ) : certRealPreviewUrl ? (
+                <div className="relative w-full max-w-4xl mx-auto shadow-2xl rounded-xl overflow-hidden bg-white">
+                  <img
+                    src={certRealPreviewUrl}
+                    alt="Modelo Real do Certificado"
+                    className="w-full h-auto object-contain block select-none pointer-events-none"
+                    style={{ aspectRatio: '2480 / 1754' }}
+                  />
+                  {isRenderingCertPreview && (
+                    <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-xs text-white text-[10px] font-bold flex items-center gap-1.5 shadow-md">
+                      <div className="w-2.5 h-2.5 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
+                      <span>Atualizando...</span>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
 
@@ -7649,175 +7502,22 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                 </button>
               </div>
 
-              <div className="w-full flex-1 flex items-center justify-center overflow-hidden min-h-0 my-auto py-0.5">
-                <div className="w-full max-w-[650px] aspect-[297/210] max-h-[58dvh] relative rounded-lg sm:rounded-2xl p-1.5 sm:p-4 md:p-6 bg-gradient-to-br from-[#fffdf9] via-white to-[#fef9ee] border-[2.5px] sm:border-4 border-double border-red-700 shadow-xl text-center flex flex-col justify-between overflow-hidden select-none mx-auto">
-                  {/* Faixa Temática Oficial no FUNDO do Certificado na Cor da Classe / Especialidade */}
-                  <div
-                    className="absolute inset-x-0 top-[54%] -translate-y-1/2 h-[26%] pointer-events-none select-none z-0 flex flex-col justify-between overflow-hidden"
-                    style={{
-                      background: `linear-gradient(90deg, transparent 0%, ${themeColorInfo.main}12 8%, ${themeColorInfo.main}24 50%, ${themeColorInfo.main}12 92%, transparent 100%)`
-                    }}
-                  >
-                    <div
-                      className="w-full h-[1px] sm:h-[1.5px]"
-                      style={{
-                        background: `linear-gradient(90deg, transparent 0%, ${themeColorInfo.main}40 10%, ${themeColorInfo.main}85 50%, ${themeColorInfo.main}40 90%, transparent 100%)`
-                      }}
-                    />
-                    <div
-                      className="w-full h-[1px] sm:h-[1.5px]"
-                      style={{
-                        background: `linear-gradient(90deg, transparent 0%, ${themeColorInfo.main}40 10%, ${themeColorInfo.main}85 50%, ${themeColorInfo.main}40 90%, transparent 100%)`
-                      }}
-                    />
-                  </div>
-
-                  <div className="border border-amber-500/60 rounded sm:rounded-xl p-1 sm:p-3 md:p-4 flex flex-col justify-between h-full w-full relative z-10">
-                    {/* Logos */}
-                    <div className="flex items-center justify-between px-2 sm:px-6 shrink-0">
-                      <div className="w-8 h-8 sm:w-12 sm:h-12 md:w-14 md:h-14 flex items-center justify-center shrink-0">
-                        <img
-                          src={
-                            isAvtArea
-                              ? 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Av_Emblema_A1.png'
-                              : 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Desbravadores.png'
-                          }
-                          alt="Logo Oficial"
-                          className="max-w-full max-h-full object-contain aspect-square drop-shadow-sm"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLElement).style.display = 'none';
-                          }}
-                        />
-                      </div>
-
-                      {selectedCertOptionId !== 'BIBLE' && selectedCertOptionId !== 'CUSTOM' && customCertConfig.specialtyLogoUrl ? (
-                        <div className="w-8 h-8 sm:w-12 sm:h-12 md:w-14 md:h-14 flex items-center justify-center shrink-0">
-                          <img
-                            src={customCertConfig.specialtyLogoUrl}
-                            alt="Insígnia"
-                            className="max-w-full max-h-full object-contain aspect-square drop-shadow-sm"
-                            onError={(e) => {
-                              (e.currentTarget as HTMLElement).style.display = 'none';
-                            }}
-                          />
-                        </div>
-                      ) : null}
-
-                      <div className="w-8 h-8 sm:w-12 sm:h-12 md:w-14 md:h-14 flex items-center justify-center shrink-0">
-                        {customCertConfig.clubLogoUrl ? (
-                          <img
-                            src={customCertConfig.clubLogoUrl}
-                            alt="Brasão do Clube"
-                            className="max-w-full max-h-full object-contain aspect-square drop-shadow-sm"
-                            onError={(e) => {
-                              (e.currentTarget as HTMLElement).style.display = 'none';
-                            }}
-                          />
-                        ) : (
-                          <div className="w-6 h-6 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 p-[2px] shadow-xs flex items-center justify-center">
-                            <div className="w-full h-full rounded-full bg-[#fffdf9] flex flex-col items-center justify-center text-center p-0.5 border border-dashed border-amber-600">
-                              <Award className="w-3 h-3 sm:w-4 sm:h-4 text-amber-700" />
-                              <span className="text-[3.5px] sm:text-[5px] font-black uppercase tracking-tighter text-amber-900 leading-none">
-                                DSA
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                  <div className="space-y-0.5 sm:space-y-1 shrink-0">
-                    <p className="text-[5.5px] sm:text-[8px] md:text-[10px] font-black uppercase tracking-[0.15em] sm:tracking-[0.2em] text-slate-500 leading-tight">
-                      Igreja Adventista do Sétimo Dia • Divisão Sul-Americana
-                    </p>
-                    <p className="text-[7px] sm:text-xs md:text-sm font-black uppercase tracking-wider text-blue-900 leading-tight">
-                      {customCertConfig.associationName.trim() || 'ASSOCIAÇÃO / MISSÃO DA IASD (PADRÃO)'}
-                    </p>
-                    <div className="inline-block px-2 sm:px-4 py-0.5 rounded-full bg-amber-100 border border-amber-400 text-red-800 text-[6.5px] sm:text-[10px] md:text-xs font-black uppercase tracking-wider leading-tight">
-                      {customCertConfig.clubName.trim() ||
-                        (isAvtArea ? 'CLUBE DE AVENTUREIROS (NOME DO CLUBE)' : 'CLUBE DE DESBRAVADORES (NOME DO CLUBE)')}
-                    </div>
-                  </div>
-
-                  <div className="shrink-0">
-                    <h3 className="text-[10px] sm:text-lg md:text-2xl font-black text-slate-900 uppercase tracking-tight font-serif leading-tight">
-                      {cleanCertTitle}
-                    </h3>
-                    <p className="text-[6px] sm:text-[9px] md:text-xs italic text-slate-600 font-serif leading-tight mt-0.5">
-                      Certificamos para os devidos fins de registro e mérito que
-                    </p>
-                  </div>
-
-                  <div className="max-w-[85%] sm:max-w-md md:max-w-lg mx-auto border-b sm:border-b-2 border-slate-400 pb-0.5 text-[8px] sm:text-sm md:text-lg font-black text-red-800 uppercase tracking-wide leading-tight truncate shrink-0">
-                    {customCertConfig.recipientName.trim() || '____________________________________________________'}
-                  </div>
-
-                  {/* Concessão e Conquista (texto nobre sobre o certificado, sem caixa em volta) */}
-                  <div className="space-y-0.5 shrink-0 relative z-10">
-                    <p className="text-[6px] sm:text-[9px] md:text-xs text-slate-600 leading-tight">
-                      {isSpecialtyCert
-                        ? 'cumpriu com êxito todos os requisitos oficiais exigidos para a Especialidade de:'
-                        : `cumpriu todos os requisitos oficiais exigidos pelo Ministério de ${
-                            isAvtArea ? 'Aventureiros' : 'Desbravadores'
-                          } da DSA para:`}
-                    </p>
-                    <p className="text-[8px] sm:text-xs md:text-lg font-black text-blue-950 uppercase tracking-wider leading-tight truncate">
-                      {cleanAchievement}
-                    </p>
-                  </div>
-
-                  <p className="text-[5.5px] sm:text-[8px] md:text-[10px] text-slate-500 italic leading-tight shrink-0 relative z-10">
-                    {customCertConfig.locationAndDate.trim() ||
-                      `Emitido em ${new Date().toLocaleDateString('pt-BR', {
-                        day: '2-digit',
-                        month: 'long',
-                        year: 'numeric'
-                      })}`}
-                  </p>
-
-                  <div
-                    className={`gap-2 sm:gap-4 max-w-xl mx-auto text-[5.5px] sm:text-[8px] md:text-[10.5px] text-slate-600 font-bold w-full shrink-0 relative z-10 ${
-                      customCertConfig.includeRegionalSignature !== false && customCertConfig.includePastorSignature !== false
-                        ? 'grid grid-cols-3'
-                        : customCertConfig.includeRegionalSignature !== false || customCertConfig.includePastorSignature !== false
-                        ? 'grid grid-cols-2 max-w-md'
-                        : 'flex justify-center max-w-xs'
-                    }`}
-                  >
-                    <div className="border-t border-slate-400 pt-0.5 sm:pt-1 truncate text-center">
-                      {customCertConfig.directorName.trim() || 'Diretor(a) do Clube'}
-                    </div>
-                    {customCertConfig.includeRegionalSignature !== false && (
-                      <div className="border-t border-slate-400 pt-0.5 sm:pt-1 truncate text-center">
-                        {customCertConfig.regionalName.trim() || 'Regional / Coordenador(a)'}
-                      </div>
-                    )}
-                    {customCertConfig.includePastorSignature !== false && (
-                      <div className="border-t border-slate-400 pt-0.5 sm:pt-1 truncate text-center">
-                        {customCertConfig.pastorName.trim() || 'Pastor / Departamental'}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Marca d'água oficial da Classe ou Especialidade no canto inferior direito */}
-                {customCertConfig.specialtyLogoUrl && (
-                  <div
-                    className="absolute -bottom-3 -right-3 sm:-bottom-5 sm:-right-5 w-24 h-24 sm:w-40 sm:h-40 md:w-52 md:h-52 opacity-[0.16] pointer-events-none select-none overflow-hidden flex items-center justify-center z-0"
-                    style={{ filter: 'grayscale(20%) contrast(110%)' }}
-                  >
-                    <img
-                      src={customCertConfig.specialtyLogoUrl}
-                      alt=""
-                      className="w-full h-full object-contain rotate-[-6deg]"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLElement).style.display = 'none';
-                      }}
-                    />
+              {/* MODELO REAL OFICIAL EM TELA CHEIA (SEM CORTES) */}
+              <div className="w-full flex-1 flex items-center justify-center overflow-auto min-h-0 my-auto p-1 sm:p-3">
+                {certRealPreviewUrl ? (
+                  <img
+                    src={certRealPreviewUrl}
+                    alt="Modelo Real Ampliado"
+                    className="max-w-full max-h-[76dvh] object-contain rounded-xl shadow-2xl mx-auto select-none pointer-events-none"
+                    style={{ aspectRatio: '2480 / 1754' }}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-3 py-16 text-slate-400">
+                    <div className="w-8 h-8 rounded-full border-3 border-amber-500 border-t-transparent animate-spin" />
+                    <span className="text-xs font-bold uppercase tracking-wider">Gerando visualização em alta resolução...</span>
                   </div>
                 )}
               </div>
-            </div>
 
             <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
                 <button

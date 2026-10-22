@@ -275,6 +275,7 @@ export interface CustomCertificateConfig {
   includePastorSignature?: boolean;
   specialtyLogoUrl?: string | null;
   clubLogoUrl?: string | null;
+  categoryType?: 'CLASSES' | 'SPECIALTIES' | 'MASTERY' | 'BIBLE' | 'CUSTOM';
 }
 
 export interface AchievementThemeColor {
@@ -286,14 +287,113 @@ export interface AchievementThemeColor {
 
 export function getAchievementThemeColor(
   achievementName: string | undefined | null,
-  ministry: 'DBV' | 'AVT' = 'DBV'
+  ministry: 'DBV' | 'AVT' = 'DBV',
+  logoUrl?: string | null
 ): AchievementThemeColor {
   const norm = (achievementName || '')
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
 
-  // 1. Classes de Desbravadores
+  const logoLower = (logoUrl || '').toLowerCase();
+
+  // 1. Detecção prioritária por URL da insígnia oficial (altíssima precisão da DSA)
+  // HD = Habilidades Domésticas (Amarelo)
+  if (
+    logoLower.includes('habilidades%20domesticas') ||
+    logoLower.includes('habilidades domesticas') ||
+    logoLower.includes('@hd') ||
+    logoLower.includes('/hd') ||
+    logoLower.includes('_hd')
+  ) {
+    return { main: '#ca8a04', light: '#fefce8', border: '#fde047', label: 'Habilidades Domésticas (Amarelo)' };
+  }
+
+  // HM = Artes e Habilidades Manuais (Azul Celeste)
+  if (
+    logoLower.includes('artes%20e%20habilidades') ||
+    logoLower.includes('artes e habilidades') ||
+    logoLower.includes('artes%20manuais') ||
+    logoLower.includes('@hm') ||
+    logoLower.includes('/hm')
+  ) {
+    return { main: '#0284c7', light: '#f0f9ff', border: '#7dd3fc', label: 'Habilidades Manuais (Azul Celeste)' };
+  }
+
+  // CS = Ciência e Saúde (Roxo)
+  if (
+    logoLower.includes('ciencia%20e%20saude') ||
+    logoLower.includes('ciencia e saude') ||
+    logoLower.includes('@cs') ||
+    logoLower.includes('/cs')
+  ) {
+    return { main: '#7e22ce', light: '#faf5ff', border: '#d8b4fe', label: 'Ciência e Saúde (Roxo)' };
+  }
+
+  // EN = Estudo da Natureza (Verde)
+  if (
+    logoLower.includes('estudo%20da%20natureza') ||
+    logoLower.includes('estudos da natureza') ||
+    logoLower.includes('@en') ||
+    logoLower.includes('/en')
+  ) {
+    return { main: '#16a34a', light: '#f0fdf4', border: '#86efac', label: 'Estudo da Natureza (Verde)' };
+  }
+
+  // AM / AE = Atividades Missionárias / Espirituais (Azul Real)
+  if (
+    logoLower.includes('atividades%20missionarias') ||
+    logoLower.includes('atividades espirituais') ||
+    logoLower.includes('@am') ||
+    logoLower.includes('/am') ||
+    logoLower.includes('@ae') ||
+    logoLower.includes('/ae')
+  ) {
+    return { main: '#1d4ed8', light: '#eff6ff', border: '#93c5fd', label: 'Atividades Missionárias (Azul Real)' };
+  }
+
+  // AA / AG = Atividades Agrícolas (Marrom)
+  if (
+    logoLower.includes('atividades%20agricolas') ||
+    logoLower.includes('atividades agricolas') ||
+    logoLower.includes('@aa') ||
+    logoLower.includes('@ag') ||
+    logoLower.includes('/aa') ||
+    logoLower.includes('/ag')
+  ) {
+    return { main: '#854d0e', light: '#fefce8', border: '#fde047', label: 'Atividades Agrícolas (Marrom)' };
+  }
+
+  // AR = Atividades Recreativas (Verde Campestre)
+  if (
+    logoLower.includes('atividades%20recreativas') ||
+    logoLower.includes('@ar') ||
+    logoLower.includes('/ar')
+  ) {
+    return { main: '#15803d', light: '#f0fdf4', border: '#86efac', label: 'Atividades Recreativas (Verde Campestre)' };
+  }
+
+  // AP = Atividades Profissionais (Vermelho)
+  if (
+    logoLower.includes('atividades%20profissionais') ||
+    logoLower.includes('@ap') ||
+    logoLower.includes('/ap')
+  ) {
+    return { main: '#dc2626', light: '#fef2f2', border: '#fca5a5', label: 'Habilidades Profissionais (Vermelho)' };
+  }
+
+  // AD = ADRA / Comunitárias (Azul)
+  if (logoLower.includes('/adra/') || logoLower.includes('@ad') || logoLower.includes('/ad')) {
+    return { main: '#0284c7', light: '#f0f9ff', border: '#7dd3fc', label: 'ADRA (Azul)' };
+  }
+
+  // ME = Mestrado (Ouro)
+  if (logoLower.includes('mestrado') || logoLower.includes('@me') || logoLower.includes('/me')) {
+    return { main: '#d97706', light: '#fef3c7', border: '#fcd34d', label: 'Mestrado (Ouro)' };
+  }
+
+  // 2. Classes de Desbravadores
   if (norm.includes('amigo')) return { main: '#1d4ed8', light: '#eff6ff', border: '#93c5fd', label: 'Amigo (Azul)' };
   if (norm.includes('companheiro')) return { main: '#dc2626', light: '#fef2f2', border: '#fca5a5', label: 'Companheiro (Vermelho)' };
   if (norm.includes('pesquisador')) return { main: '#15803d', light: '#f0fdf4', border: '#86efac', label: 'Pesquisador (Verde)' };
@@ -302,43 +402,180 @@ export function getAchievementThemeColor(
   if (norm.includes('guia')) return { main: '#b45309', light: '#fffbeb', border: '#fde68a', label: 'Guia (Dourado)' };
   if (norm.includes('lider')) return { main: '#1e3a8a', light: '#eff6ff', border: '#93c5fd', label: 'Líder (Azul e Vinho)' };
 
-  // 2. Classes de Aventureiros
+  // 3. Classes de Aventureiros
   if (norm.includes('abelhinha')) return { main: '#0284c7', light: '#f0f9ff', border: '#7dd3fc', label: 'Abelhinhas (Azul Celeste)' };
   if (norm.includes('luminar')) return { main: '#ea580c', light: '#fff7ed', border: '#fdba74', label: 'Luminares (Laranja)' };
   if (norm.includes('edificador')) return { main: '#1e3a8a', light: '#eff6ff', border: '#93c5fd', label: 'Edificadores (Azul Marinho)' };
   if (norm.includes('maos') || norm.includes('ajudadora')) return { main: '#881337', light: '#fff1f2', border: '#fecdd3', label: 'Mãos Ajudadoras (Borgonha)' };
 
-  // 3. Mestrado
+  // 4. Mestrado
   if (norm.includes('mestrado')) return { main: '#d97706', light: '#fef3c7', border: '#fcd34d', label: 'Mestrado (Ouro)' };
 
-  // 4. Áreas de Especialidades DSA
-  // Artes e Habilidades Manuais
-  if (norm.includes('arte') || norm.includes('manual') || norm.includes('amigurumi') || norm.includes('croche') || norm.includes('pintura') || norm.includes('desenho')) {
+  // 5. Áreas Oficiais de Especialidades DSA (por palavras-chave textuais)
+  // 5a. Habilidades Domésticas (Amarelo / Dourado)
+  if (
+    norm.includes('panifica') ||
+    norm.includes('culinaria') ||
+    norm.includes('cozinha') ||
+    norm.includes('costura') ||
+    norm.includes('congelamento') ||
+    norm.includes('lavanderia') ||
+    norm.includes('alimento') ||
+    norm.includes('dieta') ||
+    norm.includes('domestica') ||
+    norm.includes('lar') ||
+    norm.includes('casa') ||
+    norm.includes('nutricao') ||
+    norm.includes('despensa') ||
+    norm.includes('vestuario') ||
+    norm.includes('orcamento familiar') ||
+    norm.includes('conservacao de alimentos') ||
+    norm.includes('panificacao')
+  ) {
+    return { main: '#ca8a04', light: '#fefce8', border: '#fde047', label: 'Habilidades Domésticas (Amarelo)' };
+  }
+
+  // 5b. Artes e Habilidades Manuais (Azul Celeste)
+  if (
+    norm.includes('arte') ||
+    norm.includes('manual') ||
+    norm.includes('amigurumi') ||
+    norm.includes('croche') ||
+    norm.includes('trico') ||
+    norm.includes('pintura') ||
+    norm.includes('desenho') ||
+    norm.includes('escultura') ||
+    norm.includes('origami') ||
+    norm.includes('argila') ||
+    norm.includes('ceramica') ||
+    norm.includes('letrista') ||
+    norm.includes('macrame') ||
+    norm.includes('biscuit')
+  ) {
     return { main: '#0284c7', light: '#f0f9ff', border: '#7dd3fc', label: 'Habilidades Manuais (Azul Celeste)' };
   }
-  // Ciência e Saúde
-  if (norm.includes('saude') || norm.includes('medicin') || norm.includes('quimic') || norm.includes('fisic') || norm.includes('socorro') || norm.includes('nutri')) {
+
+  // 5c. Ciência e Saúde (Roxo)
+  if (
+    norm.includes('saude') ||
+    norm.includes('medicin') ||
+    norm.includes('quimic') ||
+    norm.includes('fisic') ||
+    norm.includes('socorro') ||
+    norm.includes('enferm') ||
+    norm.includes('optica') ||
+    norm.includes('sangue') ||
+    norm.includes('rcp') ||
+    norm.includes('resgate') ||
+    norm.includes('anatomia') ||
+    norm.includes('fisiolog')
+  ) {
     return { main: '#7e22ce', light: '#faf5ff', border: '#d8b4fe', label: 'Ciência e Saúde (Roxo)' };
   }
-  // Atividades Missionárias
-  if (norm.includes('mission') || norm.includes('evangel') || norm.includes('pregac') || norm.includes('testemun') || norm.includes('igreja') || norm.includes('bibl')) {
+
+  // 5d. Atividades Missionárias e Espirituais (Azul Real)
+  if (
+    norm.includes('mission') ||
+    norm.includes('evangel') ||
+    norm.includes('pregac') ||
+    norm.includes('testemun') ||
+    norm.includes('igreja') ||
+    norm.includes('bibl') ||
+    norm.includes('crista') ||
+    norm.includes('fe') ||
+    norm.includes('oracao') ||
+    norm.includes('apocalipse') ||
+    norm.includes('daniel') ||
+    norm.includes('santuario')
+  ) {
     return { main: '#1d4ed8', light: '#eff6ff', border: '#93c5fd', label: 'Atividades Missionárias (Azul Real)' };
   }
-  // Atividades Agrícolas
-  if (norm.includes('agricol') || norm.includes('jardin') || norm.includes('pecuaria') || norm.includes('planta') || norm.includes('cultiv') || norm.includes('pomar')) {
+
+  // 5e. Atividades Agrícolas (Marrom)
+  if (
+    norm.includes('agricol') ||
+    norm.includes('agricult') ||
+    norm.includes('jardin') ||
+    norm.includes('pecuaria') ||
+    norm.includes('planta') ||
+    norm.includes('cultiv') ||
+    norm.includes('pomar') ||
+    norm.includes('horta') ||
+    norm.includes('apicult') ||
+    norm.includes('avicult') ||
+    norm.includes('silvicult')
+  ) {
     return { main: '#854d0e', light: '#fefce8', border: '#fde047', label: 'Atividades Agrícolas (Marrom)' };
   }
-  // Habilidades Profissionais
-  if (norm.includes('computa') || norm.includes('profiss') || norm.includes('eletric') || norm.includes('mecanic') || norm.includes('administra') || norm.includes('fotograf')) {
+
+  // 5f. Habilidades Profissionais / Tecnologia (Vermelho)
+  if (
+    norm.includes('computa') ||
+    norm.includes('profiss') ||
+    norm.includes('eletric') ||
+    norm.includes('mecanic') ||
+    norm.includes('administra') ||
+    norm.includes('fotograf') ||
+    norm.includes('marcenar') ||
+    norm.includes('carpint') ||
+    norm.includes('solda') ||
+    norm.includes('redes') ||
+    norm.includes('software') ||
+    norm.includes('internet') ||
+    norm.includes('programac') ||
+    norm.includes('eletronica')
+  ) {
     return { main: '#dc2626', light: '#fef2f2', border: '#fca5a5', label: 'Habilidades Profissionais (Vermelho)' };
   }
-  // Atividades Recreativas / Habilidades Campestres / Nós
-  if (norm.includes('no') || norm.includes('amarras') || norm.includes('acampa') || norm.includes('fogo') || norm.includes('cozinha') || norm.includes('orienta') || norm.includes('caminhad') || norm.includes('excurs') || norm.includes('recrea')) {
-    return { main: '#16a34a', light: '#f0fdf4', border: '#86efac', label: 'Habilidades Campestres (Verde)' };
+
+  // 5g. Atividades Recreativas / Habilidades Campestres (Verde Campestre)
+  if (
+    norm.includes('amarras') ||
+    norm.includes('acampa') ||
+    norm.includes('fogo') ||
+    norm.includes('orienta') ||
+    norm.includes('caminhad') ||
+    norm.includes('excurs') ||
+    norm.includes('recrea') ||
+    norm.includes('canoag') ||
+    norm.includes('natacao') ||
+    norm.includes('tiro com arco') ||
+    norm.includes('ciclism') ||
+    norm.includes('mergulho') ||
+    norm.includes('caiaque') ||
+    norm.includes('escalada') ||
+    /\b(nos|no)\b/i.test(norm)
+  ) {
+    return { main: '#15803d', light: '#f0fdf4', border: '#86efac', label: 'Habilidades Campestres (Verde)' };
   }
-  // Natureza
-  if (norm.includes('natureza') || norm.includes('arvore') || norm.includes('flor') || norm.includes('ave') || norm.includes('inseto') || norm.includes('mamifer') || norm.includes('rept') || norm.includes('anfib') || norm.includes('felin') || norm.includes('cao') || norm.includes('animal') || norm.includes('astronom') || norm.includes('clima') || norm.includes('geolog')) {
-    return { main: '#059669', light: '#ecfdf5', border: '#6ee7b7', label: 'Estudo da Natureza (Verde Menta)' };
+
+  // 5h. Estudo da Natureza (Verde)
+  if (
+    norm.includes('natureza') ||
+    norm.includes('arvore') ||
+    norm.includes('flor') ||
+    norm.includes('ave') ||
+    norm.includes('inseto') ||
+    norm.includes('mamifer') ||
+    norm.includes('rept') ||
+    norm.includes('anfib') ||
+    norm.includes('felin') ||
+    norm.includes('animal') ||
+    norm.includes('astronom') ||
+    norm.includes('clima') ||
+    norm.includes('geolog') ||
+    norm.includes('fungo') ||
+    norm.includes('cacto') ||
+    norm.includes('concha') ||
+    norm.includes('ecolog') ||
+    norm.includes('meteorolog') ||
+    norm.includes('rochas') ||
+    norm.includes('minerais') ||
+    norm.includes('aranhas') ||
+    norm.includes('peixes') ||
+    /\b(cao|caes|cachorro)\b/i.test(norm)
+  ) {
+    return { main: '#16a34a', light: '#f0fdf4', border: '#86efac', label: 'Estudo da Natureza (Verde)' };
   }
 
   // Fallback padrão
@@ -423,7 +660,7 @@ export async function renderCertificateToCanvas(config: CustomCertificateConfig)
   });
 
   // 3. Faixa Diagonal Temática no FUNDO do Certificado na Cor da Classe / Especialidade (conforme modelo de referência)
-  const theme = getAchievementThemeColor(config.achievementName, config.ministry);
+  const theme = getAchievementThemeColor(config.achievementName, config.ministry, config.specialtyLogoUrl);
   ctx.save();
   // Limitar o desenho dentro da moldura nobre do certificado
   ctx.beginPath();
@@ -593,7 +830,44 @@ export async function renderCertificateToCanvas(config: CustomCertificateConfig)
     .replace(/\s*\(DSA\)\s*/gi, '')
     .trim();
 
-  const isSpecialty = certTitle.includes('ESPECIALIDADE') || Boolean(config.specialtyLogoUrl);
+  // Categorização rigorosa do tipo de certificado
+  const titleUpper = certTitle.toUpperCase();
+  const rawAchUpper = (config.achievementName || '').toUpperCase();
+
+  const isMastery =
+    config.categoryType === 'MASTERY' ||
+    titleUpper.includes('MESTRADO') ||
+    rawAchUpper.includes('MESTRADO');
+
+  const isBible =
+    config.categoryType === 'BIBLE' ||
+    titleUpper.includes('BÍBLICO') ||
+    titleUpper.includes('BIBLICO') ||
+    rawAchUpper.includes('BÍBLICO') ||
+    rawAchUpper.includes('BIBLICO');
+
+  const isClass =
+    config.categoryType === 'CLASSES' ||
+    (!isMastery && !isBible && (
+      titleUpper.includes('INVESTIDURA') ||
+      rawAchUpper.includes('CLASSE') ||
+      rawAchUpper.includes('AMIGO') ||
+      rawAchUpper.includes('COMPANHEIRO') ||
+      rawAchUpper.includes('PESQUISADOR') ||
+      rawAchUpper.includes('PIONEIRO') ||
+      rawAchUpper.includes('EXCURSIONISTA') ||
+      rawAchUpper.includes('GUIA') ||
+      rawAchUpper.includes('ABELHINHA') ||
+      rawAchUpper.includes('LUMINAR') ||
+      rawAchUpper.includes('EDIFICADOR') ||
+      rawAchUpper.includes('MÃOS AJUDADORAS') ||
+      rawAchUpper.includes('MAOS AJUDADORAS')
+    ));
+
+  const isSpecialty =
+    !isClass && !isMastery && !isBible &&
+    (config.categoryType === 'SPECIALTIES' || titleUpper.includes('ESPECIALIDADE') || rawAchUpper.includes('ESPECIALIDADE'));
+
   if (isSpecialty) {
     certTitle = certTitle
       .replace(/DE\s+DESBRAVADORES/gi, '')
@@ -643,45 +917,76 @@ export async function renderCertificateToCanvas(config: CustomCertificateConfig)
   ctx.lineTo(canvas.width / 2 + 680, 875);
   ctx.stroke();
 
+  // Frase de concessão personalizada e sem redundâncias
+  let grantPhrase = `cumpriu todos os requisitos oficiais exigidos pelo Ministério de ${
+    isDbv ? 'Desbravadores' : 'Aventureiros'
+  } da DSA para:`;
+
+  if (isSpecialty) {
+    grantPhrase = 'cumpriu com êxito todos os requisitos oficiais exigidos para a Especialidade de:';
+  } else if (isMastery) {
+    grantPhrase = `cumpriu todos os requisitos oficiais exigidos pelo Ministério de ${
+      isDbv ? 'Desbravadores' : 'Aventureiros'
+    } da DSA para o:`;
+  } else if (isBible) {
+    grantPhrase = `cumpriu fielmente todos os requisitos oficiais estabelecidos pelo Ministério de ${
+      isDbv ? 'Desbravadores' : 'Aventureiros'
+    } da DSA para o:`;
+  }
+
   ctx.fillStyle = '#334155';
   ctx.font = '34px Arial, Helvetica, sans-serif';
-  ctx.fillText(
-    isSpecialty
-      ? 'cumpriu com êxito todos os requisitos oficiais exigidos para a Especialidade de:'
-      : `cumpriu fielmente todos os requisitos oficiais estabelecidos pelo Ministério de ${
-          isDbv ? 'Desbravadores' : 'Aventureiros'
-        } da DSA para:`,
-    canvas.width / 2,
-    950
-  );
+  ctx.fillText(grantPhrase, canvas.width / 2, 950);
 
   // Conquista / Classe / Especialidade em destaque (sem redundâncias)
-  let achievement = (
-    config.achievementName.trim() ||
-    (isSpecialty
+  let rawAchievement = (config.achievementName || '').trim();
+  if (!rawAchievement) {
+    rawAchievement = isSpecialty
       ? 'NOME DA ESPECIALIDADE'
-      : isDbv
-      ? 'CLASSE / ESPECIALIDADE'
-      : 'CLASSE / ESPECIALIDADE')
-  ).toUpperCase();
+      : isMastery
+      ? 'MESTRADO EM ARTES E HABILIDADES MANUAIS'
+      : isClass
+      ? (isDbv ? 'CLASSE DE AMIGO' : 'CLASSE DE ABELHINHAS LABORIOSAS')
+      : 'CONQUISTA / MÉRITO';
+  }
+
+  let achievement = rawAchievement.toUpperCase();
+
+  // Limpeza de sufixos de organização
   achievement = achievement
-    .replace(/^ESPECIALIDADE\s+(DE\s+|DOS?\s+|DAS?\s+)?/gi, '')
-    .replace(/^CLASSE\s+(DE\s+|DOS?\s+|DAS?\s+)?/gi, '')
     .replace(/\s*\((DESBRAVADORES|AVENTUREIROS)\s*(DSA)?\)\s*/gi, '')
     .replace(/\s*—\s*(CLUBE\s+DE\s+)?(DESBRAVADORES|AVENTUREIROS)\s*(\(DSA\))?/gi, '')
     .replace(/\s*\(DSA\)\s*/gi, '')
     .trim();
-  if (isSpecialty) {
+
+  if (isMastery) {
+    // Como é um mestrado, não precisa da palavra Especialidade de forma alguma
     achievement = achievement
+      .replace(/^ESPECIALIDADES?\s+(DE\s+|DO\s+|DOS?\s+|DAS?\s+)?/gi, '')
+      .replace(/\bESPECIALIDADES?\s+DE\s+/gi, '')
+      .replace(/\bESPECIALIDADES?\b/gi, '')
+      .trim();
+    if (!achievement.startsWith('MESTRADO')) {
+      achievement = `MESTRADO EM ${achievement.replace(/^EM\s+/i, '')}`;
+    }
+  } else if (isSpecialty) {
+    // Especialidade: não repetir a palavra "Especialidade" pois já está na frase de concessão
+    achievement = achievement
+      .replace(/^ESPECIALIDADES?\s+(DE\s+|DO\s+|DOS?\s+|DAS?\s+)?/gi, '')
       .replace(/DE\s+DESBRAVADORES/gi, '')
       .replace(/DOS\s+DESBRAVADORES/gi, '')
       .replace(/DE\s+AVENTUREIROS/gi, '')
       .replace(/DOS\s+AVENTUREIROS/gi, '')
       .trim();
+  } else if (isClass) {
+    // Classes: manter ou prefixar "CLASSE DE ..."
+    if (!achievement.startsWith('CLASSE') && !achievement.startsWith('CLASSES')) {
+      achievement = `CLASSE DE ${achievement}`;
+    }
   }
 
-  // Conquista em destaque nobre sobre o certificado
-  ctx.fillStyle = primaryColor;
+  // Conquista em destaque nobre em azul marinho clássico oficial da DSA
+  ctx.fillStyle = '#1e3a8a';
   ctx.font = 'bold 56px Arial, Helvetica, sans-serif';
   ctx.fillText(achievement, canvas.width / 2, 1040);
 
