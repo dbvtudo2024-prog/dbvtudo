@@ -46,7 +46,7 @@ import {
   Shield, Award, User, Layers, Sparkles, Home as HomeIcon, Search,
   ChevronRight, ChevronLeft, ChevronDown, ChevronUp, ListChecks, Info, Book, Settings, Zap, Music, Flag, Shirt, Globe, Key, FileText, Library, CreditCard, MapPin, Video, Folder, BookOpen, Heart, ArrowUp, ArrowDown,
   Trash2, Plus, Save, Share2, Calendar, X, Image as ImageIcon, Download, ArrowLeft, ExternalLink, Filter, Edit2, Edit3, Check,
-  AlignLeft, AlignCenter, AlignRight, ZoomIn, ZoomOut, Minus, Trophy, Crown, PanelLeftClose, PanelLeftOpen, Menu, Presentation, RefreshCw, ClipboardCheck, Tent, Compass, Radio, HeartPulse, CheckCircle2, History, Palette, Play, QrCode
+  AlignLeft, AlignCenter, AlignRight, ZoomIn, ZoomOut, Minus, Trophy, Crown, PanelLeftClose, PanelLeftOpen, Menu, Presentation, RefreshCw, ClipboardCheck, Tent, Compass, Radio, HeartPulse, CheckCircle2, History, Palette, Play, QrCode, Maximize2, Minimize2
 } from 'lucide-react';
 
 
@@ -2184,6 +2184,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   const [templateRealPreviewUrl, setTemplateRealPreviewUrl] = useState<string>('');
   const [certScrolled, setCertScrolled] = useState<boolean>(false);
   const [isCertMobileCollapsed, setIsCertMobileCollapsed] = useState<boolean>(false);
+  const [isCertMobileExpanded, setIsCertMobileExpanded] = useState<boolean>(true);
 
   // Renderização em tempo real do certificado com Canvas para máxima fidelidade visual
   useEffect(() => {
@@ -2574,6 +2575,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     }
     setCertScrolled(false);
     setIsCertMobileCollapsed(false);
+    setIsCertMobileExpanded(true);
   }, [activeSubView]);
 
   // Ao abrir um tópico em Emblemas ou Uniformes (fechando o anterior), rolar automaticamente para posicionar o início do novo tópico no topo da tela
@@ -7275,7 +7277,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     }
 
     return (
-      <div className="space-y-6 animate-fade-in pb-28 pt-1 max-w-5xl mx-auto px-2 sm:px-4">
+      <div className="space-y-6 animate-fade-in pb-12 pt-1 max-w-5xl mx-auto px-2 sm:px-4">
         {/* CABEÇALHO DA PÁGINA EXCLUSIVA (Sem botão de voltar redundante, pois já existe o botão global do app) */}
         <div className="bg-white dark:bg-slate-800 rounded-3xl p-5 sm:p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
           <div className="flex items-center gap-2">
@@ -7332,6 +7334,15 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               <div className="flex items-center gap-1 shrink-0">
                 <button
                   type="button"
+                  onClick={() => setIsCertMobileExpanded(prev => !prev)}
+                  className="px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[9.5px] font-black uppercase tracking-wider flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
+                  title={isCertMobileExpanded ? "Alternar para modo compacto" : "Alternar para modo expandido legível"}
+                >
+                  {isCertMobileExpanded ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
+                  <span>{isCertMobileExpanded ? 'Compactar' : 'Expandir'}</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => setIsFullscreenCertPreview(true)}
                   className="px-2 py-0.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[9.5px] font-black uppercase tracking-wider flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
                   title="Ampliar certificado em tela cheia"
@@ -7351,32 +7362,35 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               </div>
             </div>
 
-            {/* PRÉVIA DO CERTIFICADO FIXADA LOGO ABAIXO DOS ÍCONES */}
+            {/* PRÉVIA DO CERTIFICADO FIXADA LOGO ABAIXO DOS ÍCONES (ÁREA AMPLA E TOTALMENTE LEGÍVEL) */}
             {!isCertMobileCollapsed && (
               <div 
                 onClick={() => setIsFullscreenCertPreview(true)}
-                className="w-full relative rounded-xl bg-slate-900/5 dark:bg-slate-950/40 p-1 border border-slate-200/80 dark:border-slate-800 flex items-center justify-center cursor-pointer active:opacity-95 transition-opacity"
-                title="Clique para ampliar o certificado"
+                className="w-full relative rounded-2xl shadow-xl overflow-hidden bg-white border border-slate-200/90 dark:border-slate-700 cursor-pointer active:opacity-95 transition-all group"
+                title="Toque para abrir em tela cheia com alta resolução"
               >
                 {isRenderingCertPreview && !certRealPreviewUrl ? (
-                  <div className="flex items-center justify-center gap-2 py-5 text-slate-400 text-[10px] font-bold">
-                    <div className="w-4 h-4 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
-                    <span>Atualizando modelo...</span>
+                  <div className="flex flex-col items-center justify-center gap-2 py-10 text-slate-400 text-xs font-bold">
+                    <div className="w-5 h-5 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+                    <span>Atualizando modelo real...</span>
                   </div>
                 ) : certRealPreviewUrl ? (
-                  <div className="relative w-auto max-w-full shadow-md rounded-lg overflow-hidden bg-white">
+                  <div className="relative w-full bg-white flex items-center justify-center">
                     <img
                       src={certRealPreviewUrl}
                       alt="Prévia do Certificado"
-                      className="max-h-[145px] xs:max-h-[165px] w-auto object-contain block select-none pointer-events-none mx-auto"
+                      className={`w-full ${isCertMobileExpanded ? 'max-h-[300px]' : 'max-h-[175px]'} h-auto object-contain block select-none pointer-events-none mx-auto transition-all duration-300`}
                       style={{ aspectRatio: '2480 / 1754' }}
                     />
                     {isRenderingCertPreview && (
-                      <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded-full bg-black/65 backdrop-blur-xs text-white text-[8px] font-bold flex items-center gap-1 shadow-md">
-                        <div className="w-2 h-2 rounded-full border border-amber-400 border-t-transparent animate-spin" />
+                      <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-xs text-white text-[9px] font-bold flex items-center gap-1 shadow-md">
+                        <div className="w-2.5 h-2.5 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
                         <span>Atualizando...</span>
                       </div>
                     )}
+                    <div className="absolute bottom-1.5 right-2 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-xs text-white text-[8px] font-black tracking-wider uppercase opacity-75">
+                      Toque para Ampliar
+                    </div>
                   </div>
                 ) : null}
               </div>
@@ -7503,12 +7517,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               </div>
 
               {/* MODELO REAL OFICIAL EM TELA CHEIA (SEM CORTES) */}
-              <div className="w-full flex-1 flex items-center justify-center overflow-auto min-h-0 my-auto p-1 sm:p-3">
+              <div className="w-full flex-1 flex items-center justify-center overflow-auto min-h-0 my-auto p-1 sm:p-2">
                 {certRealPreviewUrl ? (
                   <img
                     src={certRealPreviewUrl}
                     alt="Modelo Real Ampliado"
-                    className="max-w-full max-h-[76dvh] object-contain rounded-xl shadow-2xl mx-auto select-none pointer-events-none"
+                    className="max-w-full max-h-[84dvh] object-contain rounded-xl shadow-2xl mx-auto select-none pointer-events-none"
                     style={{ aspectRatio: '2480 / 1754' }}
                   />
                 ) : (
@@ -7517,16 +7531,6 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     <span className="text-xs font-bold uppercase tracking-wider">Gerando visualização em alta resolução...</span>
                   </div>
                 )}
-              </div>
-
-            <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsFullscreenCertPreview(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-black uppercase tracking-wider cursor-pointer"
-                >
-                  Fechar
-                </button>
               </div>
             </div>
           </div>,
@@ -7833,8 +7837,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             </div>
           </div>
 
-          {/* Botões de Ação no Rodapé */}
-          <div className="flex flex-wrap items-center gap-3 pt-2">
+          {/* Botões de Ação no Rodapé: Lado a Lado na Horizontal com Escrita Simplificada */}
+          <div className="grid grid-cols-2 gap-2.5 pt-2">
             <button
               type="button"
               disabled={isDownloadingCustomCert}
@@ -7849,10 +7853,18 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                   setIsDownloadingCustomCert(false);
                 }
               }}
-              className="flex-1 min-w-[220px] py-3 px-5 rounded-2xl bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+              className="w-full py-3 px-2 sm:px-4 rounded-2xl bg-red-600 hover:bg-red-700 active:scale-95 text-white text-[11px] sm:text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+              title="Baixar Certificado em PDF (A4 Paisagem)"
             >
-              <Download size={16} />
-              <span>{isDownloadingCustomCert ? 'Gerando Certificado...' : 'Baixar Certificado em PDF (A4 Paisagem)'}</span>
+              <Download size={15} className="shrink-0" />
+              <span className="truncate">
+                {isDownloadingCustomCert ? 'Gerando...' : (
+                  <>
+                    <span className="sm:hidden">Baixar PDF</span>
+                    <span className="hidden sm:inline">Baixar PDF (A4)</span>
+                  </>
+                )}
+              </span>
             </button>
             <button
               type="button"
@@ -7868,10 +7880,18 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                   setIsDownloadingCustomCert(false);
                 }
               }}
-              className="py-3 px-5 rounded-2xl bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+              className="w-full py-3 px-2 sm:px-4 rounded-2xl bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 active:scale-95 text-white text-[11px] sm:text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+              title="Baixar Certificado em Imagem PNG"
             >
-              <Download size={16} />
-              <span>Baixar em Imagem PNG</span>
+              <Download size={15} className="shrink-0" />
+              <span className="truncate">
+                {isDownloadingCustomCert ? 'Gerando...' : (
+                  <>
+                    <span className="sm:hidden">Baixar PNG</span>
+                    <span className="hidden sm:inline">Baixar Imagem PNG</span>
+                  </>
+                )}
+              </span>
             </button>
           </div>
         </div>
@@ -13704,7 +13724,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         </div>
       )}
 
-      {activeSubView !== 'VERSION_HISTORY' && activeSubView !== 'DESBRAVA_PLUS_PDF' && activeSubView !== 'PDF_VIEWER' && activeSubView !== 'BIBLE' && activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && (
+      {activeSubView !== 'VERSION_HISTORY' && activeSubView !== 'DESBRAVA_PLUS_PDF' && activeSubView !== 'PDF_VIEWER' && activeSubView !== 'CERTIFICADOS_GENERATOR' && activeSubView !== 'BIBLE' && activeSubView !== 'BIBLE_BOOKS' && activeSubView !== 'BIBLE_CHAPTERS' && activeSubView !== 'BIBLE_VERSES' && activeSubView !== 'BIBLE_MARKED_VERSES' && activeSubView !== 'BIBLE_MORE' && activeSubView !== 'BIBLE_DICTIONARY' && activeSubView !== 'BIBLE_NOTES' && activeSubView !== 'BIBLE_SETTINGS' && activeSubView !== 'BIBLE_DEVOTIONAL_VIEW' && (
         (() => {
           const isNewAreaWithHiddenFloatingMenu =
             activeSubView === 'FIELD_TRAINING' ||
