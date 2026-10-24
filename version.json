@@ -1,12 +1,11 @@
 {
-  "version": 1761130000000,
-  "versionName": "3.1.5",
-  "buildDate": "2026-10-22T10:00:00.000Z",
-  "timestamp": 1761130000000,
+  "version": 1761300000000,
+  "versionName": "3.1.6",
+  "buildDate": "2026-10-24T13:25:00.000Z",
+  "timestamp": 1761300000000,
   "highlights": [
-    "Faixa Temática Oficial: Fundo com degradê e filetes na cor oficial da classe ou especialidade no certificado.",
-    "Marca d'Água de Autenticidade: Insígnia da classe ou especialidade inserida em marca d'água no canto inferior direito.",
-    "Eliminação de Redundâncias Textuais: Texto direto e conciso, sem duplicar a palavra 'Especialidade' na concessão.",
-    "Otimização do Seletor de Certificados: Botão 'Classes' simplificado e remoção de botões de voltar redundantes."
+    "Memorização Inteligente de Rolagem (Scroll Restoration): Ao entrar em qualquer tela longa, especialidade, classe ou documento e voltar, o aplicativo memoriza onde você parou e restaura a posição automaticamente.",
+    "Persistência em Listas Extensas de Especialidades: Navegue por dezenas de especialidades em qualquer área ou na busca sem perder sua posição ao voltar dos detalhes e requisitos.",
+    "Restauração Contínua em Todo o Aplicativo: Painel principal, biblioteca de manuais, formulários, vídeos e galeria agora mantêm a rolagem preservada entre idas e voltas."
   ]
 }

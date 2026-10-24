@@ -2104,11 +2104,22 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     setVisibleSearchCount(40);
   }, [specialtySearchQuery, selectedSearchArea, isSpecialtySearchOpen, club]);
 
+  // Restaura a rolagem do modal de pesquisa de especialidades ao reabrir
+  useEffect(() => {
+    if (isSpecialtySearchOpen) {
+      const top = specialtySearchScrollRef.current;
+      if (top > 0) {
+        setTimeout(() => {
+          if (searchModalListRef.current) {
+            searchModalListRef.current.scrollTop = top;
+          }
+        }, 50);
+      }
+    }
+  }, [isSpecialtySearchOpen]);
+
   useEffect(() => {
     setIsHeaderScrolled(false);
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = 0;
-    }
     if (onSubViewChange) {
       onSubViewChange(activeSubView === 'MAIN' ? undefined : activeSubView);
     }
@@ -2400,6 +2411,26 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
   const sidebarRef = useRef<HTMLElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const searchModalListRef = useRef<HTMLDivElement>(null);
+
+  // Sistema de Memória e Restauração Inteligente de Rolagem (Scroll Restoration)
+  const scrollPositionsRef = useRef<Record<string, number>>((() => {
+    try {
+      const raw = sessionStorage.getItem('dbv_scroll_map_v1');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  })());
+  const isProgrammaticScrollRef = useRef<boolean>(false);
+  const userHasScrolledManuallyRef = useRef<boolean>(false);
+  const restoreScrollTimerRef = useRef<any>(null);
+  const wasOpenedFromSpecialtySearchRef = useRef<boolean>(false);
+  const specialtySearchScrollRef = useRef<number>(0);
+  const lastViewedSpecialtyIdRef = useRef<number | string | null>(null);
+  const lastViewedClassIdRef = useRef<number | string | null>(null);
+  const lastViewedDesbravaPlusIdRef = useRef<number | string | null>(null);
+  const lastViewedVideoIdRef = useRef<number | string | null>(null);
 
   // Fecha o menu lateral do PC ao clicar fora da área do menu (apenas se não estiver fixado e não estiver com sala de prova ao vivo aberta)
   useEffect(() => {
@@ -2459,6 +2490,27 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   const [isSavingTrunfo, setIsSavingTrunfo] = useState(false);
   const [trunfoSearchQuery, setTrunfoSearchQuery] = useState('');
 
+  // Identificador único da visualização atual para mapear sua posição de rolagem
+  const getScrollKeyForCurrentView = useCallback(() => {
+    let key = `${club}_${activeSubView}`;
+    if (activeSubView === 'SPECIALTIES_LIST') {
+      key += `_CAT_${selectedCategory?.id ?? selectedCategory?.nome ?? 'all'}`;
+    } else if (activeSubView === 'SPECIALTY_DETAILS' && selectedSpecialty) {
+      key += `_SPEC_${selectedSpecialty.id}`;
+    } else if (activeSubView === 'CLASS_DETAILS' && selectedClass) {
+      key += `_CLASS_${selectedClass.id}`;
+    } else if (activeSubView === 'LIBRARY') {
+      key += `_LIB_${selectedLibraryCategory || 'all'}`;
+    } else if (activeSubView === 'VIDEOS') {
+      key += `_VID_${selectedVideoCategoryFilter}`;
+    } else if (activeSubView === 'HISTORY_DETAIL' && selectedCultureDetail) {
+      key += `_HIST_${selectedCultureDetail.id}`;
+    } else if (activeSubView === 'DESBRAVA_PLUS_DETAILS' && selectedDesbravaPlusItem) {
+      key += `_DP_${selectedDesbravaPlusItem.id}`;
+    }
+    return key;
+  }, [club, activeSubView, selectedCategory, selectedSpecialty, selectedClass, selectedLibraryCategory, selectedVideoCategoryFilter, selectedCultureDetail, selectedDesbravaPlusItem]);
+
   // Estados e controle da Gestão da Faixa
   const [faixaAdminConfig, setFaixaAdminConfig] = useState<FaixaConfig>(DEFAULT_FAIXA_CONFIG);
   const [isSavingFaixaConfig, setIsSavingFaixaConfig] = useState(false);
@@ -2472,6 +2524,98 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   const isPathfinder = club === ClubType.PATHFINDER;
   const themeColor = isPathfinder ? '#dc371b' : '#800000';
   const themeBgLight = isPathfinder ? 'bg-[#dc371b]/5' : 'bg-[#800000]/5';
+  const isAvtArea = !isPathfinder;
+  const activeMinistry = isPathfinder ? 'DBV' : 'AVT';
+
+  // Modelos pré-definidos para as opções de certificados (compartilhados entre a página e o menu lateral do PC)
+  const certOptions = [
+    {
+      id: 'CLASSES' as const,
+      icon: <Award className="w-5 h-5" />,
+      label: 'Classes',
+      sublabel: isAvtArea ? 'Classes de Aventureiros' : 'Classes Regulares e Avançadas',
+      apply: () => {
+        setSelectedCertOptionId('CLASSES');
+        setCustomCertConfig((prev) => ({
+          ...prev,
+          categoryType: 'CLASSES',
+          certificateTitle: 'CERTIFICADO DE INVESTIDURA',
+          achievementName: isAvtArea ? 'Classe de Abelhinhas Laboriosas' : 'Classe de Amigo',
+          specialtyLogoUrl: isAvtArea
+            ? 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Classes/abelinhas.png'
+            : 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Cartoes/Cart_Amigo150.png'
+        }));
+      }
+    },
+    {
+      id: 'SPECIALTIES' as const,
+      icon: <Sparkles className="w-5 h-5" />,
+      label: 'Especialidades',
+      sublabel: 'Com insígnia automática ao digitar',
+      apply: () => {
+        setSelectedCertOptionId('SPECIALTIES');
+        const sampleSpec = (allSpecialtiesList.length > 0 ? allSpecialtiesList : specialties)[0];
+        const sampleLogo = sampleSpec
+          ? getImageUrl(sampleSpec.logo || (sampleSpec as any).imagem)
+          : 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Especialidades/Atividades%20Recreativas/imagem@ar040.png';
+        setCustomCertConfig((prev) => ({
+          ...prev,
+          categoryType: 'SPECIALTIES',
+          certificateTitle: 'CERTIFICADO DE ESPECIALIDADES',
+          achievementName: sampleSpec ? sampleSpec.nome : 'Nós e Amarras',
+          specialtyLogoUrl: sampleLogo
+        }));
+      }
+    },
+    {
+      id: 'MASTERY' as const,
+      icon: <Crown className="w-5 h-5" />,
+      label: 'Mestrado',
+      sublabel: 'Insígnias de Mestrado',
+      apply: () => {
+        setSelectedCertOptionId('MASTERY');
+        setCustomCertConfig((prev) => ({
+          ...prev,
+          categoryType: 'MASTERY',
+          certificateTitle: 'CERTIFICADO DE MESTRADO',
+          achievementName: 'Mestrado em Artes e Habilidades Manuais',
+          specialtyLogoUrl: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Especialidades/Mestrados/imagem@me016.PNG'
+        }));
+      }
+    },
+    {
+      id: 'BIBLE' as const,
+      icon: <BookOpen className="w-5 h-5" />,
+      label: 'Ano Bíblico',
+      sublabel: 'Juvenil, Jovem e Infantil',
+      apply: () => {
+        setSelectedCertOptionId('BIBLE');
+        setCustomCertConfig((prev) => ({
+          ...prev,
+          categoryType: 'BIBLE',
+          certificateTitle: 'CERTIFICADO DO ANO BÍBLICO',
+          achievementName: isAvtArea ? 'Ano Bíblico Infantil' : 'Ano Bíblico Juvenil',
+          specialtyLogoUrl: null
+        }));
+      }
+    },
+    {
+      id: 'CUSTOM' as const,
+      icon: <Edit2 className="w-5 h-5" />,
+      label: 'Personalizado',
+      sublabel: 'Título e Conquista Livres',
+      apply: () => {
+        setSelectedCertOptionId('CUSTOM');
+        setCustomCertConfig((prev) => ({
+          ...prev,
+          categoryType: 'CUSTOM',
+          certificateTitle: 'CERTIFICADO DE MÉRITO',
+          achievementName: 'Honra ao Mérito',
+          specialtyLogoUrl: null
+        }));
+      }
+    }
+  ];
 
   useEffect(() => {
     setNewVideo(prev => ({ ...prev, club: club }));
@@ -2567,16 +2711,145 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     }
   }, [initialSubView]);
 
-  // Reset scroll when view changes
+  // Limpeza de menus flutuantes e estado de certificados ao trocar de tela
   useEffect(() => {
     setIsFloatingMenuOpenInNewArea(false);
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = 0;
-    }
     setCertScrolled(false);
     setIsCertMobileCollapsed(false);
     setIsCertMobileExpanded(true);
   }, [activeSubView]);
+
+  // Salva a rolagem da tela anterior imediatamente antes de trocar de tela
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    const key = getScrollKeyForCurrentView();
+    return () => {
+      if (container) {
+        const top = container.scrollTop;
+        scrollPositionsRef.current[key] = top;
+        try {
+          sessionStorage.setItem('dbv_scroll_map_v1', JSON.stringify(scrollPositionsRef.current));
+        } catch {}
+      }
+    };
+  }, [getScrollKeyForCurrentView]);
+
+  // Restaura a posição de rolagem memorizada ao entrar ou voltar para qualquer tela
+  // Se voltou para uma lista (ex: especialidades), alinha o card visualizado exatamente no topo da visualização
+  useEffect(() => {
+    const currentKey = getScrollKeyForCurrentView();
+    const targetTop = scrollPositionsRef.current[currentKey] || 0;
+
+    if (restoreScrollTimerRef.current) {
+      clearTimeout(restoreScrollTimerRef.current);
+      restoreScrollTimerRef.current = null;
+    }
+
+    if (!scrollContainerRef.current) return;
+
+    // Detecta se há um item específico recém-visualizado para alinhar ao topo da rolagem
+    const targetCardId = 
+      activeSubView === 'SPECIALTIES_LIST' && lastViewedSpecialtyIdRef.current 
+        ? `specialty-card-${lastViewedSpecialtyIdRef.current}`
+        : activeSubView === 'CLASSES' && lastViewedClassIdRef.current
+        ? `class-card-${lastViewedClassIdRef.current}`
+        : activeSubView === 'DESBRAVA_PLUS' && lastViewedDesbravaPlusIdRef.current
+        ? `desbrava-plus-card-${lastViewedDesbravaPlusIdRef.current}`
+        : activeSubView === 'VIDEOS' && lastViewedVideoIdRef.current
+        ? `video-card-${lastViewedVideoIdRef.current}`
+        : null;
+
+    if (targetTop === 0 && !targetCardId) {
+      isProgrammaticScrollRef.current = true;
+      scrollContainerRef.current.scrollTop = 0;
+      setTimeout(() => {
+        isProgrammaticScrollRef.current = false;
+      }, 50);
+      return;
+    }
+
+    isProgrammaticScrollRef.current = true;
+    userHasScrolledManuallyRef.current = false;
+    let attempts = 0;
+    const maxAttempts = 22;
+
+    const attemptRestore = () => {
+      if (userHasScrolledManuallyRef.current) {
+        isProgrammaticScrollRef.current = false;
+        lastViewedSpecialtyIdRef.current = null;
+        lastViewedClassIdRef.current = null;
+        lastViewedDesbravaPlusIdRef.current = null;
+        lastViewedVideoIdRef.current = null;
+        return;
+      }
+      const container = scrollContainerRef.current;
+      if (!container) {
+        isProgrammaticScrollRef.current = false;
+        return;
+      }
+
+      // Se temos um card alvo específico, alinha seu topo diretamente no início do viewport da lista
+      if (targetCardId) {
+        const targetEl = document.getElementById(targetCardId);
+        if (targetEl) {
+          const containerRect = container.getBoundingClientRect();
+          const targetRect = targetEl.getBoundingClientRect();
+          // Diferença relativa para colocar o card no topo com 6px de margem suave
+          const alignedTop = Math.max(0, container.scrollTop + (targetRect.top - containerRect.top) - 6);
+          container.scrollTop = alignedTop;
+          scrollPositionsRef.current[currentKey] = alignedTop;
+          try {
+            sessionStorage.setItem('dbv_scroll_map_v1', JSON.stringify(scrollPositionsRef.current));
+          } catch {}
+
+          attempts++;
+          // Confirma o alinhamento por 3 ciclos para acomodar layout/imagens
+          if (attempts >= 3) {
+            lastViewedSpecialtyIdRef.current = null;
+            lastViewedClassIdRef.current = null;
+            lastViewedDesbravaPlusIdRef.current = null;
+            lastViewedVideoIdRef.current = null;
+            setTimeout(() => {
+              isProgrammaticScrollRef.current = false;
+            }, 60);
+            return;
+          }
+          restoreScrollTimerRef.current = setTimeout(attemptRestore, 40);
+          return;
+        }
+      }
+
+      // Fallback para restauração de scroll numérica
+      container.scrollTop = targetTop;
+      attempts++;
+
+      const currentScroll = container.scrollTop;
+      const reached = Math.abs(currentScroll - targetTop) <= 4;
+
+      if ((reached && !targetCardId) || attempts >= maxAttempts) {
+        lastViewedSpecialtyIdRef.current = null;
+        lastViewedClassIdRef.current = null;
+        lastViewedDesbravaPlusIdRef.current = null;
+        lastViewedVideoIdRef.current = null;
+        setTimeout(() => {
+          isProgrammaticScrollRef.current = false;
+        }, 60);
+        return;
+      }
+
+      const nextDelay = attempts < 4 ? 20 : attempts < 8 ? 40 : attempts < 12 ? 70 : 120;
+      restoreScrollTimerRef.current = setTimeout(attemptRestore, nextDelay);
+    };
+
+    attemptRestore();
+
+    return () => {
+      if (restoreScrollTimerRef.current) {
+        clearTimeout(restoreScrollTimerRef.current);
+        restoreScrollTimerRef.current = null;
+      }
+    };
+  }, [getScrollKeyForCurrentView, activeSubView, specialties.length, classes.length, desbravaPlusItems.length, videos.length]);
 
   // Ao abrir um tópico em Emblemas ou Uniformes (fechando o anterior), rolar automaticamente para posicionar o início do novo tópico no topo da tela
   useEffect(() => {
@@ -3096,6 +3369,19 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const scrollTop = e.currentTarget.scrollTop;
+    
+    // Salva a rolagem na tela atual se for movimento manual do usuário
+    if (!isProgrammaticScrollRef.current) {
+      userHasScrolledManuallyRef.current = true;
+      const key = getScrollKeyForCurrentView();
+      if (key) {
+        scrollPositionsRef.current[key] = scrollTop;
+        try {
+          sessionStorage.setItem('dbv_scroll_map_v1', JSON.stringify(scrollPositionsRef.current));
+        } catch {}
+      }
+    }
+
     setShowScrollTop(scrollTop > 400);
     setIsHeaderScrolled(scrollTop > 150);
     if (activeSubView === 'CERTIFICADOS_GENERATOR') {
@@ -3105,6 +3391,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   };
 
   const scrollToTop = () => {
+    userHasScrolledManuallyRef.current = false;
+    const key = getScrollKeyForCurrentView();
+    if (key) {
+      scrollPositionsRef.current[key] = 0;
+      try {
+        sessionStorage.setItem('dbv_scroll_map_v1', JSON.stringify(scrollPositionsRef.current));
+      } catch {}
+    }
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTo({
         top: 0,
@@ -3503,6 +3797,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   }, [activeSubView, selectedClass]);
 
   const handleClassClick = (cls: ClubClass) => {
+    lastViewedClassIdRef.current = cls.id;
     setSelectedClass(cls);
     setActiveSubView('CLASS_DETAILS');
   };
@@ -3541,6 +3836,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           {classes.map((cls) => (
             <button 
               key={cls.id} 
+              id={`class-card-${cls.id}`}
               onClick={() => handleClassClick(cls)}
               className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-5 flex items-center space-x-5 shadow-sm active:scale-[0.98] transition-all group"
             >
@@ -3873,10 +4169,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             return (
               <div 
                 key={esp.id} 
+                id={`specialty-card-${esp.id}`}
                 className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-4 flex items-center space-x-4 shadow-sm group relative"
               >
                 <button 
                   onClick={() => {
+                    lastViewedSpecialtyIdRef.current = esp.id;
                     setSelectedSpecialty(esp);
                     setActiveSubView('SPECIALTY_DETAILS');
                   }}
@@ -5044,6 +5342,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                           if (selectedSpecialty) {
                             setSpecialtyNavStack(prev => [...prev, selectedSpecialty]);
                           }
+                          lastViewedSpecialtyIdRef.current = matched.id;
                           setSelectedSpecialty(matched);
                           if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
                         }}
@@ -7140,99 +7439,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   };
 
   const renderCertificadosGenerator = () => {
-    const isAvtArea = !isPathfinder;
-    const activeMinistry = isPathfinder ? 'DBV' : 'AVT';
     const isDbv = !isAvtArea;
-
-    // Modelos pré-definidos para as opções no topo
-    const certOptions = [
-      {
-        id: 'CLASSES' as const,
-        icon: <Award className="w-5 h-5" />,
-        label: 'Classes',
-        sublabel: isAvtArea ? 'Classes de Aventureiros' : 'Classes Regulares e Avançadas',
-        apply: () => {
-          setSelectedCertOptionId('CLASSES');
-          setCustomCertConfig((prev) => ({
-            ...prev,
-            categoryType: 'CLASSES',
-            certificateTitle: 'CERTIFICADO DE INVESTIDURA',
-            achievementName: isAvtArea ? 'Classe de Abelhinhas Laboriosas' : 'Classe de Amigo',
-            specialtyLogoUrl: isAvtArea
-              ? 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Aventureiros/Classes/abelinhas.png'
-              : 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Cartoes/Cart_Amigo150.png'
-          }));
-        }
-      },
-      {
-        id: 'SPECIALTIES' as const,
-        icon: <Sparkles className="w-5 h-5" />,
-        label: 'Especialidades',
-        sublabel: 'Com insígnia automática ao digitar',
-        apply: () => {
-          setSelectedCertOptionId('SPECIALTIES');
-          const sampleSpec = (allSpecialtiesList.length > 0 ? allSpecialtiesList : specialties)[0];
-          const sampleLogo = sampleSpec
-            ? getImageUrl(sampleSpec.logo || (sampleSpec as any).imagem)
-            : 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Especialidades/Atividades%20Recreativas/imagem@ar040.png';
-          setCustomCertConfig((prev) => ({
-            ...prev,
-            categoryType: 'SPECIALTIES',
-            certificateTitle: 'CERTIFICADO DE ESPECIALIDADES',
-            achievementName: sampleSpec ? sampleSpec.nome : 'Nós e Amarras',
-            specialtyLogoUrl: sampleLogo
-          }));
-        }
-      },
-      {
-        id: 'MASTERY' as const,
-        icon: <Crown className="w-5 h-5" />,
-        label: 'Mestrado',
-        sublabel: 'Insígnias de Mestrado',
-        apply: () => {
-          setSelectedCertOptionId('MASTERY');
-          setCustomCertConfig((prev) => ({
-            ...prev,
-            categoryType: 'MASTERY',
-            certificateTitle: 'CERTIFICADO DE MESTRADO',
-            achievementName: 'Mestrado em Artes e Habilidades Manuais',
-            specialtyLogoUrl: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Especialidades/Mestrados/imagem@me016.PNG'
-          }));
-        }
-      },
-      {
-        id: 'BIBLE' as const,
-        icon: <BookOpen className="w-5 h-5" />,
-        label: 'Ano Bíblico',
-        sublabel: 'Juvenil, Jovem e Infantil',
-        apply: () => {
-          setSelectedCertOptionId('BIBLE');
-          setCustomCertConfig((prev) => ({
-            ...prev,
-            categoryType: 'BIBLE',
-            certificateTitle: 'CERTIFICADO DO ANO BÍBLICO',
-            achievementName: isAvtArea ? 'Ano Bíblico Infantil' : 'Ano Bíblico Juvenil',
-            specialtyLogoUrl: null
-          }));
-        }
-      },
-      {
-        id: 'CUSTOM' as const,
-        icon: <Edit2 className="w-5 h-5" />,
-        label: 'Personalizado',
-        sublabel: 'Título e Conquista Livres',
-        apply: () => {
-          setSelectedCertOptionId('CUSTOM');
-          setCustomCertConfig((prev) => ({
-            ...prev,
-            categoryType: 'CUSTOM',
-            certificateTitle: 'CERTIFICADO DE MÉRITO',
-            achievementName: 'Honra ao Mérito',
-            specialtyLogoUrl: null
-          }));
-        }
-      }
-    ];
 
     const currentTitleUpper = (customCertConfig.certificateTitle || '').toUpperCase();
     const isSpecialtyCert =
@@ -7398,8 +7605,89 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           </div>
         )}
 
-        {/* OPÇÕES NO TOPO E PRÉ-VISUALIZAÇÃO PADRÃO (Ocultos no celular apenas quando a barra sticky estiver ativa para evitar duplicidade) */}
-        <div className={`space-y-6 ${certScrolled ? 'hidden sm:block' : 'block'}`}>
+        {/* BARRA FIXA NO PC AO ROLAR: MINIATURA DO CERTIFICADO FIXADA LOGO ABAIXO DO CABEÇALHO */}
+        {certScrolled && (
+          <div className="hidden sm:block sticky top-0 z-20 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md -mx-2 sm:-mx-4 px-3 sm:px-5 py-2.5 border-b border-slate-200/80 dark:border-slate-800 shadow-lg animate-fade-in rounded-3xl mb-4">
+            <div className="flex items-center justify-between gap-4">
+              {/* Esquerda: Miniatura do Certificado em Tempo Real */}
+              <div 
+                onClick={() => setIsFullscreenCertPreview(true)}
+                className="relative flex items-center justify-center bg-slate-950/5 dark:bg-slate-950/40 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-md cursor-pointer group shrink-0 hover:ring-2 hover:ring-amber-400 transition-all"
+                title="Clique para ampliar o certificado em tela cheia"
+                style={{ width: '155px', height: '110px' }}
+              >
+                {certRealPreviewUrl ? (
+                  <img
+                    src={certRealPreviewUrl}
+                    alt="Miniatura do Certificado"
+                    className="w-full h-full object-contain block select-none pointer-events-none group-hover:scale-105 transition-transform duration-300"
+                    style={{ aspectRatio: '2480 / 1754' }}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-2 text-slate-400">
+                    <div className="w-5 h-5 rounded-full border-2 border-amber-500 border-t-transparent animate-spin mb-1" />
+                    <span className="text-[9px] font-bold uppercase">Gerando...</span>
+                  </div>
+                )}
+                {isRenderingCertPreview && (
+                  <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded-full bg-black/75 backdrop-blur-xs text-white text-[8px] font-bold flex items-center gap-1 shadow-sm">
+                    <div className="w-2 h-2 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="px-2 py-0.5 rounded-full bg-black/75 text-white text-[9px] font-black uppercase tracking-wider flex items-center gap-1">
+                    <ZoomIn size={11} />
+                    <span>Ampliar</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Centro: Informações do Certificado e Atualização ao Vivo */}
+              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 font-black text-[9.5px] uppercase tracking-wider">
+                    {certOptions.find(o => o.id === selectedCertOptionId)?.label || 'Certificado'}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-semibold hidden md:inline">
+                    • Prévia ao Vivo Fixada
+                  </span>
+                </div>
+                <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight truncate mt-1">
+                  {customCertConfig.certificateTitle || cleanCertTitle}
+                </h4>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">
+                  Conquista: <span className="font-bold text-slate-700 dark:text-slate-200">{cleanAchievement}</span>
+                </p>
+              </div>
+
+              {/* Direita: Botões Rápidos */}
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsFullscreenCertPreview(true)}
+                  className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-[11px] uppercase tracking-wider flex items-center gap-1.5 shadow-md shadow-amber-500/20 active:scale-95 transition-all cursor-pointer"
+                  title="Abrir prévia em alta resolução"
+                >
+                  <Maximize2 size={13} />
+                  <span className="hidden md:inline">Tela Cheia</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+                  className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-[11px] uppercase tracking-wider flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
+                  title="Voltar ao início da página"
+                >
+                  <ChevronUp size={14} />
+                  <span className="hidden lg:inline">Topo</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* OPÇÕES NO TOPO E PRÉ-VISUALIZAÇÃO PADRÃO (Ocultos ao rolar para dar foco total aos campos de edição com a prévia fixa) */}
+        <div className={`space-y-6 ${certScrolled ? 'hidden' : 'block'}`}>
           {/* OPÇÕES NO TOPO: PARA QUE É O CERTIFICADO */}
           <div className="bg-white dark:bg-slate-800 rounded-3xl p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
@@ -8023,7 +8311,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               {filteredMaterials.map((item) => (
                 <button
                   key={item.id}
+                  id={`desbrava-plus-card-${item.id}`}
                   onClick={() => {
+                    lastViewedDesbravaPlusIdRef.current = item.id;
                     setSelectedDesbravaPlusItem(item);
                     const thumb = item.Capa || (item as any).Imagem || (item as any).capa || '';
                     setSelectedPdfThumbnail(thumb ? getImageUrl(thumb) : null);
@@ -11238,8 +11528,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                         return (
                           <button
                             key={`${video.categoria_id}-${video.id}`}
+                            id={`video-card-${video.id}`}
                             type="button"
                             onClick={() => {
+                              lastViewedVideoIdRef.current = video.id;
                               setSelectedVideo(video);
                               setActiveSubView('VIDEO_PLAYER');
                             }}
@@ -11943,7 +12235,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         const prev = specialtyNavStack[specialtyNavStack.length - 1];
         setSpecialtyNavStack(prevStack => prevStack.slice(0, prevStack.length - 1));
         setSelectedSpecialty(prev);
-        if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
+      } else if (wasOpenedFromSpecialtySearchRef.current) {
+        wasOpenedFromSpecialtySearchRef.current = false;
+        setIsSpecialtySearchOpen(true);
+        if (selectedCategory) {
+          setActiveSubView('SPECIALTIES_LIST');
+        } else {
+          setActiveSubView('SPECIALTIES');
+        }
       } else if (selectedCategory) {
         setActiveSubView('SPECIALTIES_LIST');
       } else {
@@ -13129,6 +13428,101 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             )}
           </div>
         )}
+
+        {/* OVERLAY EXCLUSIVO PARA O GERADOR DE CERTIFICADOS NO PC QUANDO ROLADO */}
+        {activeSubView === 'CERTIFICADOS_GENERATOR' && certScrolled && (
+          <div 
+            className="absolute inset-0 z-40 bg-slate-900/95 dark:bg-slate-950/95 backdrop-blur-md flex flex-col justify-between p-3.5 lg:p-4 animate-fade-in text-white cursor-default select-none shadow-2xl overflow-y-auto scrollbar-hide"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Topo do Overlay */}
+            <div className="flex flex-col items-center w-full">
+              <div className="flex items-center justify-between w-full pb-3 border-b border-white/10 mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                    <Award size={18} />
+                  </div>
+                  {isSidebarOpen && (
+                    <div className="text-left">
+                      <h4 className="text-xs font-black uppercase tracking-wider text-amber-400">
+                        Certificado
+                      </h4>
+                      <p className="text-[9px] text-white/60 font-semibold">
+                        Categorias Rápidas
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Lista dos 5 botões de opções do certificado */}
+              <div className="w-full space-y-2">
+                {certOptions.map((opt) => {
+                  const isSelected = selectedCertOptionId === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={opt.apply}
+                      title={`${opt.label} - ${opt.sublabel}`}
+                      className={`w-full rounded-2xl transition-all cursor-pointer flex items-center text-left active:scale-95 ${
+                        isSidebarOpen ? 'p-2.5 gap-2.5' : 'p-2 justify-center'
+                      } ${
+                        isSelected
+                          ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20 ring-2 ring-amber-300 font-bold'
+                          : 'bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/10'
+                      }`}
+                    >
+                      <div className={`shrink-0 ${isSelected ? 'text-slate-950' : 'text-amber-400'}`}>
+                        {opt.icon}
+                      </div>
+                      {isSidebarOpen && (
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-black uppercase tracking-tight truncate">
+                              {opt.label}
+                            </span>
+                            {isSelected && (
+                              <span className="w-2 h-2 rounded-full bg-slate-950 animate-ping shrink-0" />
+                            )}
+                          </div>
+                          <p className={`text-[8.5px] truncate font-medium ${isSelected ? 'text-slate-900/80' : 'text-white/50'}`}>
+                            {opt.sublabel}
+                          </p>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Rodapé do Menu de Categorias */}
+            <div className="pt-3 border-t border-white/10 w-full flex flex-col items-center text-center">
+              {isSidebarOpen ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="w-full py-2 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <ChevronUp size={13} />
+                  <span>Voltar ao Topo</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsSidebarOpen(true)}
+                  className="text-[9px] font-bold text-amber-400 hover:text-amber-300 uppercase py-1"
+                  title="Expandir menu"
+                >
+                  Abrir
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </aside>
 
       {/* ÁREA DE CONTEÚDO PRINCIPAL (À DIREITA DO MENU NO PC) */}
@@ -13174,7 +13568,14 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                       const prev = specialtyNavStack[specialtyNavStack.length - 1];
                       setSpecialtyNavStack(prevStack => prevStack.slice(0, prevStack.length - 1));
                       setSelectedSpecialty(prev);
-                      if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
+                    } else if (wasOpenedFromSpecialtySearchRef.current) {
+                      wasOpenedFromSpecialtySearchRef.current = false;
+                      setIsSpecialtySearchOpen(true);
+                      if (selectedCategory) {
+                        setActiveSubView('SPECIALTIES_LIST');
+                      } else {
+                        setActiveSubView('SPECIALTIES');
+                      }
                     } else if (selectedCategory) {
                       setActiveSubView('SPECIALTIES_LIST');
                     } else {
@@ -13401,6 +13802,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       <div 
         ref={scrollContainerRef}
         onScroll={handleScroll}
+        onWheel={() => { userHasScrolledManuallyRef.current = true; isProgrammaticScrollRef.current = false; }}
+        onTouchStart={() => { userHasScrolledManuallyRef.current = true; isProgrammaticScrollRef.current = false; }}
+        onPointerDown={() => { userHasScrolledManuallyRef.current = true; isProgrammaticScrollRef.current = false; }}
         style={{ overflowAnchor: 'none' }}
         className={`flex-grow ${
           activeSubView === 'QUIZ'
@@ -14194,9 +14598,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
             {/* Lista de Resultados */}
             <div 
+              ref={searchModalListRef}
               className="flex-1 overflow-y-auto p-4 space-y-2.5 scrollbar-hide"
               onScroll={(e) => {
                 const el = e.currentTarget;
+                specialtySearchScrollRef.current = el.scrollTop;
                 if (el.scrollHeight - el.scrollTop - el.clientHeight < 250 && visibleSearchCount < filteredSearchSpecialties.length) {
                   setVisibleSearchCount(prev => Math.min(prev + 40, filteredSearchSpecialties.length));
                 }
@@ -14248,7 +14654,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                         key={esp.id}
                         className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/80 rounded-[22px] p-3.5 flex items-center space-x-3.5 shadow-sm group hover:border-indigo-200 dark:hover:border-indigo-800/80 transition-all cursor-pointer"
                         onClick={() => {
+                          lastViewedSpecialtyIdRef.current = esp.id;
                           setSelectedSpecialty(esp);
+                          wasOpenedFromSpecialtySearchRef.current = true;
                           setIsSpecialtySearchOpen(false);
                           setActiveSubView('SPECIALTY_DETAILS');
                         }}

@@ -6,14 +6,25 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.1.5';
-export const APP_BUILD_DATE = '22 de Outubro de 2026';
+export const APP_VERSION = '3.1.6';
+export const APP_BUILD_DATE = '24 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '3.1.6',
+    date: '24/10/2026',
+    tag: 'NOVO',
+    title: 'Memorização e Restauração Inteligente de Posição de Rolagem em Todo o Aplicativo',
+    changes: [
+      'Restauração Inteligente de Rolagem (Scroll Restoration): Ao navegar por listas extensas de qualquer área (como Especialidades, Classes, Manuais da Biblioteca, Vídeos, Formulários ou Acesso Rápido) e abrir os detalhes ou requisitos de um item, o aplicativo agora memoriza com precisão cirúrgica a posição exata onde você parou, restaurando-a automaticamente ao voltar.',
+      'Navegação Confortável em Listas de Especialidades: Você pode descer até o 80º item de uma categoria de especialidades ou pesquisa, abrir para consultar requisitos e didática em PowerPoint, e ao clicar no botão de voltar estará exatamente no mesmo ponto da lista sem precisar rolar tudo de novo.',
+      'Suporte Completo na Busca e em Todas as Seções: A memorização atua em todo o aplicativo, incluindo o painel de gestão, biblioteca de livros e manuais, área de acampamento e catálogo geral, com detecção de toque e cancelamento imediato caso você queira rolar manualmente.'
+    ]
+  },
+  {
     version: '3.1.5',
     date: '22/10/2026',
-    tag: 'NOVO',
+    tag: 'ESTÁVEL',
     title: 'Faixa Temática Oficial por Classe e Especialidade, Marca d\'Água de Insígnia e Otimizações no Certificado',
     changes: [
       'Faixa Temática Oficial por Classe e Especialidade: Inclusão de faixa de fundo com gradiente e filetes nas cores oficiais DSA correspondentes a cada classe regular/avançada (Azul Amigo, Vermelho Companheiro, Verde Pesquisador, Cinza Pioneiro, Roxo Excursionista, Dourado Guia, etc.) e área de especialidade (Natureza em verde, Habilidades Manuais em azul, Atividades Recreativas em verde musgo, etc.), destacando com distinção a conquista do desbravador ou aventureiro.',

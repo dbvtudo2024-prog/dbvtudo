@@ -58,6 +58,30 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
     return () => window.removeEventListener('storage', loadProfile);
   }, [isGuest]);
 
+  const homeScrollRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('dbv_scroll_HOME');
+      if (saved && homeScrollRef.current) {
+        const top = Number(saved);
+        if (!isNaN(top) && top > 0) {
+          setTimeout(() => {
+            if (homeScrollRef.current) {
+              homeScrollRef.current.scrollTop = top;
+            }
+          }, 35);
+        }
+      }
+    } catch {}
+  }, []);
+
+  const handleHomeScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    try {
+      sessionStorage.setItem('dbv_scroll_HOME', String(e.currentTarget.scrollTop));
+    } catch {}
+  };
+
   return (
     <div className="flex h-full w-full overflow-hidden bg-transparent transition-colors duration-500">
       {/* Menu Lateral exclusivo para PC (desktop/notebook): apenas foto de perfil no topo e ajustes + versão e ano embaixo */}
@@ -109,7 +133,11 @@ const Home: React.FC<HomeProps> = ({ onSelectClub, onOpenSettings, onOpenProfile
       </aside>
 
       {/* Área Principal de Conteúdo */}
-      <div className="flex flex-col flex-1 h-full overflow-y-auto scrollbar-hide min-w-0">
+      <div 
+        ref={homeScrollRef}
+        onScroll={handleHomeScroll}
+        className="flex flex-col flex-1 h-full overflow-y-auto scrollbar-hide min-w-0"
+      >
         {/* Top Header Móvel (visível apenas em telas menores / mobile) */}
         <header className="md:hidden sticky top-0 z-20 w-full bg-white/70 dark:bg-slate-900/70 backdrop-blur-md py-2 px-4 shrink-0 transition-colors border-b border-slate-200/40 dark:border-slate-800/40">
           <div className="w-full flex justify-between items-center">
