@@ -2431,6 +2431,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   const lastViewedClassIdRef = useRef<number | string | null>(null);
   const lastViewedDesbravaPlusIdRef = useRef<number | string | null>(null);
   const lastViewedVideoIdRef = useRef<number | string | null>(null);
+  const lastViewedFormCategoryRef = useRef<string | null>(null);
+  const lastViewedFormIdRef = useRef<number | string | null>(null);
 
   // Fecha o menu lateral do PC ao clicar fora da área do menu (apenas se não estiver fixado e não estiver com sala de prova ao vivo aberta)
   useEffect(() => {
@@ -2735,7 +2737,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   }, [getScrollKeyForCurrentView]);
 
   // Restaura a posição de rolagem memorizada ao entrar ou voltar para qualquer tela
-  // Se voltou para uma lista (ex: especialidades), alinha o card visualizado exatamente no topo da visualização
+  // Se voltou para uma lista (ex: especialidades, certificados ou formulários), alinha o card visualizado exatamente no topo da visualização
   useEffect(() => {
     const currentKey = getScrollKeyForCurrentView();
     const targetTop = scrollPositionsRef.current[currentKey] || 0;
@@ -2757,6 +2759,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         ? `desbrava-plus-card-${lastViewedDesbravaPlusIdRef.current}`
         : activeSubView === 'VIDEOS' && lastViewedVideoIdRef.current
         ? `video-card-${lastViewedVideoIdRef.current}`
+        : activeSubView === 'FORMULARIOS' && lastViewedFormCategoryRef.current
+        ? `formulario-categoria-${lastViewedFormCategoryRef.current}`
+        : activeSubView === 'FORMULARIOS' && lastViewedFormIdRef.current
+        ? `formulario-item-${lastViewedFormIdRef.current}`
         : null;
 
     if (targetTop === 0 && !targetCardId) {
@@ -2780,6 +2786,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         lastViewedClassIdRef.current = null;
         lastViewedDesbravaPlusIdRef.current = null;
         lastViewedVideoIdRef.current = null;
+        lastViewedFormCategoryRef.current = null;
+        lastViewedFormIdRef.current = null;
         return;
       }
       const container = scrollContainerRef.current;
@@ -2809,6 +2817,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             lastViewedClassIdRef.current = null;
             lastViewedDesbravaPlusIdRef.current = null;
             lastViewedVideoIdRef.current = null;
+            lastViewedFormCategoryRef.current = null;
+            lastViewedFormIdRef.current = null;
             setTimeout(() => {
               isProgrammaticScrollRef.current = false;
             }, 60);
@@ -2831,6 +2841,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         lastViewedClassIdRef.current = null;
         lastViewedDesbravaPlusIdRef.current = null;
         lastViewedVideoIdRef.current = null;
+        lastViewedFormCategoryRef.current = null;
+        lastViewedFormIdRef.current = null;
         setTimeout(() => {
           isProgrammaticScrollRef.current = false;
         }, 60);
@@ -2849,7 +2861,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         restoreScrollTimerRef.current = null;
       }
     };
-  }, [getScrollKeyForCurrentView, activeSubView, specialties.length, classes.length, desbravaPlusItems.length, videos.length]);
+  }, [getScrollKeyForCurrentView, activeSubView, specialties.length, classes.length, desbravaPlusItems.length, videos.length, formularios.length]);
 
   // Ao abrir um tópico em Emblemas ou Uniformes (fechando o anterior), rolar automaticamente para posicionar o início do novo tópico no topo da tela
   useEffect(() => {
@@ -6837,7 +6849,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           const displayCount = cat.id === 'graficos' ? filteredCorelEmblems.length : cat.id === 'certificados' ? filteredCertificateTemplates.length : catItems.length;
 
           return (
-            <div key={cat.id} className="space-y-3">
+            <div key={cat.id} id={`formulario-categoria-${cat.id}`} className="space-y-3">
               <div className="flex items-center justify-between pl-1 pr-2">
                 <div className="flex items-center space-x-3">
                   <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center text-white shadow-sm shrink-0">
@@ -7020,6 +7032,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                       <button
                         type="button"
                         onClick={() => {
+                          lastViewedFormCategoryRef.current = 'certificados';
                           setCustomCertConfig((prev) => ({
                             ...prev,
                             ministry: isPathfinder ? 'DBV' : 'AVT'
@@ -7137,6 +7150,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
+                                      lastViewedFormCategoryRef.current = 'certificados';
                                       if (tmpl.categoryType) {
                                         setSelectedCertOptionId(tmpl.categoryType as any);
                                       }
@@ -7191,10 +7205,13 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                       return (
                         <div
                           key={form.id}
+                          id={`formulario-item-${form.id}`}
                           role="button"
                           tabIndex={0}
                           onClick={() => {
                             if (!form.link) return;
+                            lastViewedFormIdRef.current = form.id;
+                            lastViewedFormCategoryRef.current = cat.id;
                             if (isExternalPortalOrCdr) {
                               window.open(form.link, '_blank', 'noopener,noreferrer');
                             } else {
@@ -7208,6 +7225,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                           onKeyDown={(e) => {
                             if ((e.key === 'Enter' || e.key === ' ') && form.link) {
                               e.preventDefault();
+                              lastViewedFormIdRef.current = form.id;
+                              lastViewedFormCategoryRef.current = cat.id;
                               if (isExternalPortalOrCdr) {
                                 window.open(form.link, '_blank', 'noopener,noreferrer');
                               } else {
