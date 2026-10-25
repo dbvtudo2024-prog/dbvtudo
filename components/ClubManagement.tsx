@@ -20,7 +20,8 @@ import {
   fetchConquistas, updateConquista, deleteConquista,
   fetchTrunfos, updateTrunfo, deleteTrunfo,
   fetchFaixaConfig, updateFaixaConfig, uploadFaixaImage, FaixaConfig, DEFAULT_FAIXA_CONFIG,
-  getOfficialRudUniforms, getOfficialRudEmblems, uploadCultureAsset, RUD_CREDITS
+  getOfficialRudUniforms, getOfficialRudEmblems, uploadCultureAsset, RUD_CREDITS,
+  updateEspecialidade, invalidateEspecialidadesCache
 } from '../services/supabaseService';
 import { PROFILE_KEY } from '../constants';
 import {
@@ -2006,7 +2007,7 @@ export type SubViewType =
   | 'BIBLE' | 'BIBLE_BOOKS' | 'BIBLE_CHAPTERS' | 'BIBLE_VERSES' | 'BIBLE_MARKED_VERSES' | 'BIBLE_MORE' | 'BIBLE_DICTIONARY' | 'BIBLE_NOTES' | 'BIBLE_SETTINGS' | 'BIBLE_ADMIN' | 'BIBLE_ADMIN_ADD' | 'BIBLE_DEVOTIONAL_LIST' | 'BIBLE_DEVOTIONAL_VIEW' 
   | 'FAIXA' | 'MANAGEMENT' | 'IDEALS_ANTHEM' | 'IDEALS' | 'ANTHEM' | 'CULTURE_ADMIN' | 'CULTURE_ADMIN_MENU' | 'HISTORY_LIST' | 'HISTORY_DETAIL' | 'UNIFORMS' | 'EMBLEMS' | 'CAMPING' | 'FORMULARIOS' | 'MATERIALS' | 'PDF_VIEWER' | 'LIBRARY_BOOKS_MENU' 
   | 'VIDEOS' | 'VIDEO_ADMIN' | 'FORM_ADMIN' | 'VIDEO_PLAYER' | 'LINKS_ADMIN' | 'ACHIEVEMENTS_ADMIN' | 'TRUNFOS' | 'TRUNFOS_ADMIN' | 'WEB_VIEWER' | 'FAIXA_ADMIN' | 'FIELD_TRAINING' | 'QUIZ' | 'LIVE_EXAM' | 'UNIT_CORNER' | 'FIELD_MANUAL' | 'ORDEM_UNIDA' | 'VERSION_HISTORY'
-  | 'CERTIFICADOS_GENERATOR';
+  | 'CERTIFICADOS_GENERATOR' | 'SPECIALTY_ADMIN';
 
 interface OfficialClassEmblemItem {
   name: string;
@@ -2491,6 +2492,143 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   });
   const [isSavingTrunfo, setIsSavingTrunfo] = useState(false);
   const [trunfoSearchQuery, setTrunfoSearchQuery] = useState('');
+
+  // Specialty Admin State (Edição de Conteúdo e Erros de Digitação)
+  const [specialtyAdminClub, setSpecialtyAdminClub] = useState<ClubType>(club);
+  const [selectedSpecialtyForEdit, setSelectedSpecialtyForEdit] = useState<Especialidade | null>(null);
+  const [specialtyAdminSearch, setSpecialtyAdminSearch] = useState('');
+  const [specialtyAdminAreaFilter, setSpecialtyAdminAreaFilter] = useState('TODAS');
+  const [specialtyAdminList, setSpecialtyAdminList] = useState<Especialidade[]>([]);
+  const [isLoadingAdminSpecialties, setIsLoadingAdminSpecialties] = useState(false);
+  const [specialtyAdminForm, setSpecialtyAdminForm] = useState({
+    nome: '',
+    area: '',
+    codigo: '',
+    nivel: '',
+    ano: '',
+    origem: '',
+    questoesText: ''
+  });
+  const [isSavingSpecialty, setIsSavingSpecialty] = useState(false);
+  const [specialtySaveFeedback, setSpecialtySaveFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [showSpecialtyPreview, setShowSpecialtyPreview] = useState(false);
+  const [isLoadingSpecialtyRequirements, setIsLoadingSpecialtyRequirements] = useState(false);
+
+  useEffect(() => {
+    if (activeSubView === 'SPECIALTY_ADMIN') {
+      let isCancelled = false;
+      setIsLoadingAdminSpecialties(true);
+      fetchEspecialidades(specialtyAdminClub, undefined, { excludeQuestions: false })
+        .then((list) => {
+          if (!isCancelled) {
+            setSpecialtyAdminList(list);
+          }
+        })
+        .catch((err) => {
+          console.warn("Erro ao buscar especialidades para admin:", err);
+        })
+        .finally(() => {
+          if (!isCancelled) {
+            setIsLoadingAdminSpecialties(false);
+          }
+        });
+      return () => {
+        isCancelled = true;
+      };
+    }
+  }, [activeSubView, specialtyAdminClub]);
+
+  const handleSelectSpecialtyForEdit = async (esp: Especialidade) => {
+    setSelectedSpecialtyForEdit(esp);
+    setSpecialtySaveFeedback(null);
+    setShowSpecialtyPreview(false);
+
+    let reqs = esp.requisitos || [];
+    if (reqs.length === 0) {
+      setIsLoadingSpecialtyRequirements(true);
+      try {
+        reqs = await fetchEspecialidadeRequisitos(specialtyAdminClub, esp.id);
+      } catch (err) {
+        console.warn("Erro ao buscar requisitos:", err);
+      } finally {
+        setIsLoadingSpecialtyRequirements(false);
+      }
+    }
+
+    setSpecialtyAdminForm({
+      nome: esp.nome || '',
+      area: esp.area || '',
+      codigo: esp.codigo || '',
+      nivel: esp.nivel || '',
+      ano: esp.ano || '',
+      origem: esp.origem || '',
+      questoesText: reqs.join('\n')
+    });
+  };
+
+  const handleSaveSpecialtyAdmin = async () => {
+    if (!selectedSpecialtyForEdit) return;
+    if (!specialtyAdminForm.nome.trim()) {
+      alert("Por favor, informe o nome da especialidade.");
+      return;
+    }
+
+    setIsSavingSpecialty(true);
+    setSpecialtySaveFeedback(null);
+
+    const questionsArray = specialtyAdminForm.questoesText
+      .split(/\r?\n/)
+      .map(q => q.trim())
+      .filter(q => q.length > 0);
+
+    const updates = {
+      Nome: specialtyAdminForm.nome.trim(),
+      Categoria: specialtyAdminForm.area.trim(),
+      ID: specialtyAdminForm.codigo.trim() || undefined,
+      Nivel: specialtyAdminForm.nivel.trim() || undefined,
+      Ano: specialtyAdminForm.ano.trim() || undefined,
+      Origem: specialtyAdminForm.origem.trim() || undefined,
+      Questoes: questionsArray
+    };
+
+    const { error } = await updateEspecialidade(specialtyAdminClub, selectedSpecialtyForEdit.id, updates);
+    setIsSavingSpecialty(false);
+
+    if (error) {
+      setSpecialtySaveFeedback({
+        type: 'error',
+        msg: `Erro ao salvar alterações: ${error.message || 'Verifique sua conexão.'}`
+      });
+    } else {
+      setSpecialtySaveFeedback({
+        type: 'success',
+        msg: 'Especialidade e requisitos atualizados com sucesso no banco de dados!'
+      });
+
+      const updatedSpecialty: Especialidade = {
+        ...selectedSpecialtyForEdit,
+        nome: updates.Nome,
+        area: updates.Categoria,
+        codigo: updates.ID || selectedSpecialtyForEdit.codigo,
+        nivel: updates.Nivel || selectedSpecialtyForEdit.nivel,
+        ano: updates.Ano || selectedSpecialtyForEdit.ano,
+        origem: updates.Origem || selectedSpecialtyForEdit.origem,
+        requisitos: questionsArray
+      };
+
+      setSelectedSpecialtyForEdit(updatedSpecialty);
+
+      if (club === specialtyAdminClub) {
+        setAllSpecialtiesList(prev => prev.map(s => s.id === updatedSpecialty.id ? updatedSpecialty : s));
+        setSpecialties(prev => prev.map(s => s.id === updatedSpecialty.id ? updatedSpecialty : s));
+        if (selectedSpecialty?.id === updatedSpecialty.id) {
+          setSelectedSpecialty(updatedSpecialty);
+        }
+      }
+
+      setSpecialtyAdminList(prev => prev.map(s => s.id === updatedSpecialty.id ? updatedSpecialty : s));
+    }
+  };
 
   // Identificador único da visualização atual para mapear sua posição de rolagem
   const getScrollKeyForCurrentView = useCallback(() => {
@@ -5644,6 +5782,22 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                 <span>{isGeneratingPptx ? 'Gerando Slides...' : 'Slides PowerPoint (.pptx)'}</span>
               </button>
             )}
+          </div>
+        )}
+
+        {(isAdmin || isUserAdmin) && (
+          <div className="pt-2">
+            <button 
+              onClick={() => {
+                handleSelectSpecialtyForEdit(selectedSpecialty);
+                setSpecialtyAdminClub(club);
+                setActiveSubView('SPECIALTY_ADMIN');
+              }}
+              className="w-full py-4 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2"
+            >
+              <Edit2 size={16} />
+              <span>Editar no Admin (Corrigir Texto / Requisitos)</span>
+            </button>
           </div>
         )}
       </div>
@@ -9702,6 +9856,23 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Globos e Imagens da Ponta da Faixa</p>
             </div>
           </button>
+
+          <button 
+            onClick={() => {
+              setSelectedSpecialtyForEdit(null);
+              setSpecialtyAdminClub(club);
+              setActiveSubView('SPECIALTY_ADMIN');
+            }}
+            className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-6 rounded-[32px] flex items-center space-x-4 shadow-sm active:scale-95 transition-all group"
+          >
+            <div className="w-14 h-14 bg-indigo-50 dark:bg-indigo-950/40 rounded-2xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+              <Award size={28} />
+            </div>
+            <div className="text-left">
+              <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-tight">Editar Especialidades</h4>
+              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Corrigir textos, áreas e requisitos</p>
+            </div>
+          </button>
         </div>
       </div>
     );
@@ -10631,6 +10802,431 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             Restaurar Todos Padrões
           </button>
         </div>
+      </div>
+    );
+  };
+
+  const renderSpecialtyAdmin = () => {
+    const uniqueAreas = Array.from(new Set(specialtyAdminList.map(s => s.area).filter(Boolean))).sort();
+
+    const filteredSpecialties = specialtyAdminList.filter(s => {
+      const matchSearch = specialtyAdminSearch.trim() === '' || 
+        (s.nome && s.nome.toLowerCase().includes(specialtyAdminSearch.toLowerCase())) ||
+        (s.codigo && s.codigo.toLowerCase().includes(specialtyAdminSearch.toLowerCase())) ||
+        (s.area && s.area.toLowerCase().includes(specialtyAdminSearch.toLowerCase()));
+      const matchArea = specialtyAdminAreaFilter === 'TODAS' || s.area === specialtyAdminAreaFilter;
+      return matchSearch && matchArea;
+    });
+
+    const parsedLines = specialtyAdminForm.questoesText
+      .split(/\r?\n/)
+      .map(q => q.trim())
+      .filter(q => q.length > 0);
+
+    return (
+      <div className="animate-slide-in space-y-6 pt-2 pb-28 px-1 sm:px-3 max-w-4xl mx-auto">
+        {selectedSpecialtyForEdit ? (
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-5 sm:p-6 rounded-[32px] shadow-sm">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center space-x-4">
+                  <div className="w-14 h-14 bg-indigo-50 dark:bg-indigo-950/40 rounded-2xl p-2 border border-indigo-100 dark:border-indigo-900/60 flex items-center justify-center flex-shrink-0">
+                    {selectedSpecialtyForEdit.logo ? (
+                      <img 
+                        src={getImageUrl(selectedSpecialtyForEdit.logo)} 
+                        alt={selectedSpecialtyForEdit.nome} 
+                        className="w-full h-full object-contain filter drop-shadow-sm" 
+                      />
+                    ) : (
+                      <Award size={28} className="text-indigo-600 dark:text-indigo-400" />
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+                      Editando Especialidade • {specialtyAdminClub === ClubType.PATHFINDER ? 'Desbravadores' : 'Aventureiros'}
+                    </span>
+                    <h3 className="text-lg sm:text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">
+                      {selectedSpecialtyForEdit.nome}
+                    </h3>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSpecialtyForEdit(null);
+                    setSpecialtySaveFeedback(null);
+                  }}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200 rounded-xl text-xs font-black uppercase tracking-wider transition-all self-end sm:self-auto cursor-pointer"
+                >
+                  Trocar Especialidade
+                </button>
+              </div>
+
+              {specialtySaveFeedback && (
+                <div className={`mt-4 p-4 rounded-2xl flex items-center space-x-3 text-xs font-bold ${
+                  specialtySaveFeedback.type === 'success' 
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300' 
+                    : 'bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'
+                }`}>
+                  {specialtySaveFeedback.type === 'success' ? (
+                    <CheckCircle2 size={18} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  ) : (
+                    <Info size={18} className="shrink-0 text-red-600 dark:text-red-400" />
+                  )}
+                  <span>{specialtySaveFeedback.msg}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-5 sm:p-6 rounded-[32px] shadow-sm space-y-4">
+              <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 ml-1">
+                Informações Principais
+              </h4>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2 space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 block">
+                    Nome da Especialidade
+                  </label>
+                  <input 
+                    type="text"
+                    value={specialtyAdminForm.nome}
+                    onChange={(e) => setSpecialtyAdminForm({ ...specialtyAdminForm, nome: e.target.value })}
+                    placeholder="Ex: Pintura em Tecido"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 block">
+                    Código Oficial
+                  </label>
+                  <input 
+                    type="text"
+                    value={specialtyAdminForm.codigo}
+                    onChange={(e) => setSpecialtyAdminForm({ ...specialtyAdminForm, codigo: e.target.value })}
+                    placeholder="Ex: HM 028"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 block">
+                    Área / Categoria
+                  </label>
+                  <input 
+                    type="text"
+                    list="specialty-areas-list"
+                    value={specialtyAdminForm.area}
+                    onChange={(e) => setSpecialtyAdminForm({ ...specialtyAdminForm, area: e.target.value })}
+                    placeholder="Ex: Artes e Habilidades Manuais"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                  <datalist id="specialty-areas-list">
+                    {uniqueAreas.map(a => <option key={a} value={a} />)}
+                  </datalist>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 block">
+                    Nível
+                  </label>
+                  <input 
+                    type="text"
+                    value={specialtyAdminForm.nivel}
+                    onChange={(e) => setSpecialtyAdminForm({ ...specialtyAdminForm, nivel: e.target.value })}
+                    placeholder="Ex: 1, 2 ou Avançado"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 block">
+                    Ano / Origem
+                  </label>
+                  <input 
+                    type="text"
+                    value={specialtyAdminForm.ano || specialtyAdminForm.origem}
+                    onChange={(e) => setSpecialtyAdminForm({ ...specialtyAdminForm, ano: e.target.value, origem: e.target.value })}
+                    placeholder="Ex: 2024 • DSA"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-5 sm:p-6 rounded-[32px] shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 ml-1">
+                    Conteúdo & Requisitos da Especialidade
+                  </h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium ml-1">
+                    Edite ou corrija erros de digitação diretamente. Cada linha digitada equivale a 1 requisito.
+                  </p>
+                </div>
+
+                <div className="flex items-center space-x-2 self-start sm:self-auto">
+                  <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-wider">
+                    {isLoadingSpecialtyRequirements ? 'Carregando...' : `${parsedLines.length} Requisitos`}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowSpecialtyPreview(!showSpecialtyPreview)}
+                    className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border cursor-pointer ${
+                      showSpecialtyPreview 
+                        ? 'bg-indigo-600 text-white border-indigo-600' 
+                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600'
+                    }`}
+                  >
+                    {showSpecialtyPreview ? 'Ocultar Prévia' : 'Ver Prévia'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-2xl border border-amber-200 dark:border-amber-900/40 text-amber-900 dark:text-amber-200 text-xs font-medium leading-relaxed">
+                ✍️ <strong>Dica de formatação:</strong> Cada quebra de linha (Enter) gera um item numerado na visualização dos membros. Para corrigir palavras com erro, basta alterar o texto na linha correspondente.
+              </div>
+
+              <div className="relative">
+                <textarea 
+                  rows={14}
+                  value={specialtyAdminForm.questoesText}
+                  onChange={(e) => setSpecialtyAdminForm({ ...specialtyAdminForm, questoesText: e.target.value })}
+                  placeholder="Digite ou cole os requisitos da especialidade aqui..."
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-xs sm:text-sm font-mono leading-relaxed text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-y"
+                />
+              </div>
+
+              {showSpecialtyPreview && (
+                <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 block">
+                    Pré-visualização como aparece para o usuário:
+                  </span>
+                  <div className="space-y-2 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl max-h-96 overflow-y-auto">
+                    {parsedLines.length === 0 ? (
+                      <p className="text-slate-400 text-xs italic text-center py-4">Nenhum requisito preenchido ainda.</p>
+                    ) : (
+                      parsedLines.map((line, idx) => (
+                        <div key={idx} className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200/60 dark:border-slate-700 flex items-start space-x-3 text-xs leading-relaxed text-slate-700 dark:text-slate-200">
+                          <span className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-black text-[10px] flex items-center justify-center shrink-0">
+                            {idx + 1}
+                          </span>
+                          <span className="flex-1 font-medium">{line}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+              <button
+                type="button"
+                disabled={isSavingSpecialty}
+                onClick={handleSaveSpecialtyAdmin}
+                className="w-full sm:flex-1 py-4 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg shadow-indigo-600/25 transition-all flex items-center justify-center space-x-2 disabled:opacity-50 cursor-pointer"
+              >
+                {isSavingSpecialty ? (
+                  <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Save size={18} />
+                    <span>Salvar Alterações no Banco de Dados</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedSpecialtyForEdit(null);
+                  setSpecialtySaveFeedback(null);
+                }}
+                className="w-full sm:w-auto px-6 py-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs uppercase tracking-wider rounded-2xl transition-all cursor-pointer"
+              >
+                Voltar à Lista
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-5 sm:p-6 rounded-[32px] shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-lg sm:text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">
+                    Editar Especialidades
+                  </h3>
+                  <p className="text-xs text-slate-400 font-medium">
+                    Selecione uma especialidade para corrigir títulos, códigos, categorias ou o texto completo dos requisitos.
+                  </p>
+                </div>
+
+                <div className="inline-flex p-1 bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 self-start sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSpecialtyAdminClub(ClubType.PATHFINDER);
+                      setSpecialtyAdminAreaFilter('TODAS');
+                    }}
+                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                      specialtyAdminClub === ClubType.PATHFINDER 
+                        ? 'bg-[#dc371b] text-white shadow-md' 
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'
+                    }`}
+                  >
+                    Desbravadores
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSpecialtyAdminClub(ClubType.ADVENTURER);
+                      setSpecialtyAdminAreaFilter('TODAS');
+                    }}
+                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                      specialtyAdminClub === ClubType.ADVENTURER 
+                        ? 'bg-[#800000] text-white shadow-md' 
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'
+                    }`}
+                  >
+                    Aventureiros
+                  </button>
+                </div>
+              </div>
+
+              <div className="relative">
+                <input 
+                  type="text"
+                  placeholder="Pesquisar por nome, código ou área..."
+                  value={specialtyAdminSearch}
+                  onChange={(e) => setSpecialtyAdminSearch(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl py-3.5 pl-12 pr-4 text-sm font-bold text-slate-700 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
+                />
+                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                {specialtyAdminSearch && (
+                  <button 
+                    onClick={() => setSpecialtyAdminSearch('')}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+
+              {uniqueAreas.length > 0 && (
+                <div className="flex items-center space-x-2 overflow-x-auto scrollbar-hide py-1">
+                  <button
+                    type="button"
+                    onClick={() => setSpecialtyAdminAreaFilter('TODAS')}
+                    className={`px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-wider whitespace-nowrap transition-all cursor-pointer ${
+                      specialtyAdminAreaFilter === 'TODAS'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    Todas ({specialtyAdminList.length})
+                  </button>
+                  {uniqueAreas.map(area => (
+                    <button
+                      key={area}
+                      type="button"
+                      onClick={() => setSpecialtyAdminAreaFilter(area)}
+                      className={`px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-wider whitespace-nowrap transition-all cursor-pointer ${
+                        specialtyAdminAreaFilter === area
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {area}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between px-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  {isLoadingAdminSpecialties ? 'Carregando especialidades...' : `${filteredSpecialties.length} Especialidades encontradas`}
+                </span>
+              </div>
+
+              {isLoadingAdminSpecialties ? (
+                <div className="flex flex-col items-center justify-center py-20 space-y-3">
+                  <div className="w-8 h-8 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Buscando especialidades...</p>
+                </div>
+              ) : filteredSpecialties.length === 0 ? (
+                <div className="bg-white dark:bg-slate-800 rounded-[32px] p-12 text-center border border-slate-100 dark:border-slate-700 shadow-sm">
+                  <Award size={48} className="text-slate-200 dark:text-slate-700 mx-auto mb-4" />
+                  <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">
+                    Nenhuma especialidade encontrada para esta busca.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {filteredSpecialties.map((esp) => (
+                    <div
+                      key={esp.id}
+                      onClick={() => handleSelectSpecialtyForEdit(esp)}
+                      className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-[24px] p-4 flex items-center justify-between gap-3 shadow-sm hover:shadow active:scale-[0.99] transition-all cursor-pointer group"
+                    >
+                      <div className="flex items-center space-x-3.5 min-w-0 flex-1">
+                        <div className="w-14 h-14 bg-slate-50 dark:bg-slate-900 rounded-2xl flex items-center justify-center p-1.5 flex-shrink-0 border border-slate-100 dark:border-slate-800 group-hover:scale-105 transition-transform overflow-hidden">
+                          {esp.logo ? (
+                            <img 
+                              src={getImageUrl(esp.logo)} 
+                              alt={esp.nome} 
+                              className="w-full h-full object-contain filter drop-shadow-sm select-none" 
+                              loading="lazy"
+                            />
+                          ) : (
+                            <Award size={24} className="text-slate-300 dark:text-slate-600" />
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-black text-slate-800 dark:text-white text-xs sm:text-sm uppercase tracking-tight leading-snug line-clamp-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                            {esp.nome}
+                          </h4>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                            {esp.area && (
+                              <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700/80 text-slate-500 dark:text-slate-300 rounded-md text-[9px] font-black uppercase tracking-wider truncate max-w-[140px]">
+                                {esp.area}
+                              </span>
+                            )}
+                            {(esp.codigo || esp.sigla) && (
+                              <span className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-md text-[9px] font-black uppercase tracking-widest">
+                                {esp.codigo || `${esp.sigla}${String(esp.id).padStart(3, '0')}`}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectSpecialtyForEdit(esp);
+                        }}
+                        className="px-3 py-2 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600 hover:text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center space-x-1.5 shrink-0 cursor-pointer"
+                      >
+                        <Edit2 size={14} />
+                        <span className="hidden sm:inline">Editar</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -12353,6 +12949,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       activeSubView === 'FAIXA_ADMIN'
     ) {
       setActiveSubView('BIBLE_ADMIN');
+    } else if (activeSubView === 'SPECIALTY_ADMIN') {
+      if (selectedSpecialtyForEdit) {
+        setSelectedSpecialtyForEdit(null);
+      } else {
+        setActiveSubView('BIBLE_ADMIN');
+      }
     } else if (activeSubView === 'VIDEOS') {
       setActiveSubView('MAIN');
     } else if (activeSubView === 'VIDEO_PLAYER') {
@@ -13658,6 +14260,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                     setActiveSubView('BIBLE_ADMIN');
                   } else if (activeSubView === 'VIDEO_ADMIN' || activeSubView === 'FORM_ADMIN' || activeSubView === 'LINKS_ADMIN' || activeSubView === 'ACHIEVEMENTS_ADMIN' || activeSubView === 'TRUNFOS_ADMIN' || activeSubView === 'FAIXA_ADMIN') {
                     setActiveSubView('BIBLE_ADMIN');
+                  } else if (activeSubView === 'SPECIALTY_ADMIN') {
+                    if (selectedSpecialtyForEdit) {
+                      setSelectedSpecialtyForEdit(null);
+                    } else {
+                      setActiveSubView('BIBLE_ADMIN');
+                    }
                   } else if (activeSubView === 'VIDEOS') {
                     setActiveSubView('MAIN');
                   } else if (activeSubView === 'VIDEO_PLAYER') {
@@ -13756,6 +14364,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                activeSubView === 'TRUNFOS' ? 'Trunfos' :
                activeSubView === 'TRUNFOS_ADMIN' ? 'Gestão de Trunfos' :
                activeSubView === 'FAIXA_ADMIN' ? 'Gestão da Faixa' :
+               activeSubView === 'SPECIALTY_ADMIN' ? 'Editor de Especialidades' :
                activeSubView === 'BIBLE_ADMIN_ADD' ? 'Novo Devocional' :
                activeSubView === 'BIBLE_DEVOTIONAL_LIST' ? 'Agendados' :
                activeSubView === 'VIDEOS' ? 'Vídeos' :
@@ -13892,6 +14501,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         {activeSubView === 'TRUNFOS' && renderTrunfos()}
         {activeSubView === 'TRUNFOS_ADMIN' && renderTrunfosAdmin()}
         {activeSubView === 'FAIXA_ADMIN' && renderFaixaAdmin()}
+        {activeSubView === 'SPECIALTY_ADMIN' && renderSpecialtyAdmin()}
         {activeSubView === 'WEB_VIEWER' && renderWebViewer()}
         {activeSubView === 'FIELD_TRAINING' && renderFieldTraining()}
         {activeSubView === 'QUIZ' && (

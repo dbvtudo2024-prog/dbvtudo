@@ -1872,6 +1872,133 @@ export async function fetchEspecialidadeRequisitos(club: ClubType, id: number): 
   return [];
 }
 
+export function invalidateEspecialidadesCache(club?: ClubType) {
+  const clubsToClear = club ? [club] : [ClubType.PATHFINDER, ClubType.ADVENTURER];
+  clubsToClear.forEach(c => {
+    delete _memoryEspecialidadesCache[c];
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.removeItem(ESPECIALIDADES_CACHE_KEY_PREFIX + c);
+        localStorage.removeItem(ESPECIALIDADES_LIGHT_CACHE_KEY_PREFIX + c);
+        localStorage.removeItem(ESPECIALIDADES_CACHE_TS_PREFIX + c);
+        localStorage.removeItem(ESPECIALIDADES_ALL_CACHE_KEY);
+      }
+    } catch {}
+  });
+  try {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('dbv_especialidades_cache_invalidated', { detail: { club } }));
+    }
+  } catch {}
+}
+
+export async function updateEspecialidade(
+  club: ClubType,
+  id: number | string,
+  updates: {
+    nome?: string;
+    Nome?: string;
+    area?: string;
+    Categoria?: string;
+    questoes?: string | string[];
+    Questoes?: string | string[];
+    codigo?: string;
+    ID?: string;
+    nivel?: string;
+    Nivel?: string;
+    ano?: string;
+    Ano?: string;
+    origem?: string;
+    Origem?: string;
+    logo?: string;
+    Imagem?: string;
+  }
+): Promise<{ data: any; error: any }> {
+  const table = club === ClubType.PATHFINDER ? 'EspecialidadesDBV' : 'EspecialidadesAVT';
+  const payload: Record<string, any> = {};
+
+  const resolvedNome = updates.Nome !== undefined ? updates.Nome : updates.nome;
+  if (resolvedNome !== undefined) payload.Nome = resolvedNome.trim();
+
+  const resolvedArea = updates.Categoria !== undefined ? updates.Categoria : updates.area;
+  if (resolvedArea !== undefined) payload.Categoria = resolvedArea.trim();
+
+  const resolvedCodigo = updates.ID !== undefined ? updates.ID : updates.codigo;
+  if (resolvedCodigo !== undefined) payload.ID = resolvedCodigo.trim();
+
+  const resolvedNivel = updates.Nivel !== undefined ? updates.Nivel : updates.nivel;
+  if (resolvedNivel !== undefined) payload.Nivel = resolvedNivel.trim();
+
+  const resolvedAno = updates.Ano !== undefined ? updates.Ano : updates.ano;
+  if (resolvedAno !== undefined) payload.Ano = resolvedAno.trim();
+
+  const resolvedOrigem = updates.Origem !== undefined ? updates.Origem : updates.origem;
+  if (resolvedOrigem !== undefined) payload.Origem = resolvedOrigem.trim();
+
+  const resolvedImagem = updates.Imagem !== undefined ? updates.Imagem : updates.logo;
+  if (resolvedImagem !== undefined) payload.Imagem = resolvedImagem.trim();
+
+  const rawQuestoes = updates.Questoes !== undefined ? updates.Questoes : updates.questoes;
+  if (rawQuestoes !== undefined) {
+    payload.Questoes = Array.isArray(rawQuestoes)
+      ? rawQuestoes.join('\n')
+      : rawQuestoes;
+  }
+
+  let savedData: any = null;
+  let savedError: any = null;
+
+  try {
+    const { data, error } = await supabase
+      .from(table)
+      .update(payload)
+      .eq('id', id)
+      .select()
+      .maybeSingle();
+
+    if (!error && data) {
+      savedData = data;
+    } else {
+      savedError = error;
+    }
+  } catch (err: any) {
+    savedError = err;
+  }
+
+  // Fallback via chamada direta à REST API do Supabase
+  if (savedError || !savedData) {
+    try {
+      const directUrl = `${DEFAULT_URL}/rest/v1/${table}?id=eq.${id}`;
+      const res = await fetch(directUrl, {
+        method: 'PATCH',
+        headers: {
+          'apikey': DEFAULT_KEY,
+          'authorization': `Bearer ${DEFAULT_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        const rows = await res.json();
+        if (Array.isArray(rows) && rows.length > 0) {
+          savedData = rows[0];
+          savedError = null;
+        }
+      }
+    } catch (e: any) {
+      if (!savedError) savedError = e;
+    }
+  }
+
+  // Ao salvar com sucesso, invalida cache em memória e localStorage para refletir no catálogo
+  if (!savedError) {
+    invalidateEspecialidadesCache(club);
+  }
+
+  return { data: savedData, error: savedError };
+}
+
 export async function fetchEspecialidades(
   club: ClubType,
   categoryFilter?: string,

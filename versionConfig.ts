@@ -6,14 +6,26 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.1.6';
-export const APP_BUILD_DATE = '24 de Outubro de 2026';
+export const APP_VERSION = '3.1.7';
+export const APP_BUILD_DATE = '25 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '3.1.7',
+    date: '25/10/2026',
+    tag: 'NOVO',
+    title: 'Editor Administrativo de Especialidades para Correção de Textos e Requisitos sem Abrir o PC',
+    changes: [
+      'Gestão e Edição Direta de Especialidades: Novo painel administrativo integrado para editar nomes, códigos, áreas, níveis e todos os requisitos de qualquer especialidade diretamente do celular ou tablet.',
+      'Correção Ágil de Erros de Digitação: Encontrou um erro de português, pontuação ou requisito desatualizado? Agora você pode corrigi-lo e salvar na hora no banco de dados com atualização instantânea.',
+      'Atalho Rápido nas Páginas de Especialidades: Usuários administradores agora contam com um botão direto "Editar no Admin" na página de detalhes da especialidade para abrir o editor com um único clique.',
+      'Invalidação Automática de Cache: Ao salvar qualquer alteração, o cache do aplicativo é atualizado imediatamente para que todos os membros vejam as correções em tempo real sem precisar reiniciar o app.'
+    ]
+  },
+  {
     version: '3.1.6',
     date: '24/10/2026',
-    tag: 'NOVO',
+    tag: 'ESTÁVEL',
     title: 'Memorização e Restauração Inteligente de Posição de Rolagem em Todo o Aplicativo',
     changes: [
       'Restauração Inteligente de Rolagem (Scroll Restoration): Ao navegar por listas extensas de qualquer área (como Especialidades, Classes, Manuais da Biblioteca, Vídeos, Formulários ou Acesso Rápido) e abrir os detalhes ou requisitos de um item, o aplicativo agora memoriza com precisão cirúrgica a posição exata onde você parou, restaurando-a automaticamente ao voltar.',

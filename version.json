@@ -1,11 +1,12 @@
 {
-  "version": 1761300000000,
-  "versionName": "3.1.6",
-  "buildDate": "2026-10-24T13:25:00.000Z",
-  "timestamp": 1761300000000,
+  "version": 1761386400000,
+  "versionName": "3.1.7",
+  "buildDate": "2026-10-25T12:00:00.000Z",
+  "timestamp": 1761386400000,
   "highlights": [
-    "Memorização Inteligente de Rolagem (Scroll Restoration): Ao entrar em qualquer tela longa, especialidade, classe ou documento e voltar, o aplicativo memoriza onde você parou e restaura a posição automaticamente.",
-    "Persistência em Listas Extensas de Especialidades: Navegue por dezenas de especialidades em qualquer área ou na busca sem perder sua posição ao voltar dos detalhes e requisitos.",
-    "Restauração Contínua em Todo o Aplicativo: Painel principal, biblioteca de manuais, formulários, vídeos e galeria agora mantêm a rolagem preservada entre idas e voltas."
+    "Editor Administrativo de Especialidades: Edição e correção rápida de textos, áreas, códigos e requisitos completos de qualquer especialidade diretamente pelo celular ou tablet.",
+    "Correção de Erros de Digitação na Hora: Não precisa abrir o computador para editar requisitos e dados das especialidades.",
+    "Atalho Direto para Administradores: Botão 'Editar no Admin' integrado na página de detalhes da especialidade.",
+    "Sincronização Imediata: As alterações no banco de dados Supabase invalidam o cache e refletem em tempo real no app."
   ]
 }
