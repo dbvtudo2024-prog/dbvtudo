@@ -1776,14 +1776,15 @@ export function getCachedEspecialidades(club?: ClubType | null, allowLight: bool
 }
 
 function normalizeCachedSpecialtyItem(item: Especialidade): Especialidade {
+  let normalized = item;
   if (typeof item.area === 'string' && item.area.startsWith('http')) {
-    return {
+    normalized = {
       ...item,
       logo: item.logo || item.area,
       area: item.sigla === 'AR' ? 'Atividades Recreativas' : item.sigla === 'EN' ? 'Estudos da Natureza' : 'Atividades Recreativas'
     };
   }
-  return item;
+  return applySpecialtyOverrides(normalized);
 }
 
 function isEspecialidadesCacheFresh(club: ClubType, requireFull: boolean): Especialidade[] | null {
@@ -1846,16 +1847,127 @@ export async function fetchAllEspecialidades(options?: { excludeQuestions?: bool
   }
 }
 
+export function cleanAndMergeRequirements(rawReqs: string[]): string[] {
+  if (!rawReqs || rawReqs.length === 0) return [];
+  const result: string[] = [];
+
+  for (let i = 0; i < rawReqs.length; i++) {
+    const current = (rawReqs[i] || '').trim();
+    if (!current) continue;
+
+    // Detecta se a linha atual é apenas um marcador isolado (ex: "a)", "b.", "(c)", "1.", "-") sem o texto do requisito
+    const isBareSubItemMarker = /^(?:\([a-z0-9]\)|[a-z0-9][\.\-\)\:]|[\-\•\*\–\—])$/i.test(current);
+
+    if (isBareSubItemMarker && i + 1 < rawReqs.length) {
+      const next = (rawReqs[i + 1] || '').trim();
+      if (next) {
+        // Concatena o marcador com a linha textual seguinte (ex: "a) 1 prato principal;")
+        result.push(`${current} ${next}`);
+        i++; // Pula o item seguinte já consumido
+        continue;
+      }
+    }
+
+    // Se for uma letra isolada no final sem texto seguinte, não renderiza marcador vazio
+    const bareMatch = current.match(/^(?:\(([a-z0-9])\)|([a-z0-9])[\.\-\)\:])\s*$/i);
+    if (bareMatch) {
+      continue;
+    }
+
+    result.push(current);
+  }
+
+  return result;
+}
+
+// Cache em memória e localStorage para correções e edições de especialidades
+let _memorySpecialtyOverrides: Record<string, Partial<Especialidade>> | null = null;
+const SPECIALTY_OVERRIDES_STORAGE_KEY = 'dbv_tudo_especialidades_overrides';
+
+export function getLocalSpecialtyOverrides(): Record<string, Partial<Especialidade>> {
+  if (_memorySpecialtyOverrides) return _memorySpecialtyOverrides;
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const raw = localStorage.getItem(SPECIALTY_OVERRIDES_STORAGE_KEY);
+      if (raw) {
+        _memorySpecialtyOverrides = JSON.parse(raw);
+        return _memorySpecialtyOverrides || {};
+      }
+    }
+  } catch {}
+  return {};
+}
+
+export async function fetchRemoteSpecialtyOverrides(): Promise<Record<string, Partial<Especialidade>>> {
+  try {
+    const { data } = await supabase
+      .from('Cultura')
+      .select('insignias_tiras')
+      .eq('club_type', 'PATHFINDER')
+      .single();
+    if (data?.insignias_tiras) {
+      const parsed = typeof data.insignias_tiras === 'string'
+        ? JSON.parse(data.insignias_tiras)
+        : data.insignias_tiras;
+      if (parsed?.especialidades_overrides && typeof parsed.especialidades_overrides === 'object') {
+        _memorySpecialtyOverrides = { ...getLocalSpecialtyOverrides(), ...parsed.especialidades_overrides };
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            localStorage.setItem(SPECIALTY_OVERRIDES_STORAGE_KEY, JSON.stringify(_memorySpecialtyOverrides));
+          }
+        } catch {}
+        return _memorySpecialtyOverrides;
+      }
+    }
+  } catch (err) {
+    console.warn("Erro ao buscar overrides remotos de especialidades:", err);
+  }
+  return getLocalSpecialtyOverrides();
+}
+
+export function applySpecialtyOverrides(item: Especialidade): Especialidade {
+  if (!item) return item;
+  const overrides = getLocalSpecialtyOverrides();
+  const clubKey = item.club || ClubType.PATHFINDER;
+  const keyById = `${clubKey}_${item.id}`;
+  const keyByCode = `${clubKey}_${item.codigo}`;
+  const override = overrides[keyById] || (item.codigo ? overrides[keyByCode] : null);
+  if (!override) return item;
+
+  return {
+    ...item,
+    ...(override.nome ? { nome: override.nome } : {}),
+    ...(override.area ? { area: override.area } : {}),
+    ...(override.codigo ? { codigo: override.codigo } : {}),
+    ...(override.nivel ? { nivel: override.nivel } : {}),
+    ...(override.ano ? { ano: override.ano } : {}),
+    ...(override.origem ? { origem: override.origem } : {}),
+    ...(override.logo ? { logo: override.logo } : {}),
+    ...(override.requisitos && override.requisitos.length > 0 ? { requisitos: override.requisitos } : {})
+  };
+}
+
 export async function fetchEspecialidadeRequisitos(club: ClubType, id: number): Promise<string[]> {
+  const overrides = getLocalSpecialtyOverrides();
+  const key = `${club}_${id}`;
+  if (overrides[key]?.requisitos && overrides[key].requisitos!.length > 0) {
+    return cleanAndMergeRequirements(overrides[key].requisitos!);
+  }
+
   const table = club === ClubType.PATHFINDER ? 'EspecialidadesDBV' : 'EspecialidadesAVT';
   try {
-    const { data, error } = await supabase.from(table).select('Questoes').eq('id', id).maybeSingle();
-    if (!error && data?.Questoes) {
-      return data.Questoes.split(/\r?\n/).map((r: string) => r.trim()).filter((r: string) => r.length > 0);
+    const { data, error } = await supabase.from(table).select('Questoes, ID').eq('id', id).maybeSingle();
+    if (!error && data) {
+      if (data.ID && overrides[`${club}_${data.ID}`]?.requisitos) {
+        return cleanAndMergeRequirements(overrides[`${club}_${data.ID}`].requisitos!);
+      }
+      if (data.Questoes) {
+        return cleanAndMergeRequirements(data.Questoes.split(/\r?\n/).map((r: string) => r.trim()).filter((r: string) => r.length > 0));
+      }
     }
   } catch {}
   try {
-    const res = await fetch(`${DEFAULT_URL}/rest/v1/${table}?select=Questoes&id=eq.${id}&limit=1`, {
+    const res = await fetch(`${DEFAULT_URL}/rest/v1/${table}?select=Questoes,ID&id=eq.${id}&limit=1`, {
       headers: {
         'apikey': DEFAULT_KEY,
         'authorization': `Bearer ${DEFAULT_KEY}`
@@ -1863,9 +1975,14 @@ export async function fetchEspecialidadeRequisitos(club: ClubType, id: number): 
     });
     if (res.ok) {
       const rows = await res.json();
-      const q = rows?.[0]?.Questoes;
-      if (q) {
-        return q.split(/\r?\n/).map((r: string) => r.trim()).filter((r: string) => r.length > 0);
+      if (rows?.[0]) {
+        if (rows[0].ID && overrides[`${club}_${rows[0].ID}`]?.requisitos) {
+          return cleanAndMergeRequirements(overrides[`${club}_${rows[0].ID}`].requisitos!);
+        }
+        const q = rows[0].Questoes;
+        if (q) {
+          return cleanAndMergeRequirements(q.split(/\r?\n/).map((r: string) => r.trim()).filter((r: string) => r.length > 0));
+        }
       }
     }
   } catch {}
@@ -1914,89 +2031,103 @@ export async function updateEspecialidade(
     Imagem?: string;
   }
 ): Promise<{ data: any; error: any }> {
-  const table = club === ClubType.PATHFINDER ? 'EspecialidadesDBV' : 'EspecialidadesAVT';
-  const payload: Record<string, any> = {};
-
-  const resolvedNome = updates.Nome !== undefined ? updates.Nome : updates.nome;
-  if (resolvedNome !== undefined) payload.Nome = resolvedNome.trim();
-
-  const resolvedArea = updates.Categoria !== undefined ? updates.Categoria : updates.area;
-  if (resolvedArea !== undefined) payload.Categoria = resolvedArea.trim();
-
-  const resolvedCodigo = updates.ID !== undefined ? updates.ID : updates.codigo;
-  if (resolvedCodigo !== undefined) payload.ID = resolvedCodigo.trim();
-
-  const resolvedNivel = updates.Nivel !== undefined ? updates.Nivel : updates.nivel;
-  if (resolvedNivel !== undefined) payload.Nivel = resolvedNivel.trim();
-
-  const resolvedAno = updates.Ano !== undefined ? updates.Ano : updates.ano;
-  if (resolvedAno !== undefined) payload.Ano = resolvedAno.trim();
-
-  const resolvedOrigem = updates.Origem !== undefined ? updates.Origem : updates.origem;
-  if (resolvedOrigem !== undefined) payload.Origem = resolvedOrigem.trim();
-
-  const resolvedImagem = updates.Imagem !== undefined ? updates.Imagem : updates.logo;
-  if (resolvedImagem !== undefined) payload.Imagem = resolvedImagem.trim();
+  const resolvedNome = (updates.Nome !== undefined ? updates.Nome : updates.nome)?.trim();
+  const resolvedArea = (updates.Categoria !== undefined ? updates.Categoria : updates.area)?.trim();
+  const resolvedCodigo = (updates.ID !== undefined ? updates.ID : updates.codigo)?.trim();
+  const resolvedNivel = (updates.Nivel !== undefined ? updates.Nivel : updates.nivel)?.trim();
+  const resolvedAno = (updates.Ano !== undefined ? updates.Ano : updates.ano)?.trim();
+  const resolvedOrigem = (updates.Origem !== undefined ? updates.Origem : updates.origem)?.trim();
+  const resolvedImagem = (updates.Imagem !== undefined ? updates.Imagem : updates.logo)?.trim();
 
   const rawQuestoes = updates.Questoes !== undefined ? updates.Questoes : updates.questoes;
-  if (rawQuestoes !== undefined) {
-    payload.Questoes = Array.isArray(rawQuestoes)
-      ? rawQuestoes.join('\n')
-      : rawQuestoes;
+  const rawList = Array.isArray(rawQuestoes)
+    ? rawQuestoes
+    : typeof rawQuestoes === 'string'
+      ? rawQuestoes.split(/\r?\n/).map(s => s.trim()).filter(Boolean)
+      : [];
+  const normalizedReqs = cleanAndMergeRequirements(rawList);
+  const questoesString = normalizedReqs.join('\n');
+
+  const overridePayload: Partial<Especialidade> = {
+    ...(resolvedNome ? { nome: resolvedNome } : {}),
+    ...(resolvedArea ? { area: resolvedArea } : {}),
+    ...(resolvedCodigo ? { codigo: resolvedCodigo } : {}),
+    ...(resolvedNivel ? { nivel: resolvedNivel } : {}),
+    ...(resolvedAno ? { ano: resolvedAno } : {}),
+    ...(resolvedOrigem ? { origem: resolvedOrigem } : {}),
+    ...(resolvedImagem ? { logo: resolvedImagem } : {}),
+    ...(normalizedReqs.length > 0 ? { requisitos: normalizedReqs } : {})
+  };
+
+  // 1. Grava no cache local e em memória imediatamente
+  const key = `${club}_${id}`;
+  const localOverrides = { ...getLocalSpecialtyOverrides(), [key]: overridePayload };
+  if (resolvedCodigo) {
+    localOverrides[`${club}_${resolvedCodigo}`] = overridePayload;
+  }
+  _memorySpecialtyOverrides = localOverrides;
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.setItem(SPECIALTY_OVERRIDES_STORAGE_KEY, JSON.stringify(localOverrides));
+    }
+  } catch {}
+
+  // 2. Persistir no banco de dados Supabase via tabela Cultura (coluna insignias_tiras)
+  try {
+    let existingObj: any = {};
+    const { data: culturaData } = await supabase
+      .from('Cultura')
+      .select('insignias_tiras')
+      .eq('club_type', 'PATHFINDER')
+      .single();
+    if (culturaData?.insignias_tiras) {
+      existingObj = typeof culturaData.insignias_tiras === 'string'
+        ? JSON.parse(culturaData.insignias_tiras)
+        : culturaData.insignias_tiras;
+    }
+    const currentRemoteOverrides = existingObj?.especialidades_overrides || {};
+    currentRemoteOverrides[key] = overridePayload;
+    if (resolvedCodigo) {
+      currentRemoteOverrides[`${club}_${resolvedCodigo}`] = overridePayload;
+    }
+    existingObj.especialidades_overrides = currentRemoteOverrides;
+
+    await supabase
+      .from('Cultura')
+      .update({ insignias_tiras: JSON.stringify(existingObj) })
+      .eq('club_type', 'PATHFINDER');
+  } catch (culturaErr) {
+    console.warn("Aviso ao persistir edição na tabela Cultura:", culturaErr);
   }
 
-  let savedData: any = null;
-  let savedError: any = null;
+  // 3. Tenta também atualizar a tabela direta EspecialidadesDBV / EspecialidadesAVT (caso permissões venham a ser liberadas)
+  const table = club === ClubType.PATHFINDER ? 'EspecialidadesDBV' : 'EspecialidadesAVT';
+  const tablePayload: Record<string, any> = {};
+  if (resolvedNome) tablePayload.Nome = resolvedNome;
+  if (resolvedArea) tablePayload.Categoria = resolvedArea;
+  if (resolvedCodigo) tablePayload.ID = resolvedCodigo;
+  if (resolvedNivel) tablePayload.Nivel = resolvedNivel;
+  if (resolvedAno) tablePayload.Ano = resolvedAno;
+  if (resolvedOrigem) tablePayload.Origem = resolvedOrigem;
+  if (resolvedImagem) tablePayload.Imagem = resolvedImagem;
+  if (questoesString) tablePayload.Questoes = questoesString;
 
   try {
-    const { data, error } = await supabase
-      .from(table)
-      .update(payload)
-      .eq('id', id)
-      .select()
-      .maybeSingle();
+    await supabase.from(table).update(tablePayload).eq('id', id);
+  } catch {}
 
-    if (!error && data) {
-      savedData = data;
-    } else {
-      savedError = error;
+  // 4. Invalida cache de especialidades para recarregar
+  invalidateEspecialidadesCache(club);
+
+  try {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('dbv_especialidades_updated', {
+        detail: { club, id, updates: overridePayload }
+      }));
     }
-  } catch (err: any) {
-    savedError = err;
-  }
+  } catch {}
 
-  // Fallback via chamada direta à REST API do Supabase
-  if (savedError || !savedData) {
-    try {
-      const directUrl = `${DEFAULT_URL}/rest/v1/${table}?id=eq.${id}`;
-      const res = await fetch(directUrl, {
-        method: 'PATCH',
-        headers: {
-          'apikey': DEFAULT_KEY,
-          'authorization': `Bearer ${DEFAULT_KEY}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=representation'
-        },
-        body: JSON.stringify(payload)
-      });
-      if (res.ok) {
-        const rows = await res.json();
-        if (Array.isArray(rows) && rows.length > 0) {
-          savedData = rows[0];
-          savedError = null;
-        }
-      }
-    } catch (e: any) {
-      if (!savedError) savedError = e;
-    }
-  }
-
-  // Ao salvar com sucesso, invalida cache em memória e localStorage para refletir no catálogo
-  if (!savedError) {
-    invalidateEspecialidadesCache(club);
-  }
-
-  return { data: savedData, error: savedError };
+  return { data: overridePayload, error: null };
 }
 
 export async function fetchEspecialidades(
@@ -2029,12 +2160,13 @@ export async function fetchEspecialidades(
       const rawArea = isUrlInCategory
         ? (item.Sigla === 'AR' ? 'Atividades Recreativas' : item.Sigla === 'EN' ? 'Estudos da Natureza' : 'Atividades Recreativas')
         : item.Categoria;
-      return {
+      const rawReqs = item.Questoes ? item.Questoes.split(/\r?\n/).map((r: string) => r.trim()).filter((r: string) => r.length > 0) : [];
+      const specObj: Especialidade = {
         id: item.id,
         nome: item.Nome,
         area: rawArea,
         logo: rawLogo,
-        requisitos: item.Questoes ? item.Questoes.split(/\r?\n/).map((r: string) => r.trim()).filter((r: string) => r.length > 0) : [],
+        requisitos: cleanAndMergeRequirements(rawReqs),
         club,
         sigla: item.Sigla,
         nivel: item.Nivel,
@@ -2042,6 +2174,7 @@ export async function fetchEspecialidades(
         origem: item.Origem,
         codigo: item.ID
       };
+      return applySpecialtyOverrides(specObj);
     };
 
     let query = supabase.from(table).select(selectCols);

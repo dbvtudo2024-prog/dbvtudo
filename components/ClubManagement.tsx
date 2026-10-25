@@ -21,7 +21,8 @@ import {
   fetchTrunfos, updateTrunfo, deleteTrunfo,
   fetchFaixaConfig, updateFaixaConfig, uploadFaixaImage, FaixaConfig, DEFAULT_FAIXA_CONFIG,
   getOfficialRudUniforms, getOfficialRudEmblems, uploadCultureAsset, RUD_CREDITS,
-  updateEspecialidade, invalidateEspecialidadesCache
+  updateEspecialidade, invalidateEspecialidadesCache,
+  cleanAndMergeRequirements, fetchRemoteSpecialtyOverrides, applySpecialtyOverrides
 } from '../services/supabaseService';
 import { PROFILE_KEY } from '../constants';
 import {
@@ -2514,6 +2515,44 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   const [showSpecialtyPreview, setShowSpecialtyPreview] = useState(false);
   const [isLoadingSpecialtyRequirements, setIsLoadingSpecialtyRequirements] = useState(false);
 
+  // Sincroniza e ouve atualizações de especialidades vindas do editor admin
+  useEffect(() => {
+    fetchRemoteSpecialtyOverrides().catch(() => {});
+
+    const handleUpdated = (e: any) => {
+      const detail = e?.detail;
+      if (!detail) return;
+      const { id, updates } = detail;
+      const numId = Number(id);
+
+      const updateItem = (item: Especialidade): Especialidade => {
+        if (item.id === numId || (updates.codigo && item.codigo === updates.codigo)) {
+          return {
+            ...item,
+            ...(updates.nome ? { nome: updates.nome } : {}),
+            ...(updates.area ? { area: updates.area } : {}),
+            ...(updates.codigo ? { codigo: updates.codigo } : {}),
+            ...(updates.nivel ? { nivel: updates.nivel } : {}),
+            ...(updates.ano ? { ano: updates.ano } : {}),
+            ...(updates.origem ? { origem: updates.origem } : {}),
+            ...(updates.logo ? { logo: updates.logo } : {}),
+            ...(updates.requisitos && updates.requisitos.length > 0 ? { requisitos: updates.requisitos } : {})
+          };
+        }
+        return item;
+      };
+
+      setAllSpecialtiesList(prev => prev.map(updateItem));
+      setSpecialties(prev => prev.map(updateItem));
+      setSelectedSpecialty(prev => prev ? updateItem(prev) : null);
+    };
+
+    window.addEventListener('dbv_especialidades_updated', handleUpdated);
+    return () => {
+      window.removeEventListener('dbv_especialidades_updated', handleUpdated);
+    };
+  }, []);
+
   useEffect(() => {
     if (activeSubView === 'SPECIALTY_ADMIN') {
       let isCancelled = false;
@@ -2539,15 +2578,17 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   }, [activeSubView, specialtyAdminClub]);
 
   const handleSelectSpecialtyForEdit = async (esp: Especialidade) => {
-    setSelectedSpecialtyForEdit(esp);
+    const applied = applySpecialtyOverrides(esp);
+    setSelectedSpecialtyForEdit(applied);
     setSpecialtySaveFeedback(null);
     setShowSpecialtyPreview(false);
 
-    let reqs = esp.requisitos || [];
+    let reqs = cleanAndMergeRequirements(applied.requisitos || []);
     if (reqs.length === 0) {
       setIsLoadingSpecialtyRequirements(true);
       try {
-        reqs = await fetchEspecialidadeRequisitos(specialtyAdminClub, esp.id);
+        const fetched = await fetchEspecialidadeRequisitos(specialtyAdminClub, applied.id);
+        reqs = cleanAndMergeRequirements(fetched);
       } catch (err) {
         console.warn("Erro ao buscar requisitos:", err);
       } finally {
@@ -2556,12 +2597,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     }
 
     setSpecialtyAdminForm({
-      nome: esp.nome || '',
-      area: esp.area || '',
-      codigo: esp.codigo || '',
-      nivel: esp.nivel || '',
-      ano: esp.ano || '',
-      origem: esp.origem || '',
+      nome: applied.nome || '',
+      area: applied.area || '',
+      codigo: applied.codigo || '',
+      nivel: applied.nivel || '',
+      ano: applied.ano || '',
+      origem: applied.origem || '',
       questoesText: reqs.join('\n')
     });
   };
@@ -2576,10 +2617,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     setIsSavingSpecialty(true);
     setSpecialtySaveFeedback(null);
 
-    const questionsArray = specialtyAdminForm.questoesText
+    const rawQuestionsArray = specialtyAdminForm.questoesText
       .split(/\r?\n/)
       .map(q => q.trim())
       .filter(q => q.length > 0);
+    const questionsArray = cleanAndMergeRequirements(rawQuestionsArray);
 
     const updates = {
       Nome: specialtyAdminForm.nome.trim(),
@@ -2617,15 +2659,11 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       };
 
       setSelectedSpecialtyForEdit(updatedSpecialty);
-
-      if (club === specialtyAdminClub) {
-        setAllSpecialtiesList(prev => prev.map(s => s.id === updatedSpecialty.id ? updatedSpecialty : s));
-        setSpecialties(prev => prev.map(s => s.id === updatedSpecialty.id ? updatedSpecialty : s));
-        if (selectedSpecialty?.id === updatedSpecialty.id) {
-          setSelectedSpecialty(updatedSpecialty);
-        }
+      setAllSpecialtiesList(prev => prev.map(s => s.id === updatedSpecialty.id ? updatedSpecialty : s));
+      setSpecialties(prev => prev.map(s => s.id === updatedSpecialty.id ? updatedSpecialty : s));
+      if (selectedSpecialty?.id === updatedSpecialty.id) {
+        setSelectedSpecialty(updatedSpecialty);
       }
-
       setSpecialtyAdminList(prev => prev.map(s => s.id === updatedSpecialty.id ? updatedSpecialty : s));
     }
   };
@@ -5471,173 +5509,184 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                   </span>
                 )}
                 <span className="text-[9.5px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-900/50">
-                  {selectedSpecialty.requisitos?.length || 0} Itens do Banco de Dados
+                  {cleanAndMergeRequirements(selectedSpecialty.requisitos || []).length} Itens do Banco de Dados
                 </span>
               </div>
             </div>
             
             <div className="space-y-3">
-              {selectedSpecialty.requisitos.length > 0 ? (
-                selectedSpecialty.requisitos.map((req, idx) => {
-                  const trimmedReq = req.trim();
-                  const matched = isMastery ? findMatchingSpecialty(trimmedReq, allSpecialtiesList) : null;
-                  
-                  // Se encontrou a especialidade correspondente, renderiza o card com miniatura
-                  if (matched) {
-                    const isMatchedCompleted = completedSpecialties.includes(matched.id.toString());
-                    return (
-                      <div 
-                        key={idx}
-                        onClick={() => {
-                          if (selectedSpecialty) {
-                            setSpecialtyNavStack(prev => [...prev, selectedSpecialty]);
-                          }
-                          lastViewedSpecialtyIdRef.current = matched.id;
-                          setSelectedSpecialty(matched);
-                          if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
-                        }}
-                        className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-[24px] p-3.5 sm:p-4 shadow-sm flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all group"
-                      >
-                        <div className="flex items-center space-x-3.5 sm:space-x-4 flex-1 min-w-0">
-                          {/* Miniatura da Especialidade */}
-                          <div className="w-14 h-14 sm:w-16 sm:h-16 bg-slate-50 dark:bg-slate-900/80 rounded-2xl border border-slate-100 dark:border-slate-700/60 flex items-center justify-center p-2 flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform overflow-hidden">
-                            {matched.logo ? (
-                              <img 
-                                src={getImageUrl(matched.logo)} 
-                                alt={matched.nome} 
-                                className="w-full h-full object-contain filter drop-shadow-sm" 
-                                referrerPolicy="no-referrer"
-                                loading="lazy"
-                              />
-                            ) : (
-                              <Award size={24} className="text-amber-500" />
+              {(() => {
+                const displayRequirements = cleanAndMergeRequirements(selectedSpecialty.requisitos || []);
+                if (displayRequirements.length > 0) {
+                  return displayRequirements.map((req, idx) => {
+                    const trimmedReq = req.trim();
+                    const matched = isMastery ? findMatchingSpecialty(trimmedReq, allSpecialtiesList) : null;
+                    
+                    // Se encontrou a especialidade correspondente, renderiza o card com miniatura
+                    if (matched) {
+                      const isMatchedCompleted = completedSpecialties.includes(matched.id.toString());
+                      return (
+                        <div 
+                          key={idx}
+                          onClick={() => {
+                            if (selectedSpecialty) {
+                              setSpecialtyNavStack(prev => [...prev, selectedSpecialty]);
+                            }
+                            lastViewedSpecialtyIdRef.current = matched.id;
+                            setSelectedSpecialty(matched);
+                            if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
+                          }}
+                          className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-[24px] p-3.5 sm:p-4 shadow-sm flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all group"
+                        >
+                          <div className="flex items-center space-x-3.5 sm:space-x-4 flex-1 min-w-0">
+                            {/* Miniatura da Especialidade */}
+                            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-slate-50 dark:bg-slate-900/80 rounded-2xl border border-slate-100 dark:border-slate-700/60 flex items-center justify-center p-2 flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform overflow-hidden">
+                              {matched.logo ? (
+                                <img 
+                                  src={getImageUrl(matched.logo)} 
+                                  alt={matched.nome} 
+                                  className="w-full h-full object-contain filter drop-shadow-sm" 
+                                  referrerPolicy="no-referrer"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <Award size={24} className="text-amber-500" />
+                              )}
+                            </div>
+
+                            {/* Informações da Especialidade */}
+                            <div className="flex-1 min-w-0 pr-2">
+                              <h5 className="font-black text-slate-800 dark:text-white text-xs sm:text-[13px] uppercase tracking-tight leading-snug group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-2">
+                                {matched.nome}
+                              </h5>
+                              <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                {matched.area && (
+                                  <span className="text-[9px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
+                                    {matched.area}
+                                  </span>
+                                )}
+                                {matched.codigo && (
+                                  <span className="text-[9px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded-md">
+                                    {matched.codigo}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Indicadores e Ação */}
+                          <div className="flex items-center space-x-2 flex-shrink-0">
+                            {isMatchedCompleted && (
+                              <div className="p-1.5 bg-red-50 dark:bg-red-950/40 rounded-xl text-red-500" title="Especialidade guardada">
+                                <Heart size={14} fill="currentColor" />
+                              </div>
                             )}
-                          </div>
-
-                          {/* Informações da Especialidade */}
-                          <div className="flex-1 min-w-0 pr-2">
-                            <h5 className="font-black text-slate-800 dark:text-white text-xs sm:text-[13px] uppercase tracking-tight leading-snug group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-2">
-                              {matched.nome}
-                            </h5>
-                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                              {matched.area && (
-                                <span className="text-[9px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
-                                  {matched.area}
-                                </span>
-                              )}
-                              {matched.codigo && (
-                                <span className="text-[9px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded-md">
-                                  {matched.codigo}
-                                </span>
-                              )}
+                            <div className="w-8 h-8 rounded-xl bg-slate-50 dark:bg-slate-700/50 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-950/60 transition-colors">
+                              <ChevronRight size={16} />
                             </div>
                           </div>
                         </div>
+                      );
+                    }
 
-                        {/* Indicadores e Ação */}
-                        <div className="flex items-center space-x-2 flex-shrink-0">
-                          {isMatchedCompleted && (
-                            <div className="p-1.5 bg-red-50 dark:bg-red-950/40 rounded-xl text-red-500" title="Especialidade guardada">
-                              <Heart size={14} fill="currentColor" />
-                            </div>
-                          )}
-                          <div className="w-8 h-8 rounded-xl bg-slate-50 dark:bg-slate-700/50 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-950/60 transition-colors">
-                            <ChevronRight size={16} />
+                    // Se for uma nota/aviso geral oficial da especialidade
+                    const isGeneralNote = /^(?:nota|obs|observa[çc][aã]o|aten[çc][aã]o|importante|aviso|pr[eé]-requisito|instru[çc][aã]o|recomend[aã]o|dica)(?:\s*do\s*instrutor)?\s*[\:\-]/i.test(trimmedReq);
+                    if (isGeneralNote) {
+                      return (
+                        <div key={idx} className="bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-900/50 rounded-[22px] p-4 shadow-sm flex items-start space-x-3.5">
+                          <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-amber-500/20 mt-0.5">
+                            <Info size={16} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[10px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-wider block mb-0.5">
+                              Orientação Oficial da Especialidade
+                            </span>
+                            <p className="text-xs sm:text-sm font-bold text-amber-950 dark:text-amber-200 leading-snug">
+                              {trimmedReq}
+                            </p>
                           </div>
                         </div>
-                      </div>
+                      );
+                    }
+
+                    // Se for uma instrução/cabeçalho de mestrado
+                    const isInstruction = isMastery && (
+                      trimmedReq.toLowerCase().startsWith('ter ') || 
+                      trimmedReq.toLowerCase().startsWith('1 ter ') ||
+                      trimmedReq.toLowerCase().startsWith('completar ') ||
+                      trimmedReq.toLowerCase().includes('seguintes especialidades')
                     );
-                  }
 
-                  // Se for uma nota/aviso geral oficial da especialidade
-                  const isGeneralNote = /^(?:nota|obs|observa[çc][aã]o|aten[çc][aã]o|importante|aviso|pr[eé]-requisito|instru[çc][aã]o|recomend[aã]o|dica)(?:\s*do\s*instrutor)?\s*[\:\-]/i.test(trimmedReq);
-                  if (isGeneralNote) {
-                    return (
-                      <div key={idx} className="bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-900/50 rounded-[22px] p-4 shadow-sm flex items-start space-x-3.5">
-                        <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-amber-500/20 mt-0.5">
-                          <Info size={16} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <span className="text-[10px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-wider block mb-0.5">
-                            Orientação Oficial da Especialidade
-                          </span>
-                          <p className="text-xs sm:text-sm font-bold text-amber-950 dark:text-amber-200 leading-snug">
+                    if (isInstruction) {
+                      return (
+                        <div key={idx} className="bg-gradient-to-r from-indigo-50/80 to-blue-50/50 dark:from-indigo-950/40 dark:to-slate-800/40 border border-indigo-100/80 dark:border-indigo-900/40 rounded-[22px] p-4 shadow-sm flex items-center space-x-3">
+                          <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-indigo-500/20">
+                            <Info size={16} />
+                          </div>
+                          <p className="text-xs sm:text-sm font-black text-indigo-950 dark:text-indigo-200 uppercase tracking-tight leading-snug">
                             {trimmedReq}
                           </p>
                         </div>
-                      </div>
-                    );
-                  }
+                      );
+                    }
 
-                  // Se for uma instrução/cabeçalho de mestrado
-                  const isInstruction = isMastery && (
-                    trimmedReq.toLowerCase().startsWith('ter ') || 
-                    trimmedReq.toLowerCase().startsWith('1 ter ') ||
-                    trimmedReq.toLowerCase().startsWith('completar ') ||
-                    trimmedReq.toLowerCase().includes('seguintes especialidades')
-                  );
+                    // Se for um sub-item marcado por letras, numeração romana ou traço
+                    if (isRequirementSubItem(trimmedReq)) {
+                      const letterMatch = trimmedReq.match(/^(?:\(([a-z0-9])\)|([a-z0-9])[\.\-\)\:])\s*(.*)/i);
+                      const letter = letterMatch ? (letterMatch[1] || letterMatch[2]).toUpperCase() : '•';
+                      const subText = letterMatch ? letterMatch[3]?.trim() : trimmedReq.replace(/^[\-\•\*\–\—]\s*/, '').trim();
 
-                  if (isInstruction) {
-                    return (
-                      <div key={idx} className="bg-gradient-to-r from-indigo-50/80 to-blue-50/50 dark:from-indigo-950/40 dark:to-slate-800/40 border border-indigo-100/80 dark:border-indigo-900/40 rounded-[22px] p-4 shadow-sm flex items-center space-x-3">
-                        <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-indigo-500/20">
-                          <Info size={16} />
+                      if (!subText) {
+                        return null;
+                      }
+
+                      return (
+                        <div key={idx} className="ml-3 sm:ml-7 pl-3 sm:pl-4 border-l-2 border-indigo-200 dark:border-indigo-800/80 bg-slate-50/70 dark:bg-slate-800/40 rounded-2xl p-3.5 flex items-start space-x-3 transition-all hover:bg-slate-100/60 dark:hover:bg-slate-800/60 shadow-xs">
+                          <div className="w-5 h-5 rounded-md bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-black text-[10px] flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                            {letter}
+                          </div>
+                          <p className="text-[13px] font-medium text-slate-700 dark:text-slate-200 leading-snug">
+                            {subText}
+                          </p>
                         </div>
-                        <p className="text-xs sm:text-sm font-black text-indigo-950 dark:text-indigo-200 uppercase tracking-tight leading-snug">
+                      );
+                    }
+
+                    // Requisito padrão
+                    return (
+                      <div key={idx} className="specialty-requirement-card bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-5 shadow-sm flex items-start space-x-4">
+                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2.5 flex-shrink-0"></div>
+                        <p className="text-[14px] font-bold text-slate-700 dark:text-slate-200 leading-snug">
                           {trimmedReq}
                         </p>
                       </div>
                     );
-                  }
-
-                  // Se for um sub-item marcado por letras, numeração romana ou traço
-                  if (isRequirementSubItem(trimmedReq)) {
-                    const letterMatch = trimmedReq.match(/^(?:\(([a-z0-9])\)|([a-z0-9])[\.\-\)\:])\s*(.*)/i);
-                    const letter = letterMatch ? (letterMatch[1] || letterMatch[2]).toUpperCase() : '•';
-                    const subText = letterMatch ? letterMatch[3] : trimmedReq.replace(/^[\-\•\*\–\—]\s*/, '');
-
-                    return (
-                      <div key={idx} className="ml-3 sm:ml-7 pl-3 sm:pl-4 border-l-2 border-indigo-200 dark:border-indigo-800/80 bg-slate-50/70 dark:bg-slate-800/40 rounded-2xl p-3.5 flex items-start space-x-3 transition-all hover:bg-slate-100/60 dark:hover:bg-slate-800/60 shadow-xs">
-                        <div className="w-5 h-5 rounded-md bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-black text-[10px] flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
-                          {letter}
-                        </div>
-                        <p className="text-[13px] font-medium text-slate-700 dark:text-slate-200 leading-snug">
-                          {subText}
-                        </p>
-                      </div>
-                    );
-                  }
-
-                  // Requisito padrão
+                  });
+                }
+                if (isLoadingRequirements) {
                   return (
-                    <div key={idx} className="specialty-requirement-card bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-5 shadow-sm flex items-start space-x-4">
-                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2.5 flex-shrink-0"></div>
-                      <p className="text-[14px] font-bold text-slate-700 dark:text-slate-200 leading-snug">
-                        {trimmedReq}
+                    <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-8 text-center space-y-3 shadow-xs">
+                      <div className="w-7 h-7 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                      <p className="text-slate-600 dark:text-slate-300 font-bold text-xs uppercase tracking-wider">
+                        Sincronizando itens oficiais do banco de dados...
                       </p>
                     </div>
                   );
-                })
-              ) : isLoadingRequirements ? (
-                <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-8 text-center space-y-3 shadow-xs">
-                  <div className="w-7 h-7 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                  <p className="text-slate-600 dark:text-slate-300 font-bold text-xs uppercase tracking-wider">
-                    Sincronizando itens oficiais do banco de dados...
-                  </p>
-                </div>
-              ) : (
-                <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-8 text-center space-y-3 shadow-xs">
-                  <p className="text-slate-500 dark:text-slate-400 font-bold text-sm">Nenhum requisito carregado no momento.</p>
-                  <button
-                    type="button"
-                    onClick={() => reloadSpecialtyRequirements(selectedSpecialty)}
-                    className="px-4 py-2 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-black uppercase tracking-wider border border-indigo-200 dark:border-indigo-800 transition-colors inline-flex items-center gap-1.5 active:scale-95"
-                  >
-                    <RefreshCw size={13} />
-                    <span>Recarregar Itens do Banco</span>
-                  </button>
-                </div>
-              )}
+                }
+                return (
+                  <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-8 text-center space-y-3 shadow-xs">
+                    <p className="text-slate-500 dark:text-slate-400 font-bold text-sm">Nenhum requisito carregado no momento.</p>
+                    <button
+                      type="button"
+                      onClick={() => reloadSpecialtyRequirements(selectedSpecialty)}
+                      className="px-4 py-2 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-black uppercase tracking-wider border border-indigo-200 dark:border-indigo-800 transition-colors inline-flex items-center gap-1.5 active:scale-95"
+                    >
+                      <RefreshCw size={13} />
+                      <span>Recarregar Itens do Banco</span>
+                    </button>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Caso seja um Mestrado de área ampla com lista de especialidades válidas */}

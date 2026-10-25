@@ -228,6 +228,8 @@ export function isRequirementSubItem(req: string): boolean {
   return /^[a-z]\)/i.test(trimmed) || /^[a-z]\./i.test(trimmed) || /^[-•*]/.test(trimmed) || /^\d+\.\d+/.test(trimmed);
 }
 
+import { cleanAndMergeRequirements } from './supabaseService';
+
 export function parseAndNormalizeRequirements(requisitos: string[]): {
   items: ParsedRequirement[];
 } {
@@ -235,7 +237,7 @@ export function parseAndNormalizeRequirements(requisitos: string[]): {
   let currentItem: ParsedRequirement | null = null;
   let counter = 1;
 
-  for (const rawReq of requisitos || []) {
+  for (const rawReq of cleanAndMergeRequirements(requisitos || [])) {
     const trimmed = rawReq.trim();
     if (!trimmed) continue;
 
