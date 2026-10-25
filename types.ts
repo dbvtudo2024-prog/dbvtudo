@@ -36,6 +36,19 @@ export interface Especialidade {
   codigo?: string;
 }
 
+export interface CompletedSpecialty {
+  specialtyId: number | string;
+  name: string;
+  code?: string;
+  area: string;
+  logo?: string;
+  completionDate: string; // Formato YYYY-MM-DD ou DD/MM/AAAA
+  purchased: boolean; // true = Já comprei, false = Preciso comprar
+  notes?: string;
+  instructor?: string;
+  addedAt?: number;
+}
+
 export interface LiveExamQuestion {
   id: string;
   question: string;

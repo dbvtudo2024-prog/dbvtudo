@@ -1,12 +1,12 @@
 {
   "version": 1761386400000,
-  "versionName": "3.1.7",
-  "buildDate": "2026-10-25T12:00:00.000Z",
+  "versionName": "3.1.8",
+  "buildDate": "2026-10-25T14:00:00.000Z",
   "timestamp": 1761386400000,
   "highlights": [
-    "Editor Administrativo de Especialidades: Edição e correção rápida de textos, áreas, códigos e requisitos completos de qualquer especialidade diretamente pelo celular ou tablet.",
-    "Correção de Erros de Digitação na Hora: Não precisa abrir o computador para editar requisitos e dados das especialidades.",
-    "Atalho Direto para Administradores: Botão 'Editar no Admin' integrado na página de detalhes da especialidade.",
-    "Sincronização Imediata: As alterações no banco de dados Supabase invalidam o cache e refletem em tempo real no app."
+    "Minhas Especialidades Concluídas no Perfil: Registro oficial de data de conclusão, instrutor e controle de insígnias.",
+    "Controle de Compra de Insígnias: Separe em um clique o que 'Já comprei' do que 'Preciso comprar' para a próxima investidura.",
+    "Lista de Compras Pronta para WhatsApp: Copie a lista formatada com todas as insígnias pendentes para enviar à secretaria ou loja.",
+    "Resumo e Sincronização com a Minha Faixa: Contadores visuais e opção de vincular diretamente especialidades concluídas à faixa oficial."
   ]
 }

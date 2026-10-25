@@ -6,14 +6,26 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.1.7';
+export const APP_VERSION = '3.1.8';
 export const APP_BUILD_DATE = '25 de Outubro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
-    version: '3.1.7',
+    version: '3.1.8',
     date: '25/10/2026',
     tag: 'NOVO',
+    title: 'Minhas Especialidades Concluídas no Perfil, Data de Conclusão e Controle de Compra de Insígnias',
+    changes: [
+      'Registro Completo de Especialidades Concluídas: Nova área exclusiva no perfil para registrar cada especialidade oficial concluída, com data exata de conclusão, instrutor ou clube.',
+      'Controle de Compra de Insígnias (Comprada vs. Preciso Comprar): Marque e filtre em um clique quais insígnias você já comprou e quais ainda precisa comprar para a próxima investidura.',
+      'Lista de Compras Pronta para o WhatsApp: Aba dedicada com botão de copiar lista de compras formatada com as insígnias pendentes para enviar diretamente à diretoria, secretaria ou regional.',
+      'Resumo Inteligente e Sincronização: Indicadores visuais com total de especialidades concluídas, compradas e a comprar, com opção de sincronizar diretamente com a Minha Faixa oficial.'
+    ]
+  },
+  {
+    version: '3.1.7',
+    date: '25/10/2026',
+    tag: 'ESTÁVEL',
     title: 'Editor Administrativo de Especialidades para Correção de Textos e Requisitos sem Abrir o PC',
     changes: [
       'Gestão e Edição Direta de Especialidades: Novo painel administrativo integrado para editar nomes, códigos, áreas, níveis e todos os requisitos de qualquer especialidade diretamente do celular ou tablet.',

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { ChevronLeft, LogOut, Shield, MapPin, Briefcase, Award, Camera, Check, X, User, Mail, Phone, ChevronDown, Heart, Search, Settings, Layers, Globe, Trophy, ArrowUp, RotateCcw, AlertTriangle, Calendar, Lock, Droplet } from 'lucide-react';
-import { ClubType, Especialidade, UserProfile, Conquista } from '../types';
+import { ChevronLeft, LogOut, Shield, MapPin, Briefcase, Award, Camera, Check, X, User, Mail, Phone, ChevronDown, Heart, Search, Settings, Layers, Globe, Trophy, ArrowUp, RotateCcw, AlertTriangle, Calendar, Lock, Droplet, CheckCircle2, ShoppingBag, ShoppingCart, Plus, Trash2, Edit3, Share2, Copy, Sparkles, Filter, CheckSquare, Square, Tag, ExternalLink } from 'lucide-react';
+import { ClubType, Especialidade, UserProfile, Conquista, CompletedSpecialty } from '../types';
 import { MASTERY_RULES } from '../masteryRules';
 import { 
   fetchEspecialidades, getCachedEspecialidades,
@@ -570,9 +570,247 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   const [faixaConfig, setFaixaConfig] = useState<FaixaConfig>(DEFAULT_FAIXA_CONFIG);
   const [showGloboModal, setShowGloboModal] = useState(false);
 
+  // Chave e estado de Especialidades Concluídas (com data de conclusão e controle de compra de insígnias)
+  const completedStorageKey = useMemo(() => {
+    return userData.email && userData.email !== 'email@exemplo.com'
+      ? `dbv_tudo_completed_specialties_${userData.email}`
+      : 'dbv_tudo_completed_specialties';
+  }, [userData.email]);
+
+  const [completedSpecialties, setCompletedSpecialties] = useState<CompletedSpecialty[]>(() => {
+    try {
+      const initialEmail = getInitialData().email;
+      const key = initialEmail && initialEmail !== 'email@exemplo.com'
+        ? `dbv_tudo_completed_specialties_${initialEmail}`
+        : 'dbv_tudo_completed_specialties';
+      const saved = localStorage.getItem(key) || localStorage.getItem('dbv_tudo_completed_specialties');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {
+      console.warn("Erro ao ler especialidades concluídas:", e);
+    }
+    return [];
+  });
+
+  const [isCompletedModalOpen, setIsCompletedModalOpen] = useState(false);
+  const [completedFilterTab, setCompletedFilterTab] = useState<'ALL' | 'PURCHASED' | 'PENDING'>('ALL');
+  const [completedSearchTerm, setCompletedSearchTerm] = useState('');
+  const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
+  const [editingSpecialtyId, setEditingSpecialtyId] = useState<string | number | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState(false);
+
+  // Campos do formulário de adicionar / editar especialidade concluída
+  const [formSelectedSpecialty, setFormSelectedSpecialty] = useState<Especialidade | null>(null);
+  const [formSpecialtySearch, setFormSpecialtySearch] = useState('');
+  const [formCompletionDate, setFormCompletionDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [formPurchased, setFormPurchased] = useState<boolean>(true);
+  const [formInstructor, setFormInstructor] = useState('');
+  const [formNotes, setFormNotes] = useState('');
+  const [formAddToSash, setFormAddToSash] = useState<boolean>(true);
+
+  const saveCompletedList = (newList: CompletedSpecialty[]) => {
+    setCompletedSpecialties(newList);
+    try {
+      localStorage.setItem(completedStorageKey, JSON.stringify(newList));
+      localStorage.setItem('dbv_tudo_completed_specialties', JSON.stringify(newList));
+      window.dispatchEvent(new CustomEvent('dbv_completed_specialties_updated', { detail: newList }));
+      window.dispatchEvent(new Event('storage'));
+    } catch (err) {
+      console.error("Erro ao salvar especialidades concluídas:", err);
+    }
+  };
+
+  const togglePurchaseStatus = (specialtyId: string | number) => {
+    const updated = completedSpecialties.map(item => {
+      if (String(item.specialtyId) === String(specialtyId)) {
+        return { ...item, purchased: !item.purchased };
+      }
+      return item;
+    });
+    saveCompletedList(updated);
+  };
+
+  const handleDeleteCompleted = (specialtyId: string | number) => {
+    const target = completedSpecialties.find(c => String(c.specialtyId) === String(specialtyId));
+    const confirmName = target?.name || 'esta especialidade';
+    if (window.confirm(`Deseja remover "${confirmName}" das suas especialidades concluídas?`)) {
+      const updated = completedSpecialties.filter(c => String(c.specialtyId) !== String(specialtyId));
+      saveCompletedList(updated);
+    }
+  };
+
+  const handleOpenAddModal = (specialtyToPreselect?: Especialidade) => {
+    setEditingSpecialtyId(null);
+    setFormSelectedSpecialty(specialtyToPreselect || null);
+    setFormSpecialtySearch('');
+    setFormCompletionDate(new Date().toISOString().split('T')[0]);
+    setFormPurchased(true);
+    setFormInstructor('');
+    setFormNotes('');
+    setFormAddToSash(true);
+    setIsAddEditModalOpen(true);
+  };
+
+  const handleOpenEditModal = (item: CompletedSpecialty) => {
+    setEditingSpecialtyId(item.specialtyId);
+    const esp = allSpecialties.find(s => String(s.id) === String(item.specialtyId)) || {
+      id: Number(item.specialtyId) || 0,
+      nome: item.name,
+      area: item.area,
+      logo: item.logo || '',
+      requisitos: [],
+      club: userClubType,
+      codigo: item.code
+    };
+    setFormSelectedSpecialty(esp);
+    setFormSpecialtySearch('');
+    setFormCompletionDate(item.completionDate || new Date().toISOString().split('T')[0]);
+    setFormPurchased(item.purchased);
+    setFormInstructor(item.instructor || '');
+    setFormNotes(item.notes || '');
+    setFormAddToSash(likedIds.includes(String(item.specialtyId)));
+    setIsAddEditModalOpen(true);
+  };
+
+  const handleSaveCompletedForm = () => {
+    if (!formSelectedSpecialty) {
+      alert("Por favor, selecione uma especialidade da lista.");
+      return;
+    }
+    if (!formCompletionDate) {
+      alert("Por favor, informe a data de conclusão.");
+      return;
+    }
+
+    const newItem: CompletedSpecialty = {
+      specialtyId: formSelectedSpecialty.id,
+      name: formSelectedSpecialty.nome,
+      code: formSelectedSpecialty.codigo,
+      area: formSelectedSpecialty.area,
+      logo: formSelectedSpecialty.logo,
+      completionDate: formCompletionDate,
+      purchased: formPurchased,
+      instructor: formInstructor.trim() || undefined,
+      notes: formNotes.trim() || undefined,
+      addedAt: Date.now()
+    };
+
+    let updated: CompletedSpecialty[];
+    const existsIndex = completedSpecialties.findIndex(c => String(c.specialtyId) === String(formSelectedSpecialty.id));
+    if (existsIndex >= 0) {
+      updated = [...completedSpecialties];
+      updated[existsIndex] = newItem;
+    } else {
+      updated = [newItem, ...completedSpecialties];
+    }
+
+    saveCompletedList(updated);
+
+    // Se marcado para adicionar à faixa
+    if (formAddToSash && !likedIds.includes(String(formSelectedSpecialty.id))) {
+      const nextLiked = [...likedIds, String(formSelectedSpecialty.id)];
+      setLikedIds(nextLiked);
+      saveLocalFaixaSpecialties(nextLiked, userData.email, userClubType);
+      if (userData.email && userData.email !== "email@exemplo.com") {
+        updateUserFaixa(userData.email, nextLiked, userId, userClubType).catch(console.warn);
+      }
+    }
+
+    setIsAddEditModalOpen(false);
+  };
+
+  const handleCopyWishlist = () => {
+    const pending = completedSpecialties.filter(c => !c.purchased);
+    if (pending.length === 0) {
+      alert("Você não possui especialidades na lista de compras pendentes!");
+      return;
+    }
+
+    const today = new Date().toLocaleDateString('pt-BR');
+    let text = `📋 *LISTA DE COMPRAS DE INSÍGNIAS (DSA)*\n`;
+    text += `👤 *Desbravador(a):* ${userData.name}\n`;
+    if (userData.clube) text += `🏕️ *Clube:* ${userData.clube}\n`;
+    text += `📅 *Data:* ${today}\n`;
+    text += `🎯 *Total de Insígnias Pendentes:* ${pending.length}\n\n`;
+    text += `*Especialidades Concluídas a Comprar:*\n`;
+
+    pending.forEach((esp, idx) => {
+      const codeStr = esp.code ? ` (${esp.code})` : '';
+      const dateStr = esp.completionDate ? ` • Concluída em ${formatBirthDate(esp.completionDate)}` : '';
+      text += `${idx + 1}. *${esp.name}*${codeStr}${dateStr}\n`;
+    });
+
+    text += `\n_Gerado pelo App DBV Tudo_`;
+
+    navigator.clipboard.writeText(text).then(() => {
+      setCopyFeedback(true);
+      setTimeout(() => setCopyFeedback(false), 3000);
+    }).catch(() => {
+      alert("Não foi possível copiar automaticamente. Selecione e copie o texto.");
+    });
+  };
+
+  const completedCounts = useMemo(() => {
+    const total = completedSpecialties.length;
+    const purchased = completedSpecialties.filter(c => c.purchased).length;
+    const pending = total - purchased;
+    return { total, purchased, pending };
+  }, [completedSpecialties]);
+
+  const filteredCompletedList = useMemo(() => {
+    let list = [...completedSpecialties];
+
+    if (completedFilterTab === 'PURCHASED') {
+      list = list.filter(c => c.purchased);
+    } else if (completedFilterTab === 'PENDING') {
+      list = list.filter(c => !c.purchased);
+    }
+
+    if (completedSearchTerm.trim()) {
+      const term = completedSearchTerm.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      list = list.filter(c => {
+        const nameNorm = (c.name || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const codeNorm = (c.code || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const areaNorm = (c.area || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        return nameNorm.includes(term) || codeNorm.includes(term) || areaNorm.includes(term);
+      });
+    }
+
+    return list.sort((a, b) => {
+      const dateA = a.completionDate || '';
+      const dateB = b.completionDate || '';
+      return dateB.localeCompare(dateA);
+    });
+  }, [completedSpecialties, completedFilterTab, completedSearchTerm]);
+
+  const availableSpecialtiesForAdd = useMemo(() => {
+    if (!formSpecialtySearch.trim()) {
+      return allSpecialties.slice(0, 30);
+    }
+    const term = formSpecialtySearch.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return allSpecialties.filter(s => {
+      const nameNorm = (s.nome || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const codeNorm = (s.codigo || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const areaNorm = (s.area || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      return nameNorm.includes(term) || codeNorm.includes(term) || areaNorm.includes(term);
+    }).slice(0, 30);
+  }, [allSpecialties, formSpecialtySearch]);
+
   // Suporte ao botão lateral do mouse ("Voltar") para fechar modais ou sair da visão da faixa no Perfil
   useEffect(() => {
     const handleProfileBack = (e: Event) => {
+      if (isAddEditModalOpen) {
+        setIsAddEditModalOpen(false);
+        e.preventDefault();
+        return;
+      }
+      if (isCompletedModalOpen) {
+        setIsCompletedModalOpen(false);
+        e.preventDefault();
+        return;
+      }
       if (showGloboModal) {
         setShowGloboModal(false);
         e.preventDefault();
@@ -594,7 +832,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     return () => {
       window.removeEventListener('dbv_app_back_request', handleProfileBack);
     };
-  }, [showGloboModal, showResetConfirm, isSashView]);
+  }, [showGloboModal, showResetConfirm, isSashView, isCompletedModalOpen, isAddEditModalOpen]);
 
   useEffect(() => {
     fetchFaixaConfig().then(setFaixaConfig).catch(console.warn);
@@ -793,11 +1031,18 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
             let bloodType = profile.tipo_sanguineo || (profile as any)['tipo sanguineo'] || (profile as any)['tipo_sanguineo'] || user.user_metadata?.tipo_sanguineo;
             let rhFactor = profile.fator_rh || (profile as any)['fator rh'] || (profile as any)['fator_rh'] || user.user_metadata?.fator_rh;
 
-            if ((!bloodType || !rhFactor) && profile.fundo) {
+            if (profile.fundo) {
               try {
                 const parsed = JSON.parse(profile.fundo);
                 if (!bloodType && parsed.tipo_sanguineo) bloodType = parsed.tipo_sanguineo;
                 if (!rhFactor && parsed.fator_rh) rhFactor = parsed.fator_rh;
+                if (parsed.completedSpecialties && Array.isArray(parsed.completedSpecialties)) {
+                  setCompletedSpecialties(parsed.completedSpecialties);
+                  const effMail = profile.email || user.email || userData.email;
+                  const cKey = effMail && effMail !== 'email@exemplo.com' ? `dbv_tudo_completed_specialties_${effMail}` : 'dbv_tudo_completed_specialties';
+                  localStorage.setItem(cKey, JSON.stringify(parsed.completedSpecialties));
+                  localStorage.setItem('dbv_tudo_completed_specialties', JSON.stringify(parsed.completedSpecialties));
+                }
               } catch {}
             }
 
@@ -982,7 +1227,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
     loadSpecialties();
     return () => { isMounted = false; };
-  }, [userClubType, isSashView]);
+  }, [userClubType, isSashView, isCompletedModalOpen, isAddEditModalOpen]);
 
   useEffect(() => {
     setVisibleSashModalCount(40);
@@ -1213,7 +1458,8 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
             data_nascimento: userData.data_nascimento,
             tipo_sanguineo: userData.tipo_sanguineo,
             fator_rh: userData.fator_rh,
-            cargo: userData.cargo
+            cargo: userData.cargo,
+            completedSpecialties: completedSpecialties
           }),
           ADM: userData.isAdmin
         };
@@ -1635,6 +1881,577 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
         </div>
       )}
 
+      {/* Modal Minhas Especialidades Concluídas & Controle de Compra */}
+      {isCompletedModalOpen && (
+        <div className="fixed inset-0 z-[205] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+          <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={() => setIsCompletedModalOpen(false)}></div>
+          <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-t-[36px] sm:rounded-[36px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 h-[92vh] sm:h-[86vh] flex flex-col border border-slate-100 dark:border-slate-800">
+            {/* Header com identidade oficial */}
+            <div 
+              style={{ backgroundColor: userData.tipo === "Desbravador" ? '#0c3c31' : currentThemeColor }}
+              className="p-5 sm:p-6 pb-5 flex items-center justify-between text-white relative overflow-hidden"
+            >
+              <div className="absolute inset-0 opacity-15 pointer-events-none bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:10px_10px]" />
+              <div className="flex items-center space-x-3 relative z-10 min-w-0">
+                <div className="w-11 h-11 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shrink-0 shadow-md">
+                  <CheckCircle2 size={22} className="text-amber-300" strokeWidth={2.5} />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-black uppercase tracking-tight truncate">
+                    Especialidades Concluídas
+                  </h3>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-200/90 truncate">
+                    Data de Conclusão & Controle de Compra de Insígnias
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsCompletedModalOpen(false)}
+                className="relative z-10 w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md flex items-center justify-center text-white active:scale-90 transition-all border border-white/20 shrink-0 ml-2 cursor-pointer"
+                title="Fechar"
+              >
+                <X size={18} strokeWidth={2.5} />
+              </button>
+            </div>
+
+            {/* Painel de Estatísticas / KPI Interativo */}
+            <div className="p-4 sm:p-5 pb-2 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 space-y-3">
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCompletedFilterTab('ALL')}
+                  className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                    completedFilterTab === 'ALL'
+                      ? 'bg-white dark:bg-slate-800 border-indigo-500/50 shadow-md ring-2 ring-indigo-500/20'
+                      : 'bg-white/60 dark:bg-slate-800/60 border-slate-200/60 dark:border-slate-700/60 hover:bg-white'
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-1">
+                    <span className="text-[9px] font-black uppercase tracking-wider">Total</span>
+                    <Sparkles size={13} />
+                  </div>
+                  <div className="text-lg sm:text-xl font-black text-slate-800 dark:text-white leading-none">
+                    {completedCounts.total}
+                  </div>
+                  <span className="text-[9px] font-bold text-slate-400 mt-0.5 block truncate">
+                    Concluídas
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCompletedFilterTab('PURCHASED')}
+                  className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                    completedFilterTab === 'PURCHASED'
+                      ? 'bg-emerald-500/10 dark:bg-emerald-950/40 border-emerald-500 shadow-md ring-2 ring-emerald-500/20'
+                      : 'bg-white/60 dark:bg-slate-800/60 border-slate-200/60 dark:border-slate-700/60 hover:bg-emerald-50/50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 mb-1">
+                    <span className="text-[9px] font-black uppercase tracking-wider">Compradas</span>
+                    <Check size={13} strokeWidth={3} />
+                  </div>
+                  <div className="text-lg sm:text-xl font-black text-emerald-600 dark:text-emerald-400 leading-none">
+                    {completedCounts.purchased}
+                  </div>
+                  <span className="text-[9px] font-bold text-emerald-600/70 dark:text-emerald-400/70 mt-0.5 block truncate">
+                    Já na mão
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCompletedFilterTab('PENDING')}
+                  className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                    completedFilterTab === 'PENDING'
+                      ? 'bg-amber-500/10 dark:bg-amber-950/40 border-amber-500 shadow-md ring-2 ring-amber-500/20'
+                      : 'bg-white/60 dark:bg-slate-800/60 border-slate-200/60 dark:border-slate-700/60 hover:bg-amber-50/50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-amber-600 dark:text-amber-400 mb-1">
+                    <span className="text-[9px] font-black uppercase tracking-wider">A Comprar</span>
+                    <ShoppingBag size={13} />
+                  </div>
+                  <div className="text-lg sm:text-xl font-black text-amber-600 dark:text-amber-400 leading-none">
+                    {completedCounts.pending}
+                  </div>
+                  <span className="text-[9px] font-bold text-amber-600/70 dark:text-amber-400/70 mt-0.5 block truncate">
+                    Para investir
+                  </span>
+                </button>
+              </div>
+
+              {/* Barra de Busca + Botão Adicionar */}
+              <div className="flex items-center gap-2 pt-1">
+                <div className="relative flex-1">
+                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                    <Search size={16} />
+                  </div>
+                  <input
+                    type="text"
+                    value={completedSearchTerm}
+                    onChange={(e) => setCompletedSearchTerm(e.target.value)}
+                    placeholder="Buscar especialidade concluída..."
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl py-2.5 pl-10 pr-8 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  {completedSearchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => setCompletedSearchTerm('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleOpenAddModal()}
+                  className="px-3.5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider shadow-md active:scale-95 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+                >
+                  <Plus size={16} strokeWidth={3} />
+                  <span className="hidden sm:inline">Nova Especialidade</span>
+                  <span className="sm:hidden">Nova</span>
+                </button>
+              </div>
+
+              {/* Botão de Copiar Lista de Compras (Quando houver itens pendentes) */}
+              {completedFilterTab === 'PENDING' && completedCounts.pending > 0 && (
+                <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-2xl border border-amber-200 dark:border-amber-800/60 flex items-center justify-between gap-3 animate-in fade-in">
+                  <div className="min-w-0">
+                    <h5 className="text-xs font-black text-amber-900 dark:text-amber-200 uppercase tracking-tight truncate">
+                      Lista de Compras ({completedCounts.pending} insígnias)
+                    </h5>
+                    <p className="text-[10px] text-amber-700 dark:text-amber-400 font-medium truncate">
+                      Copie o pedido pronto para enviar no WhatsApp
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopyWishlist}
+                    className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-[11px] uppercase tracking-wider shadow-sm flex items-center gap-1.5 shrink-0 active:scale-95 transition-all cursor-pointer"
+                  >
+                    {copyFeedback ? <Check size={13} strokeWidth={3} /> : <Copy size={13} />}
+                    <span>{copyFeedback ? 'Copiada!' : 'Copiar Lista'}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Lista com Rolagem */}
+            <div className="flex-grow overflow-y-auto p-4 sm:p-6 space-y-3 scrollbar-hide">
+              {filteredCompletedList.length === 0 ? (
+                <div className="text-center py-16 px-4 space-y-3">
+                  <div className="w-16 h-16 rounded-3xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto shadow-inner">
+                    <Award size={32} className="opacity-60" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-tight">
+                      {completedFilterTab === 'PURCHASED' ? 'Nenhuma insígnia comprada ainda' : completedFilterTab === 'PENDING' ? 'Nenhuma insígnia pendente de compra' : 'Nenhuma especialidade concluída'}
+                    </h4>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 max-w-xs mx-auto">
+                      {completedSearchTerm 
+                        ? 'Tente outro termo na busca acima.' 
+                        : 'Clique no botão abaixo para adicionar a primeira especialidade concluída.'}
+                    </p>
+                  </div>
+                  {!completedSearchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAddModal()}
+                      className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 cursor-pointer inline-flex items-center gap-1.5"
+                    >
+                      <Plus size={15} strokeWidth={3} />
+                      <span>Registrar Conclusão</span>
+                    </button>
+                  )}
+                </div>
+              ) : (
+                filteredCompletedList.map((item) => {
+                  const isInSash = likedIds.includes(String(item.specialtyId));
+                  return (
+                    <div
+                      key={item.specialtyId}
+                      className="bg-white dark:bg-slate-800/90 border border-slate-100 dark:border-slate-700/80 rounded-2xl p-3.5 sm:p-4 shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group text-left"
+                    >
+                      {/* Lado Esquerdo: Imagem + Detalhes */}
+                      <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                        <div className="w-14 h-14 bg-slate-50 dark:bg-slate-700/60 rounded-2xl p-1.5 flex items-center justify-center shrink-0 border border-slate-100 dark:border-slate-600/60 shadow-xs">
+                          {item.logo ? (
+                            <img
+                              src={item.logo}
+                              alt={item.name}
+                              className="w-full h-full object-contain filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.15)]"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <Award size={26} className="text-slate-400" />
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-black text-slate-800 dark:text-white text-xs sm:text-sm uppercase tracking-tight truncate leading-tight">
+                              {item.name}
+                            </h4>
+                            {item.code && (
+                              <span className="text-[10px] font-black text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-1.5 py-0.2 rounded-md">
+                                {item.code}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 flex-wrap text-[11px] text-slate-500 dark:text-slate-400">
+                            <span className="inline-flex items-center gap-1 font-bold text-slate-700 dark:text-slate-300">
+                              <Calendar size={12} className="text-emerald-500" />
+                              <span>{formatBirthDate(item.completionDate)}</span>
+                            </span>
+                            {item.area && (
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                {item.area}
+                              </span>
+                            )}
+                          </div>
+
+                          {(item.instructor || item.notes) && (
+                            <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                              {item.instructor && <span className="font-bold text-slate-600 dark:text-slate-400">Instrutor: {item.instructor} • </span>}
+                              {item.notes}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Lado Direito: Alternador de Compra + Ações */}
+                      <div className="flex items-center justify-between sm:justify-end gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-700/50">
+                        {/* Botão Alternador de Compra */}
+                        <button
+                          type="button"
+                          onClick={() => togglePurchaseStatus(item.specialtyId)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-xs ${
+                            item.purchased
+                              ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25'
+                              : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/25'
+                          }`}
+                          title={`Clique para alternar para ${item.purchased ? '"Preciso Comprar"' : '"Já Comprei"'}`}
+                        >
+                          {item.purchased ? (
+                            <>
+                              <Check size={13} strokeWidth={3} className="text-emerald-600 dark:text-emerald-400" />
+                              <span>Já Comprei</span>
+                            </>
+                          ) : (
+                            <>
+                              <ShoppingBag size={13} className="text-amber-600 dark:text-amber-400" />
+                              <span>Preciso Comprar</span>
+                            </>
+                          )}
+                        </button>
+
+                        <div className="flex items-center gap-1">
+                          {/* Botão Faixa */}
+                          <button
+                            type="button"
+                            onClick={() => toggleLike(Number(item.specialtyId))}
+                            className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-90 cursor-pointer ${
+                              isInSash
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'bg-slate-100 dark:bg-slate-700 text-slate-400 hover:text-emerald-500'
+                            }`}
+                            title={isInSash ? 'Na Faixa Oficial (Clique para remover)' : 'Adicionar à Faixa Oficial'}
+                          >
+                            <Award size={15} />
+                          </button>
+
+                          {/* Botão Editar */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditModal(item)}
+                            className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center justify-center transition-all active:scale-90 cursor-pointer"
+                            title="Editar data ou notas"
+                          >
+                            <Edit3 size={14} />
+                          </button>
+
+                          {/* Botão Excluir */}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCompleted(item.specialtyId)}
+                            className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-900/40 flex items-center justify-center transition-all active:scale-90 cursor-pointer"
+                            title="Excluir"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Adicionar / Editar Especialidade Concluída */}
+      {isAddEditModalOpen && (
+        <div className="fixed inset-0 z-[220] flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
+          <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={() => setIsAddEditModalOpen(false)}></div>
+          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[88vh] flex flex-col border border-slate-100 dark:border-slate-800">
+            {/* Header */}
+            <div className="px-6 py-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+              <div className="text-left">
+                <h3 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-tight">
+                  {editingSpecialtyId ? 'Editar Especialidade' : 'Registrar Conclusão'}
+                </h3>
+                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                  {editingSpecialtyId ? 'Altere data ou status de compra' : 'Selecione e registre sua conquista'}
+                </p>
+              </div>
+              <button 
+                onClick={() => setIsAddEditModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 active:scale-90 transition-all cursor-pointer"
+              >
+                <X size={16} strokeWidth={2.5} />
+              </button>
+            </div>
+
+            {/* Conteúdo do Formulário */}
+            <div className="flex-grow overflow-y-auto p-5 sm:p-6 space-y-4 scrollbar-hide text-left">
+              {/* Especialidade Selecionada ou Seletor */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] ml-1">
+                  Especialidade Oficial
+                </label>
+
+                {formSelectedSpecialty ? (
+                  <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-xs">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-12 h-12 bg-white dark:bg-slate-700 rounded-xl p-1 flex items-center justify-center shrink-0 border border-slate-100 dark:border-slate-600 shadow-xs">
+                        {formSelectedSpecialty.logo ? (
+                          <img src={formSelectedSpecialty.logo} alt={formSelectedSpecialty.nome} className="w-full h-full object-contain" />
+                        ) : (
+                          <Award size={22} className="text-slate-400" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-black text-slate-800 dark:text-white text-xs uppercase tracking-tight truncate">
+                          {formSelectedSpecialty.nome}
+                        </h4>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {formSelectedSpecialty.codigo && (
+                            <span className="text-[9px] font-black text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.2 rounded">
+                              {formSelectedSpecialty.codigo}
+                            </span>
+                          )}
+                          <span className="text-[9px] font-bold text-slate-400 truncate">
+                            {formSelectedSpecialty.area}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {!editingSpecialtyId && (
+                      <button
+                        type="button"
+                        onClick={() => setFormSelectedSpecialty(null)}
+                        className="text-xs font-black text-emerald-600 dark:text-emerald-400 hover:underline shrink-0 cursor-pointer"
+                      >
+                        Trocar
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        value={formSpecialtySearch}
+                        onChange={(e) => setFormSpecialtySearch(e.target.value)}
+                        placeholder="Digite o nome da especialidade..."
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3 pl-10 pr-4 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        autoFocus
+                      />
+                    </div>
+
+                    <div className="max-h-48 overflow-y-auto space-y-1 border border-slate-100 dark:border-slate-800 rounded-2xl p-1.5 bg-slate-50/50 dark:bg-slate-900/50 scrollbar-hide">
+                      {availableSpecialtiesForAdd.length > 0 ? (
+                        availableSpecialtiesForAdd.map((esp) => (
+                          <button
+                            key={esp.id}
+                            type="button"
+                            onClick={() => {
+                              setFormSelectedSpecialty(esp);
+                              setFormSpecialtySearch('');
+                            }}
+                            className="w-full text-left p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 flex items-center gap-2.5 transition-all cursor-pointer group"
+                          >
+                            <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-700 p-0.5 flex items-center justify-center shrink-0 border border-slate-100 dark:border-slate-600">
+                              {esp.logo ? (
+                                <img src={esp.logo} alt={esp.nome} className="w-full h-full object-contain" />
+                              ) : (
+                                <Award size={14} className="text-slate-400" />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate block group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
+                                {esp.nome}
+                              </span>
+                              <span className="text-[9px] text-slate-400 block truncate">
+                                {esp.codigo ? `${esp.codigo} • ` : ''}{esp.area}
+                              </span>
+                            </div>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="p-4 text-center text-xs text-slate-400 font-bold">
+                          Nenhuma especialidade encontrada no catálogo.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Data de Conclusão */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] ml-1 flex items-center gap-1.5">
+                    <Calendar size={13} className="text-emerald-500" />
+                    <span>Data de Conclusão</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setFormCompletionDate(new Date().toISOString().split('T')[0])}
+                    className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                  >
+                    Hoje
+                  </button>
+                </div>
+                <input
+                  type="date"
+                  value={formCompletionDate}
+                  onChange={(e) => setFormCompletionDate(e.target.value)}
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3 px-4 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-xs"
+                />
+              </div>
+
+              {/* Status da Insígnia (Compra) */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] ml-1">
+                  Status da Insígnia Física
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormPurchased(true)}
+                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                      formPurchased
+                        ? 'bg-emerald-500/15 border-emerald-500 text-emerald-800 dark:text-emerald-200 ring-2 ring-emerald-500/20'
+                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-black uppercase">Já Comprei</span>
+                      <Check size={14} strokeWidth={3} className={formPurchased ? 'text-emerald-600' : 'text-slate-400'} />
+                    </div>
+                    <span className="text-[9px] font-semibold leading-tight opacity-80">
+                      Insígnia já adquirida ou costurada
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormPurchased(false)}
+                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                      !formPurchased
+                        ? 'bg-amber-500/15 border-amber-500 text-amber-800 dark:text-amber-200 ring-2 ring-amber-500/20'
+                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-black uppercase">Preciso Comprar</span>
+                      <ShoppingBag size={14} className={!formPurchased ? 'text-amber-600' : 'text-slate-400'} />
+                    </div>
+                    <span className="text-[9px] font-semibold leading-tight opacity-80">
+                      Entrar na lista de compras
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Instrutor / Avaliador (Opcional) */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] ml-1">
+                  Instrutor / Avaliador (Opcional)
+                </label>
+                <input
+                  type="text"
+                  value={formInstructor}
+                  onChange={(e) => setFormInstructor(e.target.value)}
+                  placeholder="Ex: Instrutor Marcos ou Pastor Lucas"
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3 px-4 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-xs"
+                />
+              </div>
+
+              {/* Observações / Local (Opcional) */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] ml-1">
+                  Observações / Evento (Opcional)
+                </label>
+                <input
+                  type="text"
+                  value={formNotes}
+                  onChange={(e) => setFormNotes(e.target.value)}
+                  placeholder="Ex: Campori DSA 2024 ou Clube Local"
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3 px-4 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-xs"
+                />
+              </div>
+
+              {/* Checkbox: Adicionar também à Minha Faixa */}
+              <label className="flex items-center space-x-3 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-700/60 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={formAddToSash}
+                  onChange={(e) => setFormAddToSash(e.target.checked)}
+                  className="w-4 h-4 text-emerald-600 rounded-md border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                />
+                <div className="min-w-0">
+                  <span className="text-xs font-black text-slate-800 dark:text-slate-200 block">
+                    Exibir também na Minha Faixa Oficial
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-medium block">
+                    Adiciona a insígnia na faixa virtual do perfil
+                  </span>
+                </div>
+              </label>
+            </div>
+
+            {/* Footer com Botão Salvar */}
+            <div className="p-4 sm:p-5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex space-x-3">
+              <button
+                type="button"
+                onClick={() => setIsAddEditModalOpen(false)}
+                className="flex-1 py-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveCompletedForm}
+                disabled={!formSelectedSpecialty}
+                className="flex-1 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-emerald-600/30 transition-all active:scale-95 flex items-center justify-center space-x-2 cursor-pointer"
+              >
+                <Check size={16} strokeWidth={3} />
+                <span>Salvar Conclusão</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div 
         ref={scrollContainerRef}
         onScroll={handleScroll}
@@ -1847,7 +2664,101 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
               )}
             </button>
           </div>
-          
+
+          {/* Card em Destaque: Minhas Especialidades Concluídas & Controle de Compra de Insígnias */}
+          <div className="bg-white dark:bg-slate-800/90 rounded-[28px] border border-slate-200/80 dark:border-slate-700/80 shadow-md hover:shadow-lg transition-all p-4 sm:p-5 flex flex-col gap-3.5 text-left">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/25">
+                  <CheckCircle2 size={24} strokeWidth={2.5} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-sm sm:text-base font-black text-slate-800 dark:text-white uppercase tracking-tight">
+                      Minhas Especialidades Concluídas
+                    </h3>
+                    <span className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[10px] font-black px-2 py-0.5 rounded-full">
+                      {completedCounts.total} no total
+                    </span>
+                  </div>
+                  <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                    Registre a data de conclusão e controle as insígnias já compradas e a comprar.
+                  </p>
+                </div>
+              </div>
+
+              {/* Botões rápidos */}
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                <button
+                  type="button"
+                  onClick={() => handleOpenAddModal()}
+                  className="px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs uppercase tracking-wider shadow-md shadow-amber-500/20 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Registrar nova especialidade concluída"
+                >
+                  <Plus size={15} strokeWidth={3} />
+                  <span>Concluir</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsCompletedModalOpen(true)}
+                  className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-950 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-black text-xs uppercase tracking-wider shadow-md active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Ver todas e gerenciar compras"
+                >
+                  <span>Gerenciar</span>
+                  <ChevronDown size={14} className="-rotate-90" />
+                </button>
+              </div>
+            </div>
+
+            {/* Badges Interativas de Status (Compradas vs A Comprar) */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 border-t border-slate-100 dark:border-slate-700/60">
+              <button
+                type="button"
+                onClick={() => {
+                  setCompletedFilterTab('ALL');
+                  setIsCompletedModalOpen(true);
+                }}
+                className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-100 dark:border-slate-600/50 flex items-center justify-between transition-all text-left cursor-pointer"
+              >
+                <div className="min-w-0">
+                  <span className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-400 tracking-wider block">Concluídas</span>
+                  <span className="text-sm font-black text-slate-800 dark:text-white">{completedCounts.total}</span>
+                </div>
+                <Sparkles size={16} className="text-slate-400 dark:text-slate-400 shrink-0" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setCompletedFilterTab('PURCHASED');
+                  setIsCompletedModalOpen(true);
+                }}
+                className="p-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-between transition-all text-left cursor-pointer"
+              >
+                <div className="min-w-0">
+                  <span className="text-[9px] font-black uppercase text-emerald-700 dark:text-emerald-300 tracking-wider block">Já Compradas</span>
+                  <span className="text-sm font-black text-emerald-700 dark:text-emerald-300">{completedCounts.purchased}</span>
+                </div>
+                <Check size={16} strokeWidth={3} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setCompletedFilterTab('PENDING');
+                  setIsCompletedModalOpen(true);
+                }}
+                className="col-span-2 sm:col-span-1 p-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/30 flex items-center justify-between transition-all text-left cursor-pointer"
+              >
+                <div className="min-w-0">
+                  <span className="text-[9px] font-black uppercase text-amber-700 dark:text-amber-300 tracking-wider block">Preciso Comprar</span>
+                  <span className="text-sm font-black text-amber-700 dark:text-amber-300">{completedCounts.pending}</span>
+                </div>
+                <ShoppingBag size={16} className="text-amber-600 dark:text-amber-400 shrink-0" />
+              </button>
+            </div>
+          </div>
+
           {isAdmin && onOpenAdmin && (
             <button 
               onClick={onOpenAdmin}

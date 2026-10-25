@@ -28,7 +28,7 @@ export default defineConfig({
     }
   ],
   define: {
-    __APP_VERSION__: JSON.stringify('3.1.7'),
+    __APP_VERSION__: JSON.stringify('3.1.8'),
     __APP_BUILD_TIME__: JSON.stringify(1761386400000)
   },
   server: {
