@@ -76,16 +76,45 @@ export const UpdateNotification: React.FC<UpdateNotificationProps> = ({ onOpenVe
     }
   }, []);
 
+function playUpdateNotificationChime() {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+    const now = ctx.currentTime;
+    const playNote = (freq: number, start: number, duration: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, start);
+      gain.gain.setValueAtTime(0.001, start);
+      gain.gain.exponentialRampToValueAtTime(0.15, start + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + duration + 0.05);
+    };
+
+    playNote(587.33, now, 0.22); // D5
+    playNote(783.99, now + 0.12, 0.28); // G5
+    playNote(987.77, now + 0.24, 0.45); // B5
+  } catch {}
+}
+
   const getInitialVersion = (): number => {
     return currentBuildTimeRef.current || 1760626800000;
   };
 
-  // Disparar notificação nativa no celular/computador
+  // Disparar notificação sonora, tátil e nativa no celular/computador
   const triggerNativeNotification = useCallback(async (versionLabel?: string) => {
-    if (notifiedRef.current) return;
-    notifiedRef.current = true;
+    // Alerta sonoro imediato no app aberto
+    playUpdateNotificationChime();
 
-    // Vibração no celular
+    // Vibração tátil no celular
     try {
       if ('vibrate' in navigator && typeof navigator.vibrate === 'function') {
         navigator.vibrate([200, 100, 200, 100, 300]);
@@ -93,6 +122,9 @@ export const UpdateNotification: React.FC<UpdateNotificationProps> = ({ onOpenVe
     } catch {
       // Ignora erro de vibração
     }
+
+    if (notifiedRef.current) return;
+    notifiedRef.current = true;
 
     // Notificação nativa via Service Worker ou Notification API
     try {
@@ -138,8 +170,34 @@ export const UpdateNotification: React.FC<UpdateNotificationProps> = ({ onOpenVe
     triggerNativeNotification(versionLabel);
   }, [triggerNativeNotification]);
 
-  // Verificar atualizações via arquivo version.json
+  // Verificar atualizações via arquivo version.json e proxy /api/live-exam
   const checkForUpdates = useCallback(async () => {
+    const localVersion = currentBuildTimeRef.current || getInitialVersion();
+    const currentVer = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : APP_VERSION;
+
+    // 1. Tenta checar pelo endpoint da API em tempo real
+    try {
+      const apiRes = await fetch(`/api/live-exam?checkVersion=1&t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', Pragma: 'no-cache' }
+      });
+      if (apiRes.ok) {
+        const apiData = await apiRes.json();
+        const serverVersion = Number(apiData?.version || apiData?.timestamp);
+        const serverVersionName = (apiData?.versionName || '').trim();
+        const highlights = Array.isArray(apiData?.highlights) ? apiData.highlights : [];
+
+        const isSemanticNewer = Boolean(serverVersionName && isNewerVersion(serverVersionName, currentVer));
+        const isTimestampNewer = Boolean(serverVersion && localVersion && serverVersion > localVersion);
+
+        if (isSemanticNewer || isTimestampNewer) {
+          triggerUpdateFound(serverVersionName || undefined, highlights);
+          return;
+        }
+      }
+    } catch {}
+
+    // 2. Checa pelo arquivo estático version.json
     try {
       const res = await fetch(`/version.json?t=${Date.now()}`, {
         cache: 'no-store',
@@ -155,8 +213,6 @@ export const UpdateNotification: React.FC<UpdateNotificationProps> = ({ onOpenVe
       const serverVersion = Number(data?.version || data?.timestamp);
       const serverVersionName = (data?.versionName || '').trim();
       const highlights = Array.isArray(data?.highlights) ? data.highlights : [];
-      const localVersion = currentBuildTimeRef.current || getInitialVersion();
-      const currentVer = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : APP_VERSION;
 
       const isSemanticNewer = Boolean(serverVersionName && isNewerVersion(serverVersionName, currentVer));
       const isTimestampNewer = Boolean(serverVersion && localVersion && serverVersion > localVersion);
@@ -211,11 +267,11 @@ export const UpdateNotification: React.FC<UpdateNotificationProps> = ({ onOpenVe
       });
     }
 
-    // 2. Verificação inicial e polling a cada 20 segundos
-    const initialTimer = setTimeout(checkForUpdates, 2000);
-    const interval = setInterval(checkForUpdates, 20000);
+    // 2. Verificação inicial rápida e polling contínuo a cada 10 segundos enquanto o app está aberto
+    const initialTimer = setTimeout(checkForUpdates, 1500);
+    const interval = setInterval(checkForUpdates, 10000);
 
-    // 3. Verificação ao focar a tela ou mudar visibilidade
+    // 3. Verificação ao focar a tela, mudar visibilidade ou receber evento global
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         checkForUpdates();
@@ -224,10 +280,12 @@ export const UpdateNotification: React.FC<UpdateNotificationProps> = ({ onOpenVe
 
     const handleFocus = () => checkForUpdates();
     const handleOnline = () => checkForUpdates();
+    const handleExternalTrigger = () => checkForUpdates();
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
     window.addEventListener('online', handleOnline);
+    window.addEventListener('dbv_trigger_check_update', handleExternalTrigger);
 
     return () => {
       clearTimeout(initialTimer);
@@ -235,8 +293,10 @@ export const UpdateNotification: React.FC<UpdateNotificationProps> = ({ onOpenVe
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('online', handleOnline);
+      window.removeEventListener('dbv_trigger_check_update', handleExternalTrigger);
     };
   }, [checkForUpdates, triggerUpdateFound]);
+
 
   // Listener para evento de clique em notificação ou parâmetro URL para atualizar imediatamente
   useEffect(() => {
