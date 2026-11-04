@@ -11,9 +11,12 @@ import {
   fetchUserFaixaSpecialties, updateUserFaixa,
   fetchFaixaConfig, FaixaConfig, DEFAULT_FAIXA_CONFIG,
   saveUserCompletedSpecialtiesToCloud, fetchUserCompletedSpecialties,
-  fetchRemoteSpecialtyOverrides
+  fetchRemoteSpecialtyOverrides,
+  recordDeletedCompletedSpecialtyId, unrecordDeletedCompletedSpecialtyId, getDeletedCompletedSpecialtyIds
 } from '../services/supabaseService';
 import { pushLocalStateToCloud } from '../services/userCloudSync';
+import { fetchAllErrorReports, updateErrorReportStatus, deleteErrorReport, ErrorReport } from '../services/errorReportService';
+
 
 // Helpers para Cálculo de Idade e Elegibilidade de Conquistas
 export const calculateAge = (birthDateString?: any): number | null => {
@@ -644,10 +647,12 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     const target = completedSpecialties.find(c => String(c.specialtyId) === String(specialtyId));
     const confirmName = target?.name || 'esta especialidade';
     if (window.confirm(`Deseja remover "${confirmName}" das suas especialidades concluídas?`)) {
+      recordDeletedCompletedSpecialtyId(specialtyId);
       const updated = completedSpecialties.filter(c => String(c.specialtyId) !== String(specialtyId));
       saveCompletedList(updated);
     }
   };
+
 
   const handleOpenAddModal = (specialtyToPreselect?: Especialidade) => {
     setEditingSpecialtyId(null);
@@ -707,10 +712,12 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     };
 
     // Remove registro existente se for edição ou re-salvamento e coloca a última adicionada no TOPO absoluto (índice 0)
+    unrecordDeletedCompletedSpecialtyId(formSelectedSpecialty.id);
     const otherItems = completedSpecialties.filter(c => String(c.specialtyId) !== String(formSelectedSpecialty.id));
     const updated = [newItem, ...otherItems];
 
     saveCompletedList(updated);
+
 
     // Se marcado para adicionar à faixa
     if (formAddToSash && !likedIds.includes(String(formSelectedSpecialty.id))) {
@@ -840,6 +847,17 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     }).slice(0, 50);
   }, [allSpecialties, formSpecialtySearch, userClubType]);
 
+  const isAdmin = userData.isAdmin || userData.email === 'ronaldosonic@gmail.com' || userData.email === 'dbvtudo2024@gmail.com';
+  const [isAdminReportsModalOpen, setIsAdminReportsModalOpen] = useState(false);
+  const [errorReportsList, setErrorReportsList] = useState<ErrorReport[]>([]);
+  const [errorReportsFilter, setErrorReportsFilter] = useState<'ALL' | 'PENDING' | 'RESOLVED'>('ALL');
+  const [errorReportsSearch, setErrorReportsSearch] = useState('');
+  const [isLoadingReports, setIsLoadingReports] = useState(false);
+  const [selectedReportForView, setSelectedReportForView] = useState<ErrorReport | null>(null);
+  const [copiedReportId, setCopiedReportId] = useState<string | null>(null);
+  const [confirmDeleteReportId, setConfirmDeleteReportId] = useState<string | null>(null);
+  const [isDeletingReportId, setIsDeletingReportId] = useState<string | null>(null);
+
   // Suporte ao botão lateral do mouse ("Voltar") para fechar modais ou sair da visão da faixa no Perfil
   useEffect(() => {
     const handleProfileBack = (e: Event) => {
@@ -863,6 +881,11 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
         e.preventDefault();
         return;
       }
+      if (isAdminReportsModalOpen) {
+        setIsAdminReportsModalOpen(false);
+        e.preventDefault();
+        return;
+      }
       if (isSashView) {
         setIsSashView(false);
         e.preventDefault();
@@ -874,7 +897,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     return () => {
       window.removeEventListener('dbv_app_back_request', handleProfileBack);
     };
-  }, [showGloboModal, showResetConfirm, isSashView, isCompletedModalOpen, isAddEditModalOpen]);
+  }, [showGloboModal, showResetConfirm, isAdminReportsModalOpen, isSashView, isCompletedModalOpen, isAddEditModalOpen]);
 
   useEffect(() => {
     fetchFaixaConfig().then(setFaixaConfig).catch(console.warn);
@@ -985,7 +1008,54 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
       }
     });
   }, []);
-  const isAdmin = userData.isAdmin || userData.email === 'ronaldosonic@gmail.com' || userData.email === 'dbvtudo2024@gmail.com';
+
+  useEffect(() => {
+    if (isAdmin) {
+      setIsLoadingReports(true);
+      fetchAllErrorReports()
+        .then(setErrorReportsList)
+        .catch(console.warn)
+        .finally(() => setIsLoadingReports(false));
+
+      const handleReportsUpdated = (e: any) => {
+        if (e?.detail && Array.isArray(e.detail)) {
+          setErrorReportsList(e.detail);
+        } else {
+          fetchAllErrorReports().then(setErrorReportsList).catch(console.warn);
+        }
+      };
+      window.addEventListener('dbv_error_reports_updated', handleReportsUpdated);
+      return () => {
+        window.removeEventListener('dbv_error_reports_updated', handleReportsUpdated);
+      };
+    }
+  }, [isAdmin]);
+
+  const pendingReportsCount = useMemo(() => {
+    return errorReportsList.filter(r => r.status === 'PENDING').length;
+  }, [errorReportsList]);
+
+  const filteredAdminReports = useMemo(() => {
+    let list = [...errorReportsList];
+    if (errorReportsFilter === 'PENDING') {
+      list = list.filter(r => r.status === 'PENDING');
+    } else if (errorReportsFilter === 'RESOLVED') {
+      list = list.filter(r => r.status === 'RESOLVED');
+    }
+    if (errorReportsSearch.trim()) {
+      const q = errorReportsSearch.toLowerCase();
+      list = list.filter(r =>
+        (r.title || '').toLowerCase().includes(q) ||
+        (r.description || '').toLowerCase().includes(q) ||
+        (r.userName || '').toLowerCase().includes(q) ||
+        (r.userEmail || '').toLowerCase().includes(q) ||
+        (r.location || '').toLowerCase().includes(q) ||
+        (r.category || '').toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [errorReportsList, errorReportsFilter, errorReportsSearch]);
+
   const likedKey = `dbv_tudo_liked_specialties_${userClubType}`;
 
   const [likedIds, setLikedIds] = useState<string[]>(() => {
@@ -1096,10 +1166,12 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                 const cKey = effMail && effMail !== 'email@exemplo.com' ? `dbv_tudo_completed_specialties_${effMail}` : 'dbv_tudo_completed_specialties';
 
                 setCompletedSpecialties(prev => {
+                  const deletedSet = getDeletedCompletedSpecialtyIds();
                   const byId = new Map<string, any>();
                   for (const item of [...cloudList, ...prev]) {
                     if (!item) continue;
                     const sId = String(item.specialtyId ?? item.id ?? item.code ?? item.name);
+                    if (deletedSet.has(sId)) continue;
                     const exist = byId.get(sId);
                     byId.set(sId, exist ? { ...exist, ...item } : item);
                   }
@@ -1123,6 +1195,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
                   return merged;
                 });
+
               } catch {}
             }
 
@@ -2839,15 +2912,40 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
             </div>
           </div>
 
-          {isAdmin && onOpenAdmin && (
-            <button 
-              onClick={onOpenAdmin}
-              className="w-full py-3.5 bg-slate-900 dark:bg-slate-800 hover:bg-slate-950 text-white rounded-2xl font-black uppercase text-xs tracking-wider shadow-lg border border-slate-700 active:scale-95 transition-all flex items-center justify-center space-x-2.5"
-            >
-              <Shield size={18} className="text-indigo-400" />
-              <span>Painel Administrativo</span>
-            </button>
+          {isAdmin && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {onOpenAdmin && (
+                <button 
+                  onClick={onOpenAdmin}
+                  className="py-3.5 bg-slate-900 dark:bg-slate-800 hover:bg-slate-950 text-white rounded-2xl font-black uppercase text-xs tracking-wider shadow-lg border border-slate-700 active:scale-95 transition-all flex items-center justify-center space-x-2.5 cursor-pointer"
+                >
+                  <Shield size={18} className="text-indigo-400" />
+                  <span>Painel Administrativo</span>
+                </button>
+              )}
+              <button 
+                type="button"
+                onClick={() => {
+                  setIsAdminReportsModalOpen(true);
+                  setIsLoadingReports(true);
+                  fetchAllErrorReports()
+                    .then(setErrorReportsList)
+                    .catch(console.warn)
+                    .finally(() => setIsLoadingReports(false));
+                }}
+                className="py-3.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white rounded-2xl font-black uppercase text-xs tracking-wider shadow-lg shadow-amber-600/25 border border-amber-500/30 active:scale-95 transition-all flex items-center justify-center space-x-2.5 cursor-pointer"
+              >
+                <AlertTriangle size={18} className="text-amber-200" />
+                <span>Reportes de Erros</span>
+                {pendingReportsCount > 0 && (
+                  <span className="bg-rose-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black animate-pulse">
+                    {pendingReportsCount}
+                  </span>
+                )}
+              </button>
+            </div>
           )}
+
         </div>
 
         <div className="mt-8 px-4 sm:px-8 pb-10 animate-slide-up max-w-7xl mx-auto no-accent-override">
@@ -3923,9 +4021,277 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
         </button>
       )}
 
+      {/* Modal de Gestão de Reportes de Erros (Apenas Administrador) */}
+      {isAdmin && isAdminReportsModalOpen && (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200">
+          <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-sm" onClick={() => setIsAdminReportsModalOpen(false)} />
+          <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200 text-left">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 flex items-center justify-center shrink-0">
+                  <AlertTriangle size={20} strokeWidth={2.5} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-tight">
+                      Central de Reportes de Erros
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                      Admin
+                    </span>
+                  </div>
+                  <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
+                    Feedback, bugs e correções enviadas pelos usuários do app
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAdminReportsModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 active:scale-90 transition-all cursor-pointer"
+                title="Fechar"
+              >
+                <X size={16} strokeWidth={2.5} />
+              </button>
+            </div>
+
+            {/* Filtros e Barra de Pesquisa */}
+            <div className="p-4 sm:p-5 pb-2 bg-slate-50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 space-y-3 shrink-0">
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setErrorReportsFilter('ALL')}
+                  className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                    errorReportsFilter === 'ALL'
+                      ? 'bg-white dark:bg-slate-800 border-amber-500 shadow-sm ring-2 ring-amber-500/20'
+                      : 'bg-white/60 dark:bg-slate-800/60 border-slate-200/60 dark:border-slate-700/60'
+                  }`}
+                >
+                  <span className="text-[9px] font-black uppercase text-slate-400 block tracking-wider">Todos</span>
+                  <span className="text-base font-black text-slate-800 dark:text-white leading-none">
+                    {errorReportsList.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setErrorReportsFilter('PENDING')}
+                  className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                    errorReportsFilter === 'PENDING'
+                      ? 'bg-amber-500/10 dark:bg-amber-950/40 border-amber-500 shadow-sm ring-2 ring-amber-500/20'
+                      : 'bg-white/60 dark:bg-slate-800/60 border-slate-200/60 dark:border-slate-700/60'
+                  }`}
+                >
+                  <span className="text-[9px] font-black uppercase text-amber-600 dark:text-amber-400 block tracking-wider">Pendentes</span>
+                  <span className="text-base font-black text-amber-600 dark:text-amber-400 leading-none">
+                    {pendingReportsCount}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setErrorReportsFilter('RESOLVED')}
+                  className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                    errorReportsFilter === 'RESOLVED'
+                      ? 'bg-emerald-500/10 dark:bg-emerald-950/40 border-emerald-500 shadow-sm ring-2 ring-emerald-500/20'
+                      : 'bg-white/60 dark:bg-slate-800/60 border-slate-200/60 dark:border-slate-700/60'
+                  }`}
+                >
+                  <span className="text-[9px] font-black uppercase text-emerald-600 dark:text-emerald-400 block tracking-wider">Resolvidos</span>
+                  <span className="text-base font-black text-emerald-600 dark:text-emerald-400 leading-none">
+                    {errorReportsList.filter(r => r.status === 'RESOLVED').length}
+                  </span>
+                </button>
+              </div>
+
+              {/* Barra de Pesquisa */}
+              <div className="relative">
+                <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={errorReportsSearch}
+                  onChange={(e) => setErrorReportsSearch(e.target.value)}
+                  placeholder="Pesquisar reporte por título, e-mail, tela ou descrição..."
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl py-2 pl-9 pr-8 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+                {errorReportsSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setErrorReportsSearch('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Lista de Reportes */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3 scrollbar-hide">
+              {isLoadingReports ? (
+                <div className="py-12 flex flex-col items-center justify-center space-y-2 text-slate-400">
+                  <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-xs font-bold">Carregando reportes de erros...</span>
+                </div>
+              ) : filteredAdminReports.length === 0 ? (
+                <div className="py-12 flex flex-col items-center justify-center space-y-2 text-slate-400 text-center">
+                  <CheckCircle2 size={36} className="text-emerald-500/40" />
+                  <p className="text-sm font-black text-slate-600 dark:text-slate-300">
+                    Nenhum reporte encontrado
+                  </p>
+                  <p className="text-xs text-slate-400 max-w-xs">
+                    {errorReportsFilter === 'PENDING'
+                      ? 'Nenhum erro pendente de resolução no momento. Tudo limpo!'
+                      : 'Nenhum registro corresponde aos filtros selecionados.'}
+                  </p>
+                </div>
+              ) : (
+                filteredAdminReports.map((report) => (
+                  <div
+                    key={report.id}
+                    className={`p-4 rounded-2xl border transition-all ${
+                      report.status === 'RESOLVED'
+                        ? 'bg-slate-50/70 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/60 opacity-80'
+                        : 'bg-white dark:bg-slate-800 border-amber-500/30 dark:border-amber-500/40 shadow-sm'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                          report.status === 'RESOLVED'
+                            ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                            : 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700'
+                        }`}>
+                          {report.status === 'RESOLVED' ? 'Resolvido' : 'Pendente'}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                          {report.category || 'Geral'}
+                        </span>
+                        {report.location && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+                            {report.location}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-400 shrink-0">
+                        {new Date(report.createdAt).toLocaleDateString('pt-BR')} às {new Date(report.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+
+                    <h4 className="text-sm font-black text-slate-800 dark:text-white mb-1.5">
+                      {report.title}
+                    </h4>
+
+                    <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl text-xs text-slate-700 dark:text-slate-300 font-medium whitespace-pre-wrap leading-relaxed mb-3">
+                      {report.description}
+                    </div>
+
+                    {/* Informações do Solicitante e Aparelho */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-slate-500 dark:text-slate-400 mb-3 pt-1 border-t border-slate-100 dark:border-slate-700/60">
+                      <div>
+                        <span className="font-bold text-slate-600 dark:text-slate-300">Autor: </span>
+                        <span>{report.userName || 'Anônimo'}</span>
+                        {report.userEmail && (
+                          <span className="text-indigo-500 dark:text-indigo-400 block truncate">
+                            {report.userEmail}
+                          </span>
+                        )}
+                      </div>
+                      <div className="truncate">
+                        <span className="font-bold text-slate-600 dark:text-slate-300">Aparelho: </span>
+                        <span className="truncate">{report.deviceInfo || 'Não detectado'}</span>
+                        {report.appVersion && (
+                          <span className="text-emerald-500 block font-mono font-bold">
+                            {report.appVersion}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Botões de Ação */}
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const details = `📋 REPORTE DE ERRO (DBV Tudo)\nID: ${report.id}\nCategoria: ${report.category}\nTítulo: ${report.title}\nLocal: ${report.location || 'Geral'}\nData: ${new Date(report.createdAt).toLocaleString('pt-BR')}\nAutor: ${report.userName || 'Anônimo'} (${report.userEmail || 'sem email'})\nAparelho: ${report.deviceInfo || '-'}\nVersão: ${report.appVersion || '-'}\n\nDescrição:\n${report.description}`;
+                            navigator.clipboard.writeText(details);
+                            setCopiedReportId(report.id);
+                            setTimeout(() => setCopiedReportId(null), 2500);
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200 text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                        >
+                          <Copy size={13} />
+                          <span>{copiedReportId === report.id ? 'Copiado!' : 'Copiar'}</span>
+                        </button>
+
+                        {confirmDeleteReportId === report.id ? (
+                          <div className="flex items-center gap-1 animate-in fade-in zoom-in-95 duration-150">
+                            <button
+                              type="button"
+                              disabled={isDeletingReportId === report.id}
+                              onClick={async () => {
+                                setIsDeletingReportId(report.id);
+                                setErrorReportsList(prev => prev.filter(r => r.id !== report.id));
+                                setConfirmDeleteReportId(null);
+                                await deleteErrorReport(report.id);
+                                setIsDeletingReportId(null);
+                              }}
+                              className="px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-black flex items-center gap-1 cursor-pointer shadow-sm active:scale-95 transition-all"
+                            >
+                              <Trash2 size={13} />
+                              <span>{isDeletingReportId === report.id ? 'Excluindo...' : 'Confirmar Exclusão'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDeleteReportId(null)}
+                              className="px-2 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-500 dark:text-slate-300 text-[11px] font-bold cursor-pointer"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteReportId(report.id)}
+                            className="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors active:scale-95"
+                          >
+                            <Trash2 size={13} />
+                            <span>Excluir</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const nextStatus = report.status === 'RESOLVED' ? 'PENDING' : 'RESOLVED';
+                          await updateErrorReportStatus(report.id, nextStatus);
+                          setErrorReportsList(prev => prev.map(r => r.id === report.id ? { ...r, status: nextStatus, resolvedAt: nextStatus === 'RESOLVED' ? Date.now() : undefined } : r));
+                        }}
+                        className={`px-3 py-1.5 rounded-xl font-black text-[11px] uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 ${
+                          report.status === 'RESOLVED'
+                            ? 'bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 text-slate-700 dark:text-slate-200'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
+                        }`}
+                      >
+                        <Check size={14} strokeWidth={3} />
+                        <span>{report.status === 'RESOLVED' ? 'Reabrir' : 'Marcar Resolvido'}</span>
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de Confirmação de Reset de Especialidades */}
       {showResetConfirm && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 animate-in fade-in duration-200">
+
           <div 
             className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" 
             onClick={() => setShowResetConfirm(false)}

@@ -1,12 +1,13 @@
 {
-  "version": 1761386400000,
-  "versionName": "3.1.8",
-  "buildDate": "2026-10-25T14:00:00.000Z",
-  "timestamp": 1761386400000,
+  "version": 1761400000000,
+  "versionName": "3.1.9",
+  "buildDate": "2026-11-04T00:00:00.000Z",
+  "timestamp": 1761400000000,
   "highlights": [
-    "Minhas Especialidades Concluídas no Perfil: Registro oficial de data de conclusão, instrutor e controle de insígnias.",
-    "Controle de Compra de Insígnias: Separe em um clique o que 'Já comprei' do que 'Preciso comprar' para a próxima investidura.",
-    "Lista de Compras Pronta para WhatsApp: Copie a lista formatada com todas as insígnias pendentes para enviar à secretaria ou loja.",
-    "Resumo e Sincronização com a Minha Faixa: Contadores visuais e opção de vincular diretamente especialidades concluídas à faixa oficial."
+    "Notificação Sonora e Visual Ativa de Atualização: Ao estar com o app aberto, você recebe imediatamente um aviso de nova versão sem repetições infinitas.",
+    "Reportar Erro ou Sugestão em Ajustes: Opção para enviar feedbacks, erros de texto ou bugs no PC e no celular.",
+    "Central de Reportes de Erros no Perfil do Administrador: Moderação e resolução de todos os reportes enviados pelos membros.",
+    "Correção Definitiva na Exclusão de Especialidades: Especialidades excluídas não voltam a aparecer após sincronização com a nuvem."
   ]
 }
+

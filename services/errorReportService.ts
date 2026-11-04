@@ -19,7 +19,41 @@ export interface ErrorReport {
 export type NewErrorReport = Omit<ErrorReport, 'id' | 'createdAt' | 'status'>;
 
 const LOCAL_REPORTS_KEY = 'dbv_reported_errors_local';
+const DELETED_REPORTS_KEY = 'dbv_deleted_error_report_ids';
 const ERROR_STORAGE_PATH = 'sync/reported_errors.json';
+
+/**
+ * Lê IDs de reportes excluídos pelo administrador para evitar ressurreição
+ */
+export function getDeletedReportIds(): Set<string> {
+  if (typeof window === 'undefined' || !window.localStorage) return new Set();
+  try {
+    const raw = localStorage.getItem(DELETED_REPORTS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return new Set(parsed.map(String));
+    }
+  } catch {}
+  return new Set();
+}
+
+export function recordDeletedReportId(id: string) {
+  if (typeof window === 'undefined' || !window.localStorage || !id) return;
+  try {
+    const set = getDeletedReportIds();
+    set.add(String(id));
+    localStorage.setItem(DELETED_REPORTS_KEY, JSON.stringify(Array.from(set)));
+  } catch {}
+}
+
+export function unrecordDeletedReportId(id: string) {
+  if (typeof window === 'undefined' || !window.localStorage || !id) return;
+  try {
+    const set = getDeletedReportIds();
+    set.delete(String(id));
+    localStorage.setItem(DELETED_REPORTS_KEY, JSON.stringify(Array.from(set)));
+  } catch {}
+}
 
 /**
  * Detecta automaticamente informações do sistema/navegador para facilitar a reprodução do erro
@@ -56,7 +90,10 @@ export function getLocalErrorReports(): ErrorReport[] {
     const raw = localStorage.getItem(LOCAL_REPORTS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        const deletedIds = getDeletedReportIds();
+        return parsed.filter((r: any) => r && r.id && !deletedIds.has(String(r.id)));
+      }
     }
   } catch {}
   return [];
@@ -65,8 +102,10 @@ export function getLocalErrorReports(): ErrorReport[] {
 function saveLocalErrorReports(reports: ErrorReport[]) {
   if (typeof window === 'undefined' || !window.localStorage) return;
   try {
-    localStorage.setItem(LOCAL_REPORTS_KEY, JSON.stringify(reports));
-    window.dispatchEvent(new CustomEvent('dbv_error_reports_updated', { detail: reports }));
+    const deletedIds = getDeletedReportIds();
+    const cleanList = reports.filter(r => r && r.id && !deletedIds.has(String(r.id)));
+    localStorage.setItem(LOCAL_REPORTS_KEY, JSON.stringify(cleanList));
+    window.dispatchEvent(new CustomEvent('dbv_error_reports_updated', { detail: cleanList }));
   } catch {}
 }
 
@@ -80,6 +119,8 @@ export async function submitErrorReport(newReport: NewErrorReport): Promise<{ ok
     createdAt: Date.now(),
     status: 'PENDING'
   };
+
+  unrecordDeletedReportId(report.id);
 
   // 1. Salva localmente
   const currentLocal = getLocalErrorReports();
@@ -155,9 +196,14 @@ export async function submitErrorReport(newReport: NewErrorReport): Promise<{ ok
  */
 export async function fetchAllErrorReports(): Promise<ErrorReport[]> {
   const byId = new Map<string, ErrorReport>();
+  const deletedIds = getDeletedReportIds();
 
   // 1. Carrega local
-  getLocalErrorReports().forEach(r => byId.set(r.id, r));
+  getLocalErrorReports().forEach(r => {
+    if (r && r.id && !deletedIds.has(String(r.id))) {
+      byId.set(String(r.id), r);
+    }
+  });
 
   // 2. Carrega da API /api/live-exam
   try {
@@ -166,7 +212,9 @@ export async function fetchAllErrorReports(): Promise<ErrorReport[]> {
       const data = await res.json();
       if (Array.isArray(data?.reports)) {
         data.reports.forEach((r: ErrorReport) => {
-          if (r && r.id) byId.set(r.id, r);
+          if (r && r.id && !deletedIds.has(String(r.id))) {
+            byId.set(String(r.id), r);
+          }
         });
       }
     }
@@ -186,7 +234,9 @@ export async function fetchAllErrorReports(): Promise<ErrorReport[]> {
         : culturaData.insignias_tiras;
       if (Array.isArray(parsed?.reportes_erros)) {
         parsed.reportes_erros.forEach((r: ErrorReport) => {
-          if (r && r.id) byId.set(r.id, r);
+          if (r && r.id && !deletedIds.has(String(r.id))) {
+            byId.set(String(r.id), r);
+          }
         });
       }
     }
@@ -200,13 +250,18 @@ export async function fetchAllErrorReports(): Promise<ErrorReport[]> {
       const parsed = await res.json();
       if (Array.isArray(parsed)) {
         parsed.forEach((r: ErrorReport) => {
-          if (r && r.id) byId.set(r.id, r);
+          if (r && r.id && !deletedIds.has(String(r.id))) {
+            byId.set(String(r.id), r);
+          }
         });
       }
     }
   } catch {}
 
-  const list = Array.from(byId.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const list = Array.from(byId.values())
+    .filter(r => r && r.id && !deletedIds.has(String(r.id)))
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
   saveLocalErrorReports(list);
   return list;
 }
@@ -279,13 +334,20 @@ export async function updateErrorReportStatus(reportId: string, status: 'PENDING
 }
 
 /**
- * Exclui um reporte
+ * Exclui um reporte permanentemente de todas as fontes (local, API, Supabase Cultura e Storage)
  */
 export async function deleteErrorReport(reportId: string): Promise<boolean> {
+  if (!reportId) return false;
+
+  // 1. Registra no tombstone local para nunca ser re-adicionado
+  recordDeletedReportId(reportId);
+
+  // 2. Remove do cache local e emite evento
   const current = getLocalErrorReports();
   const filtered = current.filter(r => r.id !== reportId);
   saveLocalErrorReports(filtered);
 
+  // 3. Notifica a API live-exam para remover da memória e do WebSocket
   try {
     fetch('/api/live-exam', {
       method: 'POST',
@@ -297,6 +359,7 @@ export async function deleteErrorReport(reportId: string): Promise<boolean> {
     }).catch(() => {});
   } catch {}
 
+  // 4. Remove da tabela Cultura no Supabase
   try {
     const { data: culturaData } = await supabase
       .from('Cultura')
@@ -309,14 +372,35 @@ export async function deleteErrorReport(reportId: string): Promise<boolean> {
         ? JSON.parse(culturaData.insignias_tiras)
         : culturaData.insignias_tiras;
       if (Array.isArray(parsed?.reportes_erros)) {
-        parsed.reportes_erros = parsed.reportes_erros.filter((r: any) => r?.id !== reportId);
+        parsed.reportes_erros = parsed.reportes_erros.filter((r: any) => r && r.id !== reportId);
         await supabase
           .from('Cultura')
           .update({ insignias_tiras: JSON.stringify(parsed) })
           .eq('club_type', 'PATHFINDER');
       }
     }
-  } catch {}
+  } catch (err) {
+    console.warn("Aviso ao remover reporte da tabela Cultura:", err);
+  }
+
+  // 5. Remove do backup no Supabase Storage
+  try {
+    const { data: currentBlob } = await supabase.storage.from('App DBV Tudo').download(ERROR_STORAGE_PATH);
+    if (currentBlob) {
+      const text = await currentBlob.text();
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) {
+        const updatedList = parsed.filter((r: any) => r && r.id !== reportId);
+        await supabase.storage.from('App DBV Tudo').upload(ERROR_STORAGE_PATH, JSON.stringify(updatedList), {
+          upsert: true,
+          contentType: 'application/json',
+          cacheControl: '0'
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("Aviso ao remover reporte do Storage:", err);
+  }
 
   return true;
 }

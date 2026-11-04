@@ -6,14 +6,26 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.1.8';
-export const APP_BUILD_DATE = '25 de Outubro de 2026';
+export const APP_VERSION = '3.1.9';
+export const APP_BUILD_DATE = '04 de Novembro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '3.1.9',
+    date: '04/11/2026',
+    tag: 'NOVO',
+    title: 'Notificações Ativas de Atualização em Tempo Real, Central de Reporte de Erros e Correção de Exclusão',
+    changes: [
+      'Notificação Sonora e Visual Ativa de Atualização: Ao estar com o aplicativo aberto, você agora recebe imediatamente um sinal sonoro suave e banner elegante quando uma nova versão for publicada, sem loops ou repetições infinitas.',
+      'Opção de Reportar Erro ou Sugestão em Ajustes: No computador (PC) e celular, foi incluída a opção direta em Ajustes para relatar erros de digitação, falhas visuais ou sugestões de melhoria.',
+      'Painel de Gestão de Reportes para Administradores: Todos os reportes de erros enviados pelos membros chegam em tempo real à central de moderação exclusiva no perfil do administrador do aplicativo.',
+      'Correção Definitiva na Exclusão de Especialidades: Resolvido o problema onde especialidades excluídas pelo usuário no controle de conclusão voltavam a reaparecer após a sincronização com a nuvem.'
+    ]
+  },
+  {
     version: '3.1.8',
     date: '25/10/2026',
-    tag: 'NOVO',
+    tag: 'ESTÁVEL',
     title: 'Minhas Especialidades Concluídas no Perfil, Data de Conclusão e Controle de Compra de Insígnias',
     changes: [
       'Registro Completo de Especialidades Concluídas: Nova área exclusiva no perfil para registrar cada especialidade oficial concluída, com data exata de conclusão, instrutor ou clube.',
@@ -22,6 +34,7 @@ export const VERSION_HISTORY: VersionRelease[] = [
       'Resumo Inteligente e Sincronização: Indicadores visuais com total de especialidades concluídas, compradas e a comprar, com opção de sincronizar diretamente com a Minha Faixa oficial.'
     ]
   },
+
   {
     version: '3.1.7',
     date: '25/10/2026',

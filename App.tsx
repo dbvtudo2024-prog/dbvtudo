@@ -9,6 +9,8 @@ import Profile from './components/Profile';
 import UpdateNotification from './components/UpdateNotification';
 import { Settings, X, ChevronLeft, ChevronRight, Search, Moon, Sun, Bell, BellOff, LogOut, LogIn, Sparkles, History, CheckCircle2, RefreshCw, Layers, PanelLeft, Palette, Check } from 'lucide-react';
 import { APP_VERSION, APP_BUILD_DATE, VERSION_HISTORY } from './versionConfig';
+import ReportErrorModal from './components/ReportErrorModal';
+
 
 import { PROFILE_KEY } from './constants';
 import { supabase, checkSupabaseHealth, getSupabaseStatus } from './services/supabaseService';
@@ -530,6 +532,8 @@ const App: React.FC = () => {
   const [versionSearchQuery, setVersionSearchQuery] = useState<string>('');
   const [isCheckingUpdate, setIsCheckingUpdate] = useState<boolean>(false);
   const [updateCheckMessage, setUpdateCheckMessage] = useState<string | null>(null);
+  const [isReportErrorOpen, setIsReportErrorOpen] = useState<boolean>(false);
+
 
   const isUserLoggedIn = React.useMemo(() => {
     if (isGuest) return false;
@@ -1617,7 +1621,31 @@ const App: React.FC = () => {
                     <ChevronRight size={14} />
                   </div>
                 </button>
+
+                {/* Botão Reportar Erro ou Sugestão (Para PC e Mobile) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSettingsModalOpen(false);
+                    setIsReportErrorOpen(true);
+                  }}
+                  className={`w-full mt-2 py-3 px-3.5 rounded-xl flex items-center justify-between text-xs font-bold transition-all active:scale-[0.98] cursor-pointer ${
+                    darkMode
+                      ? 'bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-200'
+                      : 'bg-amber-50/80 hover:bg-amber-100/70 border border-amber-200 text-amber-900 shadow-2xs'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2.5">
+                    <AlertTriangle size={15} className="text-amber-500 shrink-0" />
+                    <span>Reportar Erro ou Sugestão</span>
+                  </div>
+                  <div className="flex items-center space-x-1 text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                    <span>Enviar</span>
+                    <ChevronRight size={14} />
+                  </div>
+                </button>
               </div>
+
 
               {/* Separador */}
               <div className="pt-1">
@@ -1697,7 +1725,15 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* Modal Reportar Erro ou Sugestão */}
+      <ReportErrorModal
+        isOpen={isReportErrorOpen}
+        onClose={() => setIsReportErrorOpen(false)}
+        currentScreenName={currentView}
+      />
+
       {/* Modal Explicativo: Restrição de Cota do Supabase */}
+
       {isSupabaseModalOpen && (
         <div 
           className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-fade-in"

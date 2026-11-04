@@ -4354,16 +4354,66 @@ export async function uploadFaixaImage(file: File, filenameKey: string): Promise
   }
 }
 
+export const DELETED_COMPLETED_SPECIALTIES_KEY = 'dbv_deleted_completed_specialties';
+
+export function getDeletedCompletedSpecialtyIds(): Set<string> {
+  if (typeof window === 'undefined' || !window.localStorage) return new Set();
+  try {
+    const raw = localStorage.getItem(DELETED_COMPLETED_SPECIALTIES_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return new Set(parsed.map((id) => String(id)));
+    }
+  } catch {}
+  return new Set();
+}
+
+export function recordDeletedCompletedSpecialtyId(id: string | number): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const set = getDeletedCompletedSpecialtyIds();
+    set.add(String(id));
+    localStorage.setItem(DELETED_COMPLETED_SPECIALTIES_KEY, JSON.stringify(Array.from(set)));
+  } catch {}
+}
+
+export function unrecordDeletedCompletedSpecialtyId(id: string | number): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const set = getDeletedCompletedSpecialtyIds();
+    set.delete(String(id));
+    localStorage.setItem(DELETED_COMPLETED_SPECIALTIES_KEY, JSON.stringify(Array.from(set)));
+  } catch {}
+}
+
 export async function saveUserCompletedSpecialtiesToCloud(
   completedList: any[],
   email?: string | null,
   userId?: string | null
 ): Promise<void> {
   try {
+    const deletedSet = getDeletedCompletedSpecialtyIds();
+    const cleanList = (completedList || []).filter((item) => {
+      if (!item) return false;
+      const sId = String(item.specialtyId ?? item.id ?? item.code ?? item.name);
+      return !deletedSet.has(sId);
+    });
+
     let effectiveUserId = userId;
     if (!effectiveUserId) {
       const user = await getSafeAuthUser();
       if (user?.id) effectiveUserId = user.id;
+    }
+
+    if (!effectiveUserId && email && email !== 'email@exemplo.com') {
+      const { data: rowByMail } = await supabase
+        .from('Usuarios')
+        .select('user_id')
+        .eq('email', email)
+        .maybeSingle();
+      if (rowByMail?.user_id) {
+        effectiveUserId = rowByMail.user_id;
+      }
     }
 
     if (effectiveUserId) {
@@ -4380,7 +4430,7 @@ export async function saveUserCompletedSpecialtiesToCloud(
         } catch {}
       }
 
-      fundoObj.completedSpecialties = completedList;
+      fundoObj.completedSpecialties = cleanList;
       fundoObj.completedSpecialtiesUpdatedAt = Date.now();
 
       await supabase
@@ -4409,6 +4459,17 @@ export async function fetchUserCompletedSpecialties(
       if (user?.id) effectiveUserId = user.id;
     }
 
+    if (!effectiveUserId && email && email !== 'email@exemplo.com') {
+      const { data: rowByMail } = await supabase
+        .from('Usuarios')
+        .select('user_id')
+        .eq('email', email)
+        .maybeSingle();
+      if (rowByMail?.user_id) {
+        effectiveUserId = rowByMail.user_id;
+      }
+    }
+
     if (effectiveUserId) {
       const { data: row } = await supabase
         .from('Usuarios')
@@ -4420,7 +4481,12 @@ export async function fetchUserCompletedSpecialties(
         try {
           const fundoObj = typeof row.fundo === 'string' ? JSON.parse(row.fundo) : row.fundo;
           if (Array.isArray(fundoObj?.completedSpecialties)) {
-            return fundoObj.completedSpecialties;
+            const deletedSet = getDeletedCompletedSpecialtyIds();
+            return fundoObj.completedSpecialties.filter((item: any) => {
+              if (!item) return false;
+              const sId = String(item.specialtyId ?? item.id ?? item.code ?? item.name);
+              return !deletedSet.has(sId);
+            });
           }
         } catch {}
       }
@@ -4428,3 +4494,4 @@ export async function fetchUserCompletedSpecialties(
   } catch {}
   return [];
 }
+
