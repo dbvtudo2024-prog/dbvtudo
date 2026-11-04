@@ -9,8 +9,11 @@ import {
   fetchFuncoes, DEFAULT_CARGOS, getCachedFuncoes,
   getLocalFaixaSpecialties, saveLocalFaixaSpecialties, clearLocalFaixaSpecialties,
   fetchUserFaixaSpecialties, updateUserFaixa,
-  fetchFaixaConfig, FaixaConfig, DEFAULT_FAIXA_CONFIG
+  fetchFaixaConfig, FaixaConfig, DEFAULT_FAIXA_CONFIG,
+  saveUserCompletedSpecialtiesToCloud, fetchUserCompletedSpecialties,
+  fetchRemoteSpecialtyOverrides
 } from '../services/supabaseService';
+import { pushLocalStateToCloud } from '../services/userCloudSync';
 
 // Helpers para Cálculo de Idade e Elegibilidade de Conquistas
 export const calculateAge = (birthDateString?: any): number | null => {
@@ -530,6 +533,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   };
 
   const [userData, setUserData] = useState(getInitialData);
+  const userClubType = userData.tipo === "Desbravador" ? ClubType.PATHFINDER : ClubType.ADVENTURER;
   const [userId, setUserId] = useState<string | null>(null);
   const [cargosList, setCargosList] = useState<string[]>(() => getCachedFuncoes());
 
@@ -617,6 +621,10 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
       localStorage.setItem('dbv_tudo_completed_specialties', JSON.stringify(newList));
       window.dispatchEvent(new CustomEvent('dbv_completed_specialties_updated', { detail: newList }));
       window.dispatchEvent(new Event('storage'));
+
+      // Sincroniza imediatamente com o banco Supabase e nuvem para refletir entre Celular e PC
+      saveUserCompletedSpecialtiesToCloud(newList, userData.email, userId).catch(console.warn);
+      pushLocalStateToCloud().catch(console.warn);
     } catch (err) {
       console.error("Erro ao salvar especialidades concluídas:", err);
     }
@@ -684,6 +692,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
       return;
     }
 
+    const now = Date.now();
     const newItem: CompletedSpecialty = {
       specialtyId: formSelectedSpecialty.id,
       name: formSelectedSpecialty.nome,
@@ -694,17 +703,12 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
       purchased: formPurchased,
       instructor: formInstructor.trim() || undefined,
       notes: formNotes.trim() || undefined,
-      addedAt: Date.now()
+      addedAt: now // Sempre atualiza timestamp de adição para que fique no topo do Gerenciar
     };
 
-    let updated: CompletedSpecialty[];
-    const existsIndex = completedSpecialties.findIndex(c => String(c.specialtyId) === String(formSelectedSpecialty.id));
-    if (existsIndex >= 0) {
-      updated = [...completedSpecialties];
-      updated[existsIndex] = newItem;
-    } else {
-      updated = [newItem, ...completedSpecialties];
-    }
+    // Remove registro existente se for edição ou re-salvamento e coloca a última adicionada no TOPO absoluto (índice 0)
+    const otherItems = completedSpecialties.filter(c => String(c.specialtyId) !== String(formSelectedSpecialty.id));
+    const updated = [newItem, ...otherItems];
 
     saveCompletedList(updated);
 
@@ -769,16 +773,26 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     }
 
     if (completedSearchTerm.trim()) {
-      const term = completedSearchTerm.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const term = completedSearchTerm.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      const tokens = term.split(/\s+/).filter(t => t.length > 0 && t !== 'de' && t !== 'da' && t !== 'do' && t !== 'e' && t !== 'em');
       list = list.filter(c => {
         const nameNorm = (c.name || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         const codeNorm = (c.code || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         const areaNorm = (c.area || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        return nameNorm.includes(term) || codeNorm.includes(term) || areaNorm.includes(term);
+        const haystack = `${nameNorm} ${codeNorm} ${areaNorm}`;
+        if (haystack.includes(term)) return true;
+        if (tokens.length > 0 && tokens.every(tok => haystack.includes(tok))) return true;
+        return false;
       });
     }
 
     return list.sort((a, b) => {
+      // Regra de Negócio: No 'Gerenciar', a última especialidade adicionada fica sempre no topo da lista
+      const addedA = Number(a.addedAt || 0);
+      const addedB = Number(b.addedAt || 0);
+      if (addedB !== addedA) {
+        return addedB - addedA;
+      }
       const dateA = a.completionDate || '';
       const dateB = b.completionDate || '';
       return dateB.localeCompare(dateA);
@@ -786,17 +800,45 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   }, [completedSpecialties, completedFilterTab, completedSearchTerm]);
 
   const availableSpecialtiesForAdd = useMemo(() => {
-    if (!formSpecialtySearch.trim()) {
-      return allSpecialties.slice(0, 30);
+    let source = allSpecialties;
+    if (!source || source.length === 0) {
+      source = getCachedEspecialidades(userClubType, true);
     }
-    const term = formSpecialtySearch.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    return allSpecialties.filter(s => {
+
+    // Deduplicação rigorosa por ID do banco e nome para evitar repetições no catálogo
+    const seen = new Set<string>();
+    const uniqueSource: Especialidade[] = [];
+    for (const esp of source) {
+      if (!esp || !esp.nome) continue;
+      const key = `${esp.id}_${(esp.nome || '').trim().toLowerCase()}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueSource.push(esp);
+      }
+    }
+
+    if (!formSpecialtySearch.trim()) {
+      return uniqueSource.slice(0, 40);
+    }
+
+    const term = formSpecialtySearch.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    const searchTokens = term.split(/\s+/).filter(t => t.length > 0 && t !== 'de' && t !== 'da' && t !== 'do' && t !== 'e' && t !== 'em');
+
+    return uniqueSource.filter(s => {
       const nameNorm = (s.nome || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       const codeNorm = (s.codigo || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       const areaNorm = (s.area || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      return nameNorm.includes(term) || codeNorm.includes(term) || areaNorm.includes(term);
-    }).slice(0, 30);
-  }, [allSpecialties, formSpecialtySearch]);
+      const fullText = `${nameNorm} ${codeNorm} ${areaNorm}`;
+
+      // 1. Busca exata ou por trecho
+      if (fullText.includes(term)) return true;
+
+      // 2. Busca por todas as palavras digitadas separadas (ex: "arte" e "acampar" localiza "Arte de acampar")
+      if (searchTokens.length > 0 && searchTokens.every(tok => fullText.includes(tok))) return true;
+
+      return false;
+    }).slice(0, 50);
+  }, [allSpecialties, formSpecialtySearch, userClubType]);
 
   // Suporte ao botão lateral do mouse ("Voltar") para fechar modais ou sair da visão da faixa no Perfil
   useEffect(() => {
@@ -944,7 +986,6 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     });
   }, []);
   const isAdmin = userData.isAdmin || userData.email === 'ronaldosonic@gmail.com' || userData.email === 'dbvtudo2024@gmail.com';
-  const userClubType = userData.tipo === "Desbravador" ? ClubType.PATHFINDER : ClubType.ADVENTURER;
   const likedKey = `dbv_tudo_liked_specialties_${userClubType}`;
 
   const [likedIds, setLikedIds] = useState<string[]>(() => {
@@ -976,15 +1017,26 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
           const parsedBap = JSON.parse(bapRaw);
           setIsBaptized(Boolean(parsedBap));
         }
+
+        // Sincroniza especialidades concluídas que vieram da nuvem (Celular <-> PC)
+        const compRaw = localStorage.getItem(completedStorageKey) || localStorage.getItem('dbv_tudo_completed_specialties');
+        if (compRaw) {
+          const parsedComp = JSON.parse(compRaw);
+          if (Array.isArray(parsedComp)) {
+            setCompletedSpecialties((prev) => (JSON.stringify(prev) === JSON.stringify(parsedComp) ? prev : parsedComp));
+          }
+        }
       } catch {}
     };
     window.addEventListener('dbv_cloud_sync_applied', handleCloudAppliedInProfile);
+    window.addEventListener('dbv_completed_specialties_updated', handleCloudAppliedInProfile);
     window.addEventListener('storage', handleCloudAppliedInProfile);
     return () => {
       window.removeEventListener('dbv_cloud_sync_applied', handleCloudAppliedInProfile);
+      window.removeEventListener('dbv_completed_specialties_updated', handleCloudAppliedInProfile);
       window.removeEventListener('storage', handleCloudAppliedInProfile);
     };
-  }, [userData.email, userData.tipo]);
+  }, [userData.email, userData.tipo, completedStorageKey]);
 
   // Carregar dados do Supabase se houver usuário logado
   useEffect(() => {
@@ -1036,13 +1088,41 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                 const parsed = JSON.parse(profile.fundo);
                 if (!bloodType && parsed.tipo_sanguineo) bloodType = parsed.tipo_sanguineo;
                 if (!rhFactor && parsed.fator_rh) rhFactor = parsed.fator_rh;
-                if (parsed.completedSpecialties && Array.isArray(parsed.completedSpecialties)) {
-                  setCompletedSpecialties(parsed.completedSpecialties);
-                  const effMail = profile.email || user.email || userData.email;
-                  const cKey = effMail && effMail !== 'email@exemplo.com' ? `dbv_tudo_completed_specialties_${effMail}` : 'dbv_tudo_completed_specialties';
-                  localStorage.setItem(cKey, JSON.stringify(parsed.completedSpecialties));
-                  localStorage.setItem('dbv_tudo_completed_specialties', JSON.stringify(parsed.completedSpecialties));
-                }
+                const cloudList = (parsed.completedSpecialties && Array.isArray(parsed.completedSpecialties))
+                  ? parsed.completedSpecialties
+                  : [];
+
+                const effMail = profile.email || user.email || userData.email;
+                const cKey = effMail && effMail !== 'email@exemplo.com' ? `dbv_tudo_completed_specialties_${effMail}` : 'dbv_tudo_completed_specialties';
+
+                setCompletedSpecialties(prev => {
+                  const byId = new Map<string, any>();
+                  for (const item of [...cloudList, ...prev]) {
+                    if (!item) continue;
+                    const sId = String(item.specialtyId ?? item.id ?? item.code ?? item.name);
+                    const exist = byId.get(sId);
+                    byId.set(sId, exist ? { ...exist, ...item } : item);
+                  }
+                  const merged = Array.from(byId.values()).sort((a: any, b: any) => {
+                    const addedA = Number(a.addedAt || 0);
+                    const addedB = Number(b.addedAt || 0);
+                    if (addedB !== addedA) return addedB - addedA;
+                    return (b.completionDate || '').localeCompare(a.completionDate || '');
+                  });
+
+                  try {
+                    localStorage.setItem(cKey, JSON.stringify(merged));
+                    localStorage.setItem('dbv_tudo_completed_specialties', JSON.stringify(merged));
+                  } catch {}
+
+                  // Se o aparelho local tiver especialidades que a nuvem ainda não tem, faz upload
+                  if (cloudList.length < merged.length && user.id) {
+                    saveUserCompletedSpecialtiesToCloud(merged, effMail, user.id).catch(console.warn);
+                    pushLocalStateToCloud().catch(console.warn);
+                  }
+
+                  return merged;
+                });
               } catch {}
             }
 
@@ -2280,7 +2360,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                       {availableSpecialtiesForAdd.length > 0 ? (
                         availableSpecialtiesForAdd.map((esp) => (
                           <button
-                            key={esp.id}
+                            key={`${esp.club || 'DBV'}_${esp.id}`}
                             type="button"
                             onClick={() => {
                               setFormSelectedSpecialty(esp);

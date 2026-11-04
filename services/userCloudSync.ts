@@ -48,6 +48,8 @@ const EXACT_TRACKED_KEYS = new Set<string>([
   'dbv_tudo_liked_specialties_ADVENTURER',
   'dbv_tudo_catalog_favs_PATHFINDER',
   'dbv_tudo_catalog_favs_ADVENTURER',
+  // Especialidades Concluídas (Registro de Conclusão e Lista de Compras de Insígnias)
+  'dbv_tudo_completed_specialties',
   // Conquistas, Classes, Batismo e Perfil
   'dbv_tudo_user_achievements',
   'dbv_tudo_user_baptized',
@@ -73,6 +75,7 @@ const TRACKED_KEY_PREFIXES = [
   'dbv_tudo_faixa_ADVENTURER_',
   'dbv_tudo_catalog_favs_PATHFINDER_',
   'dbv_tudo_catalog_favs_ADVENTURER_',
+  'dbv_tudo_completed_specialties_',
   'dbv_deleted_applied_exams_',
   'dbv_deleted_student_history_',
   'dbv_exam_draft_'
@@ -85,7 +88,8 @@ function isUnitOrSharedFallbackKey(key: string): boolean {
     key.startsWith('dbv_unit_corner_') ||
     key === 'markedVerses' ||
     key === 'bibleNotes' ||
-    key.startsWith('dbv_exam_draft_')
+    key.startsWith('dbv_exam_draft_') ||
+    key.includes('completed_specialties')
   );
 }
 
@@ -408,6 +412,20 @@ function tryMergeJsonCollections(
         }
         return JSON.stringify(Array.from(byId.values()));
       }
+    }
+
+    // Mesclagem de Especialidades Concluídas (mantém união sem duplicar por specialtyId, priorizando a mais recente)
+    if (key.includes('completed_specialties') && Array.isArray(localArr) && Array.isArray(cloudArr)) {
+      const bySpecId = new Map<string, any>();
+      const older = cloudUpdatedAt >= localUpdatedAt ? localArr : cloudArr;
+      const newer = cloudUpdatedAt >= localUpdatedAt ? cloudArr : localArr;
+      for (const item of [...older, ...newer]) {
+        if (!item) continue;
+        const sKey = String(item.specialtyId ?? item.id ?? item.code ?? item.name);
+        const existing = bySpecId.get(sKey);
+        bySpecId.set(sKey, existing ? { ...existing, ...item } : item);
+      }
+      return JSON.stringify(Array.from(bySpecId.values()));
     }
 
     // Mesclagem de Recordes do Quiz (mantém sempre o maior recorde de cada arena)

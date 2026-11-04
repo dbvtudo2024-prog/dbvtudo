@@ -1890,7 +1890,17 @@ export function getLocalSpecialtyOverrides(): Record<string, Partial<Especialida
     if (typeof window !== 'undefined' && window.localStorage) {
       const raw = localStorage.getItem(SPECIALTY_OVERRIDES_STORAGE_KEY);
       if (raw) {
-        _memorySpecialtyOverrides = JSON.parse(raw);
+        const parsed = JSON.parse(raw);
+        // Higieniza chaves inválidas (códigos de 3 dígitos como 001 que não são o ID único da linha no banco)
+        const sanitized: Record<string, Partial<Especialidade>> = {};
+        for (const [k, v] of Object.entries(parsed)) {
+          // IDs no Supabase são numéricos maiores ou únicos por tabela, não o código da categoria (ex: 001, 002)
+          if (!k.endsWith('_001') && !k.endsWith('_002') && !k.endsWith('_003') && !k.endsWith('_049')) {
+            sanitized[k] = v as Partial<Especialidade>;
+          }
+        }
+        _memorySpecialtyOverrides = sanitized;
+        localStorage.setItem(SPECIALTY_OVERRIDES_STORAGE_KEY, JSON.stringify(sanitized));
         return _memorySpecialtyOverrides || {};
       }
     }
@@ -1910,7 +1920,13 @@ export async function fetchRemoteSpecialtyOverrides(): Promise<Record<string, Pa
         ? JSON.parse(data.insignias_tiras)
         : data.insignias_tiras;
       if (parsed?.especialidades_overrides && typeof parsed.especialidades_overrides === 'object') {
-        _memorySpecialtyOverrides = { ...getLocalSpecialtyOverrides(), ...parsed.especialidades_overrides };
+        const sanitized: Record<string, Partial<Especialidade>> = {};
+        for (const [k, v] of Object.entries(parsed.especialidades_overrides)) {
+          if (!k.endsWith('_001') && !k.endsWith('_002') && !k.endsWith('_003') && !k.endsWith('_049')) {
+            sanitized[k] = v as Partial<Especialidade>;
+          }
+        }
+        _memorySpecialtyOverrides = { ...getLocalSpecialtyOverrides(), ...sanitized };
         try {
           if (typeof window !== 'undefined' && window.localStorage) {
             localStorage.setItem(SPECIALTY_OVERRIDES_STORAGE_KEY, JSON.stringify(_memorySpecialtyOverrides));
@@ -1929,9 +1945,9 @@ export function applySpecialtyOverrides(item: Especialidade): Especialidade {
   if (!item) return item;
   const overrides = getLocalSpecialtyOverrides();
   const clubKey = item.club || ClubType.PATHFINDER;
+  // O ID numérico da linha no banco é o único identificador universal e exclusivo (o 'codigo' como 001 se repete em várias áreas)
   const keyById = `${clubKey}_${item.id}`;
-  const keyByCode = `${clubKey}_${item.codigo}`;
-  const override = overrides[keyById] || (item.codigo ? overrides[keyByCode] : null);
+  const override = overrides[keyById];
   if (!override) return item;
 
   return {
@@ -2059,12 +2075,9 @@ export async function updateEspecialidade(
     ...(normalizedReqs.length > 0 ? { requisitos: normalizedReqs } : {})
   };
 
-  // 1. Grava no cache local e em memória imediatamente
+  // 1. Grava no cache local e em memória exclusivamente pelo ID único da linha no banco
   const key = `${club}_${id}`;
   const localOverrides = { ...getLocalSpecialtyOverrides(), [key]: overridePayload };
-  if (resolvedCodigo) {
-    localOverrides[`${club}_${resolvedCodigo}`] = overridePayload;
-  }
   _memorySpecialtyOverrides = localOverrides;
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
@@ -2087,9 +2100,6 @@ export async function updateEspecialidade(
     }
     const currentRemoteOverrides = existingObj?.especialidades_overrides || {};
     currentRemoteOverrides[key] = overridePayload;
-    if (resolvedCodigo) {
-      currentRemoteOverrides[`${club}_${resolvedCodigo}`] = overridePayload;
-    }
     existingObj.especialidades_overrides = currentRemoteOverrides;
 
     await supabase
@@ -4342,4 +4352,79 @@ export async function uploadFaixaImage(file: File, filenameKey: string): Promise
       reader.readAsDataURL(file);
     });
   }
+}
+
+export async function saveUserCompletedSpecialtiesToCloud(
+  completedList: any[],
+  email?: string | null,
+  userId?: string | null
+): Promise<void> {
+  try {
+    let effectiveUserId = userId;
+    if (!effectiveUserId) {
+      const user = await getSafeAuthUser();
+      if (user?.id) effectiveUserId = user.id;
+    }
+
+    if (effectiveUserId) {
+      const { data: row } = await supabase
+        .from('Usuarios')
+        .select('fundo')
+        .eq('user_id', effectiveUserId)
+        .maybeSingle();
+
+      let fundoObj: Record<string, any> = {};
+      if (row?.fundo) {
+        try {
+          fundoObj = typeof row.fundo === 'string' ? JSON.parse(row.fundo) : row.fundo;
+        } catch {}
+      }
+
+      fundoObj.completedSpecialties = completedList;
+      fundoObj.completedSpecialtiesUpdatedAt = Date.now();
+
+      await supabase
+        .from('Usuarios')
+        .upsert(
+          {
+            user_id: effectiveUserId,
+            fundo: JSON.stringify(fundoObj)
+          },
+          { onConflict: 'user_id' }
+        );
+    }
+  } catch (err) {
+    console.warn("Erro ao salvar especialidades concluídas no Supabase:", err);
+  }
+}
+
+export async function fetchUserCompletedSpecialties(
+  email?: string | null,
+  userId?: string | null
+): Promise<any[]> {
+  try {
+    let effectiveUserId = userId;
+    if (!effectiveUserId) {
+      const user = await getSafeAuthUser();
+      if (user?.id) effectiveUserId = user.id;
+    }
+
+    if (effectiveUserId) {
+      const { data: row } = await supabase
+        .from('Usuarios')
+        .select('fundo')
+        .eq('user_id', effectiveUserId)
+        .maybeSingle();
+
+      if (row?.fundo) {
+        try {
+          const fundoObj = typeof row.fundo === 'string' ? JSON.parse(row.fundo) : row.fundo;
+          if (Array.isArray(fundoObj?.completedSpecialties)) {
+            return fundoObj.completedSpecialties;
+          }
+        } catch {}
+      }
+    }
+  } catch {}
+  return [];
 }
