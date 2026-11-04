@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { QFPY_URL, QFPY_KEY, supabaseQfpy, supabase, safeSupabaseFetch, getDeletedCompletedSpecialtyIds } from './supabaseService';
+import { QFPY_URL, QFPY_KEY, supabaseQfpy, supabase, safeSupabaseFetch } from './supabaseService';
 
 export interface SyncedKeyEntry {
   value: string;
@@ -414,19 +414,14 @@ function tryMergeJsonCollections(
       }
     }
 
-    // Mesclagem de Especialidades Concluídas (prioriza LWW se ambos tiverem timestamp e expurga IDs excluídos)
+    // Mesclagem de Especialidades Concluídas (mantém união sem duplicar por specialtyId, priorizando a mais recente)
     if (key.includes('completed_specialties') && Array.isArray(localArr) && Array.isArray(cloudArr)) {
-      if (localUpdatedAt > 0 && cloudUpdatedAt > 0) {
-        return null; // O algoritmo LWW escolhe a versão mais recente e autoritativa
-      }
-      const deletedSet = getDeletedCompletedSpecialtyIds();
       const bySpecId = new Map<string, any>();
       const older = cloudUpdatedAt >= localUpdatedAt ? localArr : cloudArr;
       const newer = cloudUpdatedAt >= localUpdatedAt ? cloudArr : localArr;
       for (const item of [...older, ...newer]) {
         if (!item) continue;
         const sKey = String(item.specialtyId ?? item.id ?? item.code ?? item.name);
-        if (deletedSet.has(sKey)) continue;
         const existing = bySpecId.get(sKey);
         bySpecId.set(sKey, existing ? { ...existing, ...item } : item);
       }
@@ -705,24 +700,10 @@ function applyRemoteBundleToLocal(
         continue;
       }
 
-      // Helper para sanitizar lista de especialidades concluídas antes de aplicar
-      const sanitizeCompletedValue = (val: string): string => {
-        if (!key.includes('completed_specialties')) return val;
-        try {
-          const arr = JSON.parse(val);
-          if (Array.isArray(arr)) {
-            const delSet = getDeletedCompletedSpecialtyIds();
-            return JSON.stringify(arr.filter((item: any) => !delSet.has(String(item.specialtyId ?? item.id ?? item.code ?? item.name))));
-          }
-        } catch {}
-        return val;
-      };
-
       // Caso 1: Local está vazio/padrão (e não foi esvaziado explicitamente após a nuvem) -> Adota o valor da nuvem!
       if (isLocalEmpty && (!lMeta.explicitEmpty || rUpdatedAt > lMeta.updatedAt)) {
-        const cleanVal = sanitizeCompletedValue(remoteEntry.value);
-        if (localRaw !== cleanVal) {
-          _nativeSetItem(key, cleanVal);
+        if (localRaw !== remoteEntry.value) {
+          _nativeSetItem(key, remoteEntry.value);
           localMeta[key] = {
             updatedAt: Math.max(rUpdatedAt, Date.now()),
             explicitEmpty: Boolean(remoteEntry.explicitEmpty)
@@ -761,8 +742,7 @@ function applyRemoteBundleToLocal(
         }
 
         if (rUpdatedAt > lMeta.updatedAt) {
-          const cleanVal = sanitizeCompletedValue(remoteEntry.value);
-          _nativeSetItem(key, cleanVal);
+          _nativeSetItem(key, remoteEntry.value);
           localMeta[key] = {
             updatedAt: rUpdatedAt,
             explicitEmpty: Boolean(remoteEntry.explicitEmpty)
@@ -774,7 +754,6 @@ function applyRemoteBundleToLocal(
         }
         continue;
       }
-
 
       // Caso 3: Usuário excluiu todos os itens explicitamente no outro aparelho (explicitEmpty === true e rUpdatedAt > lMeta.updatedAt)
       if (remoteEntry.explicitEmpty && rUpdatedAt > lMeta.updatedAt && localRaw !== remoteEntry.value) {

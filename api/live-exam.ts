@@ -16,10 +16,6 @@ const globalUserCloudBundles: Map<string, any> =
   (globalThis as any).__dbvUserCloudSyncBundles || new Map<string, any>();
 (globalThis as any).__dbvUserCloudSyncBundles = globalUserCloudBundles;
 
-const globalReportedErrors: Map<string, any> =
-  (globalThis as any).__dbvReportedErrors || new Map<string, any>();
-(globalThis as any).__dbvReportedErrors = globalReportedErrors;
-
 function mergeStudentHistoryEntries(existingList: any[], incomingList: any[]): any[] {
   const byPin = new Map<string, any>();
   [...(existingList || []), ...(incomingList || [])].forEach((item) => {
@@ -255,37 +251,6 @@ export default async function handler(
         ''
       ).trim();
 
-      if (u.searchParams.get('checkVersion')) {
-        res.statusCode = 200;
-        res.end(
-          JSON.stringify({
-            ok: true,
-            version: 1761400000000,
-            versionName: '3.1.9',
-            timestamp: 1761400000000,
-            highlights: [
-              'Notificação sonora e visual em tempo real quando houver nova atualização com o app aberto',
-              'Opção de reportar erro em Ajustes no PC e mobile',
-              'Painel de moderação e resolução de erros reportados no Perfil de Administrador'
-            ]
-          })
-        );
-        return;
-      }
-
-      if (u.searchParams.get('getErrorReports')) {
-        res.statusCode = 200;
-        res.end(
-          JSON.stringify({
-            ok: true,
-            reports: Array.from(globalReportedErrors.values()).sort(
-              (a: any, b: any) => Number(b.createdAt || 0) - Number(a.createdAt || 0)
-            )
-          })
-        );
-        return;
-      }
-
       if (cloudSyncUser) {
         const bundle = globalUserCloudBundles.get(cloudSyncUser) || globalUserCloudBundles.get('shared_unit_fallback') || null;
         res.statusCode = 200;
@@ -399,36 +364,6 @@ export default async function handler(
           });
           res.statusCode = 200;
           res.end(JSON.stringify({ ok: true, bundle: savedBundle }));
-          return;
-        }
-
-        if (action === 'SUBMIT_ERROR_REPORT' && payload.report && payload.report.id) {
-          globalReportedErrors.set(String(payload.report.id), payload.report);
-          res.statusCode = 200;
-          res.end(JSON.stringify({ ok: true, report: payload.report }));
-          return;
-        }
-
-        if (action === 'UPDATE_REPORT_STATUS' && payload.reportId) {
-          const existing = globalReportedErrors.get(String(payload.reportId));
-          if (existing) {
-            const updated = {
-              ...existing,
-              status: payload.status,
-              notes: payload.notes !== undefined ? payload.notes : existing.notes,
-              resolvedAt: payload.status === 'RESOLVED' ? Date.now() : existing.resolvedAt
-            };
-            globalReportedErrors.set(String(payload.reportId), updated);
-            res.statusCode = 200;
-            res.end(JSON.stringify({ ok: true, report: updated }));
-            return;
-          }
-        }
-
-        if (action === 'DELETE_ERROR_REPORT' && payload.reportId) {
-          globalReportedErrors.delete(String(payload.reportId));
-          res.statusCode = 200;
-          res.end(JSON.stringify({ ok: true, deleted: true }));
           return;
         }
 
