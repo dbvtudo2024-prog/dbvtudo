@@ -2515,18 +2515,38 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   const [showSpecialtyPreview, setShowSpecialtyPreview] = useState(false);
   const [isLoadingSpecialtyRequirements, setIsLoadingSpecialtyRequirements] = useState(false);
 
-  // Sincroniza e ouve atualizações de especialidades vindas do editor admin
+  // Sincroniza e ouve atualizações de especialidades vindas do editor admin ou recarga em segundo plano
   useEffect(() => {
     fetchRemoteSpecialtyOverrides().catch(() => {});
 
     const handleUpdated = (e: any) => {
       const detail = e?.detail;
       if (!detail) return;
+
+      // Se o evento traz a lista inteira de especialidades revalidadas em segundo plano
+      if (detail.specialties && Array.isArray(detail.specialties)) {
+        const clubOnly = detail.specialties.filter((s: Especialidade) => s && s.club === club);
+        if (clubOnly.length > 0) {
+          setAllSpecialtiesList(detail.specialties);
+          setSpecialties(clubOnly);
+          setSelectedSpecialty(prev => {
+            if (!prev) return null;
+            return detail.specialties.find((s: Especialidade) => s && s.id === prev.id) || prev;
+          });
+        }
+        return;
+      }
+
+      // Se for uma atualização individual via admin
       const { id, updates } = detail;
+      if (!updates || typeof updates !== 'object') return;
       const numId = Number(id);
 
       const updateItem = (item: Especialidade): Especialidade => {
-        if (item.id === numId || (updates.codigo && item.codigo === updates.codigo)) {
+        if (!item) return item;
+        const matchesId = !isNaN(numId) && item.id === numId;
+        const matchesCode = Boolean(updates.codigo && item.codigo && item.codigo === updates.codigo);
+        if (matchesId || matchesCode) {
           return {
             ...item,
             ...(updates.nome ? { nome: updates.nome } : {}),
@@ -2542,8 +2562,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
         return item;
       };
 
-      setAllSpecialtiesList(prev => prev.map(updateItem));
-      setSpecialties(prev => prev.map(updateItem));
+      setAllSpecialtiesList(prev => (prev || []).map(updateItem));
+      setSpecialties(prev => (prev || []).map(updateItem));
       setSelectedSpecialty(prev => prev ? updateItem(prev) : null);
     };
 
@@ -2551,7 +2571,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     return () => {
       window.removeEventListener('dbv_especialidades_updated', handleUpdated);
     };
-  }, []);
+  }, [club]);
 
   useEffect(() => {
     if (activeSubView === 'SPECIALTY_ADMIN') {
@@ -5429,6 +5449,28 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       ? selectedSpecialty.requisitos.filter(r => !!findMatchingSpecialty(r, allSpecialtiesList)).length
       : 0;
 
+    // Identifica se é uma especialidade retirada/descontinuada do manual
+    const isRetiredSpecialty = (() => {
+      if (!selectedSpecialty) return false;
+      const reqs = selectedSpecialty.requisitos || [];
+      const hasRetiredReq = reqs.some(r => {
+        const norm = (r || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        return (
+          (norm.includes('retirada') || norm.includes('removida') || norm.includes('excluida') || norm.includes('descontinuada')) &&
+          norm.includes('manual')
+        );
+      });
+      if (hasRetiredReq) return true;
+      if (reqs.length === 1) {
+        const single = (reqs[0] || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        if (single.includes('retirada') || single.includes('removida') || single.includes('descontinuada')) {
+          return true;
+        }
+      }
+      const nameNorm = (selectedSpecialty.nome || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      return nameNorm.includes('telecartofilia');
+    })();
+
     return (
       <div className="animate-slide-in space-y-4 pt-1 pb-28">
         <div id="specialty-details-content" className="space-y-6">
@@ -5768,8 +5810,8 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           </div>
         </div>
 
-        {/* Ações de Exportação: PDF (apenas usuários logados com 16+ anos), Apresentação PowerPoint Didática, Gerador de Prova Oficial e Prova Ao Vivo com QR Code */}
-        {(canGenerateSpecialtyPdf || canGenerateSpecialtyPptx) && (
+        {/* Ações de Exportação: PDF (apenas usuários logados com 16+ anos), Apresentação PowerPoint Didática, Gerador de Prova Oficial e Prova Ao Vivo com QR Code - Oculto em especialidades retiradas do manual */}
+        {!isRetiredSpecialty && (canGenerateSpecialtyPdf || canGenerateSpecialtyPptx) && (
           <div className={`grid grid-cols-1 ${canGenerateSpecialtyPdf && canGenerateSpecialtyPptx ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-2'} gap-3 pt-2`}>
             {canGenerateSpecialtyPdf && (
               <button 
@@ -5834,7 +5876,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           </div>
         )}
 
-        {(isAdmin || isUserAdmin) && (
+        {!isRetiredSpecialty && (isAdmin || isUserAdmin) && (
           <div className="pt-2">
             <button 
               onClick={() => {

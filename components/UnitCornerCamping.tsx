@@ -10,6 +10,12 @@ interface UnitCornerCampingProps {
   onBack?: () => void;
 }
 
+export interface UnitMemberItem {
+  id?: string;
+  name: string;
+  role?: string;
+}
+
 export const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club, onBack }) => {
   const isPathfinder = club === ClubType.PATHFINDER;
   const clubPrefix = isPathfinder ? 'DBV' : 'AVT';
@@ -19,13 +25,29 @@ export const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club, onBa
   // Cantinho da Unidade
   const [unitName, setUnitName] = useState(() => localStorage.getItem(`dbv_unit_corner_${clubPrefix}_unit_name`) || '');
   const [counselorName, setCounselorName] = useState(() => localStorage.getItem(`dbv_unit_corner_${clubPrefix}_counselor_name`) || '');
-  const [members, setMembers] = useState<string[]>(() => {
+  const [members, setMembers] = useState<UnitMemberItem[]>(() => {
     try {
       const saved = localStorage.getItem(`dbv_unit_corner_${clubPrefix}_members`);
-      return saved ? JSON.parse(saved) : [];
+      if (!saved) return [];
+      const parsed = JSON.parse(saved);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.map((item, index) => {
+        if (typeof item === 'string') {
+          return { id: String(index), name: item, role: '' };
+        }
+        if (item && typeof item === 'object') {
+          return {
+            id: String(item.id || index),
+            name: String(item.name || (item as any).nome || ''),
+            role: item.role ? String(item.role) : ((item as any).cargo ? String((item as any).cargo) : '')
+          };
+        }
+        return { id: String(index), name: String(item || ''), role: '' };
+      }).filter(m => m.name.trim().length > 0);
     } catch { return []; }
   });
   const [newMemberName, setNewMemberName] = useState('');
+  const [newMemberRole, setNewMemberRole] = useState('');
 
   // Acampamento
   const [campName, setCampName] = useState(() => localStorage.getItem(`dbv_unit_corner_${clubPrefix}_camp_name`) || '');
@@ -89,8 +111,14 @@ export const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club, onBa
   const handleAddMember = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMemberName.trim()) return;
-    setMembers([...members, newMemberName.trim()]);
+    const newMember: UnitMemberItem = {
+      id: Date.now().toString(),
+      name: newMemberName.trim(),
+      role: newMemberRole.trim() || undefined
+    };
+    setMembers([...members, newMember]);
     setNewMemberName('');
+    setNewMemberRole('');
   };
 
   const handleRemoveMember = (idx: number) => {
@@ -116,17 +144,9 @@ export const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club, onBa
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 pb-20 animate-fade-in text-slate-800 dark:text-slate-100">
-      {/* Top Header */}
+      {/* Top Header (Sem botão de voltar redundante, pois o app possui botão global) */}
       <div className="sticky top-0 z-20 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {onBack && (
-            <button
-              onClick={onBack}
-              className="p-2 -ml-1 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition"
-            >
-              <ChevronLeft size={22} />
-            </button>
-          )}
           <div className="flex items-center gap-2">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white ${isPathfinder ? 'bg-amber-600' : 'bg-red-600'}`}>
               <Tent size={20} />
@@ -225,7 +245,7 @@ export const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club, onBa
                 </h2>
               </div>
 
-              <form onSubmit={handleAddMember} className="flex gap-2">
+              <form onSubmit={handleAddMember} className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="text"
                   value={newMemberName}
@@ -233,9 +253,16 @@ export const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club, onBa
                   placeholder="Nome do desbravador/aventureiro..."
                   className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
+                <input
+                  type="text"
+                  value={newMemberRole}
+                  onChange={(e) => setNewMemberRole(e.target.value)}
+                  placeholder="Cargo/Função (Ex: Capitão...)"
+                  className="sm:w-56 px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition"
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition shrink-0 cursor-pointer"
                 >
                   <Plus size={16} /> Adicionar
                 </button>
@@ -247,25 +274,36 @@ export const UnitCornerCamping: React.FC<UnitCornerCampingProps> = ({ club, onBa
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {members.map((name, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/70 dark:border-slate-700/60 text-sm font-bold"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-black flex items-center justify-center">
-                          {idx + 1}
-                        </span>
-                        <span>{name}</span>
-                      </div>
-                      <button
-                        onClick={() => handleRemoveMember(idx)}
-                        className="p-1.5 text-slate-400 hover:text-red-500 transition rounded-lg"
+                  {members.map((member, idx) => {
+                    const memberName = typeof member === 'string' ? member : (member?.name || (member as any)?.nome || 'Membro');
+                    const memberRole = typeof member === 'object' ? (member?.role || (member as any)?.cargo || (member as any)?.funcao || '') : '';
+                    return (
+                      <div
+                        key={(member as any)?.id || idx}
+                        className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/70 dark:border-slate-700/60 text-sm font-bold"
                       >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ))}
+                        <div className="flex items-center gap-2 flex-1 min-w-0 mr-2">
+                          <span className="w-6 h-6 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-black flex items-center justify-center shrink-0">
+                            {idx + 1}
+                          </span>
+                          <span className="truncate">{memberName}</span>
+                          {memberRole && (
+                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shrink-0">
+                              {memberRole}
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveMember(idx)}
+                          className="p-1.5 text-slate-400 hover:text-red-500 transition rounded-lg shrink-0 cursor-pointer"
+                          title="Remover membro"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

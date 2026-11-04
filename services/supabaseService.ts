@@ -1737,15 +1737,82 @@ const ESPECIALIDADES_CACHE_KEY_PREFIX = 'dbv_tudo_cached_specialties_';
 const ESPECIALIDADES_LIGHT_CACHE_KEY_PREFIX = 'dbv_tudo_cached_specialties_light_';
 const ESPECIALIDADES_CACHE_TS_PREFIX = 'dbv_tudo_cached_specialties_ts_';
 const ESPECIALIDADES_ALL_CACHE_KEY = 'dbv_tudo_cached_specialties_all';
-const ESPECIALIDADES_CACHE_TTL_MS = 1000 * 60 * 60 * 12; // 12 horas
+const ESPECIALIDADES_CACHE_TTL_MS = 1000 * 60 * 10; // 10 minutos (ao invés de 12 horas)
+
+// Tabela canônica de segurança contra corrupções acidentais de cache/overrides em códigos repetidos como '001'
+export const CANONICAL_SPECIALTY_FIXES: Record<number, { nome: string; area: string; codigo: string }> = {
+  1: { nome: 'Alívio da fome', area: 'Adra', codigo: '001' },
+  19: { nome: 'Automodelismo', area: 'Artes e Habilidades Manuais', codigo: '001' },
+  923: { nome: 'Avicultura', area: 'Atividades Agricolas', codigo: '001' },
+  941: { nome: 'Arte de contar histórias cristãs', area: 'Atividades Missionárias e Comunitárias', codigo: '001' },
+  994: { nome: 'Escrituras sagradas', area: 'Ensinos Bíblicos', codigo: '001' },
+  1036: { nome: 'Conserto de sapatos', area: 'Atividades Profissionais', codigo: '001' },
+  2061: { nome: 'Arte de acampar', area: 'Atividades Recreativas', codigo: '001' },
+  2187: { nome: 'Saúde e cura', area: 'Ciência e Saúde', codigo: '001' },
+  2205: { nome: 'Aranhas', area: 'Estudo da Natureza', codigo: '001' },
+  2301: { nome: 'Arte culinária', area: 'Habilidades Domésticas', codigo: '001' },
+  2302: { nome: 'Arte culinária - avançado', area: 'Habilidades Domésticas', codigo: '008' },
+  2314: { nome: 'Mestrado em ADRA', area: 'Mestrados', codigo: '001' },
+  2330: { nome: 'Cuidado e Manutenção de Violões', area: 'Atividades Profissionais', codigo: '048' },
+  2331: { nome: 'Operação e manutenção de impressoras', area: 'Atividades Profissionais', codigo: '059' },
+  2332: { nome: 'Telecartofilia', area: 'Atividades Recreativas', codigo: '077' },
+  2333: { nome: 'Telecartofilia - Avançado', area: 'Atividades Recreativas', codigo: '078' },
+  2334: { nome: 'Mordomia', area: 'Atividades Missionárias e Comunitárias', codigo: '015' }
+};
+
+export function sanitizeEspecialidadesCatalog(items: Especialidade[]): Especialidade[] {
+  if (!items || !Array.isArray(items)) return [];
+  let hadCorruption = false;
+
+  const sanitized = items.map(item => {
+    if (!item) return item;
+    const fix = CANONICAL_SPECIALTY_FIXES[Number(item.id)];
+    if (fix) {
+      if (item.nome !== fix.nome || (item.area !== fix.area && typeof item.area === 'string' && !item.area.startsWith('http'))) {
+        hadCorruption = true;
+        return {
+          ...item,
+          nome: fix.nome,
+          area: fix.area,
+          codigo: item.codigo || fix.codigo
+        };
+      }
+    }
+    // Proteção extra: se não for o ID 2301 ou 2302, mas o nome for 'Arte culinária' em outra área
+    if (item.nome === 'Arte culinária' && item.id !== 2301 && item.id !== 2302) {
+      hadCorruption = true;
+      if (item.area === 'Atividades Recreativas' || Number(item.id) === 2061) {
+        return { ...item, nome: 'Arte de acampar', area: 'Atividades Recreativas', codigo: '001' };
+      }
+      if (item.area === 'Ciência e Saúde' || Number(item.id) === 2187) {
+        return { ...item, nome: 'Saúde e cura', area: 'Ciência e Saúde', codigo: '001' };
+      }
+      if (item.area === 'Atividades Missionárias e Comunitárias' || Number(item.id) === 941) {
+        return { ...item, nome: 'Arte de contar histórias cristãs', area: 'Atividades Missionárias e Comunitárias', codigo: '001' };
+      }
+    }
+    return item;
+  });
+
+  // Se detectou corrupção no cache vindo do storage, limpa caches antigos para forçar atualização limpa
+  if (hadCorruption && typeof window !== 'undefined' && window.localStorage) {
+    try {
+      localStorage.removeItem(ESPECIALIDADES_LIGHT_CACHE_KEY_PREFIX + ClubType.PATHFINDER);
+      localStorage.removeItem(ESPECIALIDADES_CACHE_KEY_PREFIX + ClubType.PATHFINDER);
+      localStorage.removeItem(ESPECIALIDADES_ALL_CACHE_KEY);
+    } catch {}
+  }
+
+  return sanitized;
+}
 
 const _memoryEspecialidadesCache: Partial<Record<ClubType, { full?: Especialidade[]; light?: Especialidade[]; ts: number }>> = {};
 
 export function getCachedEspecialidades(club?: ClubType | null, allowLight: boolean = false): Especialidade[] {
   if (club && _memoryEspecialidadesCache[club]) {
     const mem = _memoryEspecialidadesCache[club]!;
-    if (mem.full && mem.full.length > 0) return mem.full;
-    if (allowLight && mem.light && mem.light.length > 0) return mem.light;
+    if (mem.full && mem.full.length > 0) return sanitizeEspecialidadesCatalog(mem.full);
+    if (allowLight && mem.light && mem.light.length > 0) return sanitizeEspecialidadesCatalog(mem.light);
   }
   if (typeof window === 'undefined' || !window.localStorage) return [];
   try {
@@ -1753,13 +1820,13 @@ export function getCachedEspecialidades(club?: ClubType | null, allowLight: bool
       const specific = localStorage.getItem(ESPECIALIDADES_CACHE_KEY_PREFIX + club);
       if (specific) {
         const parsed = JSON.parse(specific);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return sanitizeEspecialidadesCatalog(parsed);
       }
       if (allowLight) {
         const specificLight = localStorage.getItem(ESPECIALIDADES_LIGHT_CACHE_KEY_PREFIX + club);
         if (specificLight) {
           const parsedLight = JSON.parse(specificLight);
-          if (Array.isArray(parsedLight) && parsedLight.length > 0) return parsedLight;
+          if (Array.isArray(parsedLight) && parsedLight.length > 0) return sanitizeEspecialidadesCatalog(parsedLight);
         }
       }
     }
@@ -1767,8 +1834,8 @@ export function getCachedEspecialidades(club?: ClubType | null, allowLight: bool
     if (all) {
       const parsed = JSON.parse(all);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        if (club) return parsed.filter((item: Especialidade) => item.club === club);
-        return parsed;
+        const filtered = club ? parsed.filter((item: Especialidade) => item.club === club) : parsed;
+        return sanitizeEspecialidadesCatalog(filtered);
       }
     }
   } catch {}
@@ -1792,8 +1859,8 @@ function isEspecialidadesCacheFresh(club: ClubType, requireFull: boolean): Espec
   const minCount = club === ClubType.PATHFINDER ? 400 : 100;
   const mem = _memoryEspecialidadesCache[club];
   if (mem && (now - mem.ts < ESPECIALIDADES_CACHE_TTL_MS)) {
-    if (mem.full && mem.full.length >= minCount) return mem.full.map(normalizeCachedSpecialtyItem);
-    if (!requireFull && mem.light && mem.light.length >= minCount) return mem.light.map(normalizeCachedSpecialtyItem);
+    if (mem.full && mem.full.length >= minCount) return sanitizeEspecialidadesCatalog(mem.full.map(normalizeCachedSpecialtyItem));
+    if (!requireFull && mem.light && mem.light.length >= minCount) return sanitizeEspecialidadesCatalog(mem.light.map(normalizeCachedSpecialtyItem));
   }
   if (typeof window !== 'undefined' && window.localStorage) {
     try {
@@ -1804,7 +1871,7 @@ function isEspecialidadesCacheFresh(club: ClubType, requireFull: boolean): Espec
         if (fullRaw) {
           const parsed = JSON.parse(fullRaw);
           if (Array.isArray(parsed) && parsed.length >= minCount) {
-            const normalized = parsed.map(normalizeCachedSpecialtyItem);
+            const normalized = sanitizeEspecialidadesCatalog(parsed.map(normalizeCachedSpecialtyItem));
             _memoryEspecialidadesCache[club] = { ...(mem || {}), full: normalized, ts };
             return normalized;
           }
@@ -1814,7 +1881,7 @@ function isEspecialidadesCacheFresh(club: ClubType, requireFull: boolean): Espec
           if (lightRaw) {
             const parsedLight = JSON.parse(lightRaw);
             if (Array.isArray(parsedLight) && parsedLight.length >= minCount) {
-              const normalizedLight = parsedLight.map(normalizeCachedSpecialtyItem);
+              const normalizedLight = sanitizeEspecialidadesCatalog(parsedLight.map(normalizeCachedSpecialtyItem));
               _memoryEspecialidadesCache[club] = { ...(mem || {}), light: normalizedLight, ts };
               return normalizedLight;
             }
@@ -1894,9 +1961,13 @@ export function getLocalSpecialtyOverrides(): Record<string, Partial<Especialida
         // Higieniza chaves inválidas (códigos de 3 dígitos como 001 que não são o ID único da linha no banco)
         const sanitized: Record<string, Partial<Especialidade>> = {};
         for (const [k, v] of Object.entries(parsed)) {
-          // IDs no Supabase são numéricos maiores ou únicos por tabela, não o código da categoria (ex: 001, 002)
-          if (!k.endsWith('_001') && !k.endsWith('_002') && !k.endsWith('_003') && !k.endsWith('_049')) {
-            sanitized[k] = v as Partial<Especialidade>;
+          const val = v as Partial<Especialidade>;
+          // Se tentar sobrepor o nome como 'Arte culinária' em qualquer ID que não seja 2301 ou 2302, descarta
+          if (val?.nome === 'Arte culinária' && !k.endsWith('_2301') && !k.endsWith('_2302')) {
+            continue;
+          }
+          if (!k.endsWith('_001') && !k.endsWith('_002') && !k.endsWith('_003') && !k.endsWith('_049') && k !== '001' && k !== '002' && k !== '003' && k !== '049') {
+            sanitized[k] = val;
           }
         }
         _memorySpecialtyOverrides = sanitized;
@@ -1922,8 +1993,12 @@ export async function fetchRemoteSpecialtyOverrides(): Promise<Record<string, Pa
       if (parsed?.especialidades_overrides && typeof parsed.especialidades_overrides === 'object') {
         const sanitized: Record<string, Partial<Especialidade>> = {};
         for (const [k, v] of Object.entries(parsed.especialidades_overrides)) {
-          if (!k.endsWith('_001') && !k.endsWith('_002') && !k.endsWith('_003') && !k.endsWith('_049')) {
-            sanitized[k] = v as Partial<Especialidade>;
+          const val = v as Partial<Especialidade>;
+          if (val?.nome === 'Arte culinária' && !k.endsWith('_2301') && !k.endsWith('_2302')) {
+            continue;
+          }
+          if (!k.endsWith('_001') && !k.endsWith('_002') && !k.endsWith('_003') && !k.endsWith('_049') && k !== '001' && k !== '002' && k !== '003' && k !== '049') {
+            sanitized[k] = val;
           }
         }
         _memorySpecialtyOverrides = { ...getLocalSpecialtyOverrides(), ...sanitized };
@@ -1950,9 +2025,13 @@ export function applySpecialtyOverrides(item: Especialidade): Especialidade {
   const override = overrides[keyById];
   if (!override) return item;
 
+  // Proteção contra sobrescrita incorreta de nome de outras especialidades com 'Arte culinária'
+  const isCulinariaConflict = override.nome === 'Arte culinária' && item.id !== 2301 && item.id !== 2302;
+  const resolvedNome = isCulinariaConflict ? item.nome : (override.nome || item.nome);
+
   return {
     ...item,
-    ...(override.nome ? { nome: override.nome } : {}),
+    ...(resolvedNome ? { nome: resolvedNome } : {}),
     ...(override.area ? { area: override.area } : {}),
     ...(override.codigo ? { codigo: override.codigo } : {}),
     ...(override.nivel ? { nivel: override.nivel } : {}),
@@ -2140,17 +2219,105 @@ export async function updateEspecialidade(
   return { data: overridePayload, error: null };
 }
 
+const _isRevalidatingEsp: Record<string, boolean> = {};
+
+/**
+ * Revalida o catálogo de especialidades em segundo plano sem travar a UI
+ */
+export async function revalidateEspecialidadesInBackground(club: ClubType, excludeQuestions: boolean = true) {
+  const revalKey = `${club}_${excludeQuestions}`;
+  if (_isRevalidatingEsp[revalKey]) return;
+  _isRevalidatingEsp[revalKey] = true;
+
+  try {
+    const table = club === ClubType.PATHFINDER ? 'EspecialidadesDBV' : 'EspecialidadesAVT';
+    const selectCols = excludeQuestions
+      ? (club === ClubType.PATHFINDER
+          ? 'id,ID,Nome,Categoria,Imagem,Sigla,Nivel,Ano,Origem'
+          : 'id,ID,Nome,Categoria,Imagem,Sigla,Origem')
+      : '*';
+
+    let directUrl = `${DEFAULT_URL}/rest/v1/${table}?select=${encodeURIComponent(selectCols)}&order=id.asc`;
+    const res = await fetch(directUrl, {
+      headers: {
+        'apikey': DEFAULT_KEY,
+        'authorization': `Bearer ${DEFAULT_KEY}`
+      }
+    });
+
+    if (res.ok) {
+      const pData = await res.json();
+      if (Array.isArray(pData) && pData.length > 0) {
+        const mapSpecialtyRow = (item: any): Especialidade => {
+          const isUrlInCategory = typeof item.Categoria === 'string' && item.Categoria.startsWith('http');
+          const rawLogo = item.Imagem || (isUrlInCategory ? item.Categoria : '');
+          const rawArea = isUrlInCategory
+            ? (item.Sigla === 'AR' ? 'Atividades Recreativas' : item.Sigla === 'EN' ? 'Estudos da Natureza' : 'Atividades Recreativas')
+            : item.Categoria;
+          const rawReqs = item.Questoes ? item.Questoes.split(/\r?\n/).map((r: string) => r.trim()).filter((r: string) => r.length > 0) : [];
+          const specObj: Especialidade = {
+            id: item.id,
+            nome: item.Nome,
+            area: rawArea,
+            logo: rawLogo,
+            requisitos: cleanAndMergeRequirements(rawReqs),
+            club,
+            sigla: item.Sigla,
+            nivel: item.Nivel,
+            ano: item.Ano,
+            origem: item.Origem,
+            codigo: item.ID
+          };
+          return applySpecialtyOverrides(specObj);
+        };
+
+        const mapped: Especialidade[] = sanitizeEspecialidadesCatalog(pData.map(mapSpecialtyRow));
+        const cached = getCachedEspecialidades(club, excludeQuestions);
+        const isDifferent = !cached || cached.length !== mapped.length || (mapped[mapped.length - 1]?.id !== cached[cached.length - 1]?.id);
+
+        const now = Date.now();
+        const prevMem = _memoryEspecialidadesCache[club] || { ts: now };
+        _memoryEspecialidadesCache[club] = excludeQuestions
+          ? { ...prevMem, light: mapped, ts: now }
+          : { ...prevMem, full: mapped, light: mapped, ts: now };
+
+        try {
+          const storageKey = (excludeQuestions ? ESPECIALIDADES_LIGHT_CACHE_KEY_PREFIX : ESPECIALIDADES_CACHE_KEY_PREFIX) + club;
+          localStorage.setItem(storageKey, JSON.stringify(mapped));
+          localStorage.setItem(ESPECIALIDADES_CACHE_TS_PREFIX + club, String(now));
+        } catch {}
+
+        if (isDifferent && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('dbv_especialidades_updated', {
+            detail: { club, specialties: mapped }
+          }));
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Aviso ao revalidar especialidades em segundo plano:", err);
+  } finally {
+    _isRevalidatingEsp[revalKey] = false;
+  }
+}
+
 export async function fetchEspecialidades(
   club: ClubType,
   categoryFilter?: string,
   options?: { excludeQuestions?: boolean; forceRefresh?: boolean }
 ): Promise<Especialidade[]> {
   const excludeQuestions = !!options?.excludeQuestions;
+  const forceRefresh = !!options?.forceRefresh;
+
   try {
-    // 1. Reutiliza cache fresco em memória/localStorage para evitar consultas repetidas ao banco
-    if (!options?.forceRefresh) {
+    // 1. Reutiliza cache em memória/localStorage para render instantâneo
+    if (!forceRefresh) {
       const cached = isEspecialidadesCacheFresh(club, !excludeQuestions);
       if (cached && cached.length > 0) {
+        // Dispara revalidação em segundo plano para captar qualquer alteração ou nova especialidade no banco
+        if (!categoryFilter) {
+          revalidateEspecialidadesInBackground(club, excludeQuestions);
+        }
         return categoryFilter
           ? cached.filter(item => item.area === categoryFilter)
           : cached;
@@ -2190,8 +2357,8 @@ export async function fetchEspecialidades(
     let query = supabase.from(table).select(selectCols);
     if (categoryFilter) query = query.eq('Categoria', categoryFilter);
     
-    const { data, error } = await query.order('ID', { ascending: true });
-    if (error || !data) {
+    const { data, error } = await query.order('id', { ascending: true });
+    if (error || !data || data.length === 0) {
       if (error) {
         console.warn(`Erro ao consultar ${table} no Supabase:`, error);
         if (error.code === 'PGRST301' || (error as any).status === 401 || error.message?.includes('JWT')) {
@@ -2207,7 +2374,7 @@ export async function fetchEspecialidades(
 
       // 1. Tenta fallback direto via REST API oficial do Supabase
       try {
-        let directUrl = `${DEFAULT_URL}/rest/v1/${table}?select=${encodeURIComponent(selectCols)}&order=ID.asc`;
+        let directUrl = `${DEFAULT_URL}/rest/v1/${table}?select=${encodeURIComponent(selectCols)}&order=id.asc`;
         if (categoryFilter) directUrl += `&Categoria=eq.${encodeURIComponent(categoryFilter)}`;
         const res = await fetch(directUrl, {
           headers: {
@@ -2218,7 +2385,7 @@ export async function fetchEspecialidades(
         if (res.ok) {
           const pData = await res.json();
           if (Array.isArray(pData) && pData.length > 0) {
-            const mappedProxy: Especialidade[] = pData.map(mapSpecialtyRow);
+            const mappedProxy: Especialidade[] = sanitizeEspecialidadesCatalog(pData.map(mapSpecialtyRow));
             if (!categoryFilter && mappedProxy.length > 0) {
               const now = Date.now();
               const prevMem = _memoryEspecialidadesCache[club] || { ts: now };
@@ -2230,6 +2397,11 @@ export async function fetchEspecialidades(
                 localStorage.setItem(key, JSON.stringify(mappedProxy));
                 localStorage.setItem(ESPECIALIDADES_CACHE_TS_PREFIX + club, String(now));
               } catch {}
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('dbv_especialidades_updated', {
+                  detail: { club, specialties: mappedProxy }
+                }));
+              }
             }
             return mappedProxy;
           }
@@ -2240,7 +2412,7 @@ export async function fetchEspecialidades(
 
       // 2. Tenta fallback via same-origin proxy (dev)
       try {
-        let proxyUrl = `/supabase-proxy/rest/v1/${table}?select=${encodeURIComponent(selectCols)}&order=ID.asc`;
+        let proxyUrl = `/supabase-proxy/rest/v1/${table}?select=${encodeURIComponent(selectCols)}&order=id.asc`;
         if (categoryFilter) proxyUrl += `&Categoria=eq.${encodeURIComponent(categoryFilter)}`;
         const res = await fetch(proxyUrl, {
           headers: {
@@ -2251,7 +2423,7 @@ export async function fetchEspecialidades(
         if (res.ok) {
           const pData = await res.json();
           if (Array.isArray(pData) && pData.length > 0) {
-            const mappedProxy: Especialidade[] = pData.map(mapSpecialtyRow);
+            const mappedProxy: Especialidade[] = sanitizeEspecialidadesCatalog(pData.map(mapSpecialtyRow));
             if (!categoryFilter && mappedProxy.length > 0) {
               const now = Date.now();
               const prevMem = _memoryEspecialidadesCache[club] || { ts: now };
@@ -2263,6 +2435,11 @@ export async function fetchEspecialidades(
                 localStorage.setItem(key, JSON.stringify(mappedProxy));
                 localStorage.setItem(ESPECIALIDADES_CACHE_TS_PREFIX + club, String(now));
               } catch {}
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('dbv_especialidades_updated', {
+                  detail: { club, specialties: mappedProxy }
+                }));
+              }
             }
             return mappedProxy;
           }
@@ -2271,7 +2448,7 @@ export async function fetchEspecialidades(
 
       return getCachedEspecialidades(club, excludeQuestions);
     }
-    const mapped: Especialidade[] = (data || []).map(mapSpecialtyRow);
+    const mapped: Especialidade[] = sanitizeEspecialidadesCatalog((data || []).map(mapSpecialtyRow));
 
     if (!categoryFilter && mapped.length > 0) {
       const now = Date.now();
@@ -2284,6 +2461,11 @@ export async function fetchEspecialidades(
         localStorage.setItem(key, JSON.stringify(mapped));
         localStorage.setItem(ESPECIALIDADES_CACHE_TS_PREFIX + club, String(now));
       } catch {}
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('dbv_especialidades_updated', {
+          detail: { club, specialties: mapped }
+        }));
+      }
     }
 
     return mapped;

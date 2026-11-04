@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { ChevronLeft, LogOut, Shield, MapPin, Briefcase, Award, Camera, Check, X, User, Mail, Phone, ChevronDown, Heart, Search, Settings, Layers, Globe, Trophy, ArrowUp, RotateCcw, AlertTriangle, Calendar, Lock, Droplet, CheckCircle2, ShoppingBag, ShoppingCart, Plus, Trash2, Edit3, Share2, Copy, Sparkles, Filter, CheckSquare, Square, Tag, ExternalLink } from 'lucide-react';
+import { ChevronLeft, LogOut, Shield, MapPin, Briefcase, Award, Camera, Check, X, User, Mail, Phone, ChevronDown, Heart, Search, Settings, Layers, Globe, Trophy, ArrowUp, RotateCcw, AlertTriangle, Calendar, Lock, Droplet, CheckCircle2, ShoppingBag, ShoppingCart, Plus, Trash2, Edit3, Share2, Copy, Sparkles, Filter, CheckSquare, Square, Tag, ExternalLink, RefreshCw } from 'lucide-react';
 import { ClubType, Especialidade, UserProfile, Conquista, CompletedSpecialty } from '../types';
 import { MASTERY_RULES } from '../masteryRules';
 import { 
-  fetchEspecialidades, getCachedEspecialidades,
+  fetchEspecialidades, getCachedEspecialidades, invalidateEspecialidadesCache,
   fetchUserProfile, fetchUserProfileByEmail, updateUserProfile, supabase, getSafeAuthUser,
   fetchConquistas, fetchUserAchievements, updateUserAchievements,
   fetchFuncoes, DEFAULT_CARGOS, getCachedFuncoes,
@@ -89,6 +89,20 @@ export const formatBirthDate = (birthDateString?: string): string => {
     return `${parts[2]}/${parts[1]}/${parts[0]}`;
   }
   return birthDateString;
+};
+
+// Helper universal para identificar se um item é Mestrado ou Especialidade regular
+export const isMasterySpecialty = (item?: { name?: string; nome?: string; area?: string; code?: string; sigla?: string } | null): boolean => {
+  if (!item) return false;
+  const name = (item.name || item.nome || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  const area = (item.area || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  const code = (item.code || item.sigla || '').toUpperCase().trim();
+  return (
+    area.includes('mestrado') ||
+    name.startsWith('mestrado') ||
+    name.includes('mestre em') ||
+    code.startsWith('ME')
+  );
 };
 
 // Idades mínimas oficiais conforme regra dos Desbravadores:
@@ -602,7 +616,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   });
 
   const [isCompletedModalOpen, setIsCompletedModalOpen] = useState(false);
-  const [completedFilterTab, setCompletedFilterTab] = useState<'ALL' | 'PURCHASED' | 'PENDING'>('ALL');
+  const [completedFilterTab, setCompletedFilterTab] = useState<'ALL' | 'SPECIALTIES' | 'MASTERIES' | 'PURCHASED' | 'PENDING'>('ALL');
   const [completedSearchTerm, setCompletedSearchTerm] = useState('');
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
   const [editingSpecialtyId, setEditingSpecialtyId] = useState<string | number | null>(null);
@@ -765,9 +779,11 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
   const completedCounts = useMemo(() => {
     const total = completedSpecialties.length;
+    const masteries = completedSpecialties.filter(c => isMasterySpecialty(c)).length;
+    const specialties = total - masteries;
     const purchased = completedSpecialties.filter(c => c.purchased).length;
     const pending = total - purchased;
-    return { total, purchased, pending };
+    return { total, specialties, masteries, purchased, pending };
   }, [completedSpecialties]);
 
   const filteredCompletedList = useMemo(() => {
@@ -777,6 +793,10 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
       list = list.filter(c => c.purchased);
     } else if (completedFilterTab === 'PENDING') {
       list = list.filter(c => !c.purchased);
+    } else if (completedFilterTab === 'SPECIALTIES') {
+      list = list.filter(c => !isMasterySpecialty(c));
+    } else if (completedFilterTab === 'MASTERIES') {
+      list = list.filter(c => isMasterySpecialty(c));
     }
 
     if (completedSearchTerm.trim()) {
@@ -830,6 +850,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
     const term = formSpecialtySearch.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
     const searchTokens = term.split(/\s+/).filter(t => t.length > 0 && t !== 'de' && t !== 'da' && t !== 'do' && t !== 'e' && t !== 'em');
+    const isSearchingRetired = term.includes('antig') || term.includes('manual') || term.includes('retirad') || term.includes('excluid') || term.includes('histor');
 
     return uniqueSource.filter(s => {
       const nameNorm = (s.nome || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -843,8 +864,22 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
       // 2. Busca por todas as palavras digitadas separadas (ex: "arte" e "acampar" localiza "Arte de acampar")
       if (searchTokens.length > 0 && searchTokens.every(tok => fullText.includes(tok))) return true;
 
+      // 3. Busca por especialidades retiradas do manual ou históricas
+      if (isSearchingRetired) {
+        if (
+          nameNorm.includes('telecartofilia') || nameNorm.includes('estofamento') || nameNorm.includes('fantoches') ||
+          nameNorm.includes('gado leiteiro') || nameNorm.includes('plantas silvestres') || nameNorm.includes('marcenaria') ||
+          nameNorm.includes('artes mateiras') || nameNorm.includes('construcoes rusticas') || nameNorm.includes('skate') ||
+          nameNorm.includes('waveboarding') || nameNorm.includes('braille') || nameNorm.includes('lingua de sinais') ||
+          nameNorm.includes('producao de video') || nameNorm.includes('computacao iii') || nameNorm.includes('mecanica automotiva') ||
+          nameNorm.includes('soldagem') || (Number(s.id) >= 2330)
+        ) {
+          return true;
+        }
+      }
+
       return false;
-    }).slice(0, 50);
+    }).slice(0, 60);
   }, [allSpecialties, formSpecialtySearch, userClubType]);
 
   const isAdmin = userData.isAdmin || userData.email === 'ronaldosonic@gmail.com' || userData.email === 'dbvtudo2024@gmail.com';
@@ -1359,13 +1394,13 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     };
   }, [userData.email, userClubType]);
 
-  // Carregar apenas os metadados leves das especialidades do clube ativo (sem a coluna pesada Questoes) para a faixa
+  // Carregar metadados das especialidades do clube ativo garantindo sincronia imediata com o Supabase
   useEffect(() => {
     let isMounted = true;
-    const loadSpecialties = async () => {
+    const loadSpecialties = async (force = false) => {
       setIsLoading(true);
       try {
-        const data = await fetchEspecialidades(userClubType, undefined, { excludeQuestions: true });
+        const data = await fetchEspecialidades(userClubType, undefined, { excludeQuestions: true, forceRefresh: force });
         if (isMounted && data && data.length > 0) {
           const clubOnly = data.filter(s => s.club === userClubType);
           const sorted = [...clubOnly].sort((a, b) => a.nome.localeCompare(b.nome));
@@ -1378,8 +1413,29 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
       }
     };
 
-    loadSpecialties();
-    return () => { isMounted = false; };
+    // Sempre executa busca atualizada na nuvem
+    loadSpecialties(true);
+
+    const handleSpecialtiesUpdated = (e: any) => {
+      if (e?.detail?.specialties && Array.isArray(e.detail.specialties)) {
+        const clubOnly = e.detail.specialties.filter((s: Especialidade) => s.club === userClubType);
+        if (clubOnly.length > 0) {
+          const sorted = [...clubOnly].sort((a, b) => a.nome.localeCompare(b.nome));
+          setAllSpecialties(sorted);
+        }
+      } else {
+        loadSpecialties(true);
+      }
+    };
+
+    window.addEventListener('dbv_especialidades_updated', handleSpecialtiesUpdated);
+    window.addEventListener('dbv_especialidades_cache_invalidated', handleSpecialtiesUpdated);
+
+    return () => { 
+      isMounted = false; 
+      window.removeEventListener('dbv_especialidades_updated', handleSpecialtiesUpdated);
+      window.removeEventListener('dbv_especialidades_cache_invalidated', handleSpecialtiesUpdated);
+    };
   }, [userClubType, isSashView, isCompletedModalOpen, isAddEditModalOpen]);
 
   useEffect(() => {
@@ -1511,19 +1567,88 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   };
 
   const likedSpecialtiesList = useMemo(() => {
-    return allSpecialties
+    const list: Especialidade[] = [];
+    const seenIds = new Set<string>();
+
+    allSpecialties
       .filter(s => s.club === userClubType)
-      .filter(s => likedIds.includes(s.id.toString()));
-  }, [allSpecialties, likedIds, userClubType]);
+      .filter(s => likedIds.includes(s.id.toString()))
+      .forEach(s => {
+        list.push(s);
+        seenIds.add(s.id.toString());
+      });
+
+    // Se houver especialidade concluída marcada para a faixa mas que não estava no catálogo oficial moderno
+    completedSpecialties.forEach(c => {
+      const cId = String(c.specialtyId);
+      if (likedIds.includes(cId) && !seenIds.has(cId)) {
+        list.push({
+          id: Number(c.specialtyId) || Date.now(),
+          nome: c.name,
+          codigo: c.code,
+          area: c.area || 'Atividades Recreativas',
+          logo: c.logo || '',
+          requisitos: [],
+          club: userClubType
+        });
+        seenIds.add(cId);
+      }
+    });
+
+    return list;
+  }, [allSpecialties, likedIds, completedSpecialties, userClubType]);
 
   const filteredSpecialties = useMemo(() => {
-    return allSpecialties
-      .filter(s => s.club === userClubType)
-      .filter(s => 
-        s.nome.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        (s.codigo && s.codigo.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
-  }, [allSpecialties, searchTerm, userClubType]);
+    const base: Especialidade[] = [...allSpecialties.filter(s => s.club === userClubType)];
+    const seen = new Set(base.map(s => String(s.id)));
+
+    // Permite que qualquer especialidade concluída adicionada pelo usuário também possa ser favoritada para a faixa
+    completedSpecialties.forEach(c => {
+      const cId = String(c.specialtyId);
+      if (!seen.has(cId)) {
+        seen.add(cId);
+        base.push({
+          id: Number(c.specialtyId) || 0,
+          nome: c.name,
+          codigo: c.code,
+          area: c.area || 'Outras',
+          logo: c.logo || '',
+          requisitos: [],
+          club: userClubType
+        });
+      }
+    });
+
+    const q = searchTerm.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    if (!q) return base;
+
+    const tokens = q.split(/\s+/).filter(t => t.length > 0 && t !== 'de' && t !== 'da' && t !== 'do' && t !== 'e' && t !== 'em');
+    const isSearchingRetired = q.includes('antig') || q.includes('manual') || q.includes('retirad') || q.includes('excluid') || q.includes('histor');
+
+    return base.filter(s => {
+      const n = (s.nome || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const c = (s.codigo || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const a = (s.area || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const fullText = `${n} ${c} ${a}`;
+
+      if (fullText.includes(q)) return true;
+      if (tokens.length > 0 && tokens.every(tok => fullText.includes(tok))) return true;
+
+      if (isSearchingRetired) {
+        if (
+          n.includes('telecartofilia') || n.includes('estofamento') || n.includes('fantoches') ||
+          n.includes('gado leiteiro') || n.includes('plantas silvestres') || n.includes('marcenaria') ||
+          n.includes('artes mateiras') || n.includes('construcoes rusticas') || n.includes('skate') ||
+          n.includes('waveboarding') || n.includes('braille') || n.includes('lingua de sinais') ||
+          n.includes('producao de video') || n.includes('computacao iii') || n.includes('mecanica automotiva') ||
+          n.includes('soldagem') || n.includes('mordomia') || n.includes('violao') || n.includes('impressora') || (Number(s.id) >= 2330)
+        ) {
+          return true;
+        }
+      }
+      return false;
+    });
+  }, [allSpecialties, completedSpecialties, searchTerm, userClubType]);
 
   // Bloquear scroll do fundo quando modal aberto
   useEffect(() => {
@@ -1774,12 +1899,33 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                 <h3 className="text-lg sm:text-xl font-black uppercase tracking-tight">Minha Faixa Oficial</h3>
                 <p className="text-[9px] font-black uppercase tracking-widest opacity-80 mt-0.5">Faixa Verde-Petróleo • Especialidades</p>
               </div>
-              <button 
-                onClick={() => setIsSashView(false)}
-                className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white active:scale-90 transition-all border border-white/20"
-              >
-                <X size={18} strokeWidth={3} />
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setIsLoading(true);
+                    invalidateEspecialidadesCache(userClubType);
+                    const fresh = await fetchEspecialidades(userClubType, undefined, { excludeQuestions: true, forceRefresh: true });
+                    if (fresh && fresh.length > 0) {
+                      const clubOnly = fresh.filter(s => s.club === userClubType);
+                      setAllSpecialties([...clubOnly].sort((a, b) => a.nome.localeCompare(b.nome)));
+                    }
+                    setIsLoading(false);
+                  }}
+                  title="Sincronizar especialidades com o banco de dados"
+                  className="h-9 px-3 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md flex items-center gap-1.5 text-white active:scale-95 transition-all text-[11px] font-bold border border-white/20 cursor-pointer"
+                >
+                  <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
+                  <span className="hidden sm:inline">Atualizar</span>
+                </button>
+                <button 
+                  onClick={() => setIsSashView(false)}
+                  className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white active:scale-90 transition-all border border-white/20 cursor-pointer"
+                  title="Fechar"
+                >
+                  <X size={18} strokeWidth={3} />
+                </button>
+              </div>
             </div>
             
             <div className="p-6 pb-2 space-y-3">
@@ -2058,50 +2204,97 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                   </p>
                 </div>
               </div>
-              <button 
-                onClick={() => setIsCompletedModalOpen(false)}
-                className="relative z-10 w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md flex items-center justify-center text-white active:scale-90 transition-all border border-white/20 shrink-0 ml-2 cursor-pointer"
-                title="Fechar"
-              >
-                <X size={18} strokeWidth={2.5} />
-              </button>
+              <div className="flex items-center space-x-2 relative z-10 shrink-0 ml-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setIsLoading(true);
+                    invalidateEspecialidadesCache(userClubType);
+                    const fresh = await fetchEspecialidades(userClubType, undefined, { excludeQuestions: true, forceRefresh: true });
+                    if (fresh && fresh.length > 0) {
+                      const clubOnly = fresh.filter(s => s.club === userClubType);
+                      setAllSpecialties([...clubOnly].sort((a, b) => a.nome.localeCompare(b.nome)));
+                    }
+                    setIsLoading(false);
+                  }}
+                  title="Sincronizar especialidades com o banco de dados"
+                  className="h-9 px-3 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md flex items-center gap-1.5 text-white active:scale-95 transition-all text-[11px] font-bold border border-white/20 cursor-pointer"
+                >
+                  <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
+                  <span className="hidden sm:inline">Atualizar</span>
+                </button>
+                <button 
+                  onClick={() => setIsCompletedModalOpen(false)}
+                  className="w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md flex items-center justify-center text-white active:scale-90 transition-all border border-white/20 cursor-pointer"
+                  title="Fechar"
+                >
+                  <X size={18} strokeWidth={2.5} />
+                </button>
+              </div>
             </div>
 
             {/* Painel de Estatísticas / KPI Interativo */}
             <div className="p-4 sm:p-5 pb-2 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 space-y-3">
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {/* 1. Especialidades */}
                 <button
                   type="button"
-                  onClick={() => setCompletedFilterTab('ALL')}
+                  onClick={() => setCompletedFilterTab(completedFilterTab === 'SPECIALTIES' ? 'ALL' : 'SPECIALTIES')}
                   className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                    completedFilterTab === 'ALL'
-                      ? 'bg-white dark:bg-slate-800 border-indigo-500/50 shadow-md ring-2 ring-indigo-500/20'
+                    completedFilterTab === 'SPECIALTIES'
+                      ? 'bg-blue-500/15 dark:bg-blue-950/50 border-blue-500 shadow-md ring-2 ring-blue-500/20'
                       : 'bg-white/60 dark:bg-slate-800/60 border-slate-200/60 dark:border-slate-700/60 hover:bg-white'
                   }`}
+                  title="Filtrar especialidades regulares"
                 >
-                  <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-1">
-                    <span className="text-[9px] font-black uppercase tracking-wider">Total</span>
-                    <Sparkles size={13} />
+                  <div className="flex items-center justify-between text-blue-600 dark:text-blue-400 mb-1">
+                    <span className="text-[9px] font-black uppercase tracking-wider">Especialidades</span>
+                    <Award size={13} />
                   </div>
-                  <div className="text-lg sm:text-xl font-black text-slate-800 dark:text-white leading-none">
-                    {completedCounts.total}
+                  <div className="text-lg sm:text-xl font-black text-blue-700 dark:text-blue-300 leading-none">
+                    {completedCounts.specialties}
                   </div>
                   <span className="text-[9px] font-bold text-slate-400 mt-0.5 block truncate">
-                    Concluídas
+                    Regulares
                   </span>
                 </button>
 
+                {/* 2. Mestrados */}
                 <button
                   type="button"
-                  onClick={() => setCompletedFilterTab('PURCHASED')}
+                  onClick={() => setCompletedFilterTab(completedFilterTab === 'MASTERIES' ? 'ALL' : 'MASTERIES')}
+                  className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                    completedFilterTab === 'MASTERIES'
+                      ? 'bg-purple-500/15 dark:bg-purple-950/50 border-purple-500 shadow-md ring-2 ring-purple-500/20'
+                      : 'bg-white/60 dark:bg-slate-800/60 border-slate-200/60 dark:border-slate-700/60 hover:bg-white'
+                  }`}
+                  title="Filtrar mestrados conquistados"
+                >
+                  <div className="flex items-center justify-between text-purple-600 dark:text-purple-400 mb-1">
+                    <span className="text-[9px] font-black uppercase tracking-wider">Mestrados</span>
+                    <Trophy size={13} />
+                  </div>
+                  <div className="text-lg sm:text-xl font-black text-purple-700 dark:text-purple-300 leading-none">
+                    {completedCounts.masteries}
+                  </div>
+                  <span className="text-[9px] font-bold text-slate-400 mt-0.5 block truncate">
+                    Conquistados
+                  </span>
+                </button>
+
+                {/* 3. Já Compradas */}
+                <button
+                  type="button"
+                  onClick={() => setCompletedFilterTab(completedFilterTab === 'PURCHASED' ? 'ALL' : 'PURCHASED')}
                   className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
                     completedFilterTab === 'PURCHASED'
-                      ? 'bg-emerald-500/10 dark:bg-emerald-950/40 border-emerald-500 shadow-md ring-2 ring-emerald-500/20'
+                      ? 'bg-emerald-500/15 dark:bg-emerald-950/50 border-emerald-500 shadow-md ring-2 ring-emerald-500/20'
                       : 'bg-white/60 dark:bg-slate-800/60 border-slate-200/60 dark:border-slate-700/60 hover:bg-emerald-50/50'
                   }`}
+                  title="Filtrar insígnias já compradas"
                 >
                   <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 mb-1">
-                    <span className="text-[9px] font-black uppercase tracking-wider">Compradas</span>
+                    <span className="text-[9px] font-black uppercase tracking-wider">Já Compradas</span>
                     <Check size={13} strokeWidth={3} />
                   </div>
                   <div className="text-lg sm:text-xl font-black text-emerald-600 dark:text-emerald-400 leading-none">
@@ -2112,17 +2305,19 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                   </span>
                 </button>
 
+                {/* 4. Preciso Comprar */}
                 <button
                   type="button"
-                  onClick={() => setCompletedFilterTab('PENDING')}
+                  onClick={() => setCompletedFilterTab(completedFilterTab === 'PENDING' ? 'ALL' : 'PENDING')}
                   className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
                     completedFilterTab === 'PENDING'
-                      ? 'bg-amber-500/10 dark:bg-amber-950/40 border-amber-500 shadow-md ring-2 ring-amber-500/20'
+                      ? 'bg-amber-500/15 dark:bg-amber-950/50 border-amber-500 shadow-md ring-2 ring-amber-500/20'
                       : 'bg-white/60 dark:bg-slate-800/60 border-slate-200/60 dark:border-slate-700/60 hover:bg-amber-50/50'
                   }`}
+                  title="Filtrar insígnias pendentes de compra"
                 >
                   <div className="flex items-center justify-between text-amber-600 dark:text-amber-400 mb-1">
-                    <span className="text-[9px] font-black uppercase tracking-wider">A Comprar</span>
+                    <span className="text-[9px] font-black uppercase tracking-wider">Preciso Comprar</span>
                     <ShoppingBag size={13} />
                   </div>
                   <div className="text-lg sm:text-xl font-black text-amber-600 dark:text-amber-400 leading-none">
@@ -2133,6 +2328,25 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                   </span>
                 </button>
               </div>
+
+              {completedFilterTab !== 'ALL' && (
+                <div className="flex items-center justify-between px-1 text-xs text-slate-500 dark:text-slate-400">
+                  <span>
+                    Filtrando por: <strong className="text-slate-800 dark:text-slate-200">
+                      {completedFilterTab === 'SPECIALTIES' ? 'Especialidades Regulares' :
+                       completedFilterTab === 'MASTERIES' ? 'Mestrados' :
+                       completedFilterTab === 'PURCHASED' ? 'Já Compradas' : 'Preciso Comprar'}
+                    </strong>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setCompletedFilterTab('ALL')}
+                    className="text-xs font-bold text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 underline cursor-pointer"
+                  >
+                    Mostrar todas ({completedCounts.total})
+                  </button>
+                </div>
+              )}
 
               {/* Barra de Busca + Botão Adicionar */}
               <div className="flex items-center gap-2 pt-1">
@@ -2863,51 +3077,90 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
               </div>
             </div>
 
-            {/* Badges Interativas de Status (Compradas vs A Comprar) */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 border-t border-slate-100 dark:border-slate-700/60">
+            {/* Badges Interativas de Status (Especialidades, Mestrados, Já Compradas e Preciso Comprar) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
+              {/* 1. Total de Especialidades */}
               <button
                 type="button"
                 onClick={() => {
-                  setCompletedFilterTab('ALL');
+                  setCompletedFilterTab('SPECIALTIES');
                   setIsCompletedModalOpen(true);
                 }}
-                className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-100 dark:border-slate-600/50 flex items-center justify-between transition-all text-left cursor-pointer"
+                className="p-2.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/15 border border-blue-500/25 flex items-center justify-between transition-all text-left cursor-pointer group"
+                title="Ver especialidades concluídas"
               >
                 <div className="min-w-0">
-                  <span className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-400 tracking-wider block">Concluídas</span>
-                  <span className="text-sm font-black text-slate-800 dark:text-white">{completedCounts.total}</span>
+                  <span className="text-[9px] font-black uppercase text-blue-700 dark:text-blue-300 tracking-wider block truncate">
+                    Especialidades
+                  </span>
+                  <span className="text-sm sm:text-base font-black text-blue-700 dark:text-blue-200">
+                    {completedCounts.specialties}
+                  </span>
                 </div>
-                <Sparkles size={16} className="text-slate-400 dark:text-slate-400 shrink-0" />
+                <Award size={16} className="text-blue-500 shrink-0 group-hover:scale-110 transition-transform" />
               </button>
 
+              {/* 2. Total de Mestrados */}
+              <button
+                type="button"
+                onClick={() => {
+                  setCompletedFilterTab('MASTERIES');
+                  setIsCompletedModalOpen(true);
+                }}
+                className="p-2.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/15 border border-purple-500/25 flex items-center justify-between transition-all text-left cursor-pointer group"
+                title="Ver mestrados concluídos"
+              >
+                <div className="min-w-0">
+                  <span className="text-[9px] font-black uppercase text-purple-700 dark:text-purple-300 tracking-wider block truncate">
+                    Mestrados
+                  </span>
+                  <span className="text-sm sm:text-base font-black text-purple-700 dark:text-purple-200">
+                    {completedCounts.masteries}
+                  </span>
+                </div>
+                <Trophy size={16} className="text-purple-500 shrink-0 group-hover:scale-110 transition-transform" />
+              </button>
+
+              {/* 3. Já Compradas */}
               <button
                 type="button"
                 onClick={() => {
                   setCompletedFilterTab('PURCHASED');
                   setIsCompletedModalOpen(true);
                 }}
-                className="p-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-between transition-all text-left cursor-pointer"
+                className="p-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-between transition-all text-left cursor-pointer group"
+                title="Ver insígnias já compradas"
               >
                 <div className="min-w-0">
-                  <span className="text-[9px] font-black uppercase text-emerald-700 dark:text-emerald-300 tracking-wider block">Já Compradas</span>
-                  <span className="text-sm font-black text-emerald-700 dark:text-emerald-300">{completedCounts.purchased}</span>
+                  <span className="text-[9px] font-black uppercase text-emerald-700 dark:text-emerald-300 tracking-wider block truncate">
+                    Já Compradas
+                  </span>
+                  <span className="text-sm sm:text-base font-black text-emerald-700 dark:text-emerald-200">
+                    {completedCounts.purchased}
+                  </span>
                 </div>
-                <Check size={16} strokeWidth={3} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <Check size={16} strokeWidth={3} className="text-emerald-600 dark:text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" />
               </button>
 
+              {/* 4. Preciso Comprar */}
               <button
                 type="button"
                 onClick={() => {
                   setCompletedFilterTab('PENDING');
                   setIsCompletedModalOpen(true);
                 }}
-                className="col-span-2 sm:col-span-1 p-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/30 flex items-center justify-between transition-all text-left cursor-pointer"
+                className="p-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/30 flex items-center justify-between transition-all text-left cursor-pointer group"
+                title="Ver insígnias a comprar"
               >
                 <div className="min-w-0">
-                  <span className="text-[9px] font-black uppercase text-amber-700 dark:text-amber-300 tracking-wider block">Preciso Comprar</span>
-                  <span className="text-sm font-black text-amber-700 dark:text-amber-300">{completedCounts.pending}</span>
+                  <span className="text-[9px] font-black uppercase text-amber-700 dark:text-amber-300 tracking-wider block truncate">
+                    Preciso Comprar
+                  </span>
+                  <span className="text-sm sm:text-base font-black text-amber-700 dark:text-amber-200">
+                    {completedCounts.pending}
+                  </span>
                 </div>
-                <ShoppingBag size={16} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                <ShoppingBag size={16} className="text-amber-600 dark:text-amber-400 shrink-0 group-hover:scale-110 transition-transform" />
               </button>
             </div>
           </div>
@@ -3334,7 +3587,35 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                       </div>
                     ) : (
                       (() => {
-                        const likedSpecialties = allSpecialties.filter(s => likedIds.includes(s.id.toString()));
+                        const likedSpecialties = (() => {
+                          const list: Especialidade[] = [];
+                          const seenIds = new Set<string>();
+
+                          allSpecialties
+                            .filter(s => likedIds.includes(s.id.toString()))
+                            .forEach(s => {
+                              list.push(s);
+                              seenIds.add(s.id.toString());
+                            });
+
+                          completedSpecialties.forEach(c => {
+                            const cId = String(c.specialtyId);
+                            if (likedIds.includes(cId) && !seenIds.has(cId)) {
+                              list.push({
+                                id: Number(c.specialtyId) || Date.now(),
+                                nome: c.name,
+                                codigo: c.code,
+                                area: c.area || 'Atividades Recreativas',
+                                logo: c.logo || '',
+                                requisitos: [],
+                                club: userClubType
+                              });
+                              seenIds.add(cId);
+                            }
+                          });
+
+                          return list;
+                        })();
                         const isMastery = (s: Especialidade) => {
                           const n = (s.nome || '').toLowerCase();
                           const a = (s.area || '').toLowerCase();
