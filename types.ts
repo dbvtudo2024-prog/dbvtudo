@@ -28,12 +28,13 @@ export interface Especialidade {
   area: string;
   logo: string;
   requisitos: string[];
-  club: ClubType;
+  club?: ClubType;
   sigla?: string;
   nivel?: string;
   ano?: string;
   origem?: string;
   codigo?: string;
+  cor?: string;
 }
 
 export interface CompletedSpecialty {

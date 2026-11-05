@@ -44,6 +44,7 @@ import LiveSpecialtyExam from './LiveSpecialtyExam';
 import UnitCornerCamping from './UnitCornerCamping';
 import FieldManualTools from './FieldManualTools';
 import { DESBRAVA_MAIS_OFFICIAL_MATERIALS, DESBRAVA_MAIS_CHECKLIST } from '../services/desbravaMaisOfficialData';
+import { RETIRED_CATEGORY_ID, RETIRED_CATEGORY_NAME, DISCONTINUED_SPECIALTIES, isDiscontinuedSpecialty } from '../services/discontinuedSpecialties';
 import { 
   Shield, Award, User, Layers, Sparkles, Home as HomeIcon, Search,
   ChevronRight, ChevronLeft, ChevronDown, ChevronUp, ListChecks, Info, Book, Settings, Zap, Music, Flag, Shirt, Globe, Key, FileText, Library, CreditCard, MapPin, Video, Folder, BookOpen, Heart, ArrowUp, ArrowDown,
@@ -2544,9 +2545,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
       const updateItem = (item: Especialidade): Especialidade => {
         if (!item) return item;
-        const matchesId = !isNaN(numId) && item.id === numId;
-        const matchesCode = Boolean(updates.codigo && item.codigo && item.codigo === updates.codigo);
-        if (matchesId || matchesCode) {
+        // O ID único da linha no banco é o único identificador inequívoco (o 'codigo' como 023 ou 001 se repete em várias áreas)
+        const matchesId = !isNaN(numId) && Number(item.id) === numId;
+        if (matchesId) {
           return {
             ...item,
             ...(updates.nome ? { nome: updates.nome } : {}),
@@ -3501,13 +3502,19 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   }, [allSpecialtiesList]);
 
   const filteredSearchSpecialties = React.useMemo(() => {
+    const rawQ = specialtySearchQuery.trim();
+    const q = rawQ.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     return allSpecialtiesList.filter(esp => {
-      const q = specialtySearchQuery.toLowerCase().trim();
+      const nomeNorm = (esp.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const areaNorm = (esp.area || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const codigoNorm = (esp.codigo || '').toLowerCase().trim();
+      const siglaNorm = (esp.sigla || '').toLowerCase().trim();
+
       const matchesText = !q || 
-        (esp.nome && esp.nome.toLowerCase().includes(q)) ||
-        (esp.area && esp.area.toLowerCase().includes(q)) ||
-        (esp.codigo && esp.codigo.toLowerCase().includes(q)) ||
-        (esp.sigla && esp.sigla.toLowerCase().includes(q));
+        nomeNorm.includes(q) ||
+        areaNorm.includes(q) ||
+        codigoNorm.includes(q) ||
+        siglaNorm.includes(q);
 
       const matchesArea = selectedSearchArea === 'TODAS' || esp.area === selectedSearchArea;
 
@@ -3928,7 +3935,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   useEffect(() => {
     if (activeSubView === 'SPECIALTIES_LIST' && selectedCategory) {
       setIsLoading(true);
-      if (selectedCategory.id === -100) {
+      if (selectedCategory.id === RETIRED_CATEGORY_ID) {
+        setSpecialties(DISCONTINUED_SPECIALTIES);
+        setIsLoading(false);
+      } else if (selectedCategory.id === -100) {
         // Para favoritas, buscamos todas (modo leve sem Questoes) e filtramos pelas curtidas
         fetchEspecialidades(club, undefined, { excludeQuestions: true }).then(all => {
           const liked = all.filter(s => completedSpecialties.includes(s.id.toString()));
@@ -4327,6 +4337,39 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               </button>
             ))
           )}
+
+          {/* Botão de Especialidades Excluídas / Descontinuadas */}
+          {club === ClubType.PATHFINDER && (
+            <button 
+              onClick={() => {
+                setSelectedCategory({ 
+                  id: RETIRED_CATEGORY_ID, 
+                  nome: RETIRED_CATEGORY_NAME, 
+                  imagem: '', 
+                  cor: '#f97316', 
+                  sigla: 'RET' 
+                } as Category);
+                setActiveSubView('SPECIALTIES_LIST');
+              }}
+              className="w-full bg-white dark:bg-slate-800 border border-amber-200/80 dark:border-amber-900/50 rounded-[20px] p-5 flex items-center relative shadow-sm active:scale-[0.98] transition-all overflow-hidden group mt-4 hover:border-amber-400"
+            >
+              <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-amber-500"></div>
+              <div className="flex items-center flex-grow">
+                <div className="mr-4 w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center text-amber-500">
+                  <History size={22} strokeWidth={2.5} />
+                </div>
+                <div className="flex flex-col text-left">
+                  <span className="text-[14px] sm:text-[15px] font-black text-slate-800 dark:text-white uppercase tracking-tight">
+                    Especialidades excluídas/descontinuadas
+                  </span>
+                  <span className="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest mt-0.5">
+                    23 Especialidades Históricas (Faixa & Conclusão)
+                  </span>
+                </div>
+              </div>
+              <ChevronRight size={18} className="text-slate-300 dark:text-slate-500 group-hover:translate-x-1 transition-transform" />
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -4354,7 +4397,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
             onClick={() => {
               if (selectedCategory) {
                 setIsLoading(true);
-                if (selectedCategory.id === -100) {
+                if (selectedCategory.id === RETIRED_CATEGORY_ID) {
+                  setSpecialties(DISCONTINUED_SPECIALTIES);
+                  setIsLoading(false);
+                } else if (selectedCategory.id === -100) {
                   setSpecialties(allSpecialtiesList.filter(s => completedSpecialties.includes(s.id.toString())));
                   setIsLoading(false);
                 } else {
@@ -4371,68 +4417,115 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           </button>
         </div>
       ) : (
-        <div className="space-y-3">
-          {specialties.map((esp) => {
-            const isCompleted = completedSpecialties.includes(esp.id.toString());
-            return (
-              <div 
-                key={esp.id} 
-                id={`specialty-card-${esp.id}`}
-                className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-4 flex items-center space-x-4 shadow-sm group relative"
-              >
-                <button 
-                  onClick={() => {
-                    lastViewedSpecialtyIdRef.current = esp.id;
-                    setSelectedSpecialty(esp);
-                    setActiveSubView('SPECIALTY_DETAILS');
-                  }}
-                  className="flex items-center space-x-4 flex-grow text-left active:scale-[0.98] transition-all"
+        <div className="space-y-4">
+          {selectedCategory?.id === RETIRED_CATEGORY_ID && (
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 mb-2 flex items-start gap-3">
+              <History className="text-amber-500 shrink-0 mt-0.5" size={20} />
+              <div>
+                <h4 className="text-xs font-black uppercase text-amber-600 dark:text-amber-400">
+                  Especialidades Retiradas do Manual
+                </h4>
+                <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed">
+                  Estas especialidades foram descontinuadas no Manual lançado em 2025, mas continuam disponíveis no aplicativo para você visualizar seus dados, registrar sua conclusão e exibi-las na sua faixa oficial.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {(() => {
+            const renderCard = (esp: Especialidade) => {
+              const isCompleted = completedSpecialties.includes(esp.id.toString());
+              return (
+                <div 
+                  key={esp.id} 
+                  id={`specialty-card-${esp.id}`}
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-4 flex items-center space-x-4 shadow-sm group relative"
                 >
-                  <div 
-                    onClick={(e) => {
-                      if (esp.logo) {
-                        e.stopPropagation();
-                        setZoomedSpecialty(esp);
-                      }
+                  <button 
+                    onClick={() => {
+                      lastViewedSpecialtyIdRef.current = esp.id;
+                      setSelectedSpecialty(esp);
+                      setActiveSubView('SPECIALTY_DETAILS');
                     }}
-                    className={`w-16 h-16 bg-transparent rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0 transition-transform ${
-                      esp.logo ? 'cursor-pointer hover:scale-110 active:scale-95' : ''
-                    }`}
-                    title={esp.logo ? "Clique na imagem para ampliar" : undefined}
+                    className="flex items-center space-x-4 flex-grow text-left active:scale-[0.98] transition-all"
                   >
-                    {esp.logo ? (
-                      <img src={getImageUrl(esp.logo)} loading="lazy" decoding="async" className="w-14 h-14 object-contain pointer-events-none select-none" alt={esp.nome} />
-                    ) : (
-                      <Award size={24} className="text-slate-200 dark:text-slate-600" />
-                    )}
-                  </div>
-                  <div className="flex-grow">
-                    <h4 className="font-black text-slate-700 dark:text-white text-[13px] uppercase tracking-tight leading-tight">
-                      {esp.nome}
-                    </h4>
-                    <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                        {esp.area}
-                      </p>
-                      <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">
-                        {esp.codigo || `${esp.sigla}${String(esp.id).padStart(3, '0')}`}
+                    <div 
+                      onClick={(e) => {
+                        if (esp.logo) {
+                          e.stopPropagation();
+                          setZoomedSpecialty(esp);
+                        }
+                      }}
+                      className={`w-16 h-16 bg-transparent rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0 transition-transform ${
+                        esp.logo ? 'cursor-pointer hover:scale-110 active:scale-95' : ''
+                      }`}
+                      title={esp.logo ? "Clique na imagem para ampliar" : undefined}
+                    >
+                      {esp.logo ? (
+                        <img src={getImageUrl(esp.logo)} loading="lazy" decoding="async" className="w-14 h-14 object-contain pointer-events-none select-none" alt={esp.nome} />
+                      ) : (
+                        <Award size={24} className="text-slate-200 dark:text-slate-600" />
+                      )}
+                    </div>
+                    <div className="flex-grow">
+                      <h4 className="font-black text-slate-700 dark:text-white text-[13px] uppercase tracking-tight leading-tight">
+                        {esp.nome}
+                      </h4>
+                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                          {esp.area}
+                        </p>
+                        <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">
+                          {esp.codigo || `${esp.sigla}${String(esp.id).padStart(3, '0')}`}
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                  
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleSpecialty(esp.id.toString());
+                    }}
+                    className={`w-11 h-11 min-w-[44px] max-w-[44px] min-h-[44px] max-h-[44px] shrink-0 flex-shrink-0 aspect-square rounded-2xl flex items-center justify-center transition-all active:scale-90 ${isCompleted ? 'text-red-500 bg-red-50 dark:bg-red-950/40' : 'text-slate-200 dark:text-slate-600 hover:text-red-200'}`}
+                  >
+                    <Heart size={20} className="shrink-0" fill={isCompleted ? "currentColor" : "none"} />
+                  </button>
+                </div>
+              );
+            };
+
+            if (selectedCategory?.id === RETIRED_CATEGORY_ID) {
+              const regularList = specialties.filter(s => s.nivel !== 'Avançado' && !s.nome.includes('– avançado') && !s.nome.includes('- Avançado'));
+              const advancedList = specialties.filter(s => s.nivel === 'Avançado' || s.nome.includes('– avançado') || s.nome.includes('- Avançado'));
+
+              return (
+                <div className="space-y-6">
+                  {/* Grupo Regulares / Básicas */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 px-1">
+                      <span className="text-[11px] font-black text-amber-500 uppercase tracking-wider">
+                        Especialidades Regulares/Básicas Removidas ({regularList.length})
                       </span>
                     </div>
+                    {regularList.map(renderCard)}
                   </div>
-                </button>
-                
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleSpecialty(esp.id.toString());
-                  }}
-                  className={`w-11 h-11 min-w-[44px] max-w-[44px] min-h-[44px] max-h-[44px] shrink-0 flex-shrink-0 aspect-square rounded-2xl flex items-center justify-center transition-all active:scale-90 ${isCompleted ? 'text-red-500 bg-red-50 dark:bg-red-950/40' : 'text-slate-200 dark:text-slate-600 hover:text-red-200'}`}
-                >
-                  <Heart size={20} className="shrink-0" fill={isCompleted ? "currentColor" : "none"} />
-                </button>
-              </div>
-            );
-          })}
+
+                  {/* Grupo Avançadas */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 px-1 pt-2">
+                      <span className="text-[11px] font-black text-amber-500 uppercase tracking-wider">
+                        🔺 Especialidades Avançadas Removidas ({advancedList.length})
+                      </span>
+                    </div>
+                    {advancedList.map(renderCard)}
+                  </div>
+                </div>
+              );
+            }
+
+            return specialties.map(renderCard);
+          })()}
         </div>
       )}
     </div>
@@ -5452,6 +5545,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     // Identifica se é uma especialidade retirada/descontinuada do manual
     const isRetiredSpecialty = (() => {
       if (!selectedSpecialty) return false;
+      if (isDiscontinuedSpecialty(selectedSpecialty)) return true;
       const reqs = selectedSpecialty.requisitos || [];
       const hasRetiredReq = reqs.some(r => {
         const norm = (r || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");

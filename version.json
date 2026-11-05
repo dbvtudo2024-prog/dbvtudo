@@ -1,13 +1,12 @@
 {
-  "version": 1761400000000,
-  "versionName": "3.1.9",
-  "buildDate": "2026-11-04T00:00:00.000Z",
-  "timestamp": 1761400000000,
+  "version": 1762400000000,
+  "versionName": "3.2.0",
+  "buildDate": "2026-11-06T00:00:00.000Z",
+  "timestamp": 1762400000000,
   "highlights": [
-    "Notificação Sonora e Visual Ativa de Atualização: Ao estar com o app aberto, você recebe imediatamente um aviso de nova versão sem repetições infinitas.",
-    "Reportar Erro ou Sugestão em Ajustes: Opção para enviar feedbacks, erros de texto ou bugs no PC e no celular.",
-    "Central de Reportes de Erros no Perfil do Administrador: Moderação e resolução de todos os reportes enviados pelos membros.",
-    "Correção Definitiva na Exclusão de Especialidades: Especialidades excluídas não voltam a aparecer após sincronização com a nuvem."
+    "Especialidades Excluídas/Descontinuadas: Acesso direto no catálogo às 23 especialidades regulares e avançadas retiradas do Manual de 2025 para colocar na faixa e no registro de concluídas.",
+    "Correção na Edição de Especialidades: Resolvido o problema de sobreposição acidental de especialidades com mesmo código ao salvar edições no admin.",
+    "Pesquisa Aprimorada de Especialidades: Busca tolerante a acentuação e exibição correta dos nomes originais."
   ]
 }
 

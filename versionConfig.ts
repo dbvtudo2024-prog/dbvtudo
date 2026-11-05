@@ -6,14 +6,26 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.1.9';
-export const APP_BUILD_DATE = '04 de Novembro de 2026';
+export const APP_VERSION = '3.2.0';
+export const APP_BUILD_DATE = '06 de Novembro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '3.2.0',
+    date: '06/11/2026',
+    tag: 'NOVO',
+    title: 'Especialidades Excluídas/Descontinuadas, Correção no Salvamento do Admin e Pesquisa Aprimorada',
+    changes: [
+      'Especialidades Excluídas/Descontinuadas: Adicionado botão no final da lista de categorias com as 23 especialidades regulares e avançadas retiradas do Manual de 2025 (como Telecartofilia, Datilografia, Balões de ar quente, Missiomodelismo, Apitos avançado e outras), permitindo visualizar a insígnia oficial, marcar como concluída e exibir na faixa oficial.',
+      'Correção na Edição de Especialidades no Admin: Corrigida a sobreposição acidental em que editar uma especialidade alterava outras que compartilhavam o mesmo código numérico (ex.: código 023). Cada especialidade agora é identificada estritamente pelo seu ID único.',
+      'Restauração Automática de Especialidades Afetadas: Remo, Santuário, Higiene Oral, Matrimônio e Família e Trabalhos em Acrílico foram restauradas com seus nomes e áreas oficiais.',
+      'Pesquisa Inteligente e Tolerante a Acentos: A busca no modal de especialidades agora pesquisa termos de forma insensível a acentuação e pontuação.'
+    ]
+  },
+  {
     version: '3.1.9',
     date: '04/11/2026',
-    tag: 'NOVO',
+    tag: 'ESTÁVEL',
     title: 'Notificações Ativas de Atualização em Tempo Real, Central de Reporte de Erros e Correção de Exclusão',
     changes: [
       'Notificação Sonora e Visual Ativa de Atualização: Ao estar com o aplicativo aberto, você agora recebe imediatamente um sinal sonoro suave e banner elegante quando uma nova versão for publicada, sem loops ou repetições infinitas.',

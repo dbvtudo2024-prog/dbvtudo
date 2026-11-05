@@ -102,7 +102,9 @@ export const CANONICAL_BIBLE_BOOKS: BibleBook[] = [
 
 import { createClient } from '@supabase/supabase-js';
 import { RUD_UNIFORMES_DBV, RUD_UNIFORMES_AVT, RUD_EMBLEMAS_DBV, RUD_EMBLEMAS_AVT, RUD_CREDITS, getOfficialRudUniforms, getOfficialRudEmblems } from './rudService';
+import { DISCONTINUED_SPECIALTIES, RETIRED_CATEGORY_NAME, isDiscontinuedSpecialty } from './discontinuedSpecialties';
 export { RUD_UNIFORMES_DBV, RUD_UNIFORMES_AVT, RUD_EMBLEMAS_DBV, RUD_EMBLEMAS_AVT, RUD_CREDITS, getOfficialRudUniforms, getOfficialRudEmblems };
+export { DISCONTINUED_SPECIALTIES, RETIRED_CATEGORY_NAME, isDiscontinuedSpecialty };
 
 export const QFPY_URL = 'https://qfpyjavbncijowjvznkg.supabase.co';
 export const QFPY_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmcHlqYXZibmNpam93anZ6bmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NDcxMDUsImV4cCI6MjA3NDQyMzEwNX0.adxRCkobV-m_XUHp1KBXmg67VXkR-HL4QKFVtgQOmYc';
@@ -1757,7 +1759,14 @@ export const CANONICAL_SPECIALTY_FIXES: Record<number, { nome: string; area: str
   2331: { nome: 'Operação e manutenção de impressoras', area: 'Atividades Profissionais', codigo: '059' },
   2332: { nome: 'Telecartofilia', area: 'Atividades Recreativas', codigo: '077' },
   2333: { nome: 'Telecartofilia - Avançado', area: 'Atividades Recreativas', codigo: '078' },
-  2334: { nome: 'Mordomia', area: 'Atividades Missionárias e Comunitárias', codigo: '015' }
+  2334: { nome: 'Mordomia', area: 'Atividades Missionárias e Comunitárias', codigo: '015' },
+  // Especialidades com código 023 que compartilham número mas são de áreas totalmente distintas
+  908: { nome: 'Trabalhos em acrílico', area: 'Artes e Habilidades Manuais', codigo: '023' },
+  988: { nome: 'Santuário', area: 'Atividades Missionárias e Comunitárias', codigo: '023' },
+  1016: { nome: 'Matrimônio e família', area: 'Ensinos Bíblicos', codigo: '023' },
+  2137: { nome: 'Remo', area: 'Atividades Recreativas', codigo: '023' },
+  2168: { nome: 'Higiene oral', area: 'Ciência e Saúde', codigo: '023' },
+  2197: { nome: 'Anfíbios', area: 'Estudo da Natureza', codigo: '023' }
 };
 
 export function sanitizeEspecialidadesCatalog(items: Especialidade[]): Especialidade[] {
@@ -1789,6 +1798,29 @@ export function sanitizeEspecialidadesCatalog(items: Especialidade[]): Especiali
       }
       if (item.area === 'Atividades Missionárias e Comunitárias' || Number(item.id) === 941) {
         return { ...item, nome: 'Arte de contar histórias cristãs', area: 'Atividades Missionárias e Comunitárias', codigo: '001' };
+      }
+    }
+    // Proteção extra: se o nome for 'Anfibios' ou 'Anfíbios', mas não for o ID 2197 nem 2198
+    if ((item.nome === 'Anfibios' || item.nome === 'Anfíbios') && item.id !== 2197 && item.id !== 2198) {
+      hadCorruption = true;
+      const canonical = CANONICAL_SPECIALTY_FIXES[Number(item.id)];
+      if (canonical) {
+        return { ...item, nome: canonical.nome, area: canonical.area, codigo: canonical.codigo };
+      }
+      if (item.area === 'Atividades Recreativas' || Number(item.id) === 2137) {
+        return { ...item, nome: 'Remo', area: 'Atividades Recreativas', codigo: '023' };
+      }
+      if (item.area === 'Ciência e Saúde' || Number(item.id) === 2168) {
+        return { ...item, nome: 'Higiene oral', area: 'Ciência e Saúde', codigo: '023' };
+      }
+      if (item.area === 'Artes e Habilidades Manuais' || Number(item.id) === 908) {
+        return { ...item, nome: 'Trabalhos em acrílico', area: 'Artes e Habilidades Manuais', codigo: '023' };
+      }
+      if (item.area === 'Ensinos Bíblicos' || Number(item.id) === 1016) {
+        return { ...item, nome: 'Matrimônio e família', area: 'Ensinos Bíblicos', codigo: '023' };
+      }
+      if (item.area === 'Atividades Missionárias e Comunitárias' || Number(item.id) === 988) {
+        return { ...item, nome: 'Santuário', area: 'Atividades Missionárias e Comunitárias', codigo: '023' };
       }
     }
     return item;
@@ -1966,7 +1998,11 @@ export function getLocalSpecialtyOverrides(): Record<string, Partial<Especialida
           if (val?.nome === 'Arte culinária' && !k.endsWith('_2301') && !k.endsWith('_2302')) {
             continue;
           }
-          if (!k.endsWith('_001') && !k.endsWith('_002') && !k.endsWith('_003') && !k.endsWith('_049') && k !== '001' && k !== '002' && k !== '003' && k !== '049') {
+          // Se tentar sobrepor o nome como 'Anfibios' ou 'Anfíbios' em qualquer ID que não seja 2197 ou 2198, descarta
+          if ((val?.nome === 'Anfibios' || val?.nome === 'Anfíbios') && !k.endsWith('_2197') && !k.endsWith('_2198')) {
+            continue;
+          }
+          if (!k.endsWith('_001') && !k.endsWith('_002') && !k.endsWith('_003') && !k.endsWith('_049') && !k.endsWith('_023') && k !== '001' && k !== '002' && k !== '003' && k !== '049' && k !== '023') {
             sanitized[k] = val;
           }
         }
@@ -1997,7 +2033,10 @@ export async function fetchRemoteSpecialtyOverrides(): Promise<Record<string, Pa
           if (val?.nome === 'Arte culinária' && !k.endsWith('_2301') && !k.endsWith('_2302')) {
             continue;
           }
-          if (!k.endsWith('_001') && !k.endsWith('_002') && !k.endsWith('_003') && !k.endsWith('_049') && k !== '001' && k !== '002' && k !== '003' && k !== '049') {
+          if ((val?.nome === 'Anfibios' || val?.nome === 'Anfíbios') && !k.endsWith('_2197') && !k.endsWith('_2198')) {
+            continue;
+          }
+          if (!k.endsWith('_001') && !k.endsWith('_002') && !k.endsWith('_003') && !k.endsWith('_049') && !k.endsWith('_023') && k !== '001' && k !== '002' && k !== '003' && k !== '049' && k !== '023') {
             sanitized[k] = val;
           }
         }
@@ -2020,14 +2059,15 @@ export function applySpecialtyOverrides(item: Especialidade): Especialidade {
   if (!item) return item;
   const overrides = getLocalSpecialtyOverrides();
   const clubKey = item.club || ClubType.PATHFINDER;
-  // O ID numérico da linha no banco é o único identificador universal e exclusivo (o 'codigo' como 001 se repete em várias áreas)
+  // O ID numérico da linha no banco é o único identificador universal e exclusivo (o 'codigo' como 001 ou 023 se repete em várias áreas)
   const keyById = `${clubKey}_${item.id}`;
   const override = overrides[keyById];
   if (!override) return item;
 
-  // Proteção contra sobrescrita incorreta de nome de outras especialidades com 'Arte culinária'
+  // Proteção contra sobrescrita incorreta de nome de outras especialidades com 'Arte culinária' ou 'Anfibios'
   const isCulinariaConflict = override.nome === 'Arte culinária' && item.id !== 2301 && item.id !== 2302;
-  const resolvedNome = isCulinariaConflict ? item.nome : (override.nome || item.nome);
+  const isAnfibiosConflict = (override.nome === 'Anfibios' || override.nome === 'Anfíbios') && item.id !== 2197 && item.id !== 2198;
+  const resolvedNome = (isCulinariaConflict || isAnfibiosConflict) ? item.nome : (override.nome || item.nome);
 
   return {
     ...item,
@@ -2301,6 +2341,22 @@ export async function revalidateEspecialidadesInBackground(club: ClubType, exclu
   }
 }
 
+export function mergeDiscontinuedSpecialties(catalog: Especialidade[], club: ClubType): Especialidade[] {
+  if (club !== ClubType.PATHFINDER || !Array.isArray(catalog)) return catalog;
+  const existingIds = new Set(catalog.map(s => Number(s.id)));
+  const existingNames = new Set(
+    catalog.map(s => (s.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim())
+  );
+  const additions: Especialidade[] = [];
+  for (const item of DISCONTINUED_SPECIALTIES) {
+    const norm = (item.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+    if (!existingIds.has(Number(item.id)) && !existingNames.has(norm)) {
+      additions.push(item);
+    }
+  }
+  return [...catalog, ...additions];
+}
+
 export async function fetchEspecialidades(
   club: ClubType,
   categoryFilter?: string,
@@ -2308,6 +2364,11 @@ export async function fetchEspecialidades(
 ): Promise<Especialidade[]> {
   const excludeQuestions = !!options?.excludeQuestions;
   const forceRefresh = !!options?.forceRefresh;
+
+  // Categoria virtual de especialidades descontinuadas / retiradas do manual
+  if (categoryFilter === RETIRED_CATEGORY_NAME || categoryFilter === 'Especialidades excluídas/descontinuadas') {
+    return DISCONTINUED_SPECIALTIES;
+  }
 
   try {
     // 1. Reutiliza cache em memória/localStorage para render instantâneo
@@ -2318,9 +2379,10 @@ export async function fetchEspecialidades(
         if (!categoryFilter) {
           revalidateEspecialidadesInBackground(club, excludeQuestions);
         }
-        return categoryFilter
-          ? cached.filter(item => item.area === categoryFilter)
-          : cached;
+        if (categoryFilter) {
+          return cached.filter(item => item.area === categoryFilter);
+        }
+        return mergeDiscontinuedSpecialties(cached, club);
       }
     }
 
@@ -2468,9 +2530,10 @@ export async function fetchEspecialidades(
       }
     }
 
-    return mapped;
+    return categoryFilter ? mapped : mergeDiscontinuedSpecialties(mapped, club);
   } catch {
-    return getCachedEspecialidades(club, excludeQuestions);
+    const fallback = getCachedEspecialidades(club, excludeQuestions);
+    return categoryFilter ? fallback : mergeDiscontinuedSpecialties(fallback, club);
   }
 }
 
