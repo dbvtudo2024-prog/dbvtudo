@@ -1777,6 +1777,15 @@ export function sanitizeEspecialidadesCatalog(items: Especialidade[]): Especiali
     if (!item) return item;
     const fix = CANONICAL_SPECIALTY_FIXES[Number(item.id)];
     if (fix) {
+      if (item.id === 2334) {
+        return {
+          ...item,
+          nome: fix.nome,
+          area: fix.area,
+          codigo: fix.codigo,
+          logo: '/assets/especialidades_descontinuadas/mordomia.png'
+        };
+      }
       if (item.nome !== fix.nome || (item.area !== fix.area && typeof item.area === 'string' && !item.area.startsWith('http'))) {
         hadCorruption = true;
         return {
@@ -2344,14 +2353,17 @@ export async function revalidateEspecialidadesInBackground(club: ClubType, exclu
 export function mergeDiscontinuedSpecialties(catalog: Especialidade[], club: ClubType): Especialidade[] {
   if (club !== ClubType.PATHFINDER || !Array.isArray(catalog)) return catalog;
   const existingIds = new Set(catalog.map(s => Number(s.id)));
-  const existingNames = new Set(
-    catalog.map(s => (s.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim())
-  );
   const additions: Especialidade[] = [];
   for (const item of DISCONTINUED_SPECIALTIES) {
-    const norm = (item.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-    if (!existingIds.has(Number(item.id)) && !existingNames.has(norm)) {
-      additions.push(item);
+    if (!existingIds.has(Number(item.id))) {
+      const existsSameNameAndArea = catalog.some(s => {
+        const sNorm = (s.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+        const itemNorm = (item.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+        return sNorm === itemNorm && s.area === item.area;
+      });
+      if (!existsSameNameAndArea) {
+        additions.push(item);
+      }
     }
   }
   return [...catalog, ...additions];

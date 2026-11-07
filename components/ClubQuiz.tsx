@@ -60,6 +60,15 @@ const getImageUrl = (url: string | undefined | null) => {
   if (!url || typeof url !== 'string') return '';
   const trimmed = url.trim();
   if (trimmed.startsWith('//')) return `https:${trimmed}`;
+  if (
+    trimmed.startsWith('/assets/') ||
+    trimmed.startsWith('/trunfos/') ||
+    trimmed.startsWith('/libras/') ||
+    trimmed.startsWith('/knots/') ||
+    trimmed.startsWith('/knots3d/')
+  ) {
+    return trimmed;
+  }
   if (trimmed.startsWith('/')) return `https://mda.wiki.br${trimmed}`;
   if (trimmed.includes('drive.google.com')) {
     const match = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || trimmed.match(/id=([a-zA-Z0-9_-]+)/);

@@ -34,7 +34,7 @@ export const DISCONTINUED_SPECIALTIES: Especialidade[] = [
     nivel: 'Nível 1',
     ano: '1961',
     origem: 'Associação Geral',
-    logo: '/assets/especialidades_descontinuadas/barco_a_motor.jpg',
+    logo: '/assets/especialidades_descontinuadas/barco_a_motor.png',
     requisitos: ['ESPECIALIDADE RETIRADA DO MANUAL']
   },
   {
@@ -47,7 +47,7 @@ export const DISCONTINUED_SPECIALTIES: Especialidade[] = [
     nivel: 'Nível 1',
     ano: '1929',
     origem: 'Associação Geral',
-    logo: '/assets/especialidades_descontinuadas/datilografia.gif',
+    logo: '/assets/especialidades_descontinuadas/datilografia.png',
     requisitos: ['ESPECIALIDADE RETIRADA DO MANUAL']
   },
   {
@@ -60,7 +60,7 @@ export const DISCONTINUED_SPECIALTIES: Especialidade[] = [
     nivel: 'Nível 2',
     ano: '1970',
     origem: 'Associação Geral',
-    logo: '/assets/especialidades_descontinuadas/esqui_cross_country.jpg',
+    logo: '/assets/especialidades_descontinuadas/esqui_cross_country.png',
     requisitos: ['ESPECIALIDADE RETIRADA DO MANUAL']
   },
   {
@@ -73,7 +73,7 @@ export const DISCONTINUED_SPECIALTIES: Especialidade[] = [
     nivel: 'Nível 2',
     ano: '1970',
     origem: 'Associação Geral',
-    logo: '/assets/especialidades_descontinuadas/esqui_downhill.jpg',
+    logo: '/assets/especialidades_descontinuadas/esqui_downhill.png',
     requisitos: ['ESPECIALIDADE RETIRADA DO MANUAL']
   },
   {
@@ -86,7 +86,7 @@ export const DISCONTINUED_SPECIALTIES: Especialidade[] = [
     nivel: 'Nível 2',
     ano: '1980',
     origem: 'Associação Geral',
-    logo: '/assets/especialidades_descontinuadas/missiomodelismo.gif',
+    logo: '/assets/especialidades_descontinuadas/missiomodelismo.png',
     requisitos: ['ESPECIALIDADE RETIRADA DO MANUAL']
   },
   {
@@ -99,7 +99,7 @@ export const DISCONTINUED_SPECIALTIES: Especialidade[] = [
     nivel: 'Nível 2',
     ano: '1938',
     origem: 'Associação Geral',
-    logo: '/assets/especialidades_descontinuadas/radioeletronica.gif',
+    logo: '/assets/especialidades_descontinuadas/radioeletronica.png',
     requisitos: ['ESPECIALIDADE RETIRADA DO MANUAL']
   },
   {
@@ -115,6 +115,19 @@ export const DISCONTINUED_SPECIALTIES: Especialidade[] = [
     logo: 'https://qfpyjavbncijowjvznkg.supabase.co/storage/v1/object/public/App%20DBV%20Tudo/Especialidades/Atividades%20Recreativas/imagem@ar077.png',
     requisitos: ['ESPECIALIDADE RETIRADA DO MANUAL']
   },
+  {
+    id: 2334,
+    codigo: '015',
+    nome: 'Mordomia',
+    area: 'Atividades Missionárias e Comunitárias',
+    sigla: 'AM',
+    cor: '#3b82f6',
+    nivel: 'Nível 1',
+    ano: '1951',
+    origem: 'Associação Geral',
+    logo: '/assets/especialidades_descontinuadas/mordomia.png',
+    requisitos: ['ESPECIALIDADE RETIRADA DO MANUAL']
+  },
 
   // --- Especialidades Avançadas Removidas (15) ---
   {
@@ -127,7 +140,7 @@ export const DISCONTINUED_SPECIALTIES: Especialidade[] = [
     nivel: 'Avançado',
     ano: '-',
     origem: 'Divisão Sul-Americana',
-    logo: '/assets/especialidades_descontinuadas/apitos_avancado.jpg',
+    logo: '/assets/especialidades_descontinuadas/apitos_avancado.png',
     requisitos: ['ESPECIALIDADE RETIRADA DO MANUAL']
   },
   {
@@ -140,7 +153,7 @@ export const DISCONTINUED_SPECIALTIES: Especialidade[] = [
     nivel: 'Avançado',
     ano: '-',
     origem: 'Associação Geral',
-    logo: '/assets/especialidades_descontinuadas/arco_e_flecha_avancado.gif',
+    logo: '/assets/especialidades_descontinuadas/arco_e_flecha_avancado.png',
     requisitos: ['ESPECIALIDADE RETIRADA DO MANUAL']
   },
   {
@@ -153,7 +166,7 @@ export const DISCONTINUED_SPECIALTIES: Especialidade[] = [
     nivel: 'Avançado',
     ano: '-',
     origem: 'Divisão Sul-Americana',
-    logo: '/assets/especialidades_descontinuadas/corrida_de_carrinhos_de_madeira_avancado.jpg',
+    logo: '/assets/especialidades_descontinuadas/corrida_de_carrinhos_de_madeira_avancado.png',
     requisitos: ['ESPECIALIDADE RETIRADA DO MANUAL']
   },
   {
@@ -166,7 +179,7 @@ export const DISCONTINUED_SPECIALTIES: Especialidade[] = [
     nivel: 'Avançado',
     ano: '-',
     origem: 'Associação Geral',
-    logo: '/assets/especialidades_descontinuadas/desfile_com_carros_alegoricos_avancado.jpg',
+    logo: '/assets/especialidades_descontinuadas/desfile_com_carros_alegoricos_avancado.png',
     requisitos: ['ESPECIALIDADE RETIRADA DO MANUAL']
   },
   {
@@ -179,7 +192,7 @@ export const DISCONTINUED_SPECIALTIES: Especialidade[] = [
     nivel: 'Avançado',
     ano: '-',
     origem: 'Associação Geral',
-    logo: '/assets/especialidades_descontinuadas/equitacao_avancado.jpg',
+    logo: '/assets/especialidades_descontinuadas/equitacao_avancado.png',
     requisitos: ['ESPECIALIDADE RETIRADA DO MANUAL']
   },
   {
@@ -192,7 +205,7 @@ export const DISCONTINUED_SPECIALTIES: Especialidade[] = [
     nivel: 'Avançado',
     ano: '-',
     origem: 'Associação Geral',
-    logo: '/assets/especialidades_descontinuadas/esmaltado_em_cobre_avancado.gif',
+    logo: '/assets/especialidades_descontinuadas/esmaltado_em_cobre_avancado.png',
     requisitos: ['ESPECIALIDADE RETIRADA DO MANUAL']
   },
   {
@@ -218,7 +231,7 @@ export const DISCONTINUED_SPECIALTIES: Especialidade[] = [
     nivel: 'Avançado',
     ano: '-',
     origem: 'Associação Geral',
-    logo: '/assets/especialidades_descontinuadas/esqui_aquatico_avancado.gif',
+    logo: '/assets/especialidades_descontinuadas/esqui_aquatico_avancado.png',
     requisitos: ['ESPECIALIDADE RETIRADA DO MANUAL']
   },
   {
@@ -231,7 +244,7 @@ export const DISCONTINUED_SPECIALTIES: Especialidade[] = [
     nivel: 'Avançado',
     ano: '-',
     origem: 'Associação Geral',
-    logo: '/assets/especialidades_descontinuadas/excursionismo_pedestre_na_neve_avancado.jpg',
+    logo: '/assets/especialidades_descontinuadas/excursionismo_pedestre_na_neve_avancado.png',
     requisitos: ['ESPECIALIDADE RETIRADA DO MANUAL']
   },
   {
@@ -244,7 +257,7 @@ export const DISCONTINUED_SPECIALTIES: Especialidade[] = [
     nivel: 'Avançado',
     ano: '-',
     origem: 'Divisão Sul-Americana',
-    logo: '/assets/especialidades_descontinuadas/farois_avancado.jpg',
+    logo: '/assets/especialidades_descontinuadas/farois_avancado.png',
     requisitos: ['ESPECIALIDADE RETIRADA DO MANUAL']
   },
   {
@@ -257,7 +270,7 @@ export const DISCONTINUED_SPECIALTIES: Especialidade[] = [
     nivel: 'Avançado',
     ano: '-',
     origem: 'Associação Geral',
-    logo: '/assets/especialidades_descontinuadas/filatelia_avancado.jpg',
+    logo: '/assets/especialidades_descontinuadas/filatelia_avancado.png',
     requisitos: ['ESPECIALIDADE RETIRADA DO MANUAL']
   },
   {
@@ -270,7 +283,7 @@ export const DISCONTINUED_SPECIALTIES: Especialidade[] = [
     nivel: 'Avançado',
     ano: '-',
     origem: 'Associação Geral',
-    logo: '/assets/especialidades_descontinuadas/mecanica_automotiva_avancado.gif',
+    logo: '/assets/especialidades_descontinuadas/mecanica_automotiva_avancado.png',
     requisitos: ['ESPECIALIDADE RETIRADA DO MANUAL']
   },
   {
@@ -283,7 +296,7 @@ export const DISCONTINUED_SPECIALTIES: Especialidade[] = [
     nivel: 'Avançado',
     ano: '-',
     origem: 'Associação Geral',
-    logo: '/assets/especialidades_descontinuadas/mergulho_autonomo_avancado.gif',
+    logo: '/assets/especialidades_descontinuadas/mergulho_autonomo_avancado.png',
     requisitos: ['ESPECIALIDADE RETIRADA DO MANUAL']
   },
   {
@@ -296,7 +309,7 @@ export const DISCONTINUED_SPECIALTIES: Especialidade[] = [
     nivel: 'Avançado',
     ano: '-',
     origem: 'Associação Geral',
-    logo: '/assets/especialidades_descontinuadas/missiomodelismo_avancado.gif',
+    logo: '/assets/especialidades_descontinuadas/missiomodelismo_avancado.png',
     requisitos: ['ESPECIALIDADE RETIRADA DO MANUAL']
   },
   {
@@ -316,8 +329,17 @@ export const DISCONTINUED_SPECIALTIES: Especialidade[] = [
 
 export function isDiscontinuedSpecialty(item?: Partial<Especialidade> | null): boolean {
   if (!item) return false;
+  // A nova especialidade de Mordomia (Ensinos Bíblicos, id 1014, código 021) é ATIVA no Manual 2025
+  if (item.id === 1014 || item.area === 'Ensinos Bíblicos' || item.sigla === 'AM-EB' || item.codigo === '021') {
+    return false;
+  }
   if (item.id && DISCONTINUED_SPECIALTIES.some(d => d.id === item.id)) return true;
   const nameNorm = (item.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  if (nameNorm === 'mordomia') {
+    // Mordomia antiga descontinuada é a de Atividades Missionárias e Comunitárias (id 2334, cód 015)
+    return item.id === 2334 || item.codigo === '015' || item.area === 'Atividades Missionárias e Comunitárias' ||
+      (item.requisitos || []).some(r => (r || '').toLowerCase().includes('retirada'));
+  }
   if (DISCONTINUED_SPECIALTIES.some(d => d.nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim() === nameNorm)) {
     return true;
   }

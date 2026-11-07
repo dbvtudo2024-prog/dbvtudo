@@ -58,6 +58,7 @@ const getImageUrl = (url: string | undefined | null) => {
   const trimmed = url.trim();
   if (trimmed.startsWith('//')) return `https:${trimmed}`;
   if (
+    trimmed.startsWith('/assets/') ||
     trimmed.startsWith('/trunfos/') ||
     trimmed.startsWith('/libras/') ||
     trimmed.startsWith('/knots/') ||
