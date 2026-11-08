@@ -6,14 +6,37 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.2.0';
-export const APP_BUILD_DATE = '06 de Novembro de 2026';
+export const APP_VERSION = '3.2.2';
+export const APP_BUILD_DATE = '08 de Novembro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '3.2.2',
+    date: '08/11/2026',
+    tag: 'NOVO',
+    title: 'Modal de Opções ao Gerar PDF de Especialidade: Apenas Questões vs. Questões Respondidas',
+    changes: [
+      'Modal Interativo ao Gerar PDF de Especialidade: Ao clicar no botão de gerar PDF dentro dos detalhes de qualquer especialidade, agora é exibido um modal elegante para escolher o formato do documento.',
+      'Opção Apenas Questões: Gera um documento oficial com todas as perguntas e requisitos acompanhados de linhas pautadas discretas para os desbravadores responderem e preencherem durante o estudo.',
+      'Opção Questões Respondidas: Caderno oficial completo com todas as perguntas acompanhadas das respostas explicativas didáticas aprofundadas e detalhadas para cada requisito e sub-item.'
+    ]
+  },
+  {
+    version: '3.2.1',
+    date: '08/11/2026',
+    tag: 'ESTÁVEL',
+    title: 'Gerador de PDF de Especialidades & Lista de Compras, Destaque Vermelho e Ajuste no Cabeçalho',
+    changes: [
+      'Gerador de PDF de Especialidades e Insígnias: Nova opção dentro do gerenciador de especialidades para exportar em PDF A4 de alta qualidade o relatório completo de especialidades concluídas, a lista de compras de insígnias para levar à loja ou o catálogo geral oficial.',
+      'Destaque Vermelho para Insígnias a Comprar: Área, indicador de resumo e botões das especialidades marcadas como "Preciso Comprar" agora possuem fundo vermelho vibrante para rápida identificação visual das compras pendentes.',
+      'Ajuste no Cabeçalho de Gerenciamento: Cabeçalho com identidade visual alinhada, contagem total de especialidades concluídas em badge dourado, gradiente oficial e botão de geração rápida de PDF.',
+      'Emblemas Transparentes Flutuantes: Remoção de caixas/containers artificiais nas miniaturas das especialidades, deixando as insígnias e mestrados com sua silhueta física real e sombra suave.'
+    ]
+  },
+  {
     version: '3.2.0',
     date: '06/11/2026',
-    tag: 'NOVO',
+    tag: 'ESTÁVEL',
     title: 'Especialidades Excluídas/Descontinuadas, Correção no Salvamento do Admin e Pesquisa Aprimorada',
     changes: [
       'Especialidades Excluídas/Descontinuadas: Adicionado botão no final da lista de categorias com as 23 especialidades regulares e avançadas retiradas do Manual de 2025 (como Telecartofilia, Datilografia, Balões de ar quente, Missiomodelismo, Apitos avançado e outras), permitindo visualizar a insígnia oficial, marcar como concluída e exibir na faixa oficial.',

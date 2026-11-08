@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { ChevronLeft, LogOut, Shield, MapPin, Briefcase, Award, Camera, Check, X, User, Mail, Phone, ChevronDown, Heart, Search, Settings, Layers, Globe, Trophy, ArrowUp, RotateCcw, AlertTriangle, Calendar, Lock, Droplet, CheckCircle2, ShoppingBag, ShoppingCart, Plus, Trash2, Edit3, Share2, Copy, Sparkles, Filter, CheckSquare, Square, Tag, ExternalLink, RefreshCw } from 'lucide-react';
+import { ChevronLeft, LogOut, Shield, MapPin, Briefcase, Award, Camera, Check, X, User, Mail, Phone, ChevronDown, Heart, Search, Settings, Layers, Globe, Trophy, ArrowUp, RotateCcw, AlertTriangle, Calendar, Lock, Droplet, CheckCircle2, ShoppingBag, ShoppingCart, Plus, Trash2, Edit3, Share2, Copy, Sparkles, Filter, CheckSquare, Square, Tag, ExternalLink, RefreshCw, FileDown, FileText, Printer, Loader2, ArrowDownAZ } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 import { ClubType, Especialidade, UserProfile, Conquista, CompletedSpecialty } from '../types';
 import { MASTERY_RULES } from '../masteryRules';
 import { 
@@ -621,6 +622,11 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
   const [editingSpecialtyId, setEditingSpecialtyId] = useState<string | number | null>(null);
   const [copyFeedback, setCopyFeedback] = useState(false);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pdfExportType, setPdfExportType] = useState<'ALL_COMPLETED' | 'PENDING_ONLY'>('ALL_COMPLETED');
+  const [pdfSortOrder, setPdfSortOrder] = useState<'ALPHABETICAL' | 'CODE' | 'DATE'>('ALPHABETICAL');
+  const [isModalScrolled, setIsModalScrolled] = useState(false);
 
   // Campos do formulário de adicionar / editar especialidade concluída
   const [formSelectedSpecialty, setFormSelectedSpecialty] = useState<Especialidade | null>(null);
@@ -744,6 +750,296 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     }
 
     setIsAddEditModalOpen(false);
+  };
+
+  const handleGeneratePDF = async (
+    exportType: 'ALL_COMPLETED' | 'PENDING_ONLY',
+    sortOrder: 'ALPHABETICAL' | 'CODE' | 'DATE' = pdfSortOrder
+  ) => {
+    setIsGeneratingPdf(true);
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 14;
+      const innerWidth = pageWidth - (margin * 2);
+      let currentY = margin;
+      let pageNumber = 1;
+
+      // Helper de Cabeçalho e Rodapé de cada página
+      const drawHeaderAndFooter = (isFirstPage: boolean) => {
+        // Rodapé
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(8);
+        pdf.setTextColor(148, 163, 184); // slate-400
+        pdf.text(
+          `DBV Tudo • Sistema de Gestão de Especialidades • Gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`,
+          margin,
+          pageHeight - 8
+        );
+        pdf.text(`Página ${pageNumber}`, pageWidth - margin, pageHeight - 8, { align: 'right' });
+
+        // Se for página secundária, desenha linha sutil no topo
+        if (!isFirstPage) {
+          pdf.setFillColor(15, 23, 42);
+          pdf.rect(margin, margin - 4, innerWidth, 0.4, 'F');
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(7.5);
+          pdf.setTextColor(100, 116, 139);
+          const subTitle = exportType === 'PENDING_ONLY' 
+            ? 'LISTA DE COMPRAS DE INSÍGNIAS (CONTINUAÇÃO)' 
+            : 'RELATÓRIO DE ESPECIALIDADES CONCLUÍDAS (CONTINUAÇÃO)';
+          pdf.text(subTitle, margin, margin - 1.5);
+        }
+      };
+
+      const checkPageBreak = (neededHeight: number) => {
+        if (currentY + neededHeight > pageHeight - margin - 10) {
+          drawHeaderAndFooter(pageNumber === 1);
+          pdf.addPage();
+          pageNumber++;
+          currentY = margin + 5;
+          return true;
+        }
+        return false;
+      };
+
+      // Banner Principal do Topo (Verde Oficial #0c3c31)
+      pdf.setFillColor(12, 60, 49);
+      pdf.roundedRect(margin, currentY, innerWidth, 24, 3, 3, 'F');
+
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(13);
+      pdf.setTextColor(255, 255, 255);
+      const titleText = exportType === 'PENDING_ONLY'
+        ? 'LISTA DE COMPRAS • INSÍGNIAS DE ESPECIALIDADES'
+        : 'RELATÓRIO DE ESPECIALIDADES CONCLUÍDAS';
+      pdf.text(titleText, margin + 6, currentY + 8);
+
+      const sortLabel = sortOrder === 'ALPHABETICAL'
+        ? 'Ordem Alfabética (A-Z)'
+        : sortOrder === 'CODE'
+        ? 'Ordem por Código'
+        : 'Ordem por Data de Conclusão';
+
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(8);
+      pdf.setTextColor(209, 250, 229);
+      const subText = exportType === 'PENDING_ONLY'
+        ? `Insígnias marcadas como "Preciso Comprar" • Total a adquirir: ${completedCounts.pending} insígnias • ${sortLabel}`
+        : `Controle de datas de conclusão e controle de compra • Total concluído: ${completedCounts.total} • ${sortLabel}`;
+      pdf.text(subText, margin + 6, currentY + 14);
+
+      pdf.setFontSize(7.5);
+      pdf.setTextColor(254, 243, 199); // amber-100
+      pdf.text(
+        `Desbravador(a): ${userData.name || 'Membro'}  |  Clube: ${userData.clube || 'Clube de Desbravadores'}`,
+        margin + 6,
+        currentY + 19.5
+      );
+
+      currentY += 28;
+
+      // Resumo em 4 blocos
+      const cardW = (innerWidth - 6) / 4;
+      const cardH = 13;
+
+      // Bloco 1: Especialidades
+      pdf.setFillColor(241, 245, 249);
+      pdf.roundedRect(margin, currentY, cardW, cardH, 2, 2, 'F');
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(6.5);
+      pdf.setTextColor(71, 85, 105);
+      pdf.text('ESPECIALIDADES', margin + 3, currentY + 4.5);
+      pdf.setFontSize(11);
+      pdf.setTextColor(30, 41, 59);
+      pdf.text(String(completedCounts.specialties), margin + 3, currentY + 10.5);
+
+      // Bloco 2: Mestrados
+      pdf.setFillColor(241, 245, 249);
+      pdf.roundedRect(margin + cardW + 2, currentY, cardW, cardH, 2, 2, 'F');
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(6.5);
+      pdf.setTextColor(71, 85, 105);
+      pdf.text('MESTRADOS', margin + cardW + 5, currentY + 4.5);
+      pdf.setFontSize(11);
+      pdf.setTextColor(30, 41, 59);
+      pdf.text(String(completedCounts.masteries), margin + cardW + 5, currentY + 10.5);
+
+      // Bloco 3: Já Compradas (Verde)
+      pdf.setFillColor(236, 253, 245);
+      pdf.roundedRect(margin + (cardW + 2) * 2, currentY, cardW, cardH, 2, 2, 'F');
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(6.5);
+      pdf.setTextColor(5, 150, 105);
+      pdf.text('JÁ COMPRADAS', margin + (cardW + 2) * 2 + 3, currentY + 4.5);
+      pdf.setFontSize(11);
+      pdf.setTextColor(6, 95, 70);
+      pdf.text(String(completedCounts.purchased), margin + (cardW + 2) * 2 + 3, currentY + 10.5);
+
+      // Bloco 4: Preciso Comprar (Vermelho)
+      pdf.setFillColor(255, 241, 242);
+      pdf.roundedRect(margin + (cardW + 2) * 3, currentY, cardW, cardH, 2, 2, 'F');
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(6.5);
+      pdf.setTextColor(225, 29, 72);
+      pdf.text('PRECISO COMPRAR', margin + (cardW + 2) * 3 + 3, currentY + 4.5);
+      pdf.setFontSize(11);
+      pdf.setTextColor(159, 18, 57);
+      pdf.text(String(completedCounts.pending), margin + (cardW + 2) * 3 + 3, currentY + 10.5);
+
+      currentY += 17;
+
+      // CONTEÚDO PRINCIPAL: Especialidades ordenadas conforme escolha do usuário
+      let itemsToPrint = exportType === 'PENDING_ONLY'
+        ? completedSpecialties.filter(item => !item.purchased)
+        : [...completedSpecialties];
+
+      // Aplicação da Ordenação Selecionada (Alfabética, Código ou Data de Conclusão)
+      if (sortOrder === 'ALPHABETICAL') {
+        itemsToPrint.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }));
+      } else if (sortOrder === 'CODE') {
+        itemsToPrint.sort((a, b) => {
+          const codeA = (a.code || '').trim();
+          const codeB = (b.code || '').trim();
+          if (!codeA && !codeB) return (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' });
+          if (!codeA) return 1;
+          if (!codeB) return -1;
+          return codeA.localeCompare(codeB, 'pt-BR', { numeric: true, sensitivity: 'base' });
+        });
+      } else if (sortOrder === 'DATE') {
+        itemsToPrint.sort((a, b) => {
+          const dateA = a.completionDate || '';
+          const dateB = b.completionDate || '';
+          if (dateB !== dateA) return dateB.localeCompare(dateA);
+          const addedA = Number(a.addedAt || 0);
+          const addedB = Number(b.addedAt || 0);
+          if (addedB !== addedA) return addedB - addedA;
+          return (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' });
+        });
+      }
+
+      if (itemsToPrint.length === 0) {
+        pdf.setFont('helvetica', 'italic');
+        pdf.setFontSize(9.5);
+        pdf.setTextColor(148, 163, 184);
+        pdf.text(
+          exportType === 'PENDING_ONLY' 
+            ? 'Parabéns! Todas as suas insígnias já foram compradas.' 
+            : 'Nenhuma especialidade registrada como concluída.',
+          pageWidth / 2,
+          currentY + 15,
+          { align: 'center' }
+        );
+      } else {
+        // Cabeçalho da Tabela
+        pdf.setFillColor(241, 245, 249);
+        pdf.rect(margin, currentY, innerWidth, 6.5, 'F');
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(7);
+        pdf.setTextColor(71, 85, 105);
+
+        if (exportType === 'PENDING_ONLY') {
+          pdf.text('[ ]', margin + 3, currentY + 4.5);
+          pdf.text('CÓD', margin + 10, currentY + 4.5);
+          pdf.text('INSÍGNIA / ESPECIALIDADE', margin + 25, currentY + 4.5);
+          pdf.text('ÁREA', margin + 98, currentY + 4.5);
+          pdf.text('DATA CONCL.', margin + 142, currentY + 4.5);
+          pdf.text('QTD', pageWidth - margin - 10, currentY + 4.5);
+        } else {
+          pdf.text('CÓD', margin + 3, currentY + 4.5);
+          pdf.text('ESPECIALIDADE / MESTRADO', margin + 18, currentY + 4.5);
+          pdf.text('ÁREA', margin + 92, currentY + 4.5);
+          pdf.text('DATA CONCL.', margin + 132, currentY + 4.5);
+          pdf.text('STATUS', pageWidth - margin - 26, currentY + 4.5);
+        }
+
+        currentY += 8.5;
+
+        itemsToPrint.forEach((item, idx) => {
+          checkPageBreak(6.5);
+
+          if (!item.purchased) {
+            // Destaque de fundo vermelho suave para itens que precisam ser comprados!
+            pdf.setFillColor(255, 241, 242);
+            pdf.rect(margin, currentY - 4, innerWidth, 6, 'F');
+          } else if (idx % 2 === 1) {
+            pdf.setFillColor(248, 250, 252);
+            pdf.rect(margin, currentY - 4, innerWidth, 6, 'F');
+          }
+
+          if (exportType === 'PENDING_ONLY') {
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(8);
+            pdf.setTextColor(225, 29, 72);
+            pdf.text('[ ]', margin + 3, currentY);
+
+            pdf.setFontSize(7.5);
+            pdf.setTextColor(item.code ? 79 : 148, item.code ? 70 : 163, item.code ? 229 : 184);
+            pdf.text(item.code || '—', margin + 10, currentY);
+
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(8);
+            pdf.setTextColor(15, 23, 42);
+            pdf.text(item.name.length > 38 ? item.name.substring(0, 36) + '...' : item.name, margin + 25, currentY);
+
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(7);
+            pdf.setTextColor(100, 116, 139);
+            pdf.text((item.area || 'Geral').substring(0, 22), margin + 98, currentY);
+
+            pdf.text(formatBirthDate(item.completionDate) || '—', margin + 142, currentY);
+
+            pdf.setFont('helvetica', 'bold');
+            pdf.setTextColor(225, 29, 72);
+            pdf.text('1x', pageWidth - margin - 10, currentY);
+          } else {
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(7.5);
+            pdf.setTextColor(item.code ? 79 : 148, item.code ? 70 : 163, item.code ? 229 : 184);
+            pdf.text(item.code || '—', margin + 3, currentY);
+
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(8);
+            pdf.setTextColor(15, 23, 42);
+            pdf.text(item.name.length > 38 ? item.name.substring(0, 36) + '...' : item.name, margin + 18, currentY);
+
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(7);
+            pdf.setTextColor(100, 116, 139);
+            pdf.text((item.area || 'Geral').substring(0, 22), margin + 92, currentY);
+
+            pdf.text(formatBirthDate(item.completionDate) || '—', margin + 132, currentY);
+
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(7);
+            if (item.purchased) {
+              pdf.setTextColor(5, 150, 105);
+              pdf.text('JÁ COMPREI', pageWidth - margin - 26, currentY);
+            } else {
+              pdf.setTextColor(225, 29, 72);
+              pdf.text('PRECISO COMPRAR', pageWidth - margin - 26, currentY);
+            }
+          }
+
+          currentY += 6;
+        });
+      }
+
+      drawHeaderAndFooter(pageNumber === 1);
+
+      const filePrefix = exportType === 'PENDING_ONLY'
+        ? 'Lista_de_Compras_Insignias'
+        : 'Relatorio_Especialidades_Concluidas';
+      const dateSuffix = new Date().toISOString().slice(0, 10);
+      pdf.save(`${filePrefix}_${dateSuffix}.pdf`);
+      setIsPdfModalOpen(false);
+    } catch (err) {
+      console.error('Erro ao gerar PDF de especialidades:', err);
+      alert('Não foi possível gerar o arquivo PDF. Tente novamente.');
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   const handleCopyWishlist = () => {
@@ -896,6 +1192,11 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
   // Suporte ao botão lateral do mouse ("Voltar") para fechar modais ou sair da visão da faixa no Perfil
   useEffect(() => {
     const handleProfileBack = (e: Event) => {
+      if (isPdfModalOpen) {
+        setIsPdfModalOpen(false);
+        e.preventDefault();
+        return;
+      }
       if (isAddEditModalOpen) {
         setIsAddEditModalOpen(false);
         e.preventDefault();
@@ -932,7 +1233,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
     return () => {
       window.removeEventListener('dbv_app_back_request', handleProfileBack);
     };
-  }, [showGloboModal, showResetConfirm, isAdminReportsModalOpen, isSashView, isCompletedModalOpen, isAddEditModalOpen]);
+  }, [showGloboModal, showResetConfirm, isAdminReportsModalOpen, isSashView, isCompletedModalOpen, isAddEditModalOpen, isPdfModalOpen]);
 
   useEffect(() => {
     fetchFaixaConfig().then(setFaixaConfig).catch(console.warn);
@@ -2185,26 +2486,31 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
         <div className="fixed inset-0 z-[205] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
           <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={() => setIsCompletedModalOpen(false)}></div>
           <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-t-[36px] sm:rounded-[36px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 h-[92vh] sm:h-[86vh] flex flex-col border border-slate-100 dark:border-slate-800">
-            {/* Header com identidade oficial */}
+            {/* Header com identidade oficial (sem botão redundante de PDF e com espaçamento superior limpo) */}
             <div 
               style={{ backgroundColor: userData.tipo === "Desbravador" ? '#0c3c31' : currentThemeColor }}
-              className="p-5 sm:p-6 pb-5 flex items-center justify-between text-white relative overflow-hidden"
+              className="pt-5 sm:pt-6 pb-4 px-4 sm:px-6 flex items-center justify-between text-white relative overflow-hidden border-b border-emerald-900/40 shrink-0"
             >
-              <div className="absolute inset-0 opacity-15 pointer-events-none bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:10px_10px]" />
-              <div className="flex items-center space-x-3 relative z-10 min-w-0">
-                <div className="w-11 h-11 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shrink-0 shadow-md">
+              <div className="absolute inset-0 opacity-12 pointer-events-none bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:10px_10px]" />
+              <div className="flex items-center space-x-3 sm:space-x-3.5 relative z-10 min-w-0">
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shrink-0 shadow-sm">
                   <CheckCircle2 size={22} className="text-amber-300" strokeWidth={2.5} />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-base sm:text-lg font-black uppercase tracking-tight truncate">
-                    Especialidades Concluídas
-                  </h3>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-200/90 truncate">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-sm sm:text-base font-black uppercase tracking-tight text-white leading-tight truncate">
+                      Especialidades Concluídas
+                    </h3>
+                    <span className="bg-amber-400/20 text-amber-300 border border-amber-400/30 text-[10px] font-black px-2 py-0.5 rounded-full shrink-0">
+                      {completedCounts.total} no total
+                    </span>
+                  </div>
+                  <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-emerald-200/90 truncate mt-0.5">
                     Data de Conclusão & Controle de Compra de Insígnias
                   </p>
                 </div>
               </div>
-              <div className="flex items-center space-x-2 relative z-10 shrink-0 ml-2">
+              <div className="flex items-center space-x-1.5 sm:space-x-2 relative z-10 shrink-0 ml-2">
                 <button
                   type="button"
                   onClick={async () => {
@@ -2218,14 +2524,14 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                     setIsLoading(false);
                   }}
                   title="Sincronizar especialidades com o banco de dados"
-                  className="h-9 px-3 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md flex items-center gap-1.5 text-white active:scale-95 transition-all text-[11px] font-bold border border-white/20 cursor-pointer"
+                  className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md flex items-center gap-1.5 text-white active:scale-95 transition-all text-[11px] font-bold border border-white/20 cursor-pointer"
                 >
                   <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
                   <span className="hidden sm:inline">Atualizar</span>
                 </button>
                 <button 
                   onClick={() => setIsCompletedModalOpen(false)}
-                  className="w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md flex items-center justify-center text-white active:scale-90 transition-all border border-white/20 cursor-pointer"
+                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md flex items-center justify-center text-white active:scale-90 transition-all border border-white/20 cursor-pointer"
                   title="Fechar"
                 >
                   <X size={18} strokeWidth={2.5} />
@@ -2233,99 +2539,178 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
               </div>
             </div>
 
-            {/* Painel de Estatísticas / KPI Interativo */}
-            <div className="p-4 sm:p-5 pb-2 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 space-y-3">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {/* Painel de Estatísticas / KPI Interativo (Diminui para 1 linha ao rolar a página) */}
+            <div className={`border-b border-slate-100 dark:border-slate-800 transition-all duration-300 ${
+              isModalScrolled
+                ? 'p-2 sm:p-2.5 bg-slate-50/95 dark:bg-slate-800/95 backdrop-blur-md shadow-xs space-y-1.5'
+                : 'p-4 sm:p-5 pb-2 bg-slate-50 dark:bg-slate-800/50 space-y-3'
+            }`}>
+              {/* Grid das 4 Caixas: 1 linha em grid-cols-4 quando rolado */}
+              <div className={`grid gap-1.5 sm:gap-2 transition-all duration-300 ${
+                isModalScrolled ? 'grid-cols-4' : 'grid-cols-2 sm:grid-cols-4'
+              }`}>
                 {/* 1. Especialidades */}
                 <button
                   type="button"
                   onClick={() => setCompletedFilterTab(completedFilterTab === 'SPECIALTIES' ? 'ALL' : 'SPECIALTIES')}
-                  className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                  className={`rounded-xl sm:rounded-2xl border text-left transition-all cursor-pointer ${
+                    isModalScrolled ? 'py-1 px-1.5 sm:py-1.5 sm:px-2.5' : 'p-3'
+                  } ${
                     completedFilterTab === 'SPECIALTIES'
-                      ? 'bg-blue-500/15 dark:bg-blue-950/50 border-blue-500 shadow-md ring-2 ring-blue-500/20'
-                      : 'bg-white/60 dark:bg-slate-800/60 border-slate-200/60 dark:border-slate-700/60 hover:bg-white'
+                      ? 'bg-blue-500/15 dark:bg-blue-950/50 border-blue-500 shadow-xs ring-2 ring-blue-500/20'
+                      : 'bg-white/70 dark:bg-slate-800/70 border-slate-200/60 dark:border-slate-700/60 hover:bg-white'
                   }`}
                   title="Filtrar especialidades regulares"
                 >
-                  <div className="flex items-center justify-between text-blue-600 dark:text-blue-400 mb-1">
-                    <span className="text-[9px] font-black uppercase tracking-wider">Especialidades</span>
-                    <Award size={13} />
-                  </div>
-                  <div className="text-lg sm:text-xl font-black text-blue-700 dark:text-blue-300 leading-none">
-                    {completedCounts.specialties}
-                  </div>
-                  <span className="text-[9px] font-bold text-slate-400 mt-0.5 block truncate">
-                    Regulares
-                  </span>
+                  {isModalScrolled ? (
+                    <div className="flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1 min-w-0">
+                        <Award size={12} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                        <span className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 truncate hidden xs:inline">
+                          Esp.
+                        </span>
+                      </div>
+                      <span className="text-xs sm:text-sm font-black text-blue-700 dark:text-blue-300 leading-none shrink-0">
+                        {completedCounts.specialties}
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between text-blue-600 dark:text-blue-400 mb-1">
+                        <span className="text-[9px] font-black uppercase tracking-wider">Especialidades</span>
+                        <Award size={13} />
+                      </div>
+                      <div className="text-lg sm:text-xl font-black text-blue-700 dark:text-blue-300 leading-none">
+                        {completedCounts.specialties}
+                      </div>
+                      <span className="text-[9px] font-bold text-slate-400 mt-0.5 block truncate">
+                        Regulares
+                      </span>
+                    </>
+                  )}
                 </button>
 
                 {/* 2. Mestrados */}
                 <button
                   type="button"
                   onClick={() => setCompletedFilterTab(completedFilterTab === 'MASTERIES' ? 'ALL' : 'MASTERIES')}
-                  className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                  className={`rounded-xl sm:rounded-2xl border text-left transition-all cursor-pointer ${
+                    isModalScrolled ? 'py-1 px-1.5 sm:py-1.5 sm:px-2.5' : 'p-3'
+                  } ${
                     completedFilterTab === 'MASTERIES'
-                      ? 'bg-purple-500/15 dark:bg-purple-950/50 border-purple-500 shadow-md ring-2 ring-purple-500/20'
-                      : 'bg-white/60 dark:bg-slate-800/60 border-slate-200/60 dark:border-slate-700/60 hover:bg-white'
+                      ? 'bg-purple-500/15 dark:bg-purple-950/50 border-purple-500 shadow-xs ring-2 ring-purple-500/20'
+                      : 'bg-white/70 dark:bg-slate-800/70 border-slate-200/60 dark:border-slate-700/60 hover:bg-white'
                   }`}
                   title="Filtrar mestrados conquistados"
                 >
-                  <div className="flex items-center justify-between text-purple-600 dark:text-purple-400 mb-1">
-                    <span className="text-[9px] font-black uppercase tracking-wider">Mestrados</span>
-                    <Trophy size={13} />
-                  </div>
-                  <div className="text-lg sm:text-xl font-black text-purple-700 dark:text-purple-300 leading-none">
-                    {completedCounts.masteries}
-                  </div>
-                  <span className="text-[9px] font-bold text-slate-400 mt-0.5 block truncate">
-                    Conquistados
-                  </span>
+                  {isModalScrolled ? (
+                    <div className="flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1 min-w-0">
+                        <Trophy size={12} className="text-purple-600 dark:text-purple-400 shrink-0" />
+                        <span className="text-[10px] font-black uppercase text-purple-600 dark:text-purple-400 truncate hidden xs:inline">
+                          Mest.
+                        </span>
+                      </div>
+                      <span className="text-xs sm:text-sm font-black text-purple-700 dark:text-purple-300 leading-none shrink-0">
+                        {completedCounts.masteries}
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between text-purple-600 dark:text-purple-400 mb-1">
+                        <span className="text-[9px] font-black uppercase tracking-wider">Mestrados</span>
+                        <Trophy size={13} />
+                      </div>
+                      <div className="text-lg sm:text-xl font-black text-purple-700 dark:text-purple-300 leading-none">
+                        {completedCounts.masteries}
+                      </div>
+                      <span className="text-[9px] font-bold text-slate-400 mt-0.5 block truncate">
+                        Conquistados
+                      </span>
+                    </>
+                  )}
                 </button>
 
                 {/* 3. Já Compradas */}
                 <button
                   type="button"
                   onClick={() => setCompletedFilterTab(completedFilterTab === 'PURCHASED' ? 'ALL' : 'PURCHASED')}
-                  className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                  className={`rounded-xl sm:rounded-2xl border text-left transition-all cursor-pointer ${
+                    isModalScrolled ? 'py-1 px-1.5 sm:py-1.5 sm:px-2.5' : 'p-3'
+                  } ${
                     completedFilterTab === 'PURCHASED'
-                      ? 'bg-emerald-500/15 dark:bg-emerald-950/50 border-emerald-500 shadow-md ring-2 ring-emerald-500/20'
-                      : 'bg-white/60 dark:bg-slate-800/60 border-slate-200/60 dark:border-slate-700/60 hover:bg-emerald-50/50'
+                      ? 'bg-emerald-500/15 dark:bg-emerald-950/50 border-emerald-500 shadow-xs ring-2 ring-emerald-500/20'
+                      : 'bg-white/70 dark:bg-slate-800/70 border-slate-200/60 dark:border-slate-700/60 hover:bg-emerald-50/50'
                   }`}
                   title="Filtrar insígnias já compradas"
                 >
-                  <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 mb-1">
-                    <span className="text-[9px] font-black uppercase tracking-wider">Já Compradas</span>
-                    <Check size={13} strokeWidth={3} />
-                  </div>
-                  <div className="text-lg sm:text-xl font-black text-emerald-600 dark:text-emerald-400 leading-none">
-                    {completedCounts.purchased}
-                  </div>
-                  <span className="text-[9px] font-bold text-emerald-600/70 dark:text-emerald-400/70 mt-0.5 block truncate">
-                    Já na mão
-                  </span>
+                  {isModalScrolled ? (
+                    <div className="flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1 min-w-0">
+                        <Check size={12} strokeWidth={3} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 truncate hidden xs:inline">
+                          Comprei
+                        </span>
+                      </div>
+                      <span className="text-xs sm:text-sm font-black text-emerald-600 dark:text-emerald-400 leading-none shrink-0">
+                        {completedCounts.purchased}
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 mb-1">
+                        <span className="text-[9px] font-black uppercase tracking-wider">Já Compradas</span>
+                        <Check size={13} strokeWidth={3} />
+                      </div>
+                      <div className="text-lg sm:text-xl font-black text-emerald-600 dark:text-emerald-400 leading-none">
+                        {completedCounts.purchased}
+                      </div>
+                      <span className="text-[9px] font-bold text-emerald-600/70 dark:text-emerald-400/70 mt-0.5 block truncate">
+                        Já na mão
+                      </span>
+                    </>
+                  )}
                 </button>
 
-                {/* 4. Preciso Comprar */}
+                {/* 4. Preciso Comprar (Fundo Vermelho) */}
                 <button
                   type="button"
                   onClick={() => setCompletedFilterTab(completedFilterTab === 'PENDING' ? 'ALL' : 'PENDING')}
-                  className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                  className={`rounded-xl sm:rounded-2xl border text-left transition-all cursor-pointer ${
+                    isModalScrolled ? 'py-1 px-1.5 sm:py-1.5 sm:px-2.5' : 'p-3'
+                  } ${
                     completedFilterTab === 'PENDING'
-                      ? 'bg-amber-500/15 dark:bg-amber-950/50 border-amber-500 shadow-md ring-2 ring-amber-500/20'
-                      : 'bg-white/60 dark:bg-slate-800/60 border-slate-200/60 dark:border-slate-700/60 hover:bg-amber-50/50'
+                      ? 'bg-rose-500/25 dark:bg-rose-950/70 border-rose-500 shadow-xs ring-2 ring-rose-500/20'
+                      : 'bg-rose-500/15 dark:bg-rose-950/40 border-rose-500/40 dark:border-rose-500/50 hover:bg-rose-500/25'
                   }`}
                   title="Filtrar insígnias pendentes de compra"
                 >
-                  <div className="flex items-center justify-between text-amber-600 dark:text-amber-400 mb-1">
-                    <span className="text-[9px] font-black uppercase tracking-wider">Preciso Comprar</span>
-                    <ShoppingBag size={13} />
-                  </div>
-                  <div className="text-lg sm:text-xl font-black text-amber-600 dark:text-amber-400 leading-none">
-                    {completedCounts.pending}
-                  </div>
-                  <span className="text-[9px] font-bold text-amber-600/70 dark:text-amber-400/70 mt-0.5 block truncate">
-                    Para investir
-                  </span>
+                  {isModalScrolled ? (
+                    <div className="flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1 min-w-0">
+                        <ShoppingBag size={12} className="text-rose-600 dark:text-rose-400 shrink-0" />
+                        <span className="text-[10px] font-black uppercase text-rose-600 dark:text-rose-400 truncate hidden xs:inline">
+                          Comprar
+                        </span>
+                      </div>
+                      <span className="text-xs sm:text-sm font-black text-rose-600 dark:text-rose-300 leading-none shrink-0">
+                        {completedCounts.pending}
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between text-rose-600 dark:text-rose-400 mb-1">
+                        <span className="text-[9px] font-black uppercase tracking-wider">Preciso Comprar</span>
+                        <ShoppingBag size={13} />
+                      </div>
+                      <div className="text-lg sm:text-xl font-black text-rose-600 dark:text-rose-300 leading-none">
+                        {completedCounts.pending}
+                      </div>
+                      <span className="text-[9px] font-bold text-rose-600/80 dark:text-rose-400/80 mt-0.5 block truncate">
+                        Para investir
+                      </span>
+                    </>
+                  )}
                 </button>
               </div>
 
@@ -2348,18 +2733,18 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                 </div>
               )}
 
-              {/* Barra de Busca + Botão Adicionar */}
-              <div className="flex items-center gap-2 pt-1">
+              {/* Barra de Busca + Botão Adicionar + Botão ÚNICO Gerar PDF */}
+              <div className="flex items-center gap-2 pt-0.5">
                 <div className="relative flex-1">
                   <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-                    <Search size={16} />
+                    <Search size={15} />
                   </div>
                   <input
                     type="text"
                     value={completedSearchTerm}
                     onChange={(e) => setCompletedSearchTerm(e.target.value)}
                     placeholder="Buscar especialidade concluída..."
-                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl py-2.5 pl-10 pr-8 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl py-2 pl-9 pr-8 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                   {completedSearchTerm && (
                     <button
@@ -2372,42 +2757,76 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                   )}
                 </div>
 
+                {/* Botão ÚNICO Gerar PDF */}
+                <button
+                  type="button"
+                  onClick={() => setIsPdfModalOpen(true)}
+                  className="px-3.5 py-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider shadow-md active:scale-95 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+                  title="Gerar e exportar PDF oficial com a lista de especialidades"
+                >
+                  <FileDown size={15} strokeWidth={2.5} />
+                  <span className="hidden sm:inline">Gerar PDF</span>
+                  <span className="sm:hidden">PDF</span>
+                </button>
+
+                {/* Botão Nova Especialidade */}
                 <button
                   type="button"
                   onClick={() => handleOpenAddModal()}
-                  className="px-3.5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider shadow-md active:scale-95 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+                  className="px-3.5 py-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider shadow-md active:scale-95 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
                 >
-                  <Plus size={16} strokeWidth={3} />
+                  <Plus size={15} strokeWidth={3} />
                   <span className="hidden sm:inline">Nova Especialidade</span>
                   <span className="sm:hidden">Nova</span>
                 </button>
               </div>
 
-              {/* Botão de Copiar Lista de Compras (Quando houver itens pendentes) */}
+              {/* Botão de Copiar Lista de Compras e Baixar PDF (Fundo Vermelho de Destaque) */}
               {completedFilterTab === 'PENDING' && completedCounts.pending > 0 && (
-                <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-2xl border border-amber-200 dark:border-amber-800/60 flex items-center justify-between gap-3 animate-in fade-in">
+                <div className="p-3 bg-rose-50 dark:bg-rose-950/40 rounded-2xl border border-rose-200 dark:border-rose-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 animate-in fade-in">
                   <div className="min-w-0">
-                    <h5 className="text-xs font-black text-amber-900 dark:text-amber-200 uppercase tracking-tight truncate">
-                      Lista de Compras ({completedCounts.pending} insígnias)
+                    <h5 className="text-xs font-black text-rose-900 dark:text-rose-200 uppercase tracking-tight truncate">
+                      Lista de Compras ({completedCounts.pending} insígnias a comprar)
                     </h5>
-                    <p className="text-[10px] text-amber-700 dark:text-amber-400 font-medium truncate">
-                      Copie o pedido pronto para enviar no WhatsApp
+                    <p className="text-[10px] text-rose-700 dark:text-rose-400 font-medium truncate">
+                      Baixe a folha de compras em PDF ou copie o pedido formatado
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleCopyWishlist}
-                    className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-[11px] uppercase tracking-wider shadow-sm flex items-center gap-1.5 shrink-0 active:scale-95 transition-all cursor-pointer"
-                  >
-                    {copyFeedback ? <Check size={13} strokeWidth={3} /> : <Copy size={13} />}
-                    <span>{copyFeedback ? 'Copiada!' : 'Copiar Lista'}</span>
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                    <button
+                      type="button"
+                      onClick={() => handleGeneratePDF('PENDING_ONLY')}
+                      className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-[11px] uppercase tracking-wider shadow-sm flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                      title="Baixar folha de compras em PDF"
+                    >
+                      <FileDown size={13} strokeWidth={2.5} />
+                      <span>Baixar PDF</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCopyWishlist}
+                      className="px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-slate-700 hover:bg-slate-800 text-white font-black text-[11px] uppercase tracking-wider shadow-sm flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                    >
+                      {copyFeedback ? <Check size={13} strokeWidth={3} /> : <Copy size={13} />}
+                      <span>{copyFeedback ? 'Copiada!' : 'Copiar'}</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Lista com Rolagem */}
-            <div className="flex-grow overflow-y-auto p-4 sm:p-6 space-y-3 scrollbar-hide">
+            {/* Lista com Rolagem (detecta scroll para diminuir os quadros para 1 linha) */}
+            <div 
+              onScroll={(e) => {
+                const top = e.currentTarget.scrollTop;
+                if (top > 25 && !isModalScrolled) {
+                  setIsModalScrolled(true);
+                } else if (top <= 25 && isModalScrolled) {
+                  setIsModalScrolled(false);
+                }
+              }}
+              className="flex-grow overflow-y-auto p-4 sm:p-6 space-y-3 scrollbar-hide"
+            >
               {filteredCompletedList.length === 0 ? (
                 <div className="text-center py-16 px-4 space-y-3">
                   <div className="w-16 h-16 rounded-3xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto shadow-inner">
@@ -2440,7 +2859,11 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                   return (
                     <div
                       key={item.specialtyId}
-                      className="bg-white dark:bg-slate-800/90 border border-slate-100 dark:border-slate-700/80 rounded-2xl p-3.5 sm:p-4 shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group text-left"
+                      className={`border rounded-2xl p-3.5 sm:p-4 shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group text-left ${
+                        !item.purchased
+                          ? 'bg-rose-500/[0.04] dark:bg-rose-950/[0.18] border-rose-200 dark:border-rose-900/60'
+                          : 'bg-white dark:bg-slate-800/90 border-slate-100 dark:border-slate-700/80'
+                      }`}
                     >
                       {/* Lado Esquerdo: Imagem + Detalhes */}
                       <div className="flex items-center gap-3.5 min-w-0 flex-1">
@@ -2492,14 +2915,14 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
 
                       {/* Lado Direito: Alternador de Compra + Ações */}
                       <div className="flex items-center justify-between sm:justify-end gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-700/50">
-                        {/* Botão Alternador de Compra */}
+                        {/* Botão Alternador de Compra (Verde p/ Comprei, Vermelho p/ Preciso Comprar) */}
                         <button
                           type="button"
                           onClick={() => togglePurchaseStatus(item.specialtyId)}
                           className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-xs ${
                             item.purchased
                               ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25'
-                              : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/25'
+                              : 'bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/40 hover:bg-rose-500/30'
                           }`}
                           title={`Clique para alternar para ${item.purchased ? '"Preciso Comprar"' : '"Já Comprei"'}`}
                         >
@@ -2510,7 +2933,7 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                             </>
                           ) : (
                             <>
-                              <ShoppingBag size={13} className="text-amber-600 dark:text-amber-400" />
+                              <ShoppingBag size={13} className="text-rose-600 dark:text-rose-400" />
                               <span>Preciso Comprar</span>
                             </>
                           )}
@@ -2814,6 +3237,208 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                 <Check size={16} strokeWidth={3} />
                 <span>Salvar Conclusão</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Exportação de Especialidades em PDF */}
+      {isPdfModalOpen && (
+        <div className="fixed inset-0 z-[210] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-sm" onClick={() => !isGeneratingPdf && setIsPdfModalOpen(false)}></div>
+          <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-100 dark:border-slate-800 text-left">
+            {/* Header com identidade oficial */}
+            <div 
+              style={{ background: userData.tipo === "Desbravador" ? 'linear-gradient(135deg, #092c24 0%, #0c3c31 60%, #082d24 100%)' : currentThemeColor }}
+              className="p-5 flex items-center justify-between text-white relative overflow-hidden border-b border-emerald-900/40"
+            >
+              <div className="flex items-center space-x-3 relative z-10 min-w-0">
+                <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shrink-0 shadow-md">
+                  <FileDown size={20} className="text-amber-300" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base font-black uppercase tracking-tight truncate">
+                    Exportar Lista em PDF
+                  </h3>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-200/90 truncate">
+                    Documento Oficial A4 para Impressão & Compras
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => !isGeneratingPdf && setIsPdfModalOpen(false)}
+                disabled={isGeneratingPdf}
+                className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md flex items-center justify-center text-white active:scale-90 transition-all border border-white/20 cursor-pointer disabled:opacity-50"
+                title="Fechar"
+              >
+                <X size={16} strokeWidth={2.5} />
+              </button>
+            </div>
+
+            {/* Conteúdo do Modal */}
+            <div className="p-5 sm:p-6 space-y-4">
+              <div>
+                <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-2">
+                  1. Selecione o Tipo de Relatório
+                </label>
+                <div className="space-y-2">
+                  {/* Opção 1: Relatório Completo de Concluídas */}
+                  <button
+                    type="button"
+                    onClick={() => setPdfExportType('ALL_COMPLETED')}
+                    className={`w-full p-3.5 sm:p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-start gap-3.5 ${
+                      pdfExportType === 'ALL_COMPLETED'
+                        ? 'bg-emerald-500/10 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/20'
+                        : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:bg-slate-100/70'
+                    }`}
+                  >
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      pdfExportType === 'ALL_COMPLETED' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
+                    }`}>
+                      <Award size={18} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-black text-xs uppercase tracking-tight text-slate-800 dark:text-white">
+                          Especialidades Concluídas (Completo)
+                        </h4>
+                        <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full">
+                          {completedCounts.total} itens
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Relatório completo com datas, instrutores e status de compra (Já Comprei vs. Preciso Comprar).
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Opção 2: Lista de Compras de Insígnias (Somente as Pendentes) */}
+                  <button
+                    type="button"
+                    onClick={() => setPdfExportType('PENDING_ONLY')}
+                    className={`w-full p-3.5 sm:p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-start gap-3.5 ${
+                      pdfExportType === 'PENDING_ONLY'
+                        ? 'bg-rose-500/10 dark:bg-rose-950/40 border-rose-500 ring-2 ring-rose-500/20'
+                        : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:bg-slate-100/70'
+                    }`}
+                  >
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      pdfExportType === 'PENDING_ONLY' ? 'bg-rose-600 text-white shadow-sm' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
+                    }`}>
+                      <ShoppingBag size={18} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-black text-xs uppercase tracking-tight text-slate-800 dark:text-white">
+                          Lista de Compras de Insígnias (A Comprar)
+                        </h4>
+                        <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/60 px-2 py-0.5 rounded-full">
+                          {completedCounts.pending} insígnias
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Folha de compras com caixas de marcação [ ], código oficial e área para levar à loja ou repassar à secretaria do clube.
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Seção 2: Opções de Ordenação solicitadas pelo usuário */}
+              <div>
+                <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-2">
+                  2. Ordem de Exibição no PDF
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {/* Ordem Alfabética */}
+                  <button
+                    type="button"
+                    onClick={() => setPdfSortOrder('ALPHABETICAL')}
+                    className={`p-2.5 sm:p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                      pdfSortOrder === 'ALPHABETICAL'
+                        ? 'bg-emerald-500/15 dark:bg-emerald-950/50 border-emerald-500 ring-2 ring-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                        : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100/70'
+                    }`}
+                  >
+                    <ArrowDownAZ size={19} className={pdfSortOrder === 'ALPHABETICAL' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'} />
+                    <span className="text-[11px] font-black uppercase tracking-tight leading-tight">
+                      Alfabética
+                    </span>
+                    <span className="text-[9px] font-bold text-slate-400">
+                      De A a Z
+                    </span>
+                  </button>
+
+                  {/* Por Código */}
+                  <button
+                    type="button"
+                    onClick={() => setPdfSortOrder('CODE')}
+                    className={`p-2.5 sm:p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                      pdfSortOrder === 'CODE'
+                        ? 'bg-emerald-500/15 dark:bg-emerald-950/50 border-emerald-500 ring-2 ring-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                        : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100/70'
+                    }`}
+                  >
+                    <Tag size={19} className={pdfSortOrder === 'CODE' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'} />
+                    <span className="text-[11px] font-black uppercase tracking-tight leading-tight">
+                      Por Código
+                    </span>
+                    <span className="text-[9px] font-bold text-slate-400">
+                      Ex: 001, 002...
+                    </span>
+                  </button>
+
+                  {/* Por Data de Conclusão */}
+                  <button
+                    type="button"
+                    onClick={() => setPdfSortOrder('DATE')}
+                    className={`p-2.5 sm:p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                      pdfSortOrder === 'DATE'
+                        ? 'bg-emerald-500/15 dark:bg-emerald-950/50 border-emerald-500 ring-2 ring-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                        : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100/70'
+                    }`}
+                  >
+                    <Calendar size={19} className={pdfSortOrder === 'DATE' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'} />
+                    <span className="text-[11px] font-black uppercase tracking-tight leading-tight">
+                      Data Conclusão
+                    </span>
+                    <span className="text-[9px] font-bold text-slate-400">
+                      Mais recentes
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Botões de Ação */}
+              <div className="pt-2 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsPdfModalOpen(false)}
+                  disabled={isGeneratingPdf}
+                  className="flex-1 py-3 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleGeneratePDF(pdfExportType, pdfSortOrder)}
+                  disabled={isGeneratingPdf}
+                  className="flex-1 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-emerald-600/25 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                >
+                  {isGeneratingPdf ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Gerando PDF...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FileDown size={16} strokeWidth={2.5} />
+                      <span>Baixar PDF</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -3142,25 +3767,25 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                 <Check size={16} strokeWidth={3} className="text-emerald-600 dark:text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" />
               </button>
 
-              {/* 4. Preciso Comprar */}
+              {/* 4. Preciso Comprar (Fundo Vermelho) */}
               <button
                 type="button"
                 onClick={() => {
                   setCompletedFilterTab('PENDING');
                   setIsCompletedModalOpen(true);
                 }}
-                className="p-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/30 flex items-center justify-between transition-all text-left cursor-pointer group"
+                className="p-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 dark:bg-rose-950/50 border border-rose-500/40 dark:border-rose-500/50 flex items-center justify-between transition-all text-left cursor-pointer group shadow-xs"
                 title="Ver insígnias a comprar"
               >
                 <div className="min-w-0">
-                  <span className="text-[9px] font-black uppercase text-amber-700 dark:text-amber-300 tracking-wider block truncate">
+                  <span className="text-[9px] font-black uppercase text-rose-700 dark:text-rose-300 tracking-wider block truncate">
                     Preciso Comprar
                   </span>
-                  <span className="text-sm sm:text-base font-black text-amber-700 dark:text-amber-200">
+                  <span className="text-sm sm:text-base font-black text-rose-700 dark:text-rose-200">
                     {completedCounts.pending}
                   </span>
                 </div>
-                <ShoppingBag size={16} className="text-amber-600 dark:text-amber-400 shrink-0 group-hover:scale-110 transition-transform" />
+                <ShoppingBag size={16} className="text-rose-600 dark:text-rose-400 shrink-0 group-hover:scale-110 transition-transform" />
               </button>
             </div>
           </div>

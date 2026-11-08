@@ -37,7 +37,7 @@ import {
 import { calculateAge } from './Profile';
 import { MASTERY_RULES } from '../masteryRules';
 import { APP_VERSION, APP_BUILD_DATE, VERSION_HISTORY } from '../versionConfig';
-import { generateSpecialtyPowerPoint, parseAndNormalizeRequirements, isRequirementSubItem } from '../services/presentationService';
+import { generateSpecialtyPowerPoint, parseAndNormalizeRequirements, isRequirementSubItem, generateDidacticAnswersWithGemini } from '../services/presentationService';
 import { generateSpecialtyExamPdf, generateSpecialtyExamQuestions, ExamFormatMode, ExamQuestion } from '../services/examService';
 import ClubQuiz from './ClubQuiz';
 import LiveSpecialtyExam from './LiveSpecialtyExam';
@@ -49,7 +49,8 @@ import {
   Shield, Award, User, Layers, Sparkles, Home as HomeIcon, Search,
   ChevronRight, ChevronLeft, ChevronDown, ChevronUp, ListChecks, Info, Book, Settings, Zap, Music, Flag, Shirt, Globe, Key, FileText, Library, CreditCard, MapPin, Video, Folder, BookOpen, Heart, ArrowUp, ArrowDown,
   Trash2, Plus, Save, Share2, Calendar, X, Image as ImageIcon, Download, ArrowLeft, ExternalLink, Filter, Edit2, Edit3, Check,
-  AlignLeft, AlignCenter, AlignRight, ZoomIn, ZoomOut, Minus, Trophy, Crown, PanelLeftClose, PanelLeftOpen, Menu, Presentation, RefreshCw, ClipboardCheck, Tent, Compass, Radio, HeartPulse, CheckCircle2, History, Palette, Play, QrCode, Maximize2, Minimize2
+  AlignLeft, AlignCenter, AlignRight, ZoomIn, ZoomOut, Minus, Trophy, Crown, PanelLeftClose, PanelLeftOpen, Menu, Presentation, RefreshCw, ClipboardCheck, Tent, Compass, Radio, HeartPulse, CheckCircle2, History, Palette, Play, QrCode, Maximize2, Minimize2,
+  FileDown, Loader2
 } from 'lucide-react';
 
 
@@ -2367,6 +2368,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   const [pptxProgressPercent, setPptxProgressPercent] = useState(0);
   const [pptxError, setPptxError] = useState<string | null>(null);
   const [isGeneratingExam, setIsGeneratingExam] = useState(false);
+  const [isSpecialtyPdfModalOpen, setIsSpecialtyPdfModalOpen] = useState(false);
+  const [specialtyPdfMode, setSpecialtyPdfMode] = useState<'QUESTIONS_ONLY' | 'ANSWERED'>('QUESTIONS_ONLY');
+  const [specialtyPdfProgress, setSpecialtyPdfProgress] = useState('');
   const [isExamModalOpen, setIsExamModalOpen] = useState(false);
   const [examFormatMode, setExamFormatMode] = useState<ExamFormatMode>('MISTA');
   const [examQuestionCount, setExamQuestionCount] = useState<number | 'ALL'>(10);
@@ -4662,6 +4666,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   // Fechar modal do PowerPoint, Gerador de Provas ou Zoom de Especialidade com a tecla Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isSpecialtyPdfModalOpen && !isGeneratingPDF) {
+        setIsSpecialtyPdfModalOpen(false);
+      }
       if (e.key === 'Escape' && isPptxModalOpen && !isGeneratingPptx) {
         setIsPptxModalOpen(false);
       }
@@ -4674,7 +4681,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPptxModalOpen, isGeneratingPptx, isExamModalOpen, isGeneratingExam, zoomedSpecialty]);
+  }, [isSpecialtyPdfModalOpen, isGeneratingPDF, isPptxModalOpen, isGeneratingPptx, isExamModalOpen, isGeneratingExam, zoomedSpecialty]);
 
   const handleGeneratePptx = async () => {
     if (!selectedSpecialty || isGeneratingPptx) return;
@@ -5443,100 +5450,459 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
   };
 
+  const handleGenerateSpecialtyPdf = async (mode: 'QUESTIONS_ONLY' | 'ANSWERED' = specialtyPdfMode) => {
+    if (!selectedSpecialty || isGeneratingPDF) return;
+    setIsGeneratingPDF(true);
+    setSpecialtyPdfProgress(mode === 'ANSWERED' ? 'Consultando respostas explicativas oficiais...' : 'Formatando documento PDF...');
+
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const margin = 16;
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const innerWidth = pageWidth - (margin * 2);
+      let currentY = margin;
+      let pageNumber = 1;
+
+      // Helper de Rodapé e Cabeçalho de continuação
+      const drawHeaderAndFooter = (isFirstPage: boolean) => {
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(8);
+        pdf.setTextColor(148, 163, 184); // slate-400
+        pdf.text(
+          `DBV Tudo • Especialidade de ${selectedSpecialty.nome} • Gerado em ${new Date().toLocaleDateString('pt-BR')}`,
+          margin,
+          pageHeight - 8
+        );
+        pdf.text(`Página ${pageNumber}`, pageWidth - margin, pageHeight - 8, { align: 'right' });
+
+        if (!isFirstPage) {
+          pdf.setFillColor(15, 23, 42);
+          pdf.rect(margin, margin - 4, innerWidth, 0.4, 'F');
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(7.5);
+          pdf.setTextColor(100, 116, 139);
+          pdf.text(
+            `${selectedSpecialty.nome.toUpperCase()} • ${mode === 'ANSWERED' ? 'QUESTÕES RESPONDIDAS' : 'FOLHA DE QUESTÕES'} (CONTINUAÇÃO)`,
+            margin,
+            margin - 1.5
+          );
+        }
+      };
+
+      const checkPageBreak = (height: number) => {
+        if (currentY + height > pageHeight - margin - 8) {
+          drawHeaderAndFooter(pageNumber === 1);
+          pdf.addPage();
+          pageNumber++;
+          currentY = margin + 5;
+          return true;
+        }
+        return false;
+      };
+
+      // Banner do Topo (Verde escuro #0c3c31 para DBV ou Âmbar para AVT)
+      const isAdventurer = selectedSpecialty.club === ClubType.ADVENTURER;
+      if (isAdventurer) {
+        pdf.setFillColor(180, 83, 9); // amber-700
+      } else {
+        pdf.setFillColor(12, 60, 49); // verde oficial
+      }
+      pdf.roundedRect(margin, currentY, innerWidth, 24, 3, 3, 'F');
+
+      // Tenta carregar e desenhar o emblema da especialidade
+      let headerTextLeft = margin + 6;
+      if (selectedSpecialty.logo) {
+        try {
+          const imgData = await loadImageDataUrl(selectedSpecialty.logo);
+          if (imgData) {
+            const imgSize = 18;
+            pdf.addImage(imgData, 'PNG', margin + 4, currentY + 3, imgSize, imgSize);
+            headerTextLeft = margin + 4 + imgSize + 5;
+          }
+        } catch (imgErr) {
+          console.warn('Não foi possível carregar o logo da especialidade para o PDF:', imgErr);
+        }
+      }
+
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(13);
+      pdf.setTextColor(255, 255, 255);
+      const safeTitle = selectedSpecialty.nome.toUpperCase();
+      pdf.text(safeTitle.length > 36 ? safeTitle.slice(0, 34) + '...' : safeTitle, headerTextLeft, currentY + 8);
+
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(8);
+      pdf.setTextColor(209, 250, 229);
+      const modeLabel = mode === 'ANSWERED'
+        ? 'CADERNO DE QUESTÕES COM RESPOSTAS EXPLICATIVAS'
+        : 'FOLHA DE QUESTÕES E REQUISITOS OFICIAIS';
+      pdf.text(`${selectedSpecialty.area ? selectedSpecialty.area.toUpperCase() : 'ESPECIALIDADE'} • ${modeLabel}`, headerTextLeft, currentY + 14);
+
+      pdf.setFontSize(7.5);
+      pdf.setTextColor(254, 243, 199);
+      const metaStrings = [
+        selectedSpecialty.codigo ? `Código: ${selectedSpecialty.codigo}` : null,
+        selectedSpecialty.nivel ? `Nível: ${selectedSpecialty.nivel}` : null,
+        selectedSpecialty.ano ? `Ano: ${selectedSpecialty.ano}` : null,
+        selectedSpecialty.origem ? `Origem: ${selectedSpecialty.origem}` : null
+      ].filter(Boolean).join('  |  ');
+      pdf.text(metaStrings || (isAdventurer ? 'Clube de Aventureiros' : 'Clube de Desbravadores'), headerTextLeft, currentY + 19.5);
+
+      currentY += 28;
+
+      // Requisitos oficiais da especialidade
+      const parsed = parseAndNormalizeRequirements(selectedSpecialty.requisitos || []);
+      const items = parsed.items;
+
+      if (items.length === 0) {
+        pdf.setFont('helvetica', 'italic');
+        pdf.setFontSize(9.5);
+        pdf.setTextColor(148, 163, 184);
+        pdf.text('Nenhum requisito cadastrado para esta especialidade.', pageWidth / 2, currentY + 15, { align: 'center' });
+      } else if (mode === 'QUESTIONS_ONLY') {
+        // MODO 1: APENAS QUESTÕES
+        pdf.setFillColor(241, 245, 249);
+        pdf.roundedRect(margin, currentY, innerWidth, 7, 2, 2, 'F');
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(8);
+        pdf.setTextColor(30, 41, 59);
+        pdf.text(`REQUISITOS E QUESTÕES OFICIAIS (${items.length} ITENS)`, margin + 4, currentY + 4.8);
+        currentY += 10;
+
+        items.forEach((it) => {
+          checkPageBreak(18);
+
+          // Pergunta principal
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(8.5);
+          pdf.setTextColor(15, 23, 42);
+
+          const questionHeader = `${it.number}. ${it.cleanQuestion}`;
+          const qLines = pdf.splitTextToSize(questionHeader, innerWidth - 6);
+          checkPageBreak(qLines.length * 5 + 14);
+
+          pdf.setFillColor(248, 250, 252);
+          pdf.rect(margin, currentY - 3.5, innerWidth, qLines.length * 5 + 3.5, 'F');
+          pdf.text(qLines, margin + 3, currentY);
+          currentY += qLines.length * 5 + 3.5;
+
+          // Se houver sub-itens
+          if (it.subItems.length > 0) {
+            it.subItems.forEach((sub) => {
+              pdf.setFont('helvetica', 'normal');
+              pdf.setFontSize(8);
+              pdf.setTextColor(51, 65, 85);
+              const subLines = pdf.splitTextToSize(sub, innerWidth - 14);
+              checkPageBreak(subLines.length * 4.5 + 8);
+              pdf.text(subLines, margin + 7, currentY);
+              currentY += subLines.length * 4.5 + 2;
+
+              // Linha pautada pontilhada para resposta
+              pdf.setDrawColor(226, 232, 240);
+              pdf.setLineDashPattern([1, 1], 0);
+              pdf.line(margin + 7, currentY + 2, margin + innerWidth, currentY + 2);
+              pdf.setLineDashPattern([], 0);
+              currentY += 5;
+            });
+          } else {
+            // Linhas pautadas para anotações do aluno
+            pdf.setDrawColor(226, 232, 240);
+            pdf.setLineDashPattern([1, 1], 0);
+            for (let l = 0; l < 2; l++) {
+              currentY += 5.5;
+              checkPageBreak(6);
+              pdf.line(margin + 4, currentY, margin + innerWidth, currentY);
+            }
+            pdf.setLineDashPattern([], 0);
+          }
+
+          currentY += 5.5;
+        });
+      } else {
+        // MODO 2: QUESTÕES RESPONDIDAS
+        setSpecialtyPdfProgress('Consultando respostas didáticas completas com IA...');
+        const answersMap = await generateDidacticAnswersWithGemini(
+          selectedSpecialty.nome,
+          selectedSpecialty.area || 'Geral',
+          items,
+          (status) => setSpecialtyPdfProgress(status)
+        );
+
+        pdf.setFillColor(236, 253, 245); // emerald-50
+        pdf.roundedRect(margin, currentY, innerWidth, 7, 2, 2, 'F');
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(8);
+        pdf.setTextColor(6, 95, 70); // emerald-800
+        pdf.text(`GABARITO E RESPOSTAS EXPLICATIVAS (${items.length} REQUISITOS)`, margin + 4, currentY + 4.8);
+        currentY += 10;
+
+        items.forEach((it) => {
+          checkPageBreak(25);
+          const ans = answersMap.get(it.number);
+
+          // 1. Pergunta oficial
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(8.5);
+          pdf.setTextColor(15, 23, 42);
+          const qText = `${it.number}. ${it.cleanQuestion}`;
+          const qLines = pdf.splitTextToSize(qText, innerWidth - 6);
+          checkPageBreak(qLines.length * 5 + 18);
+
+          pdf.setFillColor(241, 245, 249);
+          pdf.rect(margin, currentY - 3.5, innerWidth, qLines.length * 5 + 3.5, 'F');
+          pdf.text(qLines, margin + 3, currentY);
+          currentY += qLines.length * 5 + 4;
+
+          // 2. Resposta explicativa
+          const answerText = ans?.answer || 'Explicação prática e conceitual correspondente a este requisito.';
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(8);
+          pdf.setTextColor(51, 65, 85);
+          const aLines = pdf.splitTextToSize(answerText, innerWidth - 8);
+          checkPageBreak(aLines.length * 4.2 + 8);
+
+          pdf.setFillColor(248, 250, 252);
+          pdf.rect(margin, currentY - 2.5, innerWidth, aLines.length * 4.2 + 4, 'F');
+          pdf.setFillColor(16, 185, 129); // barra lateral verde
+          pdf.rect(margin, currentY - 2.5, 1.2, aLines.length * 4.2 + 4, 'F');
+
+          pdf.text(aLines, margin + 4, currentY + 1);
+          currentY += aLines.length * 4.2 + 5.5;
+
+          // 3. Sub-respostas (se houver)
+          if (ans?.subAnswers && ans.subAnswers.length > 0) {
+            ans.subAnswers.forEach((sub) => {
+              const subTitle = `Sub-item (${sub.label}): ${sub.text}`;
+              const subAnsText = sub.answer;
+
+              pdf.setFont('helvetica', 'bold');
+              pdf.setFontSize(7.5);
+              pdf.setTextColor(30, 41, 59);
+              const subLines = pdf.splitTextToSize(subTitle, innerWidth - 12);
+              checkPageBreak(subLines.length * 4 + 8);
+              pdf.text(subLines, margin + 6, currentY);
+              currentY += subLines.length * 4 + 1.5;
+
+              pdf.setFont('helvetica', 'normal');
+              pdf.setFontSize(7.5);
+              pdf.setTextColor(71, 85, 105);
+              const subAnsLines = pdf.splitTextToSize(subAnsText, innerWidth - 14);
+              checkPageBreak(subAnsLines.length * 4 + 5);
+              pdf.text(subAnsLines, margin + 8, currentY);
+              currentY += subAnsLines.length * 4 + 3;
+            });
+          }
+
+          currentY += 4;
+        });
+      }
+
+      drawHeaderAndFooter(pageNumber === 1);
+
+      const suffix = mode === 'ANSWERED' ? 'Respondida' : 'Questoes';
+      const fileName = `${selectedSpecialty.nome.replace(/\s+/g, '_')}_${suffix}.pdf`;
+      pdf.save(fileName);
+      setIsSpecialtyPdfModalOpen(false);
+    } catch (err) {
+      console.error('Erro ao gerar PDF da especialidade:', err);
+      alert('Não foi possível gerar o arquivo PDF. Tente novamente.');
+    } finally {
+      setIsGeneratingPDF(false);
+      setSpecialtyPdfProgress('');
+    }
+  };
+
+  const renderSpecialtyPdfModal = () => {
+    if (!isSpecialtyPdfModalOpen || !selectedSpecialty) return null;
+
+    const parsedSpecialty = parseAndNormalizeRequirements(selectedSpecialty.requisitos || []);
+    const totalRealReqs = parsedSpecialty.items.length;
+
+    const modalContent = (
+      <div 
+        className="fixed inset-0 z-[99999] bg-slate-950/80 backdrop-blur-sm flex justify-center items-center p-3 sm:p-4 overflow-y-auto animate-fade-in"
+        onClick={(e) => {
+          if (e.target === e.currentTarget && !isGeneratingPDF) {
+            setIsSpecialtyPdfModalOpen(false);
+          }
+        }}
+      >
+        <div 
+          className="relative w-full max-w-md bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-700/80 m-auto flex flex-col overflow-hidden text-left animate-scale-up"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Topo do Modal */}
+          <div className="p-4 sm:p-5 pb-3.5 border-b border-slate-100 dark:border-slate-700/60 flex items-center justify-between gap-3 shrink-0 bg-white dark:bg-slate-800">
+            <div className="flex items-center space-x-2.5 min-w-0">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0">
+                <FileDown size={20} />
+              </div>
+              <div className="min-w-0">
+                <h3 className="font-black text-slate-800 dark:text-white text-sm sm:text-base uppercase tracking-tight leading-snug truncate">
+                  Exportar Especialidade em PDF
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">
+                  Documento Oficial A4 para Impressão & Estudo
+                </p>
+              </div>
+            </div>
+            <button 
+              onClick={() => !isGeneratingPDF && setIsSpecialtyPdfModalOpen(false)}
+              disabled={isGeneratingPDF}
+              className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center justify-center text-slate-500 dark:text-slate-300 transition-colors shrink-0 disabled:opacity-40 cursor-pointer"
+              title="Fechar"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {/* Corpo do Modal */}
+          <div className="p-4 sm:p-5 space-y-4">
+            {/* Card Resumo da Especialidade */}
+            <div className="p-2.5 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-700/60 flex items-center space-x-3">
+              <div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl p-1 border border-slate-200/60 dark:border-slate-700 flex items-center justify-center shrink-0">
+                {selectedSpecialty.logo ? (
+                  <img src={getImageUrl(selectedSpecialty.logo)} alt={selectedSpecialty.nome} className="w-full h-full object-contain" />
+                ) : (
+                  <Award size={18} className="text-amber-500" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="font-black text-slate-800 dark:text-white text-xs uppercase tracking-tight truncate">
+                  {selectedSpecialty.nome}
+                </h4>
+                <div className="flex items-center space-x-2 mt-0.5">
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase truncate">
+                    {selectedSpecialty.area}
+                  </span>
+                  <span className="text-slate-300 dark:text-slate-600">•</span>
+                  <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 whitespace-nowrap">
+                    {totalRealReqs} Requisitos Oficiais
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+              Selecione o formato do documento que deseja gerar:
+            </p>
+
+            {/* Opções Solicitadas: Apenas Questões vs. Questões Respondidas */}
+            <div className="space-y-2.5">
+              {/* Opção 1: Apenas Questões */}
+              <button
+                type="button"
+                onClick={() => setSpecialtyPdfMode('QUESTIONS_ONLY')}
+                className={`w-full p-3.5 sm:p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-start gap-3.5 ${
+                  specialtyPdfMode === 'QUESTIONS_ONLY'
+                    ? 'bg-indigo-500/10 dark:bg-indigo-950/40 border-indigo-500 ring-2 ring-indigo-500/20'
+                    : 'bg-slate-50 dark:bg-slate-900/40 border-slate-200/80 dark:border-slate-700 hover:bg-slate-100/70'
+                }`}
+              >
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                  specialtyPdfMode === 'QUESTIONS_ONLY' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
+                }`}>
+                  <FileText size={18} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-black text-xs uppercase tracking-tight text-slate-800 dark:text-white">
+                      Apenas Questões
+                    </h4>
+                    <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-full">
+                      Folha de Estudo
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                    Gera o PDF oficial contendo somente as perguntas e requisitos com linhas pautadas para os desbravadores responderem e preencherem.
+                  </p>
+                </div>
+              </button>
+
+              {/* Opção 2: Questões Respondidas */}
+              <button
+                type="button"
+                onClick={() => setSpecialtyPdfMode('ANSWERED')}
+                className={`w-full p-3.5 sm:p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-start gap-3.5 ${
+                  specialtyPdfMode === 'ANSWERED'
+                    ? 'bg-emerald-500/10 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/20'
+                    : 'bg-slate-50 dark:bg-slate-900/40 border-slate-200/80 dark:border-slate-700 hover:bg-slate-100/70'
+                }`}
+              >
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                  specialtyPdfMode === 'ANSWERED' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
+                }`}>
+                  <CheckCircle2 size={18} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-black text-xs uppercase tracking-tight text-slate-800 dark:text-white">
+                      Questões Respondidas
+                    </h4>
+                    <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full">
+                      Gabarito Completo
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                    Gera o PDF completo com todas as questões oficiais acompanhadas de suas respostas didáticas detalhadas, conceitos e critérios explicativos.
+                  </p>
+                </div>
+              </button>
+            </div>
+
+            {/* Mensagem de Progresso (quando gerando) */}
+            {isGeneratingPDF && specialtyPdfProgress && (
+              <div className="p-3 bg-indigo-50 dark:bg-indigo-950/50 rounded-2xl border border-indigo-200/60 dark:border-indigo-900/60 flex items-center gap-2.5 animate-pulse">
+                <Loader2 size={16} className="text-indigo-600 dark:text-indigo-400 animate-spin shrink-0" />
+                <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">
+                  {specialtyPdfProgress}
+                </span>
+              </div>
+            )}
+
+            {/* Botões de Ação */}
+            <div className="pt-2 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setIsSpecialtyPdfModalOpen(false)}
+                disabled={isGeneratingPDF}
+                className="flex-1 py-3 rounded-2xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200 text-xs font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => handleGenerateSpecialtyPdf(specialtyPdfMode)}
+                disabled={isGeneratingPDF}
+                className="flex-1 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-indigo-600/25 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+              >
+                {isGeneratingPDF ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Gerando PDF...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileDown size={16} strokeWidth={2.5} />
+                    <span>Baixar PDF</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+
+    return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
+  };
+
   const renderSpecialtyDetails = () => {
     if (!selectedSpecialty) return null;
     const isCompleted = completedSpecialties.includes(selectedSpecialty.id.toString());
     const isMastery = selectedSpecialty.nome.toLowerCase().includes('mestrado') || selectedSpecialty.area === 'Mestrados';
     const globalAreaSpecialties = isMastery ? getMasteryGlobalSpecialties(selectedSpecialty.nome, allSpecialtiesList) : [];
-
-    const generateSpecialtyPDF = async () => {
-      setIsGeneratingPDF(true);
-      try {
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const margin = 20;
-        const pageWidth = pdf.internal.pageSize.getWidth();
-        const pageHeight = pdf.internal.pageSize.getHeight();
-        const innerWidth = pageWidth - (margin * 2);
-        let currentY = margin;
-
-        const checkPageBreak = (height: number) => {
-          if (currentY + height > pageHeight - margin) {
-            pdf.addPage();
-            currentY = margin;
-            return true;
-          }
-          return false;
-        };
-
-        // Imagem da Especialidade
-        if (selectedSpecialty.logo) {
-          try {
-            const imgData = await loadImageDataUrl(selectedSpecialty.logo);
-            if (imgData) {
-              const imgSize = 28;
-              const imgX = (pageWidth - imgSize) / 2;
-              pdf.addImage(imgData, 'PNG', imgX, currentY, imgSize, imgSize);
-              currentY += imgSize + 6;
-            }
-          } catch (imgErr) {
-            console.warn('Não foi possível carregar a imagem da especialidade para o PDF:', imgErr);
-          }
-        }
-
-        // Header
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(20);
-        pdf.setTextColor(79, 70, 229); // indigo-600
-        pdf.text(selectedSpecialty.nome.toUpperCase(), pageWidth / 2, currentY, { align: 'center' });
-        currentY += 8;
-
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(10);
-        pdf.setTextColor(100, 116, 139); // slate-500
-        if (selectedSpecialty.area) {
-          pdf.text(`ÁREA: ${selectedSpecialty.area.toUpperCase()}`, pageWidth / 2, currentY, { align: 'center' });
-          currentY += 5;
-        }
-
-        const metaParts = [
-          selectedSpecialty.codigo ? `CÓDIGO: ${selectedSpecialty.codigo}` : null,
-          selectedSpecialty.nivel ? `NÍVEL: ${selectedSpecialty.nivel}` : null,
-          selectedSpecialty.ano ? `ANO: ${selectedSpecialty.ano}` : (selectedSpecialty.origem ? `ORIGEM: ${selectedSpecialty.origem}` : null)
-        ].filter(Boolean);
-
-        if (metaParts.length > 0) {
-          pdf.text(metaParts.join(' | '), pageWidth / 2, currentY, { align: 'center' });
-          currentY += 6;
-        }
-
-        pdf.setDrawColor(226, 232, 240); // slate-200
-        pdf.line(margin, currentY, margin + innerWidth, currentY);
-        currentY += 10;
-
-        // Requisitos
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(14);
-        pdf.setTextColor(30, 41, 59);
-        pdf.text('REQUISITOS', margin, currentY);
-        currentY += 10;
-
-        selectedSpecialty.requisitos.forEach((req, idx) => {
-          pdf.setFont('helvetica', 'bold');
-          pdf.setFontSize(11);
-          pdf.setTextColor(51, 65, 85); // slate-700
-          const contentLines = pdf.splitTextToSize(req.trim(), innerWidth);
-          checkPageBreak(contentLines.length * 6 + 10);
-          pdf.text(contentLines, margin, currentY);
-          currentY += (contentLines.length * 6) + 6;
-        });
-
-        pdf.save(`${selectedSpecialty.nome.replace(/\s+/g, '_')}_Requisitos.pdf`);
-      } catch (error) {
-        console.error('Erro ao gerar PDF:', error);
-      } finally {
-        setIsGeneratingPDF(false);
-      }
-    };
 
     // Contagem de especialidades identificadas na lista de requisitos (somente para Mestrados)
     const matchedCount = isMastery
@@ -5910,12 +6276,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
           <div className={`grid grid-cols-1 ${canGenerateSpecialtyPdf && canGenerateSpecialtyPptx ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-2'} gap-3 pt-2`}>
             {canGenerateSpecialtyPdf && (
               <button 
-                onClick={generateSpecialtyPDF}
+                onClick={() => setIsSpecialtyPdfModalOpen(true)}
                 disabled={isGeneratingPDF || isGeneratingPptx || isGeneratingExam}
-                className="w-full py-4 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+                className="w-full py-4 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2 disabled:opacity-50 cursor-pointer"
               >
                 <Download size={18} className="shrink-0" />
-                <span>{isGeneratingPDF ? 'Gerando PDF...' : 'PDF de Requisitos'}</span>
+                <span>{isGeneratingPDF ? 'Gerando PDF...' : 'Gerar PDF (.pdf)'}</span>
               </button>
             )}
 
@@ -13008,6 +13374,10 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
       setIsSpecialtySearchOpen(false);
       return true;
     }
+    if (isSpecialtyPdfModalOpen && !isGeneratingPDF) {
+      setIsSpecialtyPdfModalOpen(false);
+      return true;
+    }
     if (isPptxModalOpen && !isGeneratingPptx) {
       setIsPptxModalOpen(false);
       return true;
@@ -15600,6 +15970,9 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
 
       {/* Modal do Gerador de Provas das Especialidades */}
       {renderExamModal()}
+
+      {/* Modal de Escolha de Formato do PDF da Especialidade (Apenas Questões vs. Questões Respondidas) */}
+      {renderSpecialtyPdfModal()}
     </div>
   );
 };

@@ -1,12 +1,12 @@
 {
-  "version": 1762400000000,
-  "versionName": "3.2.0",
-  "buildDate": "2026-11-06T00:00:00.000Z",
-  "timestamp": 1762400000000,
+  "version": 1762563600000,
+  "versionName": "3.2.2",
+  "buildDate": "2026-11-08T00:00:00.000Z",
+  "timestamp": 1762563600000,
   "highlights": [
-    "Especialidades Excluídas/Descontinuadas: Acesso direto no catálogo às 23 especialidades regulares e avançadas retiradas do Manual de 2025 para colocar na faixa e no registro de concluídas.",
-    "Correção na Edição de Especialidades: Resolvido o problema de sobreposição acidental de especialidades com mesmo código ao salvar edições no admin.",
-    "Pesquisa Aprimorada de Especialidades: Busca tolerante a acentuação e exibição correta dos nomes originais."
+    "Gerador de PDF de Especialidades (Questões vs. Respondidas): Modal dedicado ao gerar PDF de qualquer especialidade com opção de folha de questões ou caderno completo respondido.",
+    "Opção de Apenas Questões: Documento oficial com perguntas e linhas pautadas para estudo e resolução individual.",
+    "Opção de Questões Respondidas: Caderno oficial completo com todas as respostas didáticas e critérios explicativos detalhados."
   ]
 }
 

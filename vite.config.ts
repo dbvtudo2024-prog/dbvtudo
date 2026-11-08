@@ -28,8 +28,8 @@ export default defineConfig({
     }
   ],
   define: {
-    __APP_VERSION__: JSON.stringify('3.2.0'),
-    __APP_BUILD_TIME__: JSON.stringify(1762400000000)
+    __APP_VERSION__: JSON.stringify('3.2.2'),
+    __APP_BUILD_TIME__: JSON.stringify(Date.now())
   },
 
   server: {

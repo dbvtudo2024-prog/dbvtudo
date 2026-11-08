@@ -415,7 +415,7 @@ function getAreaColorPalette(areaName?: string): AreaColorPalette {
 }
 
 // Gerador Inteligente de Respostas Didáticas com Fallback Resiliente
-async function generateDidacticAnswersWithGemini(
+export async function generateDidacticAnswersWithGemini(
   specialtyName: string,
   specialtyArea: string,
   items: ParsedRequirement[],
