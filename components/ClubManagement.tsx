@@ -5851,12 +5851,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                       >
                         <div className="flex items-center space-x-3.5 sm:space-x-4 flex-1 min-w-0">
                           {/* Miniatura da Especialidade */}
-                          <div className="w-14 h-14 sm:w-16 sm:h-16 bg-slate-50 dark:bg-slate-900/80 rounded-2xl border border-slate-100 dark:border-slate-700/60 flex items-center justify-center p-2 flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform overflow-hidden">
+                          <div className="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
                             {esp.logo ? (
                               <img 
                                 src={getImageUrl(esp.logo)} 
                                 alt={esp.nome} 
-                                className="w-full h-full object-contain filter drop-shadow-sm" 
+                                className="w-full h-full object-contain filter drop-shadow-[0_2px_5px_rgba(0,0,0,0.25)] select-none pointer-events-none" 
                                 referrerPolicy="no-referrer"
                                 loading="lazy"
                               />
@@ -11363,12 +11363,12 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                       className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-[24px] p-4 flex items-center justify-between gap-3 shadow-sm hover:shadow active:scale-[0.99] transition-all cursor-pointer group"
                     >
                       <div className="flex items-center space-x-3.5 min-w-0 flex-1">
-                        <div className="w-14 h-14 bg-slate-50 dark:bg-slate-900 rounded-2xl flex items-center justify-center p-1.5 flex-shrink-0 border border-slate-100 dark:border-slate-800 group-hover:scale-105 transition-transform overflow-hidden">
+                        <div className="w-14 h-14 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
                           {esp.logo ? (
                             <img 
                               src={getImageUrl(esp.logo)} 
                               alt={esp.nome} 
-                              className="w-full h-full object-contain filter drop-shadow-sm select-none" 
+                              className="w-full h-full object-contain filter drop-shadow-[0_2px_5px_rgba(0,0,0,0.25)] select-none pointer-events-none" 
                               loading="lazy"
                             />
                           ) : (
@@ -15483,7 +15483,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                               setZoomedSpecialty(esp);
                             }
                           }}
-                          className={`w-13 h-13 sm:w-14 sm:h-14 bg-slate-50 dark:bg-slate-900/60 rounded-2xl flex items-center justify-center p-1.5 flex-shrink-0 border border-slate-100 dark:border-slate-800 ${
+                          className={`w-13 h-13 sm:w-14 sm:h-14 flex items-center justify-center flex-shrink-0 ${
                             esp.logo ? 'cursor-pointer hover:scale-110 active:scale-95 transition-transform' : ''
                           }`}
                           title={esp.logo ? "Clique na imagem para ampliar" : undefined}
@@ -15494,7 +15494,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                               alt={esp.nome} 
                               loading="lazy"
                               decoding="async"
-                              className="w-full h-full object-contain filter drop-shadow-sm select-none" 
+                              className="w-full h-full object-contain filter drop-shadow-[0_2px_5px_rgba(0,0,0,0.3)] select-none pointer-events-none" 
                               referrerPolicy="no-referrer"
                             />
                           ) : (

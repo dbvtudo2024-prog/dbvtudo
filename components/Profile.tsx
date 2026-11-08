@@ -1973,9 +1973,9 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                 <>
                   {filteredSpecialties.slice(0, visibleSashModalCount).map((esp) => (
                     <div key={esp.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[28px] p-4 flex items-center space-x-4 shadow-sm hover:border-slate-200 dark:hover:border-slate-600 transition-all">
-                      <div className="w-14 h-14 bg-slate-50 dark:bg-slate-700 rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0 shrink-0 border border-slate-50 dark:border-slate-600">
+                      <div className="w-14 h-14 flex items-center justify-center flex-shrink-0 shrink-0">
                         {esp.logo ? (
-                          <img src={esp.logo} loading="lazy" decoding="async" className="w-10 h-10 object-contain" alt={esp.nome} />
+                          <img src={esp.logo} loading="lazy" decoding="async" className="w-full h-full object-contain filter drop-shadow-[0_2px_5px_rgba(0,0,0,0.25)] select-none pointer-events-none" alt={esp.nome} />
                         ) : (
                           <Award size={24} className="text-slate-300 dark:text-slate-400" />
                         )}
@@ -2444,12 +2444,12 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                     >
                       {/* Lado Esquerdo: Imagem + Detalhes */}
                       <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                        <div className="w-14 h-14 bg-slate-50 dark:bg-slate-700/60 rounded-2xl p-1.5 flex items-center justify-center shrink-0 border border-slate-100 dark:border-slate-600/60 shadow-xs">
+                        <div className="w-14 h-14 flex items-center justify-center shrink-0">
                           {item.logo ? (
                             <img
                               src={item.logo}
                               alt={item.name}
-                              className="w-full h-full object-contain filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.15)]"
+                              className="w-full h-full object-contain filter drop-shadow-[0_2px_6px_rgba(0,0,0,0.3)] select-none pointer-events-none"
                               loading="lazy"
                             />
                           ) : (
@@ -2595,9 +2595,9 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                 {formSelectedSpecialty ? (
                   <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-xs">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-12 h-12 bg-white dark:bg-slate-700 rounded-xl p-1 flex items-center justify-center shrink-0 border border-slate-100 dark:border-slate-600 shadow-xs">
+                      <div className="w-12 h-12 flex items-center justify-center shrink-0">
                         {formSelectedSpecialty.logo ? (
-                          <img src={formSelectedSpecialty.logo} alt={formSelectedSpecialty.nome} className="w-full h-full object-contain" />
+                          <img src={formSelectedSpecialty.logo} alt={formSelectedSpecialty.nome} className="w-full h-full object-contain filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.25)] select-none pointer-events-none" />
                         ) : (
                           <Award size={22} className="text-slate-400" />
                         )}
@@ -2655,9 +2655,9 @@ const Profile: React.FC<ProfileProps> = ({ club, onBack, onLogout, onOpenAdmin }
                             }}
                             className="w-full text-left p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 flex items-center gap-2.5 transition-all cursor-pointer group"
                           >
-                            <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-700 p-0.5 flex items-center justify-center shrink-0 border border-slate-100 dark:border-slate-600">
+                            <div className="w-9 h-9 flex items-center justify-center shrink-0">
                               {esp.logo ? (
-                                <img src={esp.logo} alt={esp.nome} className="w-full h-full object-contain" />
+                                <img src={esp.logo} alt={esp.nome} className="w-full h-full object-contain filter drop-shadow-xs select-none pointer-events-none" />
                               ) : (
                                 <Award size={14} className="text-slate-400" />
                               )}
