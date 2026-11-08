@@ -50,7 +50,7 @@ import {
   ChevronRight, ChevronLeft, ChevronDown, ChevronUp, ListChecks, Info, Book, Settings, Zap, Music, Flag, Shirt, Globe, Key, FileText, Library, CreditCard, MapPin, Video, Folder, BookOpen, Heart, ArrowUp, ArrowDown,
   Trash2, Plus, Save, Share2, Calendar, X, Image as ImageIcon, Download, ArrowLeft, ExternalLink, Filter, Edit2, Edit3, Check,
   AlignLeft, AlignCenter, AlignRight, ZoomIn, ZoomOut, Minus, Trophy, Crown, PanelLeftClose, PanelLeftOpen, Menu, Presentation, RefreshCw, ClipboardCheck, Tent, Compass, Radio, HeartPulse, CheckCircle2, History, Palette, Play, QrCode, Maximize2, Minimize2,
-  FileDown, Loader2
+  FileDown, Loader2, ArrowDownAZ, ArrowDown01
 } from 'lucide-react';
 
 
@@ -2084,6 +2084,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [specialties, setSpecialties] = useState<Especialidade[]>([]);
+  const [specialtySortMode, setSpecialtySortMode] = useState<'NUMERIC' | 'ALPHABETICAL'>('NUMERIC');
   const [selectedSpecialty, setSelectedSpecialty] = useState<Especialidade | null>(null);
   const [specialtyNavStack, setSpecialtyNavStack] = useState<Especialidade[]>([]);
   const [desbravaPlusItems, setDesbravaPlusItems] = useState<DesbravaMais[]>([]);
@@ -4380,161 +4381,198 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
     </div>
   );
 
-  const renderSpecialtiesList = () => (
-    <div className="animate-slide-in space-y-5 pt-4 pb-28">
-      <div className="px-2 flex items-center justify-end">
-        <span className="text-[10px] font-black text-slate-300 dark:text-slate-500 uppercase">{specialties.length} Itens</span>
-      </div>
+  const renderSpecialtiesList = () => {
+    // Ordena as especialidades conforme o modo selecionado (Padrão: Numérica por código oficial do manual; ou Alfabética de A a Z)
+    const sortedSpecialties = [...specialties].sort((a, b) => {
+      if (specialtySortMode === 'NUMERIC') {
+        const rawA = (a.codigo || '').replace(/\D/g, '') || String(a.id || '');
+        const rawB = (b.codigo || '').replace(/\D/g, '') || String(b.id || '');
+        const numA = parseInt(rawA, 10);
+        const numB = parseInt(rawB, 10);
+        const validA = !isNaN(numA);
+        const validB = !isNaN(numB);
 
-      {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-20 space-y-3">
-          <div className="w-8 h-8 border-3 border-slate-100 border-t-slate-300 rounded-full animate-spin"></div>
-          <p className="text-xs font-bold text-slate-400">Carregando especialidades...</p>
+        if (validA && validB && numA !== numB) {
+          return numA - numB;
+        }
+        if (validA && !validB) return -1;
+        if (!validA && validB) return 1;
+
+        return (a.nome || '').localeCompare(b.nome || '', 'pt-BR', { sensitivity: 'base' });
+      } else {
+        return (a.nome || '').localeCompare(b.nome || '', 'pt-BR', { sensitivity: 'base' });
+      }
+    });
+
+    return (
+      <div className="animate-slide-in space-y-5 pt-4 pb-28">
+        <div className="px-2 flex items-center justify-between">
+          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1.5 select-none">
+            {specialtySortMode === 'NUMERIC' ? (
+              <>
+                <ArrowDown01 size={13} className="text-emerald-500 shrink-0" />
+                <span>Ordem Numérica (Código)</span>
+              </>
+            ) : (
+              <>
+                <ArrowDownAZ size={13} className="text-indigo-500 shrink-0" />
+                <span>Ordem Alfabética (A-Z)</span>
+              </>
+            )}
+          </span>
+          <span className="text-[10px] font-black text-slate-300 dark:text-slate-500 uppercase">{specialties.length} Itens</span>
         </div>
-      ) : specialties.length === 0 ? (
-        <div className="bg-white dark:bg-slate-800 rounded-[28px] p-8 text-center border border-slate-100 dark:border-slate-700 shadow-sm space-y-3">
-          <Award size={36} className="mx-auto text-slate-300 dark:text-slate-600" />
-          <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
-            Nenhuma especialidade carregada nesta categoria.
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              if (selectedCategory) {
-                setIsLoading(true);
-                if (selectedCategory.id === RETIRED_CATEGORY_ID) {
-                  setSpecialties(DISCONTINUED_SPECIALTIES);
-                  setIsLoading(false);
-                } else if (selectedCategory.id === -100) {
-                  setSpecialties(allSpecialtiesList.filter(s => completedSpecialties.includes(s.id.toString())));
-                  setIsLoading(false);
-                } else {
-                  fetchEspecialidades(club, selectedCategory.nome)
-                    .then(setSpecialties)
-                    .finally(() => setIsLoading(false));
+
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 space-y-3">
+            <div className="w-8 h-8 border-3 border-slate-100 border-t-slate-300 rounded-full animate-spin"></div>
+            <p className="text-xs font-bold text-slate-400">Carregando especialidades...</p>
+          </div>
+        ) : specialties.length === 0 ? (
+          <div className="bg-white dark:bg-slate-800 rounded-[28px] p-8 text-center border border-slate-100 dark:border-slate-700 shadow-sm space-y-3">
+            <Award size={36} className="mx-auto text-slate-300 dark:text-slate-600" />
+            <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+              Nenhuma especialidade carregada nesta categoria.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                if (selectedCategory) {
+                  setIsLoading(true);
+                  if (selectedCategory.id === RETIRED_CATEGORY_ID) {
+                    setSpecialties(DISCONTINUED_SPECIALTIES);
+                    setIsLoading(false);
+                  } else if (selectedCategory.id === -100) {
+                    setSpecialties(allSpecialtiesList.filter(s => completedSpecialties.includes(s.id.toString())));
+                    setIsLoading(false);
+                  } else {
+                    fetchEspecialidades(club, selectedCategory.nome)
+                      .then(setSpecialties)
+                      .finally(() => setIsLoading(false));
+                  }
                 }
-              }
-            }}
-            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider active:scale-95 transition-all shadow-sm inline-flex items-center gap-1.5"
-          >
-            <RefreshCw size={13} />
-            <span>Recarregar Especialidades</span>
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {selectedCategory?.id === RETIRED_CATEGORY_ID && (
-            <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 mb-2 flex items-start gap-3">
-              <History className="text-amber-500 shrink-0 mt-0.5" size={20} />
-              <div>
-                <h4 className="text-xs font-black uppercase text-amber-600 dark:text-amber-400">
-                  Especialidades Retiradas do Manual
-                </h4>
-                <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed">
-                  Estas especialidades foram descontinuadas no Manual lançado em 2025, mas continuam disponíveis no aplicativo para você visualizar seus dados, registrar sua conclusão e exibi-las na sua faixa oficial.
-                </p>
+              }}
+              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider active:scale-95 transition-all shadow-sm inline-flex items-center gap-1.5"
+            >
+              <RefreshCw size={13} />
+              <span>Recarregar Especialidades</span>
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {selectedCategory?.id === RETIRED_CATEGORY_ID && (
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 mb-2 flex items-start gap-3">
+                <History className="text-amber-500 shrink-0 mt-0.5" size={20} />
+                <div>
+                  <h4 className="text-xs font-black uppercase text-amber-600 dark:text-amber-400">
+                    Especialidades Retiradas do Manual
+                  </h4>
+                  <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed">
+                    Estas especialidades foram descontinuadas no Manual lançado em 2025, mas continuam disponíveis no aplicativo para você visualizar seus dados, registrar sua conclusão e exibi-las na sua faixa oficial.
+                  </p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {(() => {
-            const renderCard = (esp: Especialidade) => {
-              const isCompleted = completedSpecialties.includes(esp.id.toString());
-              return (
-                <div 
-                  key={esp.id} 
-                  id={`specialty-card-${esp.id}`}
-                  className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-4 flex items-center space-x-4 shadow-sm group relative"
-                >
-                  <button 
-                    onClick={() => {
-                      lastViewedSpecialtyIdRef.current = esp.id;
-                      setSelectedSpecialty(esp);
-                      setActiveSubView('SPECIALTY_DETAILS');
-                    }}
-                    className="flex items-center space-x-4 flex-grow text-left active:scale-[0.98] transition-all"
+            {(() => {
+              const renderCard = (esp: Especialidade) => {
+                const isCompleted = completedSpecialties.includes(esp.id.toString());
+                return (
+                  <div 
+                    key={esp.id} 
+                    id={`specialty-card-${esp.id}`}
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[24px] p-4 flex items-center space-x-4 shadow-sm group relative"
                   >
-                    <div 
-                      onClick={(e) => {
-                        if (esp.logo) {
-                          e.stopPropagation();
-                          setZoomedSpecialty(esp);
-                        }
+                    <button 
+                      onClick={() => {
+                        lastViewedSpecialtyIdRef.current = esp.id;
+                        setSelectedSpecialty(esp);
+                        setActiveSubView('SPECIALTY_DETAILS');
                       }}
-                      className={`w-16 h-16 bg-transparent rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0 transition-transform ${
-                        esp.logo ? 'cursor-pointer hover:scale-110 active:scale-95' : ''
-                      }`}
-                      title={esp.logo ? "Clique na imagem para ampliar" : undefined}
+                      className="flex items-center space-x-4 flex-grow text-left active:scale-[0.98] transition-all"
                     >
-                      {esp.logo ? (
-                        <img src={getImageUrl(esp.logo)} loading="lazy" decoding="async" className="w-14 h-14 object-contain pointer-events-none select-none" alt={esp.nome} />
-                      ) : (
-                        <Award size={24} className="text-slate-200 dark:text-slate-600" />
-                      )}
-                    </div>
-                    <div className="flex-grow">
-                      <h4 className="font-black text-slate-700 dark:text-white text-[13px] uppercase tracking-tight leading-tight">
-                        {esp.nome}
-                      </h4>
-                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                          {esp.area}
-                        </p>
-                        <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">
-                          {esp.codigo || `${esp.sigla}${String(esp.id).padStart(3, '0')}`}
+                      <div 
+                        onClick={(e) => {
+                          if (esp.logo) {
+                            e.stopPropagation();
+                            setZoomedSpecialty(esp);
+                          }
+                        }}
+                        className={`w-16 h-16 bg-transparent rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0 transition-transform ${
+                          esp.logo ? 'cursor-pointer hover:scale-110 active:scale-95' : ''
+                        }`}
+                        title={esp.logo ? "Clique na imagem para ampliar" : undefined}
+                      >
+                        {esp.logo ? (
+                          <img src={getImageUrl(esp.logo)} loading="lazy" decoding="async" className="w-14 h-14 object-contain pointer-events-none select-none" alt={esp.nome} />
+                        ) : (
+                          <Award size={24} className="text-slate-200 dark:text-slate-600" />
+                        )}
+                      </div>
+                      <div className="flex-grow">
+                        <h4 className="font-black text-slate-700 dark:text-white text-[13px] uppercase tracking-tight leading-tight">
+                          {esp.nome}
+                        </h4>
+                        <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                            {esp.area}
+                          </p>
+                          <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">
+                            {esp.codigo || `${esp.sigla}${String(esp.id).padStart(3, '0')}`}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                    
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSpecialty(esp.id.toString());
+                      }}
+                      className={`w-11 h-11 min-w-[44px] max-w-[44px] min-h-[44px] max-h-[44px] shrink-0 flex-shrink-0 aspect-square rounded-2xl flex items-center justify-center transition-all active:scale-90 ${isCompleted ? 'text-red-500 bg-red-50 dark:bg-red-950/40' : 'text-slate-200 dark:text-slate-600 hover:text-red-200'}`}
+                    >
+                      <Heart size={20} className="shrink-0" fill={isCompleted ? "currentColor" : "none"} />
+                    </button>
+                  </div>
+                );
+              };
+
+              if (selectedCategory?.id === RETIRED_CATEGORY_ID) {
+                const regularList = sortedSpecialties.filter(s => s.nivel !== 'Avançado' && !s.nome.includes('– avançado') && !s.nome.includes('- Avançado'));
+                const advancedList = sortedSpecialties.filter(s => s.nivel === 'Avançado' || s.nome.includes('– avançado') || s.nome.includes('- Avançado'));
+
+                return (
+                  <div className="space-y-6">
+                    {/* Grupo Regulares / Básicas */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 px-1">
+                        <span className="text-[11px] font-black text-amber-500 uppercase tracking-wider">
+                          Especialidades Regulares/Básicas Removidas ({regularList.length})
                         </span>
                       </div>
+                      {regularList.map(renderCard)}
                     </div>
-                  </button>
-                  
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleSpecialty(esp.id.toString());
-                    }}
-                    className={`w-11 h-11 min-w-[44px] max-w-[44px] min-h-[44px] max-h-[44px] shrink-0 flex-shrink-0 aspect-square rounded-2xl flex items-center justify-center transition-all active:scale-90 ${isCompleted ? 'text-red-500 bg-red-50 dark:bg-red-950/40' : 'text-slate-200 dark:text-slate-600 hover:text-red-200'}`}
-                  >
-                    <Heart size={20} className="shrink-0" fill={isCompleted ? "currentColor" : "none"} />
-                  </button>
-                </div>
-              );
-            };
 
-            if (selectedCategory?.id === RETIRED_CATEGORY_ID) {
-              const regularList = specialties.filter(s => s.nivel !== 'Avançado' && !s.nome.includes('– avançado') && !s.nome.includes('- Avançado'));
-              const advancedList = specialties.filter(s => s.nivel === 'Avançado' || s.nome.includes('– avançado') || s.nome.includes('- Avançado'));
-
-              return (
-                <div className="space-y-6">
-                  {/* Grupo Regulares / Básicas */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 px-1">
-                      <span className="text-[11px] font-black text-amber-500 uppercase tracking-wider">
-                        Especialidades Regulares/Básicas Removidas ({regularList.length})
-                      </span>
+                    {/* Grupo Avançadas */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 px-1 pt-2">
+                        <span className="text-[11px] font-black text-amber-500 uppercase tracking-wider">
+                          🔺 Especialidades Avançadas Removidas ({advancedList.length})
+                        </span>
+                      </div>
+                      {advancedList.map(renderCard)}
                     </div>
-                    {regularList.map(renderCard)}
                   </div>
+                );
+              }
 
-                  {/* Grupo Avançadas */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 px-1 pt-2">
-                      <span className="text-[11px] font-black text-amber-500 uppercase tracking-wider">
-                        🔺 Especialidades Avançadas Removidas ({advancedList.length})
-                      </span>
-                    </div>
-                    {advancedList.map(renderCard)}
-                  </div>
-                </div>
-              );
-            }
-
-            return specialties.map(renderCard);
-          })()}
-        </div>
-      )}
-    </div>
-  );
+              return sortedSpecialties.map(renderCard);
+            })()}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const cleanTextForSpecialtyMatching = (str: string) => {
     return str
@@ -14937,7 +14975,7 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
                activeSubView}
             </p>
           </div>
-          <div className="w-11 h-11 md:w-12 md:h-12 landscape:w-9 landscape:h-9 flex items-center justify-center flex-shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 justify-end flex-shrink-0">
             {activeSubView === 'MAIN' && (
               <button onClick={onOpenProfile} className="w-11 h-11 md:w-12 md:h-12 landscape:w-9 landscape:h-9 bg-white dark:bg-slate-800 rounded-full shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-300 overflow-hidden active:scale-90 transition-all md:hidden">
                 {userAvatar ? <img src={userAvatar} className="w-full h-full object-cover" /> : <User size={22} className="landscape:w-4 landscape:h-4" />}
@@ -14956,14 +14994,39 @@ const ClubManagement: React.FC<ClubManagementProps> = ({
               </button>
             )}
             {(activeSubView === 'SPECIALTIES' || activeSubView === 'SPECIALTIES_LIST') && (
-              <button 
-                onClick={openSpecialtySearch}
-                className="w-11 h-11 md:w-12 md:h-12 landscape:w-9 landscape:h-9 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-500 dark:text-slate-300 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-200 dark:hover:border-indigo-800"
-                title="Pesquisar Especialidades"
-                aria-label="Pesquisar Especialidades"
-              >
-                <Search size={20} strokeWidth={2.5} className="landscape:w-4 landscape:h-4" />
-              </button>
+              <>
+                {activeSubView === 'SPECIALTIES_LIST' && (
+                  <button
+                    type="button"
+                    onClick={() => setSpecialtySortMode(prev => prev === 'NUMERIC' ? 'ALPHABETICAL' : 'NUMERIC')}
+                    className="w-11 h-11 md:w-12 md:h-12 landscape:w-9 landscape:h-9 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-600 dark:text-slate-200 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-200 dark:hover:border-indigo-800 cursor-pointer"
+                    title={
+                      specialtySortMode === 'NUMERIC'
+                        ? 'Ordem numérica ativa (Clique para mudar para ordem alfabética A-Z)'
+                        : 'Ordem alfabética ativa (Clique para mudar para ordem numérica por código)'
+                    }
+                    aria-label={
+                      specialtySortMode === 'NUMERIC'
+                        ? 'Mudar para ordem alfabética'
+                        : 'Mudar para ordem numérica'
+                    }
+                  >
+                    {specialtySortMode === 'NUMERIC' ? (
+                      <ArrowDownAZ size={20} strokeWidth={2.5} className="landscape:w-4 landscape:h-4 text-indigo-600 dark:text-indigo-400" />
+                    ) : (
+                      <ArrowDown01 size={20} strokeWidth={2.5} className="landscape:w-4 landscape:h-4 text-emerald-600 dark:text-emerald-400" />
+                    )}
+                  </button>
+                )}
+                <button 
+                  onClick={openSpecialtySearch}
+                  className="w-11 h-11 md:w-12 md:h-12 landscape:w-9 landscape:h-9 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-slate-500 dark:text-slate-300 active:scale-90 transition-all border border-slate-100 dark:border-slate-700 flex items-center justify-center hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-200 dark:hover:border-indigo-800"
+                  title="Pesquisar Especialidades"
+                  aria-label="Pesquisar Especialidades"
+                >
+                  <Search size={20} strokeWidth={2.5} className="landscape:w-4 landscape:h-4" />
+                </button>
+              </>
             )}
             {activeSubView === 'SPECIALTY_DETAILS' && selectedSpecialty && (
               <button 

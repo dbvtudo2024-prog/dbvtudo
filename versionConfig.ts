@@ -6,14 +6,25 @@ export interface VersionRelease {
   changes: string[];
 }
 
-export const APP_VERSION = '3.2.2';
-export const APP_BUILD_DATE = '08 de Novembro de 2026';
+export const APP_VERSION = '3.2.3';
+export const APP_BUILD_DATE = '10 de Novembro de 2026';
 
 export const VERSION_HISTORY: VersionRelease[] = [
   {
+    version: '3.2.3',
+    date: '10/11/2026',
+    tag: 'NOVO',
+    title: 'Alternador de Ordem Alfabética e Numérica no Topo das Especialidades',
+    changes: [
+      'Alternador de Ordenação no Topo: Adicionado ícone dedicado no cabeçalho superior ao lado do botão de pesquisa na listagem de especialidades para alternar instantaneamente entre a ordem numérica por código e a ordem alfabética.',
+      'Ordem Numérica Padrão do Manual: As especialidades agora são exibidas por padrão na ordem numérica oficial de seus códigos (001, 002, 003...), exatamente como nos manuais dos Desbravadores e Aventureiros.',
+      'Ícone Dinâmico e Intuitivo: Enquanto a ordem numérica padrão estiver ativa, o ícone de ordem alfabética (A-Z) é exibido para permitir a troca; ao clicar e mudar para alfabética, o ícone numérico (0-1) aparece em seu lugar para retornar à ordem numérica.'
+    ]
+  },
+  {
     version: '3.2.2',
     date: '08/11/2026',
-    tag: 'NOVO',
+    tag: 'ESTÁVEL',
     title: 'Modal de Opções ao Gerar PDF de Especialidade: Apenas Questões vs. Questões Respondidas',
     changes: [
       'Modal Interativo ao Gerar PDF de Especialidade: Ao clicar no botão de gerar PDF dentro dos detalhes de qualquer especialidade, agora é exibido um modal elegante para escolher o formato do documento.',

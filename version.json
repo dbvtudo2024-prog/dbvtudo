@@ -1,12 +1,12 @@
 {
-  "version": 1762563600000,
-  "versionName": "3.2.2",
-  "buildDate": "2026-11-08T00:00:00.000Z",
-  "timestamp": 1762563600000,
+  "version": 1762732800000,
+  "versionName": "3.2.3",
+  "buildDate": "2026-11-10T00:00:00.000Z",
+  "timestamp": 1762732800000,
   "highlights": [
-    "Gerador de PDF de Especialidades (Questões vs. Respondidas): Modal dedicado ao gerar PDF de qualquer especialidade com opção de folha de questões ou caderno completo respondido.",
-    "Opção de Apenas Questões: Documento oficial com perguntas e linhas pautadas para estudo e resolução individual.",
-    "Opção de Questões Respondidas: Caderno oficial completo com todas as respostas didáticas e critérios explicativos detalhados."
+    "Alternador de Ordem Alfabética e Numérica no Topo: Novo botão no topo ao lado da busca para alternar entre ordem numérica oficial do manual e ordem alfabética.",
+    "Ordem Numérica Oficial como Padrão: A lista passa a exibir por padrão as especialidades organizadas pelo código numérico oficial (001, 002, 003...).",
+    "Ícone Inteligente: Exibe o ícone alfabético quando a lista está numérica para permitir a troca, e assume o ícone numérico quando em ordem alfabética."
   ]
 }
 
